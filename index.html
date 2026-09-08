@@ -146,5 +146,41 @@ footer{border-top:1px solid var(--line);padding:25px 0;color:#a8bdca}.footer{dis
 <footer><div class="container footer"><div class="logo">OW<span>News</span></div><span>Informação para quem vive o offshore. • © 2026 OWNews</span></div></footer>
 <script>
 document.querySelectorAll('.links a').forEach(a=>a.addEventListener('click',()=>document.querySelector('.links').classList.remove('open')));
+
+const SUPABASE_URL = 'https://awyowuhwkqfyhwgdpepp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt';
+
+async function carregarNoticias(){
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/articles?select=title,summary,original_url,published_at&status=eq.published&order=published_at.desc&limit=5`;
+    const resposta = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
+    if (!resposta.ok) throw new Error(`Supabase ${resposta.status}`);
+    const noticias = await resposta.json();
+    if (!noticias.length) return;
+
+    const destaque = noticias[0];
+    const titulo = document.querySelector('.main-story h1');
+    const resumo = document.querySelector('.main-story p');
+    const meta = document.querySelector('.main-story .meta');
+    titulo.textContent = destaque.title;
+    resumo.textContent = destaque.summary;
+    meta.textContent = 'OWNews • Fonte oficial';
+    document.querySelector('.main-story').style.cursor = 'pointer';
+    document.querySelector('.main-story').onclick = () => window.open(destaque.original_url, '_blank', 'noopener');
+
+    const cards = document.querySelectorAll('.cards .card');
+    noticias.slice(1,5).forEach((noticia, i) => {
+      if (!cards[i]) return;
+      cards[i].querySelector('h3').textContent = noticia.title;
+      cards[i].querySelector('.meta').textContent = 'OWNews';
+      cards[i].style.cursor = 'pointer';
+      cards[i].onclick = () => window.open(noticia.original_url, '_blank', 'noopener');
+    });
+  } catch (erro) {
+    console.error('OWNews: não foi possível carregar as notícias.', erro);
+  }
+}
+
+carregarNoticias();
 </script>
 </body></html>
