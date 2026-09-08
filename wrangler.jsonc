@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ownews-git",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-07",
+  "triggers": {
+    "crons": [
+      "50 8 * * *",
+      "50 11 * * *",
+      "50 14 * * *",
+      "50 17 * * *",
+      "50 20 * * *",
+      "50 22 * * *"
+    ]
+  }
+}
