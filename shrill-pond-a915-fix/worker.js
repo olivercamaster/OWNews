@@ -3118,6 +3118,18 @@ const PALAVRAS_REGULATORIAS_GENERICAS = [
 // escolhido por aparecer de fato em manchetes oficiais (ANP, MME, EPE),
 // não por suposição.
 const PALAVRAS_CADEIA_ENERGIA = [
+  // gás (auditoria de funil 2026-09-27): "gás natural" já está em
+  // PALAVRAS_NUCLEO_OFFSHORE como termo composto, mas a imprensa
+  // especializada (Eixos, PetroNotícias) frequentemente escreve só "gás"
+  // em manchetes de política regulatória — "decreto do gás", "mercado de
+  // gás", "fornecimento de gás". Falso-negativo confirmado ao vivo:
+  // "Brasil precisa de fornecimento flexível de gás, diz CEO da GBS
+  // Storage" e "Fazenda pressiona para que Lula assine decreto do Redata
+  // sem gás" (pauta de política regulatória do setor de gás natural BR)
+  // eram rejeitadas por nenhum termo da lista bater. Borda de palavra
+  // garante que "gaseificação"/"desagasificação" não caiam aqui.
+  "gás",
+  "gas",
   // combustíveis / downstream
   "combustível",
   "combustivel",
