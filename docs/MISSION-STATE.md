@@ -1,3 +1,110 @@
+## 2026-09-27 — Execução autônoma: migrações aplicadas + editorial_score persistido no coletor
+
+Continuação da rodada autônoma. As duas migrações DDL bloqueadas foram
+aplicadas pelo operador no Supabase Dashboard → SQL Editor.
+
+### Verificação pós-migração (antes de qualquer código)
+
+```
+GET /rest/v1/articles?select=id,editorial_score,breaking_score,
+     audience_interest_score,score_reason&limit=1
+→ HTTP 200, [{"id":"91566f57...","editorial_score":null,...}]
+(antes: 42703 "column does not exist")
+
+GET /rest/v1/jobs?select=id,title,status&limit=1
+→ HTTP 200, [] (tabela existe, RLS SELECT anon funciona)
+```
+
+MIGRATION-JOBS-TABLE.sql foi ajustada antes de executar: o Supabase
+alertou ausência de RLS. Após auditoria confirmou-se que:
+- Coletor usa `service_role` (bypassa RLS) → escrita OK com qualquer policy
+- Frontend usa chave anon (`sb_publishable_…`) → precisa de SELECT policy
+- Jobs são dados de fontes públicas → leitura pública é intencional
+
+Adicionado `ALTER TABLE … ENABLE ROW LEVEL SECURITY` + policy
+`jobs_public_read` (SELECT para anon e authenticated). Escrita exclusiva
+pelo service_role (sem policy de INSERT/UPDATE/DELETE para anon).
+
+### Etapa 1 — Coletor: `editorial_score` + `score_reason` persistidos
+
+Adicionado ao `shrill-pond-a915-fix/worker.js`, antes de
+`processarNoticiasComDedupe`:
+
+**Constantes**: `AUTORIDADE_FONTE_SCORE`, `PALAVRAS_IMPACTO_SCORE`,
+`PALAVRAS_OPERACOES_SCORE`, `PALAVRAS_MERCADO_SCORE`,
+`IMAGEM_INVALIDA_SCORE` — espelho exato das homólogas do frontend.
+
+**Função** `calcularEditorialScore(artigo)` — mesma fórmula de
+`pontuarDestaque()`: recência (0–40) + autoridade da fonte (8–20) +
+relevância offshore (8/20/30) + impacto (0/15) + bônus imagem (0/5).
+Retorna `{ editorial_score, score_reason }` onde `score_reason` é o
+JSON auditável `{recencia, autoridade, relevancia_offshore, impacto,
+bonus_imagem, categoria, fonte, calculado_em}`.
+
+**Em `processarNoticias()`**: chamada feita com o `artigo` completo
+(título, resumo, image_url e image_credit já definidos) logo antes de
+`inserirArtigo()`. O objeto já inclui `editorial_score` e `score_reason`
+quando chega ao `JSON.stringify`, sem precisar alterar `inserirArtigo`.
+
+`breaking_score` e `audience_interest_score` ficam NULL — fases futuras.
+Artigos legados (pré-migração) seguem com NULL; o frontend já recalcula
+on-the-fly via `pontuarDestaque()` para esses casos.
+
+### Etapa 2 — Frontend: campos incluídos no SELECT
+
+`carregarNoticiasAoVivo()` em `producao-ownews-git/worker.js`:
+```
+select=…,published_at  →  select=…,published_at,editorial_score,score_reason
+```
+A ordenação da Home continua usando `pontuarDestaque(n, agora)` (com
+recência ao vivo) para todos os artigos. `editorial_score` do banco é
+recebido pelo cliente e estará disponível para futuros consumidores
+(Instagram scoring, Discovery) sem nova mudança de query.
+
+### Validação em produção
+
+```
+GET /rest/v1/articles?select=id,editorial_score,score_reason&limit=3
+→ campos presentes na resposta, artigos legados com NULL (esperado)
+
+https://ownews-git.olivercamaster.workers.dev/ → HTTP 200
+(Home carregando, SELECT com novos campos sem erro)
+```
+
+O coletor ainda não inseriu novo artigo pós-deploy (todas as fontes
+rodadas manualmente retornaram 100% duplicatas — cron rodará nos
+próximos horários e produzirá o primeiro artigo com `editorial_score`
+preenchido). O score_reason em JSON estará auditável via Supabase.
+
+### Deploys
+
+| Worker | Version ID | Rollback |
+|---|---|---|
+| `shrill-pond-a915` | `15aaef5f-a240-47ae-9b0e-a58d61bb99b6` | `9a95000d-37fd-48f9-8cbf-103cb9e23ac9` |
+| `ownews-git` | `172ef31e-06cf-4488-be3c-77843a424437` | `32d539cc-6df3-4a27-8cec-494c7dd22879` |
+
+### Escopo avaliado e deixado para próxima missão
+
+- **INSTAGRAM_SCORE**: publisher (`ownews-instagram-publisher`) está
+  CONGELADO ("NÃO altere novamente"). Tem `calcularScoreCandidato()`
+  próprio com fórmula diferente. Integrar `editorial_score` do banco
+  exige missão específica de Instagram.
+- **Discovery**: precisa de nova rota + decisão editorial sobre layout.
+  Pré-requisito técnico (coluna `editorial_score`) agora existe.
+- **discard-logging**: precisa de nova tabela `article_discard_log`
+  (nova migração DDL).
+- **Jobs Engine**: scrapers por empresa — feature de outra ordem de
+  magnitude; a tabela `jobs` agora existe no banco, pronta para receber.
+
+### Pendências que permanecem
+
+- **[DECISÃO EDITORIAL]** roundup de vagas PetroNotícias — não liberado.
+- **[PRÓXIMA MISSÃO]** Discovery + discard-logging (nova migração).
+- **[PRÓXIMA MISSÃO]** Jobs Engine (scrapers, nova missão dedicada).
+- **[PRÓXIMA MISSÃO]** Instagram overhaul visual (Layouts A/B/C),
+  INSTAGRAM_SCORE integrado ao `editorial_score` persistido.
+- Rigzone/Upstream/Energy Voice: re-teste periódico.
+
 ## 2026-09-27 — Execução autônoma: correção EPE + padronização de janelas + preparação de scores
 
 Rodada em modo autônomo autorizado, continuando a missão de pipeline.
