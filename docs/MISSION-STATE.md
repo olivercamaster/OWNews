@@ -109,6 +109,22 @@ Pipeline SAUDÁVEL, 20 fontes registradas, coletor sem erro, Telegram
 com 1 publicação no dia e sem erro, imagens próprias em 106/111 artigos
 dos últimos 7 dias (95%), 0 grupos de banner repetido.
 
+### Etapa 6 — Notícias Macaé: 403 intermitente, diagnosticado, sem ação
+
+O health check acusou `noticias_macae: HTTP 403` na varredura do Grupo C
+durante esta rodada. Investigado: **não reproduzível** — 3 tentativas
+seguidas daqui retornaram HTTP 200 com 20 itens, tanto com UA de
+navegador quanto com o UA exato do coletor
+(`OWNews/1.0 - OffshoreWorks news collector`), e o mesmo UA funciona em
+todas as outras 6 fontes de imprensa testadas. Conclusão: bloqueio
+intermitente por IP de saída do Worker (faixa Cloudflare), do lado da
+fonte — não é bug nosso nem regressão desta rodada (não toquei nesse
+coletor). Classificação: **DEGRADADA**, não QUEBRADA. Nenhuma alteração
+feita: o `try/catch` por fonte já isola a falha (o grupo inteiro seguiu
+normal) e o `/saude` já expõe em `fontes_com_erro`, que é exatamente o
+comportamento desejado. Política do registry respeitada: não se remove
+fonte por causa de uma execução falha.
+
 ### Pendências que permanecem
 - **[BLOQUEADO — precisa do operador]** aplicar
   `docs/MIGRATION-SCORES-ARTICLES.sql` no Supabase (Dashboard → SQL
