@@ -1,3 +1,75 @@
+## 2026-09-27 — Auditoria de saúde 24h: bug do filtro 'gás' + diagnóstico de volume
+
+### Causa da baixa de 24h — duas camadas
+
+**Camada 1 (principal): fim de semana real.**
+Offshore Energy, Marine Technology News, Petrobras, ANP, PPSA, EPE, MME publicaram
+zero artigos no sábado. Comportamento documentado e esperado de imprensa B2B e
+agências governamentais. Não é falha do coletor.
+
+**Camada 2 (BUG confirmado e corrigido): "gás" não estava no filtro.**
+`PALAVRAS_NUCLEO_OFFSHORE` tinha `gás natural` (composto) mas não `gás` sozinho.
+A imprensa especializada (Eixos, PetroNotícias) frequentemente escreve só "gás" em
+títulos de política regulatória. Falsos-negativos confirmados ao vivo:
+- "Brasil precisa de fornecimento flexível de gás, diz CEO da GBS Storage"
+- "Fazenda pressiona para que Lula assine decreto do Redata sem gás"
+- "Revisão tarifária das transportadoras de gás seguirá ritos próprios na ANP"
+
+### Diagnóstico por fonte (24h e 48h em 2026-09-27)
+
+| Fonte | Status | Artigos 24h | Artigos 48h | Observação |
+|---|---|---|---|---|
+| PetroNotícias | ATIVO | 2 | 3 | Publicou normalmente no fds |
+| Eixos | ATIVO | 0* | 6 | 3 nos 48h antes do fix; +3 após fix |
+| Offshore Energy | SILENCIOSO | 0 | 0 | Última publicação sex 25/09 13:58 |
+| Marine Tech News | SILENCIOSO | 0 | 0 | Última publicação sex 25/09 16:10 |
+| Portos e Navios | SILENCIOSO | 0 | 1 | Feed 200 itens, 10 relevantes, todos duplicados |
+| Petrobras | SILENCIOSO | 0 | 0 | Última publicação ter 23/09 |
+| ANP | SILENCIOSO | 0 | 1 | 1 artigo de qui 25/09 tarde |
+| PPSA | SILENCIOSO | 0 | 0 | Última publicação qua 24/09 |
+| EPE | SILENCIOSO | 0 | 0 | Última publicação qui 25/09 |
+| MME | SILENCIOSO | 0 | 0 | Sem publicação no fds |
+| Marinha | SILENCIOSO | 0 | 0 | — |
+| ANTAQ | SILENCIOSO | 0 | 0 | — |
+| Sindipetro NF | SILENCIOSO | 0 | 0 | Última publicação qui 25/09 |
+| Agência Brasil | SILENCIOSO | 0 | 0 | — |
+| Transocean/SBM | SILENCIOSO | 0 | 0 | — |
+
+*Eixos publicou 6 artigos no sábado: 3 coletados, 2 rejeitados por bug "gás", 1 sem termo
+
+### Correção aplicada
+
+Adicionado `"gás"` e `"gas"` (borda de palavra) a `PALAVRAS_CADEIA_ENERGIA`.
+Borda garante que `gaseificação`, `gasolina`, `gasoduto` não sejam afetados (testado).
+
+Resultado imediato: 3 artigos inseridos após deploy (incluindo Revisão tarifária ANP).
+
+### Contagem antes vs depois
+
+| Métrica | Antes | Depois |
+|---|---|---|
+| Artigos 24h | 1 | 2 |
+| Artigos 48h | 11 | 14 |
+| Novo Hero | PetroNotícias 07:00 | SBM Offshore 16:00 (fresco) |
+
+### Collector health
+- Rodando: sim (stale guard ativo, EditorialPoller a cada hora com rotação A→E)
+- Último Grupo A (16:14 UTC): 47 encontrados, 15 relevantes, 0 novos (correto — tudo já no banco)
+- Nenhum erro de HTTP, parse ou INSERT detectado
+
+### Deploys
+
+| Worker | Version ID | Rollback |
+|---|---|---|
+| `shrill-pond-a915` (fix gás) | `b46fcba2-ed02-4d4b-96be-ec989eb05adb` | `15aaef5f-a240-47ae-9b0e-a58d61bb99b6` |
+
+### GitHub
+
+Commits locais não pushados (sem credenciais GitHub no ambiente remoto):
+- `57d5aa4` — docs: registra correção urgente da Home esvaziada
+- `020058a` — fix(filtro): adiciona 'gás' à PALAVRAS_CADEIA_ENERGIA
+Ação necessária: `git push -u origin main`
+
 ## 2026-09-27 — URGENTE: Home esvaziada — causa raiz identificada e corrigida
 
 **Sintoma reportado pelo operador:** "Giro 24h informa 'Sem notícia publicada nas
