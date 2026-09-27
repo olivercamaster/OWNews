@@ -1,3 +1,70 @@
+## 2026-09-27 — URGENTE: Home esvaziada — causa raiz identificada e corrigida
+
+**Sintoma reportado pelo operador:** "Giro 24h informa 'Sem notícia publicada nas
+últimas 24 horas'", apenas uma manchete, seções editoriais quase vazias, portal
+parece abandonado.
+
+### Causa raiz (2 camadas)
+
+**Camada 1 — Regra editorial 2026-09-19 muito restritiva:**
+A regra "Home não exibe notícia >24h" eliminava o fallback 48h de TODAS as seções
+(laterais, Últimas, Giro). Em dias de alto volume (semana útil) isso funciona.
+Em domingo com apenas 1 artigo em 24h:
+- Hero: 1 artigo (9.4h) ✓
+- Laterais: 0 (pool 24h vazio após hero)
+- Últimas: 0 (idem)
+- Giro: 0 → "Sem notícia publicada nas últimas 24 horas."
+
+Não era regressão das mudanças deste dia — era a regra 2026-09-19 funcionando
+exatamente como projetada, mas sem considerar finais de semana/baixo volume.
+
+**Camada 2 — SEED_ARTICLES stale (10+ dias):**
+O snapshot inicial hardcoded (`const SEED_ARTICLES`) tinha artigos de 2026-09-08
+a 2026-09-17. Com regras de 24h, o render inicial (antes do fetch ao vivo)
+mostrava página completamente vazia por 2-4 segundos.
+
+### Correções
+
+1. **Fallback progressivo 48h restaurado em todas as seções** (sem remover 24h):
+   - Laterais: usa 24h quando ≥3 candidatos, cai para 48h quando <3
+   - Últimas: usa 24h quando ≥2 artigos, cai para 48h quando <2
+   - Giro: usa 24h; se vazio, usa 48h com timestamps honestos e rótulo "GIRO"
+   - Hero: continua sempre <=24h (inalterado — manchete sempre fresca)
+
+2. **Fetch limit**: aumentado de 20 para 40 artigos
+
+3. **SEED_ARTICLES atualizado**: 40 artigos do banco (2026-09-24 a 2026-09-27)
+   — página nasce com conteúdo real, fallback se fetch falhar
+
+### Estado real do banco no momento da correção
+
+| Janela | Artigos |
+|---|---|
+| 24h | 1 |
+| 48h | 11 |
+| 7 dias | 109 |
+| Total | 215 |
+
+Com fallback 48h: Hero 1, Laterais 3, Últimas 6, Giro 10 itens. Home com
+densidade adequada para um domingo de fontes fechadas.
+
+### Deploys
+
+| Deploy | Version ID | Rollback |
+|---|---|---|
+| fallback 48h | `2b784ef3-aaef-424c-abf8-68875bff52bc` | `172ef31e-06cf-4488-be3c-77843a424437` |
+| SEED_ARTICLES + final | `b992a65c-9035-495a-93d6-4f548f1adffc` | `2b784ef3-aaef-424c-abf8-68875bff52bc` |
+
+### Validação
+
+```
+GET https://ownews-git.olivercamaster.workers.dev/ → HTTP 200, 245KB
+SEED_ARTICLES: 40 artigos, mais recente 9.6h atrás (2026-09-27T07:00:26)
+horas <= 48 presente no JS deployado: true (3 ocorrências)
+rotulo = 'GIRO' presente: true (fallback ticker)
+limit=40 na query live: true
+```
+
 ## 2026-09-27 — Execução autônoma: migrações aplicadas + editorial_score persistido no coletor
 
 Continuação da rodada autônoma. As duas migrações DDL bloqueadas foram
