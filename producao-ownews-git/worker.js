@@ -11969,9 +11969,8 @@ function renderMinhaEscala() {
     // usados em Empresas/Radar (zero CSS novo). Nenhum id/lógica de
     // cálculo mudou, só a organização visual dos MESMOS elementos.
     '<div class="filtro-segmento-row escala-tabs" id="escalaTabs" role="tablist" aria-label="Seções da Minha Escala">' +
-    '<button type="button" class="filtro-btn ativo" data-tab="datas" role="tab" aria-selected="true">Datas</button>' +
+    '<button type="button" class="filtro-btn ativo" data-tab="calendario" role="tab" aria-selected="true">Calendário</button>' +
     '<button type="button" class="filtro-btn" data-tab="hoje" role="tab" aria-selected="false">Minha Escala</button>' +
-    '<button type="button" class="filtro-btn" data-tab="calendario" role="tab" aria-selected="false">Calendário</button>' +
     '</div>' +
 
     '<div class="escala-tab-painel" id="escalaTabPainelHoje" data-tab-painel="hoje" hidden>' +
@@ -12003,7 +12002,7 @@ function renderMinhaEscala() {
     '<div class="escala-timeline" id="escalaTimeline"></div>' +
     '</div>' +
 
-    '<div class="escala-tab-painel" id="escalaTabPainelCalendario" data-tab-painel="calendario" hidden>' +
+    '<div class="escala-tab-painel" id="escalaTabPainelCalendario" data-tab-painel="calendario">' +
     '<div class="escala-calendario">' +
     '<div class="escala-cal-head">' +
     '<button type="button" class="escala-cal-nav" id="calMesAnterior" aria-label="Mês anterior">‹</button>' +
@@ -12020,21 +12019,7 @@ function renderMinhaEscala() {
     '</div>' +
     '</div>' +
 
-    '<div class="secao-label" style="margin-top:24px">Visão anual</div>' +
-    '<div class="escala-ano-nav">' +
-    '<button type="button" class="escala-cal-nav" id="anoAnterior" aria-label="Ano anterior">‹</button>' +
-    '<span class="escala-cal-mes" id="anoLabel">—</span>' +
-    '<button type="button" class="escala-cal-nav" id="anoProximo" aria-label="Próximo ano">›</button>' +
-    '</div>' +
-    '<div class="escala-visao-anual" id="escalaVisaoAnual"></div>' +
-    '<p class="dado-contexto" style="margin-top:6px">Projeção matemática a partir da escala cadastrada — não é registro oficial de dias efetivamente trabalhados.</p>' +
-
-    '<div class="secao-label" style="margin-top:24px">Estatísticas da escala (ano selecionado)</div>' +
-    '<div class="campo-grid" id="escalaEstatisticas"></div>' +
-    '</div>' +
-
-    '<div class="escala-tab-painel" id="escalaTabPainelDatas" data-tab-painel="datas">' +
-    '<div class="secao-label" style="margin-top:0">Próximas datas importantes</div>' +
+    '<div class="secao-label" style="margin-top:24px">Próximas datas importantes</div>' +
     '<div class="escala-datas-importantes" id="escalaDatasImportantes"></div>' +
 
     '<div class="secao-label" style="margin-top:24px">Datas pessoais</div>' +
@@ -12054,7 +12039,20 @@ function renderMinhaEscala() {
     '</div>' +
     '</form>' +
     '<div class="escala-datas-pessoais-lista" id="escalaDatasPessoaisLista"></div>' +
+
+    '<div class="secao-label" style="margin-top:32px">Visão anual</div>' +
+    '<div class="escala-ano-nav">' +
+    '<button type="button" class="escala-cal-nav" id="anoAnterior" aria-label="Ano anterior">‹</button>' +
+    '<span class="escala-cal-mes" id="anoLabel">—</span>' +
+    '<button type="button" class="escala-cal-nav" id="anoProximo" aria-label="Próximo ano">›</button>' +
     '</div>' +
+    '<div class="escala-visao-anual" id="escalaVisaoAnual"></div>' +
+    '<p class="dado-contexto" style="margin-top:6px">Projeção matemática a partir da escala cadastrada — não é registro oficial de dias efetivamente trabalhados.</p>' +
+
+    '<div class="secao-label" style="margin-top:24px">Estatísticas da escala (ano selecionado)</div>' +
+    '<div class="campo-grid" id="escalaEstatisticas"></div>' +
+    '</div>' +
+
 
     '</div>' +
 
@@ -12237,7 +12235,7 @@ function renderMinhaEscala() {
     // já preenchidos pelos renders existentes — nenhum recálculo aqui.
     '(function(){' +
     'var tabBtns=Array.prototype.slice.call(document.querySelectorAll("#escalaTabs .filtro-btn"));' +
-    'var paineis={hoje:document.getElementById("escalaTabPainelHoje"),calendario:document.getElementById("escalaTabPainelCalendario"),datas:document.getElementById("escalaTabPainelDatas")};' +
+    'var paineis={hoje:document.getElementById("escalaTabPainelHoje"),calendario:document.getElementById("escalaTabPainelCalendario")};' +
     'tabBtns.forEach(function(btn){' +
     'btn.addEventListener("click",function(){' +
     'var alvo=btn.getAttribute("data-tab");' +
