@@ -68,7 +68,37 @@ Resultado imediato: 3 artigos inseridos após deploy (incluindo Revisão tarifá
 Commits locais não pushados (sem credenciais GitHub no ambiente remoto):
 - `57d5aa4` — docs: registra correção urgente da Home esvaziada
 - `020058a` — fix(filtro): adiciona 'gás' à PALAVRAS_CADEIA_ENERGIA
+- `e26bf22` — feat(escala): ajuste visual Minha Escala — estados do calendário + cards contextuais
 Ação necessária: `git push -u origin main`
+
+## 2026-09-27 — Ajuste visual Minha Escala / Calendário
+
+### Mudanças aplicadas
+
+| Estado | Antes | Depois |
+|---|---|---|
+| EMBARCADO | `--navy-700` (#0e3450) — escuro, difícil distinguir | `#1a537a` — azul médio, claramente ativo |
+| FOLGA | `--navy-900` (#08283a) — similar ao embarcado | `--navy-950` (#061c2b) — mais escuro, próximo ao fundo |
+| HOJE (indicador) | Bolinha cyan no fundo da célula | Outline branco 2px + texto "HOJE" 7px no topo + número sempre branco |
+| EMBARQUE label | Borda cyan apenas | Borda cyan + "EMB" no fundo (desktop ≥480px) |
+| DESEMBARQUE label | Borda gold apenas | Borda gold + "DES" no fundo (desktop ≥480px) |
+| Legenda hoje | Bolinha cyan no swatch | Outline branco no swatch (coerente com célula) |
+| Cards (ordem) | Estático: Embarque, Desembarque | Contextual: EMBARCADO → Desembarque 1º; FOLGA → Embarque 1º |
+
+### Técnica
+
+- CSS: `outline` para HOJE (não interfere com `border-color` de embarque/desembarque na mesma célula)
+- `::before` para texto "HOJE"; `::after` para "EMB"/"DES" (sem conflito)
+- `@media(min-width:480px)` oculta labels EMB/DES no mobile (somente borda)
+- Cards: IDs `escalaCardEmbarque` e `escalaCardDesembarque` adicionados; JS aplica `style.order` baseado em `statusAtual.status`
+
+### Deploy
+
+| Worker | Version ID |
+|---|---|
+| `ownews-git` (Minha Escala UI) | `55860082-2f00-4faf-85c9-2f9ec1335816` |
+
+Nenhuma lógica de cálculo, localStorage, timezone, backend, outra página ou Instagram Publisher foi alterada.
 
 ## 2026-09-27 — URGENTE: Home esvaziada — causa raiz identificada e corrigida
 
