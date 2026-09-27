@@ -1,0 +1,9 @@
+# Segurança: nenhum segredo/token deve ser versionado neste repositório.
+# A credencial Cloudflare de deploy fica fora do repo, em
+# /home/offshore/.config/ownews/cloudflare.env (fora de /srv/offshoreworks/ownews).
+.env
+.env.*
+*.env
+cloudflare.env
+cf_token*
+.wrangler/
