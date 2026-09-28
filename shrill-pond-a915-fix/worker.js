@@ -520,6 +520,14 @@ if (url.pathname === "/teste-materia") {
   return Response.json(await avaliarSaudeEditorial(env));
 }
 
+ if (url.pathname === "/debug-agendador") {
+  if (!env.TELEGRAM_AGENDADOR_DO) return Response.json({ ok: false, erro: "TELEGRAM_AGENDADOR_DO não disponível" });
+  const id = env.TELEGRAM_AGENDADOR_DO.idFromName("global");
+  const stub = env.TELEGRAM_AGENDADOR_DO.get(id);
+  const resp = await stub.fetch("https://telegram-agendador.interno/debug");
+  return new Response(resp.body, { headers: { "Content-Type": "application/json" } });
+}
+
  if (url.pathname === "/aeroportos") {
   await garantirOffVoosPollerAtivo(env);
   const resultado = await consultarAeroportos(env);
@@ -2679,9 +2687,19 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       // Tradução PT-BR para fontes EN: título e resumo traduzidos antes de
       // inserir. Se título detectado como EN e tradução falhar: artigo
       // bloqueado (não publicado em inglês silenciosamente).
+      // Corrigido em 2026-09-28 (auditoria Missão-Mãe): detectarIdiomaEN()
+      // usava lista de palavras-função (the/and/for...) que não cobre todos
+      // os títulos EN — "Electrical fault triggers rig intervention", "ACUA
+      // Ocean, Forssea Robotics Conduct..." etc. passavam sem ser detectados
+      // como EN e eram publicados em inglês. Para FONTES_IDIOMA_EN (fontes
+      // conhecidas como 100% EN), a presença de diacrítico PT (ã/é/ç etc.)
+      // é condição suficiente para confirmar "já está em PT"; qualquer título
+      // sem diacrítico PT DEVE ser tratado como EN e traduzido — sem depender
+      // de lista de palavras que é inerentemente incompleta.
       let tituloPublicado = tituloFinal;
       let resumoPublicado = detalhes.summary;
-      if (FONTES_IDIOMA_EN.has(fonte) && detectarIdiomaEN(tituloFinal)) {
+      const PT_DIACRITIC_RE = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
+      if (FONTES_IDIOMA_EN.has(fonte) && !PT_DIACRITIC_RE.test(tituloFinal)) {
         const trad = await traduzirTituloParaPT(env, tituloFinal);
         if (!trad) {
           resultado.bloqueadas_idioma++;
@@ -2691,7 +2709,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         }
         tituloPublicado = trad;
         resultado.traduzidas++;
-        if (detalhes.summary && detectarIdiomaEN(detalhes.summary)) {
+        if (detalhes.summary && !PT_DIACRITIC_RE.test(detalhes.summary)) {
           const tradRes = await traduzirResumoParaPT(env, detalhes.summary);
           if (tradRes) resumoPublicado = tradRes;
         }
@@ -3625,16 +3643,23 @@ async function corrigirTitulosEmIngles(env) {
 
   const d7 = new Date(Date.now() - 7 * 86400000).toISOString();
   const resp = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,slug&status=eq.published&published_at=gte.${d7}&order=published_at.desc&limit=200`,
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,slug,image_credit&status=eq.published&published_at=gte.${d7}&order=published_at.desc&limit=200`,
     { headers: { ...supabaseHeaders(env), "Content-Type": "application/json" } }
   );
   if (!resp.ok) return { ok: false, erro: `Supabase select: ${resp.status}` };
 
   const artigos = await resp.json();
   const resultado = { total_analisados: artigos.length, corrigidos: 0, ignorados: 0, erros: 0, detalhes: [] };
+  const PT_DIACRITIC_RE_COR = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
 
   for (const a of artigos) {
-    if (!detectarIdiomaEN(a.title)) { resultado.ignorados++; continue; }
+    // Usa detecção robusta: para fontes conhecidas como EN, qualquer título
+    // sem diacrítico PT precisa de tradução (mesmo sem palavras-função EN).
+    const ehFonteEN = FONTES_IDIOMA_EN.has(a.image_credit);
+    const precisaTraduzir = ehFonteEN
+      ? !PT_DIACRITIC_RE_COR.test(a.title)
+      : detectarIdiomaEN(a.title);
+    if (!precisaTraduzir) { resultado.ignorados++; continue; }
 
     const trad = await traduzirTituloParaPT(env, a.title);
     if (!trad) { resultado.erros++; resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: "falha_traducao" }); continue; }
@@ -3642,7 +3667,8 @@ async function corrigirTitulosEmIngles(env) {
     const novoSlug = criarSlug(trad);
     const patchBody = { title: trad, slug: novoSlug };
 
-    if (a.summary && detectarIdiomaEN(a.summary)) {
+    const resumoNeedsTrad = a.summary && (ehFonteEN ? !PT_DIACRITIC_RE_COR.test(a.summary) : detectarIdiomaEN(a.summary));
+    if (resumoNeedsTrad) {
       const tradRes = await traduzirResumoParaPT(env, a.summary);
       if (tradRes) patchBody.summary = tradRes;
     }
@@ -5994,9 +6020,24 @@ export class TelegramAgendadorPoller {
 
   async fetch() {
     await this.pronto;
-    return new Response(JSON.stringify({ ok: true, tipo: "TelegramAgendadorPoller" }), {
-      headers: { "Content-Type": "application/json" }
-    });
+    const agora = Date.now();
+    const hojeStr = dataBRTString(agora);
+    const [boletimDia, dicaDia, alarme] = await Promise.all([
+      this.state.storage.get("boletim_dia"),
+      this.state.storage.get("dica_dia"),
+      this.state.storage.getAlarm()
+    ]);
+    return new Response(JSON.stringify({
+      ok: true,
+      tipo: "TelegramAgendadorPoller",
+      hoje_brt: hojeStr,
+      boletim_enviado_hoje: boletimDia === hojeStr,
+      dica_enviada_hoje: dicaDia === hojeStr,
+      boletim_dia_storage: boletimDia,
+      dica_dia_storage: dicaDia,
+      proximo_alarme_ms: alarme,
+      proximo_alarme_iso: alarme ? new Date(alarme).toISOString() : null
+    }), { headers: { "Content-Type": "application/json" } });
   }
 
   async alarm() {
