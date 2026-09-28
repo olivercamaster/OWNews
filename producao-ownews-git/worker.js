@@ -14784,6 +14784,27 @@ async function ccColetarSistema(env) {
   fontes.coletorNoticias = saude
     ? { ok: saude.HOME_FRESHNESS === "OK", detalhe: saude.HOME_FRESHNESS === "OK" ? "Notícias em dia." : "Atualização editorial atrasada." }
     : { ok: false, detalhe: "Coletor de notícias não respondeu." };
+  fontes.editorial = saude ? (() => {
+    const partes = [];
+    if (typeof saude.horas_desde_ultima_coleta === "number") {
+      partes.push(`Última coleta: ${saude.horas_desde_ultima_coleta.toFixed(1)}h atrás.`);
+    }
+    if (typeof saude.articles_last_24h === "number") {
+      partes.push(`Publicadas 24h: ${saude.articles_last_24h}.`);
+    }
+    if (typeof saude.encontrados === "number" && typeof saude.relevantes === "number") {
+      const rejeitadas = typeof saude.descartados === "number" ? saude.descartados : saude.encontrados - saude.relevantes;
+      partes.push(`Última coleta — ${saude.encontrados} descobertas, ${saude.relevantes} aceitas, ${rejeitadas} rejeitadas.`);
+    }
+    if (Array.isArray(saude.sources_active_24h) && saude.sources_active_24h.length > 0) {
+      partes.push(`Fontes ativas 24h: ${saude.sources_active_24h.join(", ")}.`);
+    }
+    if (Array.isArray(saude.fontes_com_erro) && saude.fontes_com_erro.length > 0) {
+      partes.push(`Com erro: ${saude.fontes_com_erro.map((f) => f.fonte).join(", ")}.`);
+    }
+    const ok = saude.HOME_FRESHNESS === "OK" && (!Array.isArray(saude.fontes_com_erro) || saude.fontes_com_erro.length === 0);
+    return { ok, detalhe: partes.length ? partes.join(" ") : "Sem dados de pipeline disponíveis." };
+  })() : { ok: false, detalhe: "Coletor não respondeu — sem dados de pipeline." };
   fontes.offvoosAeroportos = saude && saude.offvoos
     ? { ok: saude.offvoos.estado === "healthy", detalhe: saude.offvoos.estado === "healthy" ? saude.offvoos.aeroportos_com_dados + "/" + saude.offvoos.aeroportos_monitorados + " aeroportos com dado real." : "Dados de aeroportos desatualizados." }
     : { ok: false, detalhe: "Sem resposta do serviço de aeroportos." };
@@ -15080,7 +15101,7 @@ function renderCCDashboard() {
     'var badgeTexto=s.estadoGeral==="OPERACIONAL"?"🟢 OPERACIONAL":"🟠 ATENÇÃO";' +
     'var html=\'<div class="cc-status-badge \'+badgeClasse+\'">\'+badgeTexto+\'</div>\';' +
     'html+=\'<p style="font-size:13px;color:var(--muted);margin-bottom:18px">\'+esc(s.mensagem)+\'</p>\';' +
-    'var rotulos={coletorNoticias:"Coleta de notícias",offvoosAeroportos:"Aeroportos / OffVoos",mercado:"Mercado (cotações)",telegram:"Telegram",supabase:"Supabase",cloudflareAnalytics:"Cloudflare Analytics",googleAnalytics:"Google Analytics (GA4)",searchConsole:"Google Search Console"};' +
+    'var rotulos={coletorNoticias:"Coleta de notícias",editorial:"Pipeline editorial",offvoosAeroportos:"Aeroportos / OffVoos",mercado:"Mercado (cotações)",telegram:"Telegram",supabase:"Supabase",cloudflareAnalytics:"Cloudflare Analytics",googleAnalytics:"Google Analytics (GA4)",searchConsole:"Google Search Console"};' +
     'html+=\'<div class="cc-secao"><h2>Fontes monitoradas</h2>\';' +
     'Object.keys(rotulos).forEach(function(k){' +
     'var f=s.fontes[k];if(!f)return;' +

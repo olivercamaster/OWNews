@@ -1572,16 +1572,12 @@ async function coletarMarineTechnologyNews(env) {
   return processarNoticiasComDedupe(env, "Marine Technology News", noticias, { brutos: brutos.length });
 }
 
-async function coletarNoticiasMacae(env) {
-  validarAmbiente(env);
-
-  const xml = await baixarPagina(NOTICIAS_MACAE_FEED_URL);
-  const brutos = extrairItensRSSGenerico(xml, "Notícias Macaé");
-  const noticias = brutos
-    .filter((item) => noticiaRelevante(item.title))
-    .slice(0, 10);
-
-  return processarNoticiasComDedupe(env, "Notícias Macaé", noticias, { brutos: brutos.length });
+async function coletarNoticiasMacae(_env) {
+  // Desativado em 2026-09-28: noticiasmacae.com retorna HTTP 403 para
+  // tráfego de datacenter (Cloudflare Workers). Reavaliação periódica
+  // recomendada — se o bloqueio for removido, restaurar a implementação
+  // original abaixo (git log).
+  return { ok: false, erro: "DESATIVADO_403: noticiasmacae.com bloqueou Workers", brutos: 0, inseridos: 0, novos: 0, duplicados: 0, descartados: 0 };
 }
 
 /* OceanPact (oceanpact.com/feed/) tentada e REJEITADA em 2026-09-19: RSS
@@ -5651,41 +5647,106 @@ const NOMES_AEROPORTO_AGENDADOR = {
 };
 
 const DICAS_OFFSHORE = [
+  // ── SEGURANÇA ──────────────────────────────────────────────────────────────
   "NR-37 é a norma regulamentadora exclusiva para plataformas de petróleo. Ela define seus direitos de segurança, saúde e bem-estar a bordo — conhecê-la é obrigação de todo trabalhador offshore.",
-  "POB (Persons On Board): ao embarcar, confirme que seu nome foi lançado no registro de bordo. Em emergência, o POB é a primeira ferramenta de busca e salvamento — um nome fora do registro pode custar tempo crítico.",
-  "Muster Drill: o simulado de emergência no 1° dia de embarque não é opcional. Aprenda a localização das estações de mustering e do seu posto de abandono antes de começar o primeiro turno.",
   "APR (Análise Preliminar de Risco): preencher a APR antes de qualquer tarefa não é burocracia — é a principal ferramenta para identificar riscos e definir controles antes de começar o trabalho.",
-  "HUET (Helicopter Underwater Escape Training): o certificado de fuga subaquática precisa ser renovado a cada 4 anos. Programe a renovação com antecedência — sem ele, você não embarca.",
   "H2S (Sulfeto de Hidrogênio): é incolor e inodoro em altas concentrações, pois paralisa o olfato. Use sempre o detector pessoal de H2S e nunca entre em área confinada sem leitura de gás feita e registrada.",
   "PTW (Permissão de Trabalho): nenhuma tarefa não rotineira começa sem PT aprovada. A PT define controles de segurança e responsáveis — ela protege você, sua equipe e a operação inteira.",
-  "Escala 14×14: nos 14 dias de trabalho a bordo você tem direito a adicional noturno, DSR proporcional e eventual adicional de periculosidade. Confira seu contracheque mês a mês e questione divergências.",
-  "Escala 28×28: cada bloco tem 28 dias de trabalho e 28 dias de descanso. Não confunda com 'mês cheio' — os dias de viagem entram no cômputo conforme o ACT/CCT da categoria.",
-  "CIPA a bordo: toda plataforma com mais de 50 trabalhadores deve ter CIPA própria (NR-5). Conheça os cipeiros eleitos — eles têm mandato, não podem ser demitidos e representam você.",
-  "Intervalo entre turnos: o mínimo legal são 11 horas de descanso entre jornadas. Turnos de 12h são comuns offshore — o intervalo precisa ser respeitado mesmo em operações urgentes.",
-  "Embarque aéreo: a ANAC exige chegada ao heliporto com pelo menos 1 hora de antecedência. Leve documento de identidade, certificados atualizados e crachá da empresa — sem eles, você não embarca.",
-  "Bagagem em helicóptero: o limite de peso varia por modelo de aeronave (geralmente 15–20 kg). Confirme com o heliporto de origem antes de sair de casa — bagagem excedente fica em terra.",
-  "PAN-PAN e MAYDAY: aprenda a diferença antes de precisar. PAN-PAN = situação urgente sem risco imediato. MAYDAY = perigo imediato à vida. Ambos exigem comunicação imediata no canal VHF 16.",
-  "Seguro de vida: verifique se sua apólice cobre acidentes em ambiente offshore. Muitas apólices pessoais têm exclusão específica para alto mar — leia as cláusulas de cobertura antes de embarcar.",
-  "eSocial e offshore: os eventos de SST (Saúde e Segurança no Trabalho) para plataformas passam pelo eSocial. Confirme que seus dados (ASO, cursos, EPIs) estão atualizados no sistema da empresa.",
-  "Lei nº 5.811/1972: regula o trabalho de turnistas em refinarias e plataformas — define escala, intervalos e adicionais. Conhecê-la ajuda a identificar irregularidades no pagamento antes de reclamar.",
-  "Pré-sal vs. pós-sal: o pré-sal fica abaixo de 2.000 m de lâmina d'água e de espessa camada de sal. O pré-sal exige tecnologia específica e tem regime de concessão diferente — contexto importante para entender a operação.",
-  "FPSO (Floating Production Storage and Offloading): produz, armazena e transfere óleo sem conexão fixa ao fundo do mar. Entender a função de cada módulo a bordo facilita a comunicação interdepartamental e a resposta a emergências.",
-  "Bacia de Santos vs. Campos: Santos concentra o pré-sal profundo (Tupi, Búzios). Campos tem a maior produção acumulada do Brasil. Saber em qual bacia você está ajuda a contextualizar regulação, sindicato e rotinas.",
-  "REDEMET: antes de embarcar, consulte as condições meteorológicas em redemet.decea.mil.br. Vento acima de 40 nós pode suspender operações de helicóptero — saber disso antecipadamente evita viagem em vão.",
-  "Reunião de segurança (safety meeting): participação obrigatória. Use o espaço para reportar observações de segurança — é exatamente para isso que a reunião existe, e seu relato pode prevenir um acidente.",
-  "Sono e performance: a privação de sono aumenta o risco de acidentes em até 3× em operações industriais. A NR-37 exige ambiente de repouso adequado — reporte quarto barulhento ou mal climatizado ao responsável de saúde.",
-  "Saúde mental offshore: isolamento, ausência da família e turnos longos aumentam o risco de burnout. A NR-37 exige suporte psicológico na empresa — procure o serviço antes de chegar ao limite.",
-  "Retorno antecipado por motivo de saúde: você pode solicitar repatriação com justificativa médica. Conheça o procedimento da sua empresa antes de precisar — o médico de bordo é o canal formal.",
   "EPI offshore (NR-37): capacete, óculos, luvas, botas de segurança, protetor auricular e colete salva-vidas são básicos. Para trabalho em altura ou espaço confinado há EPIs específicos adicionais — nunca recuse tarefa sem EPI adequado.",
-  "Registro de embarque: guarde comprovantes (ordem de embarque, folha de controle de bordo, registros de hora). Em divergência na folha de pagamento, esses documentos são sua prova mais direta.",
-  "Sindipetro: o sindicato da sua regional negocia o ACT ou CCT que rege seus benefícios. Saiba qual sindicato cobre sua bacia — Sindipetro NF (Macaé/Campos), Sindipetro ES (Espírito Santo), FUP (federação nacional).",
   "Near miss (quase acidente): reportar nunca gera punição — ao contrário, é reconhecido como atitude pró-segurança. Cada near miss reportado pode prevenir um acidente real com consequências graves.",
   "SIPAT: a Semana Interna de Prevenção de Acidentes do Trabalho é obrigatória anualmente, inclusive a bordo. Participe — é o principal canal para sugestões de melhoria em SST.",
   "Canal de denúncia anônima: toda empresa com NR-37 ativa deve ter canal anônimo para irregularidades de segurança. Se não souber qual é o da sua empresa, pergunte ao SESMT ou à CIPA.",
-  "Carteira de marítimo (Marinha do Brasil): necessária para funções a bordo de navios-plataforma. Precisa ser renovada regularmente e estar válida no embarque — sem ela, a função de bordo não pode ser exercida.",
+  "CIPA a bordo: toda plataforma com trabalhadores acima do dimensionamento mínimo da NR-5 deve ter CIPA própria. Conheça os cipeiros eleitos — eles têm mandato, não podem ser demitidos e representam você.",
+  "Bloqueio e etiquetagem (LOTO — Lock Out, Tag Out): antes de trabalhar em qualquer equipamento elétrico, hidráulico ou mecânico, o sistema de energias perigosas deve ser isolado e bloqueado formalmente. Sem LOTO confirmado, a tarefa não começa.",
+  "Trabalho em altura offshore: acima de 2 m do nível do convés é considerado trabalho em altura (NR-35). Cinto de segurança tipo paraquedista, talabarte e ponto de ancoragem certificado são obrigatórios.",
+  "Espaço confinado: a entrada em tanques, cascos, dutos e compartimentos fechados exige PT específica, medição de atmosfera (O₂, combustíveis, H2S), vigia externo e comunicação contínua. Nunca entre sozinho.",
+  "Segurança de içamento (lifting): nunca fique abaixo de carga suspensa. Inspeção de eslingas, grampas e equipamentos de içamento deve ser feita antes de cada operação — um equipamento reprovado é descarte imediato.",
+  "PAN-PAN e MAYDAY: aprenda a diferença antes de precisar. PAN-PAN = situação urgente sem risco imediato. MAYDAY = perigo imediato à vida. Ambos exigem comunicação imediata no canal VHF 16.",
+  "Reunião de segurança (safety meeting): participação obrigatória. Use o espaço para reportar observações de segurança — é exatamente para isso que a reunião existe, e seu relato pode prevenir um acidente.",
+  // ── PRIMEIRO EMBARQUE ──────────────────────────────────────────────────────
+  "POB (Persons On Board): ao embarcar, confirme que seu nome foi lançado no registro de bordo. Em emergência, o POB é a primeira ferramenta de busca e salvamento — um nome fora do registro pode custar tempo crítico.",
+  "Muster Drill: o simulado de emergência no 1° dia de embarque não é opcional. Aprenda a localização das estações de mustering e do seu posto de abandono antes de começar o primeiro turno.",
+  "HUET (Helicopter Underwater Escape Training): o certificado de fuga subaquática precisa ser renovado periodicamente (verifique o prazo da sua certificação). Programe a renovação com antecedência — sem ele, você não embarca.",
+  "Embarque aéreo: a ANAC exige chegada ao heliporto com pelo menos 1 hora de antecedência. Leve documento de identidade, certificados atualizados e crachá da empresa — sem eles, você não embarca.",
+  "Exame médico offshore (ASO): toda plataforma exige Atestado de Saúde Ocupacional específico para offshore, com avaliações físicas e funcionais definidas pelo SESMT. A validade varia por função — confirme antes de tentar embarcar.",
+  "Curso de Sobrevivência no Mar: o certificado é exigido para trabalho offshore e inclui uso de colete salva-vidas, sobrevivência em água e embarque em balsas. Verifique se o seu está válido — a renovação periódica é obrigatória.",
+  "Biometria e credenciais de acesso: ao primeiro embarque sua biometria e crachá são cadastrados no controle de acesso. Guarde o número de matrícula — ele identifica você em todo o sistema operacional da unidade.",
+  "Comunicação com a família: combine um protocolo antes de embarcar. Informe os horários disponíveis para ligação, o procedimento para emergências familiares e o contato do departamento de pessoal da empresa.",
+  // ── VIDA A BORDO ───────────────────────────────────────────────────────────
+  "Sono e performance: a privação de sono aumenta o risco de acidentes em operações industriais. A NR-37 exige ambiente de repouso adequado — reporte quarto barulhento ou mal climatizado ao responsável de saúde.",
+  "Saúde mental offshore: isolamento, ausência da família e turnos longos aumentam o risco de burnout. A NR-37 exige suporte psicológico na empresa — procure o serviço antes de chegar ao limite.",
+  "Retorno antecipado por motivo de saúde: você pode solicitar repatriação com justificativa médica. Conheça o procedimento da sua empresa antes de precisar — o médico de bordo é o canal formal.",
+  "Alimentação a bordo: a NR-37 exige alimentação adequada fornecida pela empresa durante o embarque. Se a qualidade ou quantidade não atender ao padrão, reporte ao SESMT ou RH — é um direito documentado.",
+  "Adaptação a turnos: trabalhar 12h/dia por 14 ou 28 dias seguidos exige adaptação. Durma no horário da folga do turno, evite cafeína antes de deitar e use protetores auriculares se necessário.",
+  "Fumo a bordo: smoking area é area designada e rigorosamente controlada em ambiente com hidrocarbonetos. Fumar fora da área designada é infração grave — pode resultar em desembarque imediato.",
+  "Intervalo entre turnos: o mínimo legal são 11 horas de descanso entre jornadas. Turnos de 12h são comuns offshore — o intervalo precisa ser respeitado mesmo em operações urgentes.",
+  // ── CARREIRA ───────────────────────────────────────────────────────────────
+  "Sindipetro: o sindicato da sua regional negocia o ACT ou CCT que rege seus benefícios. Saiba qual cobre sua bacia — Sindipetro NF (Macaé/Campos), Sindipetro ES (Espírito Santo), FUP (federação nacional).",
+  "Escala 14×14: nos 14 dias de trabalho a bordo você tem direito a adicional noturno, DSR proporcional e eventual adicional de periculosidade. Confira seu contracheque mês a mês e questione divergências.",
+  "Escala 28×28: cada bloco tem 28 dias de trabalho e 28 dias de descanso. Não confunda com 'mês cheio' — os dias de viagem entram no cômputo conforme o ACT/CCT da categoria.",
+  "Currículo offshore: inclua todos os certificados técnicos com data de emissão e vencimento. A lista de certificados válidos é o primeiro filtro eliminatório em vagas offshore — mantenha-os atualizados e visíveis no CV.",
+  "Progressão de carreira a bordo: cargos técnicos seguem hierarquia clara (ex.: Operador → Técnico → Supervisor → Offshore Installation Manager). Conheça os requisitos de certificação de cada nível antes de almejar a promoção.",
+  "Multiplicidade de função: trabalhadores offshore que dominam mais de uma disciplina (mecânico com certificação elétrica, operador com licença de içamento) têm maior empregabilidade e remuneração.",
+  "Lei nº 5.811/1972: regula o trabalho de turnistas em refinarias e plataformas — define escala, intervalos e adicionais. Conhecê-la ajuda a identificar irregularidades no pagamento antes de reclamar.",
+  // ── ORGANIZAÇÃO ────────────────────────────────────────────────────────────
+  "Registro de embarque: guarde comprovantes (ordem de embarque, folha de controle de bordo, registros de hora). Em divergência na folha de pagamento, esses documentos são sua prova mais direta.",
   "Vencimento de cursos offshore: HUET, Sobrevivência no Mar, Primeiros Socorros e Segurança Básica têm prazos de renovação diferentes. Crie um calendário próprio — não dependa só do RH para ser avisado.",
+  "Planejamento de embarque: prepare a mala com 48h de antecedência. Lista padrão: documentos originais, certificados impressos, medicamentos com receita, EPIs pessoais, roupas para o período. A última hora é para erros.",
+  "Arquivo digital de documentos: mantenha no celular uma pasta com fotos dos certificados, CNH, passaporte e documentos trabalhistas. Em emergências ou para substituição rápida, o arquivo digital agiliza tudo.",
+  "Transição de turno (handover): ao trocar de turno, faça um handover completo: status das atividades em andamento, anomalias observadas, tarefas pendentes. Um handover incompleto é causa de acidente documentada na indústria.",
+  "Finanças durante o embarque: as despesas a bordo são mínimas. Use o período offshore para guardar parte do salário — automatize investimentos mensais para o dia do crédito em conta.",
+  // ── DOCUMENTAÇÃO ───────────────────────────────────────────────────────────
+  "eSocial e offshore: os eventos de SST (Saúde e Segurança no Trabalho) para plataformas passam pelo eSocial. Confirme que seus dados (ASO, cursos, EPIs) estão atualizados no sistema da empresa.",
+  "Carteira de marítimo (Marinha do Brasil): necessária para funções a bordo de navios-plataforma. Precisa estar válida no embarque — sem ela, a função de bordo não pode ser exercida.",
+  "Passaporte válido: mesmo trabalhando em plataformas brasileiras, algumas rotas de helicóptero cruzam zona econômica exclusiva de outros países. Mantenha passaporte válido por pelo menos 6 meses além do período de embarque previsto.",
+  "Caderneta de Inscrição Marítima (CIM): exigida para trabalho a bordo de navio-plataforma (embarcação). É emitida pela Marinha do Brasil, distinta dos certificados offshore em terra. Verifique se sua função exige CIM.",
+  "IANTD/PADI não equivale a HUET: cursos de mergulho recreativo não substituem os certificados de sobrevivência offshore exigidos pela NR-37/OPITO. São certificações distintas com fins distintos.",
+  "ASO vs. laudo de aptidão: o ASO (Atestado de Saúde Ocupacional) é o documento final, assinado pelo médico do trabalho, que autoriza o exercício da função. O laudo de exame é intermediário — guarde os dois separadamente.",
+  // ── OPERAÇÃO ───────────────────────────────────────────────────────────────
+  "FPSO (Floating Production Storage and Offloading): produz, armazena e transfere óleo sem conexão fixa ao fundo do mar. Entender a função de cada módulo a bordo facilita a comunicação interdepartamental e a resposta a emergências.",
   "MODU, FPSO ou Sonda: MODU (Mobile Offshore Drilling Unit) é unidade de perfuração. FPSO é produção/estoque flutuante. Cada tipo tem regime, função e rotina operacional diferentes — vale conhecer onde você trabalha.",
-  "ANP — SAT (Serviço de Atendimento ao Trabalhador): para denúncias de irregularidades no setor de petróleo e gás, o canal da ANP é 0800 725 6451. Funciona em dias úteis, sem custo de ligação."
+  "MOC (Management of Change): qualquer alteração em processo, equipamento ou procedimento exige MOC formal documentado. Mudanças informais em ambiente offshore são origem conhecida de acidentes.",
+  "Drill (exercício de emergência): toda plataforma realiza drills periódicos de incêndio, vazamento de gás e abandono. Participe ativamente — o erro no drill salva vidas no evento real. Não trate como burocracia.",
+  "BOP (Blow-Out Preventer): equipamento de segurança crítico que previne o descontrole de poço (blowout). Em plataformas de perfuração, conhecer o nome e a função do BOP é referência de cultura de segurança.",
+  "Monitoramento contínuo de gás: sistemas de Desligamento de Emergência (ESD/EDP) são ativados automaticamente por detecção de gás. Nunca tente contornar alarmes — eles existem para prevenir catástrofes como a de Piper Alpha (1988).",
+  "Toolbox Meeting (reunião pré-turno): realizada antes de cada turno operacional, é onde se discutem as tarefas do dia, os riscos e os controles. Participação ativa é a melhor oportunidade para alinhar expectativas com o supervisor.",
+  // ── CONVIVÊNCIA ────────────────────────────────────────────────────────────
+  "Respeito à hierarquia operacional: a bordo, decisões de segurança seguem cadeia de comando clara. Mesmo discordando, use os canais formais para contestar — discussão no meio da operação cria risco adicional.",
+  "Conflito interpessoal a bordo: 14 ou 28 dias em espaço confinado com as mesmas pessoas exige tolerância ativa. A maioria das plataformas tem procedimento de mediação de conflitos — use antes que o problema escale.",
+  "Privacidade dos colegas: camarotes divididos são comuns em plataformas. Respeite os horários de sono do colega em folga — privação de sono do colega é risco operacional no turno seguinte dele.",
+  "Mentoria informal: veteranos offshore têm conhecimento que não está em nenhum manual. No primeiro embarque, adote postura de aprendiz — a troca de experiência acelera a curva de aprendizado de forma que treinamentos não conseguem.",
+  "Uso de celular durante operações: o uso de celular durante execução de tarefas é proibido na maioria das unidades. Foco dividido em operações industriais é fator de acidente documentado — guarde o celular enquanto trabalha.",
+  // ── SIGLAS ─────────────────────────────────────────────────────────────────
+  "OIM (Offshore Installation Manager): responsável máximo pela segurança e operação da unidade offshore. Equivale ao Encarregado Geral previsto na NR-37. As ordens do OIM em emergência têm precedência absoluta.",
+  "CCR (Central Control Room): centro de controle e monitoramento da plataforma — de onde se monitoram pressão, temperatura, detecção de gás e se acionam alarmes de emergência.",
+  "DPO (Dynamic Positioning Operator): responsável pelo sistema de posicionamento dinâmico que mantém FPSO ou navio-plataforma sobre o poço sem âncoras fixas. DP-1, DP-2 e DP-3 indicam o nível de redundância.",
+  "SIMOPS (Simultaneous Operations): operações simultâneas — perfuração e produção ao mesmo tempo, por exemplo. Requerem planejamento adicional de segurança e coordenação entre equipes distintas.",
+  "LSA (Life Saving Appliances): sigla genérica para todo equipamento de salvatagem: coletes, balsas, botes de resgate, EBE (Emergency Breathing Apparatus). A localização de cada LSA da sua área deve ser memorizada no primeiro dia.",
+  "SPS (Safety and Protection System): sistema de proteção que aciona automaticamente ESD, isolamentos e shutdowns. SPS trip = evento sério que exige investigação formal antes de reiniciar a operação.",
+  "PSV, AHTS e OSV: PSV (Platform Supply Vessel) faz suprimento. AHTS (Anchor Handling Tug Supply) maneja âncoras e também supre. OSV é o termo genérico para todos os navios de apoio offshore.",
+  // ── CURIOSIDADES OFFSHORE ──────────────────────────────────────────────────
+  "Pré-sal vs. pós-sal: o pré-sal fica abaixo de espessa camada de sal, em grandes lâminas d'água. Exige tecnologia específica e tem regime de concessão distinto — contexto essencial para entender a operação de Búzios e Tupi.",
+  "Bacia de Santos vs. Campos: Santos concentra o pré-sal profundo (Tupi, Búzios). Campos tem a maior produção acumulada do Brasil e concentra plataformas mais antigas. Saber em qual bacia você está ajuda a contextualizar regulação e sindicato.",
+  "Piper Alpha (1988): o pior acidente da história offshore — 167 mortos — ocorreu no Mar do Norte e transformou permanentemente os padrões de segurança globais. Falha na troca de turno (handover incompleto) foi fator contribuinte documentado.",
+  "Deepwater Horizon (2010): plataforma da BP que explodiu no Golfo do México matando 11 pessoas e causando o maior derramamento de petróleo da história americana. O evento acelerou a regulação de controle de poço no mundo todo.",
+  "Primeiro petróleo do pré-sal brasileiro: foi extraído em teste de longa duração no Campo de Jubarte (Bacia de Campos) em 2008. A produção comercial do pré-sal de Santos (Campo de Tupi) começou em 2010.",
+  "Escala 14×14 no Brasil: é uma das escalas mais curtas em offshore no contexto internacional. Em países como Noruega, é comum escala 2×4 (2 semanas a bordo, 4 em terra). A escala brasileira é mais intensa — impacto maior na saúde a longo prazo.",
+  // ── LOGÍSTICA ──────────────────────────────────────────────────────────────
+  "REDEMET: antes de embarcar, consulte as condições meteorológicas em redemet.decea.mil.br. Ventos fortes podem suspender operações de helicóptero — saber isso com antecedência evita viagem desnecessária.",
+  "Bagagem em helicóptero: o limite de peso varia por modelo de aeronave. Confirme com o heliporto de origem antes de sair de casa — bagagem excedente fica em terra, não vai no próximo voo com você.",
+  "Transfer via barco (NOB): em algumas unidades, a chegada é por lancha ou Navio de Apoio de Base. O transfer por mar tem critérios de segurança próprios (altura de onda, visibilidade) — a decisão de embarcar é do mestre da embarcação.",
+  "Conexões de helicóptero: o voo pode fazer escalas em outras plataformas antes de chegar ao seu destino. Leve lanche e esteja preparado para esperas no heliporto ou em bases intermediárias.",
+  "Mudança de escala: comunicações de alteração de embarque frequentemente chegam com menos de 24h de antecedência. Mala pré-pronta com documentos e certificados evita correria e esquecimento de itens críticos.",
+  "Check-in operacional: o heliporto confirma seu voo pelo departamento de logística da empresa. Ausência de confirmação formal com 24h de antecedência não é confirmação de voo — entre em contato com o dispatcher.",
+  // ── BOAS PRÁTICAS ──────────────────────────────────────────────────────────
+  "Stop Work Authority: qualquer trabalhador pode e deve parar uma operação insegura, sem medo de represália. É direito e responsabilidade documentados — a cultura de segurança offshore depende do exercício cotidiano dessa autoridade.",
+  "Registro de anomalias: reporte toda anomalia (ruído anormal, vazamento, vibração) ao supervisor imediatamente, mesmo que pequena. Um componente trocado preventivamente evita parada não planejada e acidente.",
+  "Seguro de vida: verifique se sua apólice cobre acidentes em ambiente offshore. Muitas apólices pessoais têm exclusão específica para alto mar — leia as cláusulas antes de embarcar.",
+  "Hidratação a bordo: em conveses abertos em bacias tropicais como Campos e Santos, o risco de desidratação é real. Beba água regularmente ao longo do turno — não espere sentir sede para se hidratar.",
+  "Procedimento de abandono: sequência básica — 1) alarme, 2) colete e traje de imersão, 3) estação de mustering, 4) contagem de bordo, 5) bote/balsa. Pratique o caminho até o bote até ele ser automático, não consciente.",
+  "ANP — SAT (Serviço de Atendimento ao Trabalhador): para denúncias de irregularidades no setor de petróleo e gás, o canal da ANP é 0800 725 6451. Funciona em dias úteis, sem custo de ligação.",
+  "Telemedicina offshore: muitas plataformas contam com telemedicina para consultas com especialistas além do médico de bordo. Conheça o canal disponível na sua unidade antes de precisar usá-lo.",
+  "OPEP/PLANCON: o Plano de Emergência Individual e o Plano de Contingência são documentos de operação de cada unidade offshore. São referências formais em emergências — saiba onde consultá-los na sua plataforma.",
 ];
 
 function proximoHorarioAgendadorUTC(agora, horaAlvo, minutoAlvo) {
