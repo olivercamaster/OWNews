@@ -14790,9 +14790,18 @@ async function ccColetarSistema(env) {
   fontes.mercado = saude && saude.mercado
     ? { ok: saude.mercado.market_status === "healthy", detalhe: saude.mercado.market_status === "healthy" ? saude.mercado.fresh_quotes + " cotações atualizadas." : "Cotações desatualizadas." }
     : { ok: false, detalhe: "Sem resposta do serviço de mercado." };
-  fontes.telegram = saude && saude.telegram
-    ? { ok: !!saude.telegram.habilitado, detalhe: saude.telegram.habilitado ? "Canal ativo, último envio registrado." : "Publicação no Telegram desativada." }
-    : { ok: false, detalhe: "Sem dado do Telegram." };
+  fontes.telegram = saude && saude.telegram ? (() => {
+    const tg = saude.telegram;
+    if (!tg.habilitado) return { ok: false, detalhe: "Publicação no Telegram desativada (TELEGRAM_DRY_RUN=true)." };
+    const partes = ["Canal ativo."];
+    if (typeof tg.enviados_hoje === "number") partes.push(`Hoje: ${tg.enviados_hoje}/${tg.limite_diario_normal || 4} post(s) editoriais.`);
+    if (tg.ultimo_envio) partes.push(`Último: ${new Date(tg.ultimo_envio).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}.`);
+    if (tg.agendador) {
+      partes.push(`Boletim aeroportos: ${tg.agendador.boletim_hoje ? "enviado hoje" : "aguardando 06:15"}.`);
+      partes.push(`Dica Offshore: ${tg.agendador.dica_hoje ? "enviada hoje" : "aguardando 12:00"}.`);
+    }
+    return { ok: true, detalhe: partes.join(" ") };
+  })() : { ok: false, detalhe: "Sem dado do Telegram." };
 
   try {
     const supa = await ccFetchComTimeout(

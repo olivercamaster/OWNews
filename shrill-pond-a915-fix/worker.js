@@ -1835,6 +1835,25 @@ async function obterStatusTelegram(env) {
     ? new Date(estado.ultimoEnvioEm + INTERVALO_MINIMO_MS_TELEGRAM).toISOString()
     : null;
 
+  let agendadorStatus = null;
+  try {
+    if (env.SAUDE_KV) {
+      const hojeStr = dataBRTString(agora);
+      const [boletimRaw, dicaRaw] = await Promise.all([
+        env.SAUDE_KV.get("telegram_boletim_ultimo"),
+        env.SAUDE_KV.get("telegram_dica_ultima")
+      ]);
+      const boletimDados = boletimRaw ? JSON.parse(boletimRaw) : null;
+      const dicaDados = dicaRaw ? JSON.parse(dicaRaw) : null;
+      agendadorStatus = {
+        boletim_hoje: boletimDados ? boletimDados.dia === hojeStr : false,
+        dica_hoje: dicaDados ? dicaDados.dia === hojeStr : false,
+        boletim_ultimo_em: boletimDados ? boletimDados.em : null,
+        dica_ultima_em: dicaDados ? dicaDados.em : null
+      };
+    }
+  } catch { /* não crítico pro /saude */ }
+
   return {
     habilitado,
     acesso_ao_canal: acessoCanal,
@@ -1850,7 +1869,8 @@ async function obterStatusTelegram(env) {
     intervalo_minimo_horas: INTERVALO_MINIMO_MS_TELEGRAM / 3600000,
     ultimo_erro: ultimoErro,
     proximo_candidato: proximoCandidato,
-    garantia_minima_diaria: garantiaMeioDia
+    garantia_minima_diaria: garantiaMeioDia,
+    agendador: agendadorStatus
   };
 }
 
@@ -5790,8 +5810,11 @@ export class TelegramAgendadorPoller {
         await this.enviarDica(hojeStr, agora);
         ultimoTipoEnviado = "dica";
       } else {
-        // Fora de janela ou já enviou: decide próximo agendamento pelo horário atual
-        ultimoTipoEnviado = horaUTC >= 11 && horaUTC < 14 ? "boletim" : null;
+        // Fora de janela ou já enviou hoje — decide próximo agendamento:
+        // < 9 UTC: antes do boletim → agenda 09:15 UTC hoje (null → next boletim)
+        // 9-13 UTC: após boletim, antes dica → agenda 15:00 UTC hoje ("boletim")
+        // >= 14 UTC: após dica → agenda 09:15 UTC amanhã ("dica")
+        ultimoTipoEnviado = horaUTC < 9 ? null : horaUTC < 14 ? "boletim" : "dica";
       }
     } catch (e) {
       console.error("[TelegramAgendador] erro na execução do alarm, ignorado com segurança:", e.message);
@@ -5809,7 +5832,12 @@ export class TelegramAgendadorPoller {
         return;
       }
       const resultado = await publicarMensagemDiretaTelegram(this.env, texto);
-      if (resultado.ok) await this.state.storage.put("boletim_dia", hojeStr);
+      if (resultado.ok) {
+        await this.state.storage.put("boletim_dia", hojeStr);
+        try {
+          if (this.env.SAUDE_KV) await this.env.SAUDE_KV.put("telegram_boletim_ultimo", JSON.stringify({ em: new Date().toISOString(), dia: hojeStr, dry_run: !!resultado.dryRun }));
+        } catch {}
+      }
       console.log("[TelegramAgendador] boletim enviado:", hojeStr, resultado.dryRun ? "(dry_run)" : "(real)");
     } catch (e) {
       console.error("[TelegramAgendador] erro ao enviar boletim:", e.message);
@@ -5821,7 +5849,12 @@ export class TelegramAgendadorPoller {
       const dica = selecionarDicaOffshore(agora);
       const texto = `💡 <b>DICA OFFSHORE</b>\n\n${escaparHtmlTelegram(dica)}\n\nownews.com.br`;
       const resultado = await publicarMensagemDiretaTelegram(this.env, texto);
-      if (resultado.ok) await this.state.storage.put("dica_dia", hojeStr);
+      if (resultado.ok) {
+        await this.state.storage.put("dica_dia", hojeStr);
+        try {
+          if (this.env.SAUDE_KV) await this.env.SAUDE_KV.put("telegram_dica_ultima", JSON.stringify({ em: new Date().toISOString(), dia: hojeStr, dry_run: !!resultado.dryRun }));
+        } catch {}
+      }
       console.log("[TelegramAgendador] dica enviada:", hojeStr, resultado.dryRun ? "(dry_run)" : "(real)");
     } catch (e) {
       console.error("[TelegramAgendador] erro ao enviar dica:", e.message);
