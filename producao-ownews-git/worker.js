@@ -6572,6 +6572,7 @@ function renderCarreirasIndex() {
     '<a href="/vagas">Vagas verificadas →</a>' +
     '<a href="/carreiras/modelo-curriculo">Monte seu currículo →</a>' +
     '<a href="/carreiras/cadastre-seu-curriculo">Cadastre-se nas empresas →</a>' +
+    '<a href="/minha-escala">Já trabalha offshore? Organize seus embarques →</a>' +
     '</div>';
 
   return paginaChrome(
@@ -6963,6 +6964,7 @@ function renderVagasIndex(){
     '<a href="/carreiras/modelo-curriculo">Monte seu currículo para o setor offshore →</a>' +
     '<a href="/guias/primeiro-embarque">Primeiro embarque: documentação, mala e rotina →</a>' +
     '<a href="/guias/onde-encontrar-vagas-confiaveis">Como reconhecer um canal de vaga confiável →</a>' +
+    '<a href="/minha-escala">Organize seus embarques com Minha Escala →</a>' +
     '</div>';
 
   return paginaChrome(
@@ -13065,6 +13067,7 @@ function renderMinhaEscala() {
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/guias/escala-offshore">Como funciona a escala offshore →</a>' +
+    '<a id="escalaLinkVagas" href="/vagas">Vagas verificadas para o setor →</a>' +
     '<a href="/comece-aqui">Comece Aqui →</a>' +
     '</div>' +
 
@@ -13264,6 +13267,7 @@ function renderMinhaEscala() {
     'var _btnImprimir=document.getElementById("btnImprimirAnual");' +
     'if(_btnImprimir)_btnImprimir.addEventListener("click",function(){' +
     'if(escalaAtual)renderCalendarioAnual();' +
+    'if(window.ownewsEvento)window.ownewsEvento("minha_escala_print");' +
     'window.print();' +
     '});' +
     'window.addEventListener("beforeprint",function(){' +
@@ -13388,7 +13392,7 @@ function renderMinhaEscala() {
     '}).catch(function(){setMsg("msgContaRecuperar","Erro de conexão.",false);});' +
     '});' +
     // Toggle de painéis
-    'var _mc=document.getElementById("btnContaMostrarCadastro");if(_mc)_mc.addEventListener("click",function(){trocarPainelConta("escalaContaFormCadastro");});' +
+    'var _mc=document.getElementById("btnContaMostrarCadastro");if(_mc)_mc.addEventListener("click",function(){trocarPainelConta("escalaContaFormCadastro");if(window.ownewsEvento)window.ownewsEvento("minha_escala_signup_start");});' +
     'var _mr=document.getElementById("btnContaMostrarRecuperar");if(_mr)_mr.addEventListener("click",function(){trocarPainelConta("escalaContaFormRecuperar");});' +
     'var _vl=document.getElementById("btnContaVoltarLogin");if(_vl)_vl.addEventListener("click",function(){trocarPainelConta("escalaContaFormLogin");});' +
     'var _vlr=document.getElementById("btnContaVoltarLoginRecuperar");if(_vlr)_vlr.addEventListener("click",function(){trocarPainelConta("escalaContaFormLogin");});' +
@@ -13420,6 +13424,7 @@ function renderMinhaEscala() {
     // Salvar escala
     'var _btnSalvar=document.getElementById("btnContaSalvarEscala");' +
     'if(_btnSalvar)_btnSalvar.addEventListener("click",function(){' +
+    'if(window.ownewsEvento)window.ownewsEvento("minha_escala_save_account_click");' +
     'var s=getSessao();if(!s)return;' +
     'setMsg("msgContaLogado","Salvando…",true);' +
     'salvarEscalaNoMeta(s,function(ok,err){' +
@@ -13510,7 +13515,7 @@ function renderMinhaEscala() {
     'var alvo=btn.getAttribute("data-tab");' +
     'tabBtns.forEach(function(b){var ativo=b===btn;b.classList.toggle("ativo",ativo);b.setAttribute("aria-selected",ativo?"true":"false");});' +
     'Object.keys(paineis).forEach(function(k){if(paineis[k])paineis[k].hidden=(k!==alvo);});' +
-    'if(alvo==="anual"&&escalaAtual){renderCalendarioAnual();var _ah=document.getElementById("escalaAnualHint");if(_ah)_ah.hidden=true;}' +
+    'if(alvo==="anual"&&escalaAtual){renderCalendarioAnual();var _ah=document.getElementById("escalaAnualHint");if(_ah)_ah.hidden=true;if(window.ownewsEvento)window.ownewsEvento("minha_escala_annual_view");}' +
     '});' +
     '});' +
     'var _btnAnualHint=document.getElementById("btnMostrarEscalaAnual");' +
@@ -13807,6 +13812,8 @@ function renderMinhaEscala() {
     '});' +
     '});' +
 
+    'var _escalaVagasLink=document.getElementById("escalaLinkVagas");' +
+    'if(_escalaVagasLink)_escalaVagasLink.addEventListener("click",function(){if(window.ownewsEvento)window.ownewsEvento("minha_escala_jobs_click");});' +
     'var salvo=carregarConfig();' +
     'if(salvo){' +
     'selTipo.value=salvo.tipo||"14x14";' +
@@ -14712,6 +14719,11 @@ const CC_MAPA_EVENTOS = {
   escala_compartilhada: { grupo: "Minha Escala", rotulo: "Compartilhamentos" },
   escala_editar_aberto: { grupo: "Minha Escala", rotulo: "Edições abertas" },
   me_hero_cta_click: { grupo: "Minha Escala", rotulo: "Cliques no hero da Home" },
+  minha_escala_annual_view: { grupo: "Minha Escala", rotulo: "Vistas do calendário anual" },
+  minha_escala_print: { grupo: "Minha Escala", rotulo: "Impressões iniciadas" },
+  minha_escala_save_account_click: { grupo: "Minha Escala", rotulo: "Cliques em salvar na conta" },
+  minha_escala_signup_start: { grupo: "Minha Escala", rotulo: "Inícios de cadastro" },
+  minha_escala_jobs_click: { grupo: "Minha Escala", rotulo: "Cliques em Vagas" },
   // Corrigido (auditoria 2026-09-27): este evento cobre os 4 atalhos da
   // faixa utilitária da Home (Aeroportos/Modo Embarcado/Giro 24h/Mercado),
   // não só Minha Escala — estava inflando o grupo "Minha Escala".
