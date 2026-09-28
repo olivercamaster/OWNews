@@ -1013,6 +1013,14 @@ html.embarcado header{backdrop-filter:none}
   .masthead.one-lateral,.masthead.two-laterais,.masthead.three-laterais{grid-template-columns:1fr}
   .masthead.one-lateral .highlight .thumb{height:180px}
 }
+/* Jornalismo-first no mobile: hero e Últimas Notícias sobem ao topo
+   em vez de ficar soterradas abaixo da faixa Minha Escala, Telegram
+   e atalhos. Desktop (760px+) não é afetado — usa a ordem do DOM. */
+@media(max-width:759px){
+  #conteudo{display:flex;flex-direction:column}
+  #destaque{order:-2}
+  #ultimas{order:-1}
+}
 
 /* ---------- seções editoriais ---------- */
 .ed-section{margin-top:52px}
@@ -1047,7 +1055,7 @@ html.embarcado header{backdrop-filter:none}
   .latest-count-2 .row-list{justify-content:center}
   .latest-count-3 .row-list{justify-content:space-between;height:100%}
   .latest-count-4 .row-list{justify-content:space-between;height:100%}
-  .latest-count-3{align-items:stretch}
+  .latest-count-3,.latest-count-4{align-items:stretch}
   .latest-feature{border-bottom:0;padding-bottom:0}
   .latest-feature h3{font-size:27px}
 }

@@ -4,12 +4,15 @@
   "main": "worker.js",
   "compatibility_date": "2026-09-07",
 
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "run_worker_first": true
-  },
+  // Removido o binding "assets" (./public, ASSETS): o worker.js real publicado
+  // não referencia env.ASSETS em nenhum lugar (serve a home a partir de um HTML
+  // inline via String.raw) e a pasta ./public nem existe neste repo.
 
+  // ATENÇÃO — não confirmado se estes cron triggers estão de fato ativos na
+  // Cloudflare: o worker.js real publicado (reconciliado abaixo) NÃO exporta
+  // handler `scheduled`, então mesmo que estes triggers disparem em produção
+  // hoje não há nada para eles executarem. Confirmar no painel Cloudflare
+  // antes de assumir que fazem algo.
   "triggers": {
     "crons": [
       "50 8 * * *",
