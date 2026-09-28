@@ -1288,14 +1288,85 @@ svg.me-utility-ico{width:16px;height:16px;flex:none}
 .me-utility-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
 .me-utility-btn[aria-pressed="true"] .me-utility-label{color:var(--green)}
 .me-utility-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim)}
-.me-utility-canal{display:none}
+.me-utility-canal{display:none!important}
 .utility-tg-bar{display:flex;align-items:center;gap:10px;background:rgba(8,40,58,0.72);border:1px solid var(--line-soft);border-radius:8px;padding:9px 14px;margin-bottom:10px;text-decoration:none}
 .utility-tg-bar>svg{width:17px;height:17px;flex:none;color:var(--cyan-dim)}
 .utility-tg-bar-corpo{min-width:0;flex:1}
 .utility-tg-bar-titulo{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--white);display:block}
 .utility-tg-bar-sub{font-family:var(--ui);font-size:11px;color:var(--muted-dim);display:block}
 .utility-tg-bar-cta{flex:none;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--navy-950);background:var(--cyan-dim);border-radius:99px;padding:5px 12px;white-space:nowrap}
-@media(min-width:480px){.utility-tg-bar{display:none}.me-utility-canal{display:flex}.me-utility-aeroportos{display:none}}
+/* ── Carreiras Offshore 2.0 ─────────────────────────────────────────── */
+.carreiras-hero{padding:32px 0 20px}
+.carreiras-hero h1{font-family:var(--ui);font-size:clamp(22px,5vw,34px);font-weight:900;color:var(--white);margin:0 0 10px;letter-spacing:-.01em}
+.carreiras-hero p{font-family:var(--ui);font-size:15px;color:var(--muted);line-height:1.6;margin:0 0 24px;max-width:600px}
+.tipos-op-label{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:14px}
+.tipos-op-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:32px}
+@media(min-width:480px){.tipos-op-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:800px){.tipos-op-grid{grid-template-columns:repeat(3,1fr)}}
+.tipo-op-card{background:rgba(8,40,58,0.72);border:1px solid var(--line-soft);border-radius:12px;padding:20px;text-decoration:none;display:flex;flex-direction:column;gap:8px;transition:border-color .18s}
+.tipo-op-card:hover{border-color:var(--cyan-dim)}
+.tipo-op-card.ativo{border-color:var(--cyan);background:rgba(18,168,238,0.06)}
+.tipo-op-card.em-breve{opacity:.55;cursor:default;pointer-events:none}
+.tipo-op-badge{font-family:var(--ui);font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:4px;align-self:flex-start}
+.tipo-op-badge.ativo{color:var(--navy-950);background:var(--cyan)}
+.tipo-op-badge.em-breve{color:var(--muted-dim);background:rgba(158,181,197,0.15)}
+.tipo-op-nome{font-family:var(--ui);font-size:16px;font-weight:800;color:var(--white);margin:0}
+.tipo-op-desc{font-family:var(--ui);font-size:12.5px;color:var(--muted-dim);line-height:1.5;flex:1}
+.tipo-op-cta{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan);margin-top:4px}
+/* Sonda de Perfuração — área de busca */
+.sonda-search-wrap{position:relative;margin-bottom:24px}
+.sonda-search-input{width:100%;background:rgba(8,40,58,0.8);border:1px solid var(--line-soft);border-radius:8px;padding:12px 16px 12px 42px;font-family:var(--ui);font-size:14px;color:var(--white);outline:none;transition:border-color .18s}
+.sonda-search-input::placeholder{color:var(--muted-dim)}
+.sonda-search-input:focus{border-color:var(--cyan-dim)}
+.sonda-search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted-dim);width:16px;height:16px;pointer-events:none}
+/* Sonda — grid de áreas */
+.sonda-areas{display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.sonda-area{background:rgba(8,40,58,0.7);border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;transition:border-color .18s}
+.sonda-area.aberta{border-color:var(--cyan-dim)}
+.sonda-area-hdr{display:flex;align-items:center;gap:12px;padding:16px 18px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.sonda-area-hdr:hover .sonda-area-titulo{color:var(--cyan-dim)}
+.sonda-area-titulo{font-family:var(--ui);font-size:14px;font-weight:800;color:var(--white);flex:1;letter-spacing:.01em}
+.sonda-area-count{font-family:var(--ui);font-size:11px;color:var(--muted-dim);background:rgba(158,181,197,0.1);border-radius:20px;padding:2px 9px;white-space:nowrap}
+.sonda-area-chevron{color:var(--muted-dim);transition:transform .2s;flex-none;width:14px;height:14px}
+.sonda-area.aberta .sonda-area-chevron{transform:rotate(180deg)}
+.sonda-area-body{padding:0 18px 18px;display:none}
+.sonda-area.aberta .sonda-area-body{display:block}
+.sonda-area-desc{font-family:var(--ui);font-size:12.5px;color:var(--muted-dim);line-height:1.5;padding-top:4px;padding-bottom:14px;border-bottom:1px solid var(--line-hair);margin-bottom:14px}
+/* Sonda — hierarquia */
+.sonda-hierarquia{display:flex;flex-direction:column;gap:2px}
+.sonda-item{display:flex;align-items:flex-start;gap:0;padding:6px 0}
+.sonda-item-inner{display:flex;align-items:flex-start;gap:10px;flex:1}
+.sonda-item-conector{flex:none;display:flex;align-items:flex-start;padding-top:3px}
+.sonda-item-info{flex:1;min-width:0}
+.sonda-item-nome{font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--cyan-dim);text-decoration:none;display:block;line-height:1.3}
+.sonda-item-nome:hover{color:var(--cyan)}
+.sonda-item-pt{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);display:block;margin-top:1px}
+.sonda-item-nota{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);font-style:italic;display:block;margin-top:1px}
+.sonda-nivel-0{padding-left:0}
+.sonda-nivel-1{padding-left:18px}
+.sonda-nivel-2{padding-left:36px}
+.sonda-nivel-3{padding-left:54px}
+.sonda-nivel-4{padding-left:72px}
+.sonda-nivel-5{padding-left:90px}
+.sonda-nivel-6{padding-left:108px}
+.sonda-nivel-7{padding-left:126px}
+@media(max-width:479px){
+  .sonda-nivel-3{padding-left:36px}
+  .sonda-nivel-4{padding-left:48px}
+  .sonda-nivel-5{padding-left:60px}
+  .sonda-nivel-6{padding-left:72px}
+  .sonda-nivel-7{padding-left:84px}
+}
+.sonda-aviso-carreira{background:rgba(255,212,77,0.06);border:1px solid rgba(255,212,77,0.2);border-radius:8px;padding:14px 16px;margin-bottom:28px}
+.sonda-aviso-carreira p{font-family:var(--ui);font-size:12px;color:var(--muted);line-height:1.55;margin:0}
+.sonda-aviso-carreira strong{color:var(--yellow)}
+.sonda-search-empty{font-family:var(--ui);font-size:13px;color:var(--muted-dim);text-align:center;padding:24px;display:none}
+mark.hl{background:rgba(18,168,238,0.25);color:var(--white);border-radius:2px;padding:0 1px}
+/* Sonda oculta/exibida via busca */
+.sonda-item.oculto{display:none}
+.sonda-area.sem-resultados{display:none}
+/* Aliases para busca (invisíveis) */
+.sonda-alias{display:none}
 /* Faixa utilitária compacta (item 21-22 do mockup): 4 atalhos de igual
    peso visual — Aeroportos/Modo Embarcado/Giro 24h/Mercado. Mesmo
    componente .embarcado-btn de sempre, só re-embrulhado num tile igual
@@ -1734,6 +1805,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
             <div class="nav-mais-sep"></div>
             <span class="nav-mais-label">Carreira</span>
             <a href="/comece-aqui" role="menuitem">Comece Aqui</a>
+            <a href="/carreiras" role="menuitem">Carreiras Offshore</a>
             <a href="/funcoes" role="menuitem">Funções a Bordo</a>
             <a href="/empresas" role="menuitem">Empresas Offshore</a>
             <a href="/cursos" role="menuitem">Cursos e Escolas</a>
@@ -1957,9 +2029,10 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Encontre navios, sondas e plataformas</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/funcoes">
+      <a class="central-tile" href="/carreiras">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15.5a8 8 0 0 1 16 0"/><path d="M12 7.5v-1"/><rect x="2.5" y="15.5" width="19" height="3" rx="1"/></svg></span>
-        <h3>Funções a Bordo</h3>
+        <h3>Carreiras Offshore</h3>
+        <p>Funções, hierarquia e caminhos de carreira</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
       <a class="central-tile" href="/empresas">
@@ -2086,7 +2159,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
 
 </main>
 
-<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><h3 class="footer-col-titulo">Portal</h3><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><h3 class="footer-col-titulo">Explore</h3><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/#carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><h3 class="footer-col-titulo">Acompanhe</h3><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>
+<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><h3 class="footer-col-titulo">Portal</h3><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><h3 class="footer-col-titulo">Explore</h3><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><h3 class="footer-col-titulo">Acompanhe</h3><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>
 
 <nav class="tabbar" aria-label="Navegação principal">
   <a href="#inicio" class="active"><span class="ti">🏠</span>Home</a>
@@ -4425,7 +4498,197 @@ const FUNCOES_OFFSHORE = [
     resumo: "Nível avançado de DPO, com experiência e tempo de mar adicionais, habilitado a assumir a liderança do quarto de serviço de DP. O NORMAM-101/DPC define explicitamente: \"SDPO (Senior DPO): Operador de Sistema de Posicionamento Dinâmico que está capacitado a assumir o comando do quarto de serviço de DP\" — o achado mais forte e diretamente citável desta pesquisa sobre o tema.",
     certificacoes: [{ requisito: "Certificado DPO pleno + tempo de mar adicional em operações DP", classificacao: "EXIGENCIA_COMUM_EMPRESA" }],
     caminhoCarreira: CAMINHO_DP,
-    fontes: [{ label: "NORMAM-101/DPC (definição textual de SDPO)", url: "https://assets.marinha.mil.br/sites/default/files/atos-normativos/dpc/normam/normam-101.pdf" }] }
+    fontes: [{ label: "NORMAM-101/DPC (definição textual de SDPO)", url: "https://assets.marinha.mil.br/sites/default/files/atos-normativos/dpc/normam/normam-101.pdf" }] },
+
+  /* ---------- Sonda de Perfuração — Carreiras 2.0 (2026-09-28) ----------
+     Funções específicas de sonda mapeadas na missão Carreiras Offshore 2.0.
+     Mantidas na mesma estrutura de FUNCOES_OFFSHORE para reutilização em
+     Minha Escala, Vagas e filtros futuros. Requisitos/certificações omitidos
+     quando variam por empresa/bandeira — deixar claro no campo nomeAntigo. */
+
+  // GESTÃO / OPERAÇÃO
+  { slug: "rig-manager", nome: "Rig Manager", area: "gestao",
+    nomeAntigo: "Em algumas empresas chamado de Installation Manager ou Senior OIM.",
+    resumo: "Responsável pela gestão geral da unidade de perfuração. Responde pela segurança das operações, eficiência, desempenho da equipe e interface com o cliente operador." },
+  { slug: "assistant-rig-manager", nome: "Assistant Rig Manager", area: "gestao",
+    resumo: "Apoia o Rig Manager na gestão da instalação. Pode assumir as responsabilidades do Rig Manager durante ausências ou na rotação de turno, conforme a empresa." },
+  { slug: "rig-engineer", nome: "Rig Engineer", area: "gestao",
+    resumo: "Suporte técnico de engenharia à gestão da instalação. Monitora indicadores operacionais, elabora relatórios técnicos e auxilia na resolução de problemas da unidade." },
+
+  // SUPORTE / HSE / ADMINISTRAÇÃO
+  { slug: "rig-administrator", nome: "Rig Administrator", area: "logistica",
+    nomeAntigo: "Também chamado de Rig Clerk, Offshore Clerk ou Administrador de Bordo conforme a empresa.",
+    resumo: "Responsável pelas atividades administrativas da unidade: controle de documentação, folha de presença, logística de pessoal embarcado e comunicação com a base." },
+  { slug: "medico-offshore", nome: "Médico Offshore", area: "seguranca",
+    nomeAntigo: "Medic (denominação comum em plataformas operadas por empresas internacionais).",
+    resumo: "Responsável pelo atendimento médico da tripulação a bordo. Realiza avaliações, atendimentos de urgência/emergência, consultas de rotina e mantém comunicação com suporte médico em terra." },
+  { slug: "hse-advisor-sr", nome: "Sr. Offshore HSE Advisor", area: "seguranca",
+    resumo: "Lidera a equipe de HSE da unidade. Coordena o sistema de gestão de segurança, saúde e meio ambiente, programas de treinamento e inspeções a bordo. Interface com a gestão da instalação e com o cliente." },
+  { slug: "hse-advisor", nome: "Offshore HSE Advisor", area: "seguranca",
+    nomeAntigo: "Em empresas brasileiras pode corresponder ao Técnico de Segurança do Trabalho Offshore — funções e exigências legais variam por empresa e contrato.",
+    resumo: "Apoia as atividades de HSE da unidade: inspeções de campo, análises de risco (APR/PTW), treinamentos e monitoramento de conformidade com procedimentos de segurança." },
+
+  // PERFURAÇÃO — DRILLING
+  { slug: "drilling-section-leader", nome: "Drilling Section Leader", area: "drilling",
+    resumo: "Lidera a seção de perfuração da unidade. Interface entre a gestão da instalação e as equipes de turno de perfuração. Responsável pelo planejamento, execução das operações de poço e conformidade com o programa de perfuração do cliente." },
+  { slug: "sr-toolpusher", nome: "Sr. Toolpusher", area: "drilling",
+    nomeAntigo: "A distinção entre Toolpusher e Sr. Toolpusher varia por empresa e pela escala da operação — não é um degrau universal padronizado.",
+    resumo: "Nível sênior de Toolpusher com maior responsabilidade operacional e interface com o Drilling Section Leader e o cliente operador. Em operações com equipe grande, pode coordenar os Toolpushers de turno." },
+
+  // TÉCNICA / MANUTENÇÃO
+  { slug: "technical-section-leader", nome: "Technical Section Leader", area: "engine",
+    nomeAntigo: "Também abreviado como TSL.",
+    resumo: "Lidera toda a seção técnica da unidade: manutenção mecânica, elétrica, eletrônica e operação da sala de máquinas. Interface com a gestão da instalação e com equipes de manutenção de todos os sistemas." },
+  { slug: "assistant-tsl", nome: "Assistant TSL", area: "engine",
+    resumo: "Apoia o Technical Section Leader na coordenação das equipes técnicas. Pode assumir as responsabilidades do TSL durante sua ausência ou rotação de turno." },
+  { slug: "engine-room-operator", nome: "Engine Room Operator / Motorman", area: "engine",
+    nomeAntigo: "Motorman é o termo histórico do setor; Engine Room Operator (ERO) é a denominação adotada por alguns drilling contractors.",
+    resumo: "Opera e monitora os equipamentos da sala de máquinas: geradores, sistemas de propulsão, bombas e auxiliares. Executa manutenção de rotina sob orientação do supervisor técnico." },
+  { slug: "mechanic-supervisor", nome: "Mechanic Supervisor", area: "engine",
+    resumo: "Supervisiona a equipe de mecânicos da unidade. Coordena a execução e o planejamento de manutenção preventiva e corretiva de equipamentos mecânicos." },
+  { slug: "sr-mechanic", nome: "Sr. Mechanic", area: "engine",
+    resumo: "Mecânico sênior com maior experiência e autonomia técnica. Pode coordenar trabalhos específicos, orientar mecânicos e assistentes e executar manutenções de maior complexidade." },
+  { slug: "assistant-mechanic", nome: "Assistant Mechanic", area: "engine",
+    resumo: "Apoia as atividades de manutenção mecânica da unidade. Ponto de entrada na trajetória da equipe de manutenção mecânica a bordo." },
+  { slug: "welder", nome: "Welder", area: "engine",
+    nomeAntigo: "Soldador Offshore.",
+    resumo: "Realiza serviços de soldagem e corte em estruturas, tubulações e equipamentos da unidade. Trabalha sob supervisão do Mechanic Supervisor ou do Technical Section Leader." },
+  { slug: "electrical-supervisor", nome: "Electrical Supervisor", area: "engine",
+    resumo: "Supervisiona as equipes de eletricistas e técnicos de eletrônica. Coordena manutenção elétrica e eletrônica e responde pela integridade dos sistemas elétricos e de instrumentação da unidade." },
+  { slug: "sr-electronic-technician", nome: "Sr. Electronic Technician", area: "engine",
+    resumo: "Técnico de eletrônica sênior. Atua na manutenção, diagnóstico e configuração de sistemas de controle, automação, instrumentação e comunicação da unidade." },
+  { slug: "electronic-technician", nome: "Electronic Technician", area: "engine",
+    resumo: "Realiza manutenção e diagnóstico de sistemas eletrônicos, de controle e instrumentação a bordo sob supervisão do Electrical Supervisor ou técnico sênior." },
+  { slug: "sr-electrician", nome: "Sr. Electrician", area: "engine",
+    resumo: "Eletricista sênior com maior responsabilidade técnica. Coordena trabalhos elétricos específicos, orienta eletricistas e executa manutenções de maior complexidade." },
+
+  // SUBSEA
+  { slug: "subsea-supervisor", nome: "Subsea Supervisor", area: "subsea",
+    resumo: "Lidera as operações subsea da unidade. Responsável pelo planejamento e execução de trabalhos com BOP, riser, equipamentos submarinos e ROV quando aplicável. Interface com o cliente operador para as atividades subsea." },
+  { slug: "subsea-engineer", nome: "Subsea Engineer", area: "subsea",
+    resumo: "Suporte de engenharia às operações subsea. Analisa dados técnicos, elabora procedimentos de intervenção e acompanha trabalhos em equipamentos submarinos." },
+  { slug: "subsea-technician", nome: "Subsea Technician", area: "subsea",
+    resumo: "Realiza manutenção e operação de equipamentos subsea da unidade: BOP, sistemas de controle submarino, riser e conexões de fundo de poço." },
+
+  // MARINE / DECK
+  { slug: "marine-section-leader", nome: "Marine Section Leader", area: "marine",
+    resumo: "Lidera a seção marítima da unidade: posicionamento dinâmico, equipe de convés, Bosun e operações náuticas. Interface com a gestão da instalação." },
+  { slug: "deck-supervisor", nome: "Deck Supervisor", area: "deck",
+    nomeAntigo: "Também chamado de Deck Pusher ou Encarregado de Convés conforme a empresa e o tipo de unidade.",
+    resumo: "Supervisiona as atividades e a equipe de convés. Coordena movimentação de cargas, operações com guindastes e organização geral da área de trabalho no convés." },
+  { slug: "bosun", nome: "Bosun", area: "marine",
+    nomeAntigo: "Contramestre (denominação náutica em português). Em unidades de perfuração, atua principalmente como supervisor operacional da equipe de convés.",
+    resumo: "Supervisiona operacionalmente a equipe de marinheiros/AB Seaman no convés. Organiza atividades de rigging, amarração, conservação de equipamentos náuticos e segurança do convés." },
+  { slug: "ab-seaman", nome: "AB Seaman", area: "marine",
+    nomeAntigo: "Able Bodied Seaman. Em português: Marinheiro de Convés — denominação comum em embarcações e unidades offshore.",
+    resumo: "Atua nas operações de convés: rigging, amarração, conservação e atividades gerais de tripulação de convés sob orientação do Bosun ou Deck Supervisor." },
+
+  // LOGÍSTICA / MATERIAIS
+  { slug: "material-administrator", nome: "Material Administrator", area: "logistica",
+    nomeAntigo: "Material Man, Almoxarife Offshore ou Warehouse Offshore — a denominação varia por empresa.",
+    resumo: "Responsável pelo controle de materiais, peças e suprimentos da unidade: recebimento, armazenamento, movimentação de estoque e interface logística com a base em terra." },
+  { slug: "log-tech", nome: "Log Tech", area: "logistica",
+    nomeAntigo: "Logistics Technician — denominação adotada por alguns drilling contractors.",
+    resumo: "Apoia as atividades de logística da unidade: controle de cargas, documentação de movimentação de materiais e apoio ao Material Administrator." }
+];
+
+/* ---------- Carreiras Offshore 2.0 — Sonda de Perfuração (2026-09-28) ---
+   Estrutura organizacional de uma sonda de perfuração para fins de
+   mapeamento visual de carreiras. A hierarquia representa ESTRUTURA
+   ORGANIZACIONAL — não implica promoção automática ou progressão obrigatória
+   entre funções. Caminhos de carreira são tratados separadamente. */
+const SONDA_PERFURACAO_AREAS = [
+  {
+    id: "gestao",
+    titulo: "Gestão / Operação",
+    desc: "Coordenação geral da instalação — segurança operacional, interface com o cliente e gestão de equipes.",
+    hierarquia: [
+      { slug: "rig-manager", nivel: 0 },
+      { slug: "assistant-rig-manager", nivel: 1 },
+      { slug: "oim", nivel: 1 },
+    ]
+  },
+  {
+    id: "hse-admin",
+    titulo: "Suporte / HSE / Administração",
+    desc: "Segurança, saúde, meio ambiente e administração da instalação.",
+    hierarquia: [
+      { slug: "hse-advisor-sr", nivel: 0 },
+      { slug: "hse-advisor", nivel: 1 },
+      { slug: "medico-offshore", nivel: 0 },
+      { slug: "rig-engineer", nivel: 0 },
+      { slug: "rig-administrator", nivel: 0 },
+    ]
+  },
+  {
+    id: "drilling",
+    titulo: "Perfuração — Drilling",
+    desc: "Operação da sonda, coluna de perfuração e controle do poço.",
+    hierarquia: [
+      { slug: "drilling-section-leader", nivel: 0 },
+      { slug: "sr-toolpusher", nivel: 1 },
+      { slug: "toolpusher", nivel: 2 },
+      { slug: "driller", nivel: 3 },
+      { slug: "assistant-driller", nivel: 4 },
+      { slug: "torrista-derrickman", nivel: 5 },
+      { slug: "assistente-torrista", nivel: 6 },
+      { slug: "plataformista", nivel: 7 },
+    ]
+  },
+  {
+    id: "tecnica",
+    titulo: "Técnica / Manutenção",
+    desc: "Integridade mecânica, elétrica, eletrônica e operação da sala de máquinas.",
+    hierarquia: [
+      { slug: "technical-section-leader", nivel: 0 },
+      { slug: "assistant-tsl", nivel: 1 },
+      { slug: "engine-room-operator", nivel: 1 },
+      { slug: "mechanic-supervisor", nivel: 1 },
+      { slug: "sr-mechanic", nivel: 2 },
+      { slug: "mecanico", nivel: 3 },
+      { slug: "assistant-mechanic", nivel: 4 },
+      { slug: "welder", nivel: 2 },
+      { slug: "electrical-supervisor", nivel: 1 },
+      { slug: "sr-electronic-technician", nivel: 2 },
+      { slug: "electronic-technician", nivel: 3 },
+      { slug: "sr-electrician", nivel: 2 },
+      { slug: "eletricista", nivel: 3 },
+    ]
+  },
+  {
+    id: "subsea",
+    titulo: "Subsea",
+    desc: "Operações e equipamentos submarinos — BOP, riser e controle de fundo de poço.",
+    hierarquia: [
+      { slug: "subsea-supervisor", nivel: 0 },
+      { slug: "subsea-engineer", nivel: 1 },
+      { slug: "subsea-technician", nivel: 2 },
+    ]
+  },
+  {
+    id: "marine",
+    titulo: "Marine / Deck",
+    desc: "Operações náuticas, posicionamento dinâmico e equipe de convés.",
+    hierarquia: [
+      { slug: "marine-section-leader", nivel: 0 },
+      { slug: "deck-supervisor", nivel: 1 },
+      { slug: "bosun", nivel: 2 },
+      { slug: "ab-seaman", nivel: 3 },
+      { slug: "guindasteiro", nivel: 2 },
+      { slug: "assistente-guindasteiro", nivel: 3 },
+      { slug: "roustabout", nivel: 2 },
+      { slug: "dpo", nivel: 1 },
+    ]
+  },
+  {
+    id: "logistica",
+    titulo: "Logística / Materiais",
+    desc: "Controle de estoque, suprimentos e apoio logístico da instalação.",
+    hierarquia: [
+      { slug: "material-administrator", nivel: 0 },
+      { slug: "log-tech", nivel: 1 },
+    ]
+  }
 ];
 
 /* ---------- Sitemap ----------
@@ -4436,7 +4699,7 @@ const FUNCOES_OFFSHORE = [
 const ROTAS_ESTATICAS_SITEMAP = [
   "/", "/offshore-agora", "/aeroportos", "/mercado", "/comece-aqui", "/cursos", "/conversor", "/glossario", "/horarios", "/calculadora-embarque", "/comparador-escalas", "/dados", "/empresas",
   "/funcoes", "/guias", "/minha-escala", "/radar", "/pesquisa-salarial",
-  "/salarios", "/unidades", "/vagas", "/carreiras/cadastre-seu-curriculo", "/carreiras/modelo-curriculo", "/pergunte-ao-ownews",
+  "/salarios", "/unidades", "/vagas", "/carreiras", "/carreiras/sonda-de-perfuracao", "/carreiras/cadastre-seu-curriculo", "/carreiras/modelo-curriculo", "/pergunte-ao-ownews",
   "/guias/escala-offshore", "/guias/erros-comuns-golpes",
   "/guias/checklist-documentos", "/guias/primeiro-embarque",
   "/guias/o-que-levar", "/guias/preciso-de-experiencia",
@@ -5329,7 +5592,7 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     '<a href="/#destaque">NOTÍCIAS</a>' +
     '<a href="/offshore-agora">OFFSHORE AGORA</a>' +
     '<a class="nav-destaque" href="/carreiras/cadastre-seu-curriculo">CADASTRE SEU CURRÍCULO</a>' +
-    '<a href="/#carreiras">CARREIRAS</a>' +
+    '<a href="/carreiras">CARREIRAS</a>' +
     '<div class="nav-mais" id="navMaisHub">' +
     '<button type="button" class="nav-mais-btn" id="maisBtnHub" aria-expanded="false" aria-haspopup="true" aria-controls="maisMenuHub">MAIS ▾</button>' +
     '<div class="nav-mais-menu" id="maisMenuHub" role="menu" aria-label="Mais">' +
@@ -5440,11 +5703,11 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     SCRIPT_PRESENCA +
     SCRIPT_VISITAS +
     (opcoes.eventoAbertura ? '<script>if(window.ownewsEvento)window.ownewsEvento(' + JSON.stringify(opcoes.eventoAbertura) + ');</script>' : '') +
-    '<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><h3 class="footer-col-titulo">Portal</h3><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><h3 class="footer-col-titulo">Explore</h3><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/#carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><h3 class="footer-col-titulo">Acompanhe</h3><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>' +
+    '<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><h3 class="footer-col-titulo">Portal</h3><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><h3 class="footer-col-titulo">Explore</h3><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><h3 class="footer-col-titulo">Acompanhe</h3><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>' +
     '<nav class="tabbar" aria-label="Navegação principal">' +
     '<a href="/"><span class="ti">🏠</span>Home</a>' +
     '<a href="/#destaque"><span class="ti">📰</span>Notícias</a>' +
-    '<a href="/#carreiras"><span class="ti">💼</span>Carreiras</a>' +
+    '<a href="/carreiras"><span class="ti">💼</span>Carreiras</a>' +
     '<a href="https://www.offshoreworks.com.br" target="_blank" rel="noopener"><span class="ti">🛒</span>Loja</a>' +
     '</nav>' +
     '</body></html>'
@@ -5705,7 +5968,7 @@ function renderSalarioDetalhe(slug) {
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/salarios">← Todos os salários</a>' +
     '<a href="/funcoes/' + f.slug + '">Função a bordo: ' + escaparHTML(f.nome) + ' →</a>' +
-    '<a href="/#carreiras">Ver seção Carreiras</a>' +
+    '<a href="/carreiras">Ver seção Carreiras</a>' +
     '</div>';
 
   return paginaChrome(
@@ -5834,7 +6097,7 @@ function renderFuncaoDetalhe(slug) {
     '<a href="/salarios/' + f.slug + '">Salário de ' + escaparHTML(f.nome) + ' →</a>' +
     '<a href="/carreiras/modelo-curriculo">Monte seu currículo para esta função →</a>' +
     '<a href="/carreiras/cadastre-seu-curriculo">Cadastre-se nas empresas do setor →</a>' +
-    '<a href="/#carreiras">Ver seção Carreiras</a>' +
+    '<a href="/carreiras">Ver seção Carreiras</a>' +
     '</div>';
 
   return paginaChrome(
@@ -5842,6 +6105,176 @@ function renderFuncaoDetalhe(slug) {
     "O que faz um(a) " + f.nome + " a bordo de uma unidade offshore.",
     conteudo,
     "/funcoes/" + f.slug
+  );
+}
+
+/* ---------- /carreiras e /carreiras/sonda-de-perfuracao ---------- */
+
+function renderCarreirasIndex() {
+  const tiposOp = [
+    {
+      id: "sonda",
+      nome: "Sonda de Perfuração",
+      desc: "Drilling rigs — plataformas e unidades semissubmersíveis dedicadas à perfuração de poços de petróleo e gás.",
+      ativo: true,
+      href: "/carreiras/sonda-de-perfuracao"
+    },
+    { id: "fpso", nome: "FPSO / Produção", desc: "Unidades flutuantes de produção, armazenamento e transferência de petróleo.", ativo: false },
+    { id: "embarcacoes", nome: "Embarcações", desc: "PSVs, AHTS, embarcações de apoio e navios especializados.", ativo: false },
+    { id: "rov-subsea", nome: "ROV / Subsea", desc: "Operações remotamente operadas e trabalhos submarinos especializados.", ativo: false },
+    { id: "catering", nome: "Catering / Hotelaria", desc: "Serviços de alimentação, hotelaria e apoio logístico a bordo.", ativo: false },
+  ];
+
+  const cardsHtml = tiposOp.map(t => {
+    const cls = t.ativo ? 'tipo-op-card ativo' : 'tipo-op-card em-breve';
+    const badge = t.ativo
+      ? '<span class="tipo-op-badge ativo">Disponível</span>'
+      : '<span class="tipo-op-badge em-breve">Em breve</span>';
+    const inner =
+      badge +
+      '<p class="tipo-op-nome">' + escaparHTML(t.nome) + '</p>' +
+      '<p class="tipo-op-desc">' + escaparHTML(t.desc) + '</p>' +
+      (t.ativo ? '<span class="tipo-op-cta">Explorar carreiras →</span>' : '');
+    return t.ativo
+      ? '<a class="' + cls + '" href="' + t.href + '">' + inner + '</a>'
+      : '<div class="' + cls + '">' + inner + '</div>';
+  }).join('');
+
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Carreiras Offshore" }]) +
+    '<div class="carreiras-hero">' +
+    '<h1>Carreiras Offshore</h1>' +
+    '<p>Conheça as funções a bordo, entenda como as equipes se organizam e descubra caminhos possíveis para desenvolver sua carreira no setor offshore.</p>' +
+    '</div>' +
+    '<p class="tipos-op-label">Tipo de operação</p>' +
+    '<div class="tipos-op-grid">' + cardsHtml + '</div>' +
+    '<div class="hub-continue">' +
+    '<span class="hub-continue-label">Explore também</span>' +
+    '<a href="/funcoes">Todas as funções a bordo →</a>' +
+    '<a href="/vagas">Vagas verificadas →</a>' +
+    '<a href="/carreiras/modelo-curriculo">Monte seu currículo →</a>' +
+    '<a href="/carreiras/cadastre-seu-curriculo">Cadastre-se nas empresas →</a>' +
+    '</div>';
+
+  return paginaChrome(
+    "Carreiras Offshore — Funções, Hierarquia e Caminhos de Carreira",
+    "Conheça as funções a bordo, a estrutura das equipes e os caminhos possíveis para crescer no setor offshore.",
+    conteudo,
+    "/carreiras"
+  );
+}
+
+function renderCarreirasSonda() {
+  const totalFuncoes = SONDA_PERFURACAO_AREAS.reduce((acc, a) => acc + a.hierarquia.length, 0);
+
+  const areasHtml = SONDA_PERFURACAO_AREAS.map((area, areaIdx) => {
+    const count = area.hierarquia.length;
+    const itensHtml = area.hierarquia.map(item => {
+      const f = funcaoPorSlug(item.slug);
+      const nome = f ? f.nome : item.slug;
+      const nomeAntigo = f && f.nomeAntigo ? f.nomeAntigo : '';
+      const nivelClass = 'sonda-nivel-' + Math.min(item.nivel, 7);
+      // Portuguese alias / secondary name
+      const ptAlias = nomeAntigo
+        ? '<span class="sonda-item-pt">' + escaparHTML(nomeAntigo.split('.')[0].split(',')[0].trim()) + '</span>'
+        : '';
+      const href = f ? '/funcoes/' + f.slug : '#';
+      // search aliases (hidden span with alternate names)
+      const aliases = f && f.nomeAntigo
+        ? '<span class="sonda-alias">' + escaparHTML(f.nomeAntigo) + '</span>'
+        : '';
+      return (
+        '<div class="sonda-item ' + nivelClass + '" data-nome="' + escaparHTML(nome.toLowerCase()) + '">' +
+        '<div class="sonda-item-inner">' +
+        '<div class="sonda-item-info">' +
+        '<a class="sonda-item-nome" href="' + href + '">' + escaparHTML(nome) + '</a>' +
+        ptAlias +
+        aliases +
+        '</div></div></div>'
+      );
+    }).join('');
+
+    return (
+      '<div class="sonda-area" id="area-' + area.id + '">' +
+      '<div class="sonda-area-hdr" onclick="toggleArea(this)">' +
+      '<span class="sonda-area-titulo">' + escaparHTML(area.titulo) + '</span>' +
+      '<span class="sonda-area-count">' + count + ' funções</span>' +
+      '<svg class="sonda-area-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>' +
+      '</div>' +
+      '<div class="sonda-area-body">' +
+      '<p class="sonda-area-desc">' + escaparHTML(area.desc) + '</p>' +
+      '<div class="sonda-hierarquia">' + itensHtml + '</div>' +
+      '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  const scriptJs =
+    '<script>' +
+    'function toggleArea(hdr){var a=hdr.closest(".sonda-area");a.classList.toggle("aberta");}' +
+    // Open first area by default
+    'document.addEventListener("DOMContentLoaded",function(){' +
+    '  var first=document.querySelector(".sonda-area");if(first)first.classList.add("aberta");' +
+    '  var inp=document.getElementById("sondaSearch");if(inp)inp.addEventListener("input",function(){buscarSonda(this.value);});' +
+    '});' +
+    'function normalizar(s){return s.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");}' +
+    'function buscarSonda(q){' +
+    '  q=normalizar(q.trim());' +
+    '  var empty=document.getElementById("sondaSearchEmpty");' +
+    '  var areas=document.querySelectorAll(".sonda-area");' +
+    '  if(!q){' +
+    '    areas.forEach(function(a){' +
+    '      a.classList.remove("sem-resultados");' +
+    '      a.querySelectorAll(".sonda-item").forEach(function(i){i.classList.remove("oculto");});' +
+    '    });' +
+    '    if(empty)empty.style.display="none";' +
+    '    return;' +
+    '  }' +
+    '  var total=0;' +
+    '  areas.forEach(function(area){' +
+    '    var itens=area.querySelectorAll(".sonda-item");' +
+    '    var vis=0;' +
+    '    itens.forEach(function(item){' +
+    '      var txt=normalizar(item.getAttribute("data-nome")||"")+normalizar(item.textContent||"");' +
+    '      if(txt.indexOf(q)>=0){item.classList.remove("oculto");vis++;}' +
+    '      else item.classList.add("oculto");' +
+    '    });' +
+    '    if(vis>0){area.classList.remove("sem-resultados");area.classList.add("aberta");total+=vis;}' +
+    '    else area.classList.add("sem-resultados");' +
+    '  });' +
+    '  if(empty)empty.style.display=total===0?"block":"none";' +
+    '}' +
+    '</script>';
+
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Carreiras Offshore", href: "/carreiras" }, { nome: "Sonda de Perfuração" }]) +
+    '<div class="carreiras-hero">' +
+    '<span class="eyebrow">Sonda de Perfuração · ' + totalFuncoes + ' funções mapeadas</span>' +
+    '<h1>Mapa de Carreiras</h1>' +
+    '<p>Estrutura das equipes e funções a bordo de uma sonda de perfuração. Explore cada área para ver a hierarquia e acessar o detalhamento de cada função.</p>' +
+    '</div>' +
+    '<div class="sonda-aviso-carreira">' +
+    '<p><strong>Estrutura organizacional ≠ progressão obrigatória.</strong> O mapa abaixo representa como as áreas e funções se organizam em uma sonda — não significa que a carreira siga uma única sequência. Caminhos possíveis dependem da empresa, das certificações obtidas e da experiência acumulada.</p>' +
+    '</div>' +
+    '<div class="sonda-search-wrap">' +
+    '<svg class="sonda-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>' +
+    '<input class="sonda-search-input" id="sondaSearch" type="search" placeholder="Busque uma função — ex.: guindasteiro, DPO, roughneck, soldador…" autocomplete="off">' +
+    '</div>' +
+    '<div class="sonda-areas">' + areasHtml + '</div>' +
+    '<p class="sonda-search-empty" id="sondaSearchEmpty">Nenhuma função encontrada. Tente outro termo.</p>' +
+    '<div class="hub-continue">' +
+    '<span class="hub-continue-label">Continue</span>' +
+    '<a href="/carreiras">← Tipos de operação</a>' +
+    '<a href="/funcoes">Todas as funções a bordo →</a>' +
+    '<a href="/vagas">Vagas verificadas →</a>' +
+    '</div>' +
+    scriptJs;
+
+  return paginaChrome(
+    "Sonda de Perfuração — Funções e Hierarquia | Carreiras Offshore",
+    "Conheça todas as funções de uma sonda de perfuração offshore: hierarquia por área, nomes em português e inglês, e detalhamento de cada cargo.",
+    conteudo,
+    "/carreiras/sonda-de-perfuracao"
   );
 }
 
@@ -6779,7 +7212,7 @@ function renderOffshoreAgora(){
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/#destaque">Ver todas as notícias →</a>' +
-    '<a href="/#carreiras">Central Offshore →</a>' +
+    '<a href="/carreiras">Central Offshore →</a>' +
     '</div>' +
 
     '<script>' +
@@ -6879,7 +7312,7 @@ function renderAgora(){
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/#destaque">Ver todas as notícias →</a>' +
-    '<a href="/#carreiras">Central Offshore →</a>' +
+    '<a href="/carreiras">Central Offshore →</a>' +
     '</div>' +
 
     '<script>' +
@@ -7426,7 +7859,7 @@ function renderCadastreCurriculo() {
   const cards = EMPRESAS_CARREIRAS.map(cardEmpresa).join('');
 
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central Offshore", href: "/#carreiras" }, { nome: "Cadastre seu Currículo" }]) +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Carreiras Offshore", href: "/carreiras" }, { nome: "Cadastre seu Currículo" }]) +
     '<div class="hub-hero">' +
     '<span class="eyebrow">Carreiras Offshore</span>' +
     '<h1>Cadastre seu currículo nas principais empresas offshore</h1>' +
@@ -14021,6 +14454,18 @@ export default {
       });
     }
 
+    if (url.pathname === "/carreiras") {
+      return new Response(renderCarreirasIndex(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
+    if (url.pathname === "/carreiras/sonda-de-perfuracao") {
+      return new Response(renderCarreirasSonda(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
     if (url.pathname === "/carreiras/cadastre-seu-curriculo") {
       return new Response(renderCadastreCurriculo(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
@@ -14031,6 +14476,16 @@ export default {
       return new Response(renderModeloCurriculo(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
+    }
+
+    if (url.pathname.startsWith("/carreiras/") &&
+        url.pathname !== "/carreiras/cadastre-seu-curriculo" &&
+        url.pathname !== "/carreiras/modelo-curriculo" &&
+        url.pathname !== "/carreiras/sonda-de-perfuracao") {
+      const slugCarreira = url.pathname.split("/")[2];
+      const paginaFuncao = renderFuncaoDetalhe(slugCarreira);
+      if (paginaFuncao) return new Response(paginaFuncao, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      return pagina404();
     }
 
     if (url.pathname === "/pergunte-ao-ownews") {
