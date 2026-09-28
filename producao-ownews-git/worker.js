@@ -1071,7 +1071,7 @@ html.embarcado header{backdrop-filter:none}
    da matéria principal, mas o conteúdo real era baixo). Com 2-3
    secundárias, distribui o espaço entre elas (nunca duplica notícia nem
    estica visualmente o card em si — só a distribuição vertical). */
-.market-body.market-count-2 .row-list{justify-content:center}
+.market-body.market-count-2 .row-list{justify-content:flex-start}
 .market-body.market-count-3 .row-list,
 .market-body.market-count-4 .row-list{justify-content:space-between;height:100%}
 .market-feature{display:grid;gap:12px;cursor:pointer}
@@ -1080,6 +1080,7 @@ html.embarcado header{backdrop-filter:none}
 .market-feature p{font-family:var(--editorial);font-size:15px;line-height:1.5;color:var(--muted)}
 @media(min-width:760px){
   .market-body{grid-template-columns:1fr 1fr;gap:40px}
+  .market-body.market-count-2{align-items:start}
   .market-feature h3{font-size:25px}
 }
 
@@ -3607,15 +3608,15 @@ function renderTudo(noticias){
     }
     return escolhidos;
   }
-  const mercadoHoje = selecionarEditorial(poolElegivelHoje, 'mercado', 5);
-  const mercado = mercadoHoje.length >= 2
+  const mercadoHoje = selecionarEditorial(poolElegivelHoje, 'mercado', 4);
+  const mercado = mercadoHoje.length >= 4
     ? mercadoHoje
-    : mercadoHoje.concat(selecionarEditorial(poolResiliencia48h, 'mercado', 5 - mercadoHoje.length));
+    : mercadoHoje.concat(selecionarEditorial(poolResiliencia48h, 'mercado', 4 - mercadoHoje.length));
 
-  const operacoesHoje = selecionarEditorial(poolElegivelHoje, 'operacoes', 6);
-  const operacoes = operacoesHoje.length >= 3
+  const operacoesHoje = selecionarEditorial(poolElegivelHoje, 'operacoes', 4);
+  const operacoes = operacoesHoje.length >= 4
     ? operacoesHoje
-    : operacoesHoje.concat(selecionarEditorial(poolResiliencia48h, 'operacoes', 6 - operacoesHoje.length));
+    : operacoesHoje.concat(selecionarEditorial(poolResiliencia48h, 'operacoes', 4 - operacoesHoje.length));
 
   renderHero(hero);
   renderHighlights(destaques);
