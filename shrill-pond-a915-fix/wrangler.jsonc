@@ -32,6 +32,16 @@
     { "binding": "SAUDE_KV", "id": "d56be506566247ed8a76f74eef14cd6d" }
   ],
 
+  // AI binding: Workers AI (Cloudflare) — usado para tradução PT-BR de
+  // títulos em inglês das fontes internacionais (Offshore Energy, Marine
+  // Technology News). Modelo: @cf/meta/m2m100-1.2b (EN→PT, rápido,
+  // ~130-200 neurons por título). Com ~0–10 artigos EN/dia, o consumo
+  // máximo é ~2.000 neurons/dia — bem dentro do free tier de 10.000
+  // neurons/dia da conta (compartilhado com ownews-git).
+  "ai": {
+    "binding": "AI"
+  },
+
   // OFFVOOS_DO (Durable Object, classe OffVoosPoller): agenda a coleta do
   // OffVoos a cada ~3min via Alarm, NÃO via Cloudflare Cron Trigger — a
   // conta já está no limite de 5/5 cron triggers do plano Free (2 deste

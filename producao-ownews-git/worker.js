@@ -14792,17 +14792,33 @@ async function ccColetarSistema(env) {
     if (typeof saude.articles_last_24h === "number") {
       partes.push(`Publicadas 24h: ${saude.articles_last_24h}.`);
     }
-    if (typeof saude.encontrados === "number" && typeof saude.relevantes === "number") {
-      const rejeitadas = typeof saude.descartados === "number" ? saude.descartados : saude.encontrados - saude.relevantes;
-      partes.push(`Última coleta — ${saude.encontrados} descobertas, ${saude.relevantes} aceitas, ${rejeitadas} rejeitadas.`);
+    const auto = saude.automacao || {};
+    if (typeof auto.encontrados === "number" && typeof auto.relevantes === "number") {
+      const rejeitadas = typeof auto.descartados === "number" ? auto.descartados : auto.encontrados - auto.relevantes;
+      partes.push(`Última coleta — ${auto.encontrados} descobertas, ${auto.relevantes} aceitas, ${rejeitadas} rejeitadas.`);
     }
     if (Array.isArray(saude.sources_active_24h) && saude.sources_active_24h.length > 0) {
       partes.push(`Fontes ativas 24h: ${saude.sources_active_24h.join(", ")}.`);
     }
-    if (Array.isArray(saude.fontes_com_erro) && saude.fontes_com_erro.length > 0) {
-      partes.push(`Com erro: ${saude.fontes_com_erro.map((f) => f.fonte).join(", ")}.`);
+    if (saude.traducao) {
+      const trad = saude.traducao;
+      if (trad.habilitado) {
+        const tradParts = [];
+        if (trad.traduzidas_ultima_exec > 0) tradParts.push(`${trad.traduzidas_ultima_exec} trad.`);
+        if (trad.bloqueadas_ultima_exec > 0) tradParts.push(`${trad.bloqueadas_ultima_exec} bloq.`);
+        if (trad.falhas_ultima_exec > 0) tradParts.push(`${trad.falhas_ultima_exec} falhas`);
+        partes.push(`Tradução EN→PT: ativa${tradParts.length ? ` (${tradParts.join(", ")})` : ""}.`);
+      } else {
+        partes.push("Tradução EN→PT: inativa — artigos EN bloqueados.");
+      }
     }
-    const ok = saude.HOME_FRESHNESS === "OK" && (!Array.isArray(saude.fontes_com_erro) || saude.fontes_com_erro.length === 0);
+    const fontesComErro = Array.isArray(auto.fontes_com_erro) ? auto.fontes_com_erro : [];
+    if (fontesComErro.length > 0) {
+      partes.push(`Erro: ${fontesComErro.map((f) => f.fonte).join(", ")}.`);
+    }
+    const temFalhasTrad = saude.traducao && saude.traducao.falhas_ultima_exec > 0;
+    const temErroFontes = fontesComErro.length > 0;
+    const ok = saude.HOME_FRESHNESS === "OK" && !temFalhasTrad && !temErroFontes;
     return { ok, detalhe: partes.length ? partes.join(" ") : "Sem dados de pipeline disponíveis." };
   })() : { ok: false, detalhe: "Coletor não respondeu — sem dados de pipeline." };
   fontes.offvoosAeroportos = saude && saude.offvoos

@@ -548,6 +548,10 @@ if (url.pathname === "/teste-materia") {
       return executarTeste(() => reprocessarArtigosCorrompidos(env));
     }
 
+    if (url.pathname === "/corrigir-titulos-en") {
+      return executarTeste(() => corrigirTitulosEmIngles(env));
+    }
+
     if (url.pathname === "/corrigir-imagens-banner") {
       return executarTeste(() => corrigirImagensBannerRepetidas(env));
     }
@@ -1943,17 +1947,26 @@ function resumirFontesDaExecucao(execucao) {
     }
   }
 
+  let traduzidas = 0, bloqueadas_idioma = 0, falhas_traducao = 0;
+  for (const r of Object.values(execucao.resultados)) {
+    if (!r || r.ok === false) continue;
+    traduzidas += r.traduzidas || 0;
+    bloqueadas_idioma += r.bloqueadas_idioma || 0;
+    falhas_traducao += r.falhas_traducao || 0;
+  }
+
   return {
     fontes_executadas: fontesExecutadas,
     fontes_ok: fontesOk,
     fontes_com_erro: fontesComErro,
     encontrados, relevantes, novos, duplicados, descartados,
+    traduzidas, bloqueadas_idioma, falhas_traducao,
     motivo_dos_descartes: motivos
   };
 }
 
 function resumirFunilResultados(resultados) {
-  const f = { FOUND: 0, FETCHED: 0, PARSED: 0, RECENT_24H: 0, RELEVANT: 0, DUPLICATE: 0, REJECTED_DATE: 0, REJECTED_RELEVANCE: 0, REJECTED_OTHER: 0, INSERTED: 0, ERROR: 0, recentes_rejeitadas: [], SOURCE_COVERAGE: {} };
+  const f = { FOUND: 0, FETCHED: 0, PARSED: 0, RECENT_24H: 0, RELEVANT: 0, DUPLICATE: 0, REJECTED_DATE: 0, REJECTED_RELEVANCE: 0, REJECTED_OTHER: 0, INSERTED: 0, ERROR: 0, traduzidas: 0, bloqueadas_idioma: 0, falhas_traducao: 0, recentes_rejeitadas: [], SOURCE_COVERAGE: {} };
   for (const [fonte, r] of Object.entries(resultados || {})) {
     f.SOURCE_COVERAGE[fonte] = { consulted: true, responded: !!r && r.ok !== false, recent_6h: 0, recent_12h: 0, recent_24h: r && r.recentes_24h || 0, error: r && r.ok === false ? r.erro : null };
     if (!r || r.ok === false) { f.ERROR++; continue; }
@@ -1972,6 +1985,9 @@ function resumirFunilResultados(resultados) {
     f.REJECTED_DATE += r.rejeitadas_data || 0;
     f.REJECTED_RELEVANCE += r.descartadas_relevancia || 0;
     f.INSERTED += r.inseridas || 0;
+    f.traduzidas += r.traduzidas || 0;
+    f.bloqueadas_idioma += r.bloqueadas_idioma || 0;
+    f.falhas_traducao += r.falhas_traducao || 0;
     for (const n of r.noticias || []) if (n.status === 'erro') f.ERROR++;
     for (const n of r.recentes_rejeitadas || []) if (f.recentes_rejeitadas.length < 5) f.recentes_rejeitadas.push(n);
   }
@@ -2134,9 +2150,17 @@ async function avaliarSaudeEditorial(env) {
 
   // Seção 10 da Missão Mestre (PT/EN/ES real) ainda não foi implementada —
   // reportar status honesto em vez de omitir o campo ou inventar números.
+  // Tradução EN→PT ativa desde 2026-09-28: Workers AI @cf/meta/m2m100-1.2b.
   const traducao = {
-    habilitado: false,
-    motivo: "Pipeline de tradução real (PT/EN/ES) ainda não implementado — o seletor 🌐 no header é hoje só um indicador visual, sem conteúdo traduzido por trás. Requer decisão do operador (ativar Workers AI ou uma API de tradução externa, ambas com possível custo/novo secret) antes de implementar."
+    habilitado: !!env.AI,
+    modelo: "@cf/meta/m2m100-1.2b",
+    fontes_en: [...FONTES_IDIOMA_EN],
+    traduzidas_ultima_exec: resumoFontes.traduzidas || 0,
+    bloqueadas_ultima_exec: resumoFontes.bloqueadas_idioma || 0,
+    falhas_ultima_exec: resumoFontes.falhas_traducao || 0,
+    motivo: env.AI
+      ? "Tradução EN→PT ativa via Workers AI. Artigos em inglês são traduzidos antes de publicar; se falhar, o artigo não é publicado em EN."
+      : "AI binding ausente — tradução não operacional."
   };
 
   if (!artigos.length) {
@@ -2302,6 +2326,58 @@ async function buscarTitulosRecentes(env, dias) {
 // estender o escopo que antes era só "Agência Brasil".
 const FONTES_DEDUPE_SENSIVEL = new Set(["Agência Brasil", "PetroNotícias"]);
 const LIMIAR_SIMILARIDADE_DUPLICATA_FONTE_SECUNDARIA = 0.2;
+
+/* ── IDIOMA / TRADUÇÃO ────────────────────────────────────────────────────────
+   Fontes internacionais (Offshore Energy, Marine Technology News, Transocean,
+   SBM Offshore) publicam em inglês. Todo conteúdo público do OWNews deve ser
+   PT-BR. Fluxo: detectarIdiomaEN → traduzirTituloParaPT → inserir PT.
+   Se tradução falhar → artigo bloqueado (não publicado em EN).
+   Custo: ~130-200 neurons/tradução via @cf/meta/m2m100-1.2b; mínimo 10K
+   neurons/dia free-tier Cloudflare. */
+
+const FONTES_IDIOMA_EN = new Set([
+  "Offshore Energy", "Marine Technology News", "Transocean", "SBM Offshore"
+]);
+
+function detectarIdiomaEN(texto) {
+  if (!texto) return false;
+  // PT diacrítico presente → definitivamente PT
+  if (/[àáâãäèéêëìíîïòóôõöùúûüç]/i.test(texto)) return false;
+  // Palavras funcionais EN comuns (word-boundary) → provável EN
+  return /\b(the|and\b|for\b|with|its\b|has\b|are\b|will\b|was\b|been|new\b|from|secures|awards|wins\b|signs\b|launches|completes|expands|acquires|orders\b|joins\b|broadens|appraisal|vessel|drillship|contract\b|awarded|receives|keeps\b|rakes\b|forges?|scoops|first\b)\b/i.test(texto);
+}
+
+async function traduzirTituloParaPT(env, titulo) {
+  if (!env.AI) return null;
+  try {
+    const r = await env.AI.run("@cf/meta/m2m100-1.2b", {
+      text: titulo,
+      source_lang: "en",
+      target_lang: "pt"
+    });
+    const trad = r && r.translated_text ? r.translated_text.trim() : null;
+    // Rejeita se idêntico ao original (modelo retornou sem traduzir) ou vazio
+    if (!trad || trad.toLowerCase() === titulo.toLowerCase()) return null;
+    return trad;
+  } catch {
+    return null;
+  }
+}
+
+async function traduzirResumoParaPT(env, resumo) {
+  if (!env.AI || !resumo || resumo.length < 20) return null;
+  try {
+    const r = await env.AI.run("@cf/meta/m2m100-1.2b", {
+      text: resumo.slice(0, 400),
+      source_lang: "en",
+      target_lang: "pt"
+    });
+    const trad = r && r.translated_text ? r.translated_text.trim() : null;
+    return trad && trad.toLowerCase() !== resumo.toLowerCase() ? trad : null;
+  } catch {
+    return null;
+  }
+}
 
 // Scoring server-side — espelho de pontuarDestaque() do frontend (producao-ownews-git).
 // Calculado no momento da coleta e persistido em articles.editorial_score /
@@ -2537,6 +2613,9 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
     recentes_rejeitadas: [],
     inseridas: 0,
     duplicadas: 0,
+    bloqueadas_idioma: 0,
+    traduzidas: 0,
+    falhas_traducao: 0,
     noticias: []
   };
 
@@ -2597,16 +2676,37 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       // único de montagem, não importa de qual extração ele veio.
       const tituloFinal = limparSufixoFonte(detalhes.title || item.title, fonte);
 
+      // Tradução PT-BR para fontes EN: título e resumo traduzidos antes de
+      // inserir. Se título detectado como EN e tradução falhar: artigo
+      // bloqueado (não publicado em inglês silenciosamente).
+      let tituloPublicado = tituloFinal;
+      let resumoPublicado = detalhes.summary;
+      if (FONTES_IDIOMA_EN.has(fonte) && detectarIdiomaEN(tituloFinal)) {
+        const trad = await traduzirTituloParaPT(env, tituloFinal);
+        if (!trad) {
+          resultado.bloqueadas_idioma++;
+          resultado.falhas_traducao++;
+          resultado.noticias.push({ titulo: tituloFinal, status: "bloqueada_idioma_en", fonte });
+          continue;
+        }
+        tituloPublicado = trad;
+        resultado.traduzidas++;
+        if (detalhes.summary && detectarIdiomaEN(detalhes.summary)) {
+          const tradRes = await traduzirResumoParaPT(env, detalhes.summary);
+          if (tradRes) resumoPublicado = tradRes;
+        }
+      }
+
       const artigo = {
-        title: tituloFinal,
+        title: tituloPublicado,
         original_url: item.url,
         original_published_at: dataEditorial,
-        summary: detalhes.summary,
+        summary: resumoPublicado,
         content: detalhes.content || detalhes.summary,
 image_url: imageUrlValidada,
 image_caption: imageUrlValidada ? (detalhes.imageCaption || null) : null,
 image_credit: detalhes.imageCredit || null,
-slug: criarSlug(tituloFinal),
+slug: criarSlug(tituloPublicado),
         hash: await sha256(item.url),
         status: "published",
         is_sensitive: false,
@@ -3515,6 +3615,58 @@ async function reprocessarArtigosCorrompidos(env) {
    "essa não é a foto real" e deixa o fallback contextual (já existente no
    front-end) assumir. Idempotente: uma vez zerado, o grupo não reaparece
    numa segunda execução (não há mais 3+ com a mesma URL não-nula). */
+/* corrigirTitulosEmIngles: endpoint de manutenção que detecta artigos
+   publicados com título em inglês (fontes EN sem tradução anterior ao
+   deploy), traduz com Workers AI e patcha o Supabase. Idempotente —
+   artigos já em PT não são tocados. Limite 7 dias / 200 artigos. */
+async function corrigirTitulosEmIngles(env) {
+  validarAmbiente(env);
+  if (!env.AI) return { ok: false, erro: "AI binding ausente" };
+
+  const d7 = new Date(Date.now() - 7 * 86400000).toISOString();
+  const resp = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,slug&status=eq.published&published_at=gte.${d7}&order=published_at.desc&limit=200`,
+    { headers: { ...supabaseHeaders(env), "Content-Type": "application/json" } }
+  );
+  if (!resp.ok) return { ok: false, erro: `Supabase select: ${resp.status}` };
+
+  const artigos = await resp.json();
+  const resultado = { total_analisados: artigos.length, corrigidos: 0, ignorados: 0, erros: 0, detalhes: [] };
+
+  for (const a of artigos) {
+    if (!detectarIdiomaEN(a.title)) { resultado.ignorados++; continue; }
+
+    const trad = await traduzirTituloParaPT(env, a.title);
+    if (!trad) { resultado.erros++; resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: "falha_traducao" }); continue; }
+
+    const novoSlug = criarSlug(trad);
+    const patchBody = { title: trad, slug: novoSlug };
+
+    if (a.summary && detectarIdiomaEN(a.summary)) {
+      const tradRes = await traduzirResumoParaPT(env, a.summary);
+      if (tradRes) patchBody.summary = tradRes;
+    }
+
+    const patch = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${a.id}`,
+      {
+        method: "PATCH",
+        headers: { ...supabaseHeaders(env), "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(patchBody)
+      }
+    );
+    if (patch.ok) {
+      resultado.corrigidos++;
+      resultado.detalhes.push({ id: a.id, titulo_original: a.title, titulo_pt: trad, status: "corrigido" });
+    } else {
+      resultado.erros++;
+      resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: `patch_erro_${patch.status}` });
+    }
+  }
+
+  return { ok: true, ...resultado };
+}
+
 async function corrigirImagensBannerRepetidas(env) {
   validarAmbiente(env);
 
