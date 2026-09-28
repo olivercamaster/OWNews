@@ -1252,7 +1252,8 @@ html.embarcado header{backdrop-filter:none}
 .me-bar-progresso{display:flex;align-items:center;gap:8px;margin-top:3px;max-width:260px}
 .me-bar-progresso[hidden]{display:none}
 .me-bar-progresso-trilha{flex:1;height:6px;background:var(--navy-700);border-radius:99px;overflow:hidden}
-.me-bar-progresso-fill{height:100%;background:var(--cyan-dim);border-radius:99px}
+.me-bar-progresso-fill{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#0e8ecb 0%,#12a8ee 55%,#5fc4ee 100%);transition:width .7s ease}
+.me-bar-progresso-fill.embarcado{background:linear-gradient(90deg,#15b578 0%,#1ed884 55%,#3eeea0 100%);box-shadow:0 0 6px rgba(30,216,132,.18)}
 .me-bar-progresso-fracao{font-size:10.5px;color:var(--muted);flex:none}
 .me-bar-cta{
   flex:none;font-family:var(--ui);font-size:12px;font-weight:800;letter-spacing:.02em;
@@ -3964,6 +3965,7 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
   }
 
   if (barraWrap && barraFill && barraFracao) {
+    barraFill.classList.toggle('embarcado', st.embarcado);
     barraFill.style.width = Math.round((st.diaDoBloco / totalDoBloco) * 100) + '%';
     barraFracao.textContent = st.diaDoBloco + ' / ' + totalDoBloco + ' dias';
     barraWrap.hidden = false;
