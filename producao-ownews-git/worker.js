@@ -3242,7 +3242,8 @@ function tagRadar(n){
    acima, vagas/alertas não tinham dado real). O array abaixo continua
    existindo só porque a busca (executarBusca) usa a lista de notícias
    carregadas — não é mais "radar", é só o estado atual de notícias. */
-let ULTIMAS_NOTICIAS_RADAR = SEED_ARTICLES;
+const FONTES_IDIOMA_EN_SEED = new Set(["Offshore Energy","Marine Technology News","Transocean","SBM Offshore"]);
+let ULTIMAS_NOTICIAS_RADAR = SEED_ARTICLES.filter(a => !FONTES_IDIOMA_EN_SEED.has(a.image_credit));
 
 /* Velocidade editorial confortável e proporcional ao conteúdo: ~34px/s.
    Como o conteúdo é duplicado pro loop contínuo (translateX -50%), a
@@ -3660,7 +3661,7 @@ function renderTudo(noticias){
 
 /* 1) estado inicial imediato, com o snapshot real — sem tela em branco */
 renderAirports(SEED_AEROPORTOS);
-renderTudo(SEED_ARTICLES);
+renderTudo(ULTIMAS_NOTICIAS_RADAR);
 
 /* 2) dado ao vivo (mesmos endpoints públicos da produção), com atualização
    automática periódica.
