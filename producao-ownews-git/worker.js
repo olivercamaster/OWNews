@@ -1955,7 +1955,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
   ${VAGAS_ABERTAS_ESPECIFICAS.length ? `
   <section class="ed-section vagas-home-section" id="vagas-agora">
     <div class="vagas-home-head"><span class="vagas-home-eyebrow">OPORTUNIDADES OFFSHORE</span><h2>Vagas abertas agora</h2><span class="vagas-home-contador">${VAGAS_ABERTAS_ESPECIFICAS.length} oportunidade${VAGAS_ABERTAS_ESPECIFICAS.length === 1 ? "" : "s"} verificadas diretamente nos canais oficiais das empresas.</span></div>
-    <div class="vagas-home-grid">${VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).slice(0, 6).map(cardVagaHome).join('')}</div>
+    <div class="vagas-home-grid">${VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).slice(0, 3).map(cardVagaHome).join('')}</div>
     <a class="mo-ver-todos" href="/vagas">Ver todas as vagas →</a>
   </section>
   ` : ''}

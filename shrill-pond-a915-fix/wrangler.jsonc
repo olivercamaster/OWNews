@@ -1,0 +1,78 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Config isolada só para o Worker de PRODUÇÃO shrill-pond-a915 (automação
+  // de coleta de notícias). Nome fixo — deploy nunca deve usar outro valor.
+  "name": "shrill-pond-a915",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-08",
+
+  // SUPABASE_URL não é segredo (é a mesma URL pública já visível no JS do
+  // ownews-git). Precisa estar declarada aqui: o primeiro deploy desta
+  // correção a apagou por omissão (estava configurada só via dashboard, fora
+  // de qualquer arquivo versionado). SUPABASE_SERVICE_ROLE_KEY e
+  // REDEMET_API_KEY são Secrets de verdade — ficam fora deste arquivo e não
+  // são afetadas por deploy via wrangler.
+  // TELEGRAM_DRY_RUN não é segredo (é só "true"/"false") — controla se o
+  // radar do Telegram (ver bloco TELEGRAM no worker.js) chega a chamar a
+  // API de verdade. "false" = ativado. TELEGRAM_BOT_TOKEN e
+  // TELEGRAM_CHANNEL_ID continuam Secrets de verdade, fora deste arquivo.
+  "vars": {
+    "SUPABASE_URL": "https://awyowuhwkqfyhwgdpepp.supabase.co",
+    "TELEGRAM_DRY_RUN": "false"
+  },
+
+  // SAUDE_KV: observabilidade de automação (P0.3, 2026-09-17) — guarda só
+  // o resultado bruto da última execução do scheduled() (timestamps,
+  // contagens, mensagens de erro já públicas nos logs). Nenhum secret.
+  // Lido/escrito por registrarExecucaoEmKV/obterUltimaExecucaoDoKV no
+  // worker.js; falha de KV nunca derruba o coletor (sempre em try/catch).
+  // Também guarda o snapshot/backoff do OffVoos (chaves "offvoos_snapshot"
+  // e "offvoos_backoff") — mesmo binding, sem custo adicional.
+  "kv_namespaces": [
+    { "binding": "SAUDE_KV", "id": "d56be506566247ed8a76f74eef14cd6d" }
+  ],
+
+  // OFFVOOS_DO (Durable Object, classe OffVoosPoller): agenda a coleta do
+  // OffVoos a cada ~3min via Alarm, NÃO via Cloudflare Cron Trigger — a
+  // conta já está no limite de 5/5 cron triggers do plano Free (2 deste
+  // Worker + 3 do ownews-instagram-publisher; confirmado via API, deploy
+  // de um 3º cron aqui falhou com "Free limit of 5 cron triggers per
+  // account" [code 10072]). Alarm de Durable Object não conta nesse
+  // limite e se reagenda sozinho indefinidamente — decisão técnica
+  // documentada em detalhe no worker.js, junto da classe OffVoosPoller.
+  // MERCADO_DO (Durable Object, classe MercadoPoller): mesmo mecanismo de
+  // Alarm do OFFVOOS_DO acima, agora pra cotações (Home 3.0, 2026-09-18)
+  // — também não conta no limite de cron triggers da conta.
+  // EDITORIAL_DO (Durable Object, classe EditorialPoller): varredura
+  // editorial de hora em hora (Fase 7, OWNews 3.0, 2026-09-18), alternando
+  // Grupo A/B — ADICIONAL aos 2 crons abaixo, nunca os substitui.
+  // TELEGRAM_AGENDADOR_DO (Durable Object, classe TelegramAgendadorPoller):
+  // boletim de aeroportos às 06:15 BRT (09:15 UTC) + Dica Offshore às 12:00
+  // BRT (15:00 UTC) via Alarm — nunca usa cron trigger (conta já está no
+  // limite 5/5 do plano Free).
+  "durable_objects": {
+    "bindings": [
+      { "name": "OFFVOOS_DO", "class_name": "OffVoosPoller" },
+      { "name": "MERCADO_DO", "class_name": "MercadoPoller" },
+      { "name": "EDITORIAL_DO", "class_name": "EditorialPoller" },
+      { "name": "TELEGRAM_AGENDADOR_DO", "class_name": "TelegramAgendadorPoller" }
+    ]
+  },
+
+  // Dois cron triggers — EXATAMENTE os de sempre, não alterados nesta
+  // missão:
+  // - "50 ..." = horário ORIGINAL, inalterado -> Grupo A (ANP/Petrobras/MME)
+  // - "20 ..." = Grupo B (PPSA/EPE/Marinha/ANTAQ)
+  "triggers": {
+    "crons": ["50 8,11,14,17,20,22 * * *", "20 8,11,14,17,20,22 * * *"]
+  },
+
+  // new_sqlite_classes exigido pelo plano Free da conta pra Durable
+  // Objects (mesmo motivo documentado nas migrações do ownews-git).
+  "migrations": [
+    { "tag": "v1-offvoos-poller", "new_sqlite_classes": ["OffVoosPoller"] },
+    { "tag": "v2-mercado-poller", "new_sqlite_classes": ["MercadoPoller"] },
+    { "tag": "v3-editorial-poller", "new_sqlite_classes": ["EditorialPoller"] },
+    { "tag": "v4-telegram-agendador", "new_sqlite_classes": ["TelegramAgendadorPoller"] }
+  ]
+}

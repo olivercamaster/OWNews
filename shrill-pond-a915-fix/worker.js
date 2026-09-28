@@ -632,6 +632,11 @@ if (url.pathname === "/teste-materia") {
       } catch (e) {
         console.error("[Telegram] erro não tratado, ignorado com segurança:", e.message);
       }
+      // Mantém o agendador diário do Telegram ativo (boletim 06:15 + dica 12:00).
+      // NÃO usa cron trigger — usa Alarm de Durable Object (conta já está
+      // no limite 5/5 do plano Free). Idempotente: o DO só agenda o alarme
+      // na primeira chamada; chamadas subsequentes retornam ok imediato.
+      await garantirTelegramAgendadorAtivo(env);
     })());
   }
 };
@@ -5599,4 +5604,236 @@ async function executarRadarTelegram(env) {
     console.error("[Telegram] erro inesperado no radar, ignorado com segurança (collector não é afetado):", erro.message);
     return { ok: false, motivo: erro.message };
   }
+}
+
+/* =========================================================================
+   TELEGRAM — AGENDADOR DIÁRIO (2026-09-28)
+   =========================================================================
+   Boletim de aeroportos às 06:15 BRT (09:15 UTC) + Dica Offshore às 12:00
+   BRT (15:00 UTC). Durable Object Alarm — NÃO usa cron trigger (conta já
+   está no limite 5/5 do plano Free). Blindado: nunca lança nem interrompe
+   o collector em nenhuma circunstância. Idempotente: cada envio diário é
+   marcado por data BRT em DO storage — nunca reenvia no mesmo dia.
+   ========================================================================= */
+
+const NOMES_AEROPORTO_AGENDADOR = {
+  SBJR: "Jacarepaguá",
+  SBMI: "Maricá",
+  SBCB: "Cabo Frio",
+  SBME: "Macaé",
+  SBFS: "São Tomé",
+  SBVT: "Vitória",
+  SBAR: "Aracaju",
+  SBSV: "Salvador",
+  SBFZ: "Fortaleza",
+  SBOI: "Oiapoque",
+  SBMQ: "Macapá"
+};
+
+const DICAS_OFFSHORE = [
+  "NR-37 é a norma regulamentadora exclusiva para plataformas de petróleo. Ela define seus direitos de segurança, saúde e bem-estar a bordo — conhecê-la é obrigação de todo trabalhador offshore.",
+  "POB (Persons On Board): ao embarcar, confirme que seu nome foi lançado no registro de bordo. Em emergência, o POB é a primeira ferramenta de busca e salvamento — um nome fora do registro pode custar tempo crítico.",
+  "Muster Drill: o simulado de emergência no 1° dia de embarque não é opcional. Aprenda a localização das estações de mustering e do seu posto de abandono antes de começar o primeiro turno.",
+  "APR (Análise Preliminar de Risco): preencher a APR antes de qualquer tarefa não é burocracia — é a principal ferramenta para identificar riscos e definir controles antes de começar o trabalho.",
+  "HUET (Helicopter Underwater Escape Training): o certificado de fuga subaquática precisa ser renovado a cada 4 anos. Programe a renovação com antecedência — sem ele, você não embarca.",
+  "H2S (Sulfeto de Hidrogênio): é incolor e inodoro em altas concentrações, pois paralisa o olfato. Use sempre o detector pessoal de H2S e nunca entre em área confinada sem leitura de gás feita e registrada.",
+  "PTW (Permissão de Trabalho): nenhuma tarefa não rotineira começa sem PT aprovada. A PT define controles de segurança e responsáveis — ela protege você, sua equipe e a operação inteira.",
+  "Escala 14×14: nos 14 dias de trabalho a bordo você tem direito a adicional noturno, DSR proporcional e eventual adicional de periculosidade. Confira seu contracheque mês a mês e questione divergências.",
+  "Escala 28×28: cada bloco tem 28 dias de trabalho e 28 dias de descanso. Não confunda com 'mês cheio' — os dias de viagem entram no cômputo conforme o ACT/CCT da categoria.",
+  "CIPA a bordo: toda plataforma com mais de 50 trabalhadores deve ter CIPA própria (NR-5). Conheça os cipeiros eleitos — eles têm mandato, não podem ser demitidos e representam você.",
+  "Intervalo entre turnos: o mínimo legal são 11 horas de descanso entre jornadas. Turnos de 12h são comuns offshore — o intervalo precisa ser respeitado mesmo em operações urgentes.",
+  "Embarque aéreo: a ANAC exige chegada ao heliporto com pelo menos 1 hora de antecedência. Leve documento de identidade, certificados atualizados e crachá da empresa — sem eles, você não embarca.",
+  "Bagagem em helicóptero: o limite de peso varia por modelo de aeronave (geralmente 15–20 kg). Confirme com o heliporto de origem antes de sair de casa — bagagem excedente fica em terra.",
+  "PAN-PAN e MAYDAY: aprenda a diferença antes de precisar. PAN-PAN = situação urgente sem risco imediato. MAYDAY = perigo imediato à vida. Ambos exigem comunicação imediata no canal VHF 16.",
+  "Seguro de vida: verifique se sua apólice cobre acidentes em ambiente offshore. Muitas apólices pessoais têm exclusão específica para alto mar — leia as cláusulas de cobertura antes de embarcar.",
+  "eSocial e offshore: os eventos de SST (Saúde e Segurança no Trabalho) para plataformas passam pelo eSocial. Confirme que seus dados (ASO, cursos, EPIs) estão atualizados no sistema da empresa.",
+  "Lei nº 5.811/1972: regula o trabalho de turnistas em refinarias e plataformas — define escala, intervalos e adicionais. Conhecê-la ajuda a identificar irregularidades no pagamento antes de reclamar.",
+  "Pré-sal vs. pós-sal: o pré-sal fica abaixo de 2.000 m de lâmina d'água e de espessa camada de sal. O pré-sal exige tecnologia específica e tem regime de concessão diferente — contexto importante para entender a operação.",
+  "FPSO (Floating Production Storage and Offloading): produz, armazena e transfere óleo sem conexão fixa ao fundo do mar. Entender a função de cada módulo a bordo facilita a comunicação interdepartamental e a resposta a emergências.",
+  "Bacia de Santos vs. Campos: Santos concentra o pré-sal profundo (Tupi, Búzios). Campos tem a maior produção acumulada do Brasil. Saber em qual bacia você está ajuda a contextualizar regulação, sindicato e rotinas.",
+  "REDEMET: antes de embarcar, consulte as condições meteorológicas em redemet.decea.mil.br. Vento acima de 40 nós pode suspender operações de helicóptero — saber disso antecipadamente evita viagem em vão.",
+  "Reunião de segurança (safety meeting): participação obrigatória. Use o espaço para reportar observações de segurança — é exatamente para isso que a reunião existe, e seu relato pode prevenir um acidente.",
+  "Sono e performance: a privação de sono aumenta o risco de acidentes em até 3× em operações industriais. A NR-37 exige ambiente de repouso adequado — reporte quarto barulhento ou mal climatizado ao responsável de saúde.",
+  "Saúde mental offshore: isolamento, ausência da família e turnos longos aumentam o risco de burnout. A NR-37 exige suporte psicológico na empresa — procure o serviço antes de chegar ao limite.",
+  "Retorno antecipado por motivo de saúde: você pode solicitar repatriação com justificativa médica. Conheça o procedimento da sua empresa antes de precisar — o médico de bordo é o canal formal.",
+  "EPI offshore (NR-37): capacete, óculos, luvas, botas de segurança, protetor auricular e colete salva-vidas são básicos. Para trabalho em altura ou espaço confinado há EPIs específicos adicionais — nunca recuse tarefa sem EPI adequado.",
+  "Registro de embarque: guarde comprovantes (ordem de embarque, folha de controle de bordo, registros de hora). Em divergência na folha de pagamento, esses documentos são sua prova mais direta.",
+  "Sindipetro: o sindicato da sua regional negocia o ACT ou CCT que rege seus benefícios. Saiba qual sindicato cobre sua bacia — Sindipetro NF (Macaé/Campos), Sindipetro ES (Espírito Santo), FUP (federação nacional).",
+  "Near miss (quase acidente): reportar nunca gera punição — ao contrário, é reconhecido como atitude pró-segurança. Cada near miss reportado pode prevenir um acidente real com consequências graves.",
+  "SIPAT: a Semana Interna de Prevenção de Acidentes do Trabalho é obrigatória anualmente, inclusive a bordo. Participe — é o principal canal para sugestões de melhoria em SST.",
+  "Canal de denúncia anônima: toda empresa com NR-37 ativa deve ter canal anônimo para irregularidades de segurança. Se não souber qual é o da sua empresa, pergunte ao SESMT ou à CIPA.",
+  "Carteira de marítimo (Marinha do Brasil): necessária para funções a bordo de navios-plataforma. Precisa ser renovada regularmente e estar válida no embarque — sem ela, a função de bordo não pode ser exercida.",
+  "Vencimento de cursos offshore: HUET, Sobrevivência no Mar, Primeiros Socorros e Segurança Básica têm prazos de renovação diferentes. Crie um calendário próprio — não dependa só do RH para ser avisado.",
+  "MODU, FPSO ou Sonda: MODU (Mobile Offshore Drilling Unit) é unidade de perfuração. FPSO é produção/estoque flutuante. Cada tipo tem regime, função e rotina operacional diferentes — vale conhecer onde você trabalha.",
+  "ANP — SAT (Serviço de Atendimento ao Trabalhador): para denúncias de irregularidades no setor de petróleo e gás, o canal da ANP é 0800 725 6451. Funciona em dias úteis, sem custo de ligação."
+];
+
+function proximoHorarioAgendadorUTC(agora, horaAlvo, minutoAlvo) {
+  const d = new Date(agora);
+  d.setUTCHours(horaAlvo, minutoAlvo, 0, 0);
+  // Se já passou (ou está a menos de 30s), agenda para o dia seguinte
+  if (d.getTime() <= agora + 30000) d.setUTCDate(d.getUTCDate() + 1);
+  return d.getTime();
+}
+
+function proximoAlarmeAgendador(agora, ultimoTipoEnviado) {
+  // Após enviar boletim → próximo é dica (15:00 UTC = 12:00 BRT)
+  if (ultimoTipoEnviado === "boletim") return proximoHorarioAgendadorUTC(agora, 15, 0);
+  // Após enviar dica (ou sem histórico) → próximo é boletim (09:15 UTC = 06:15 BRT)
+  return proximoHorarioAgendadorUTC(agora, 9, 15);
+}
+
+function dataBRTString(agora) {
+  const d = new Date(agora - 3 * 3600000);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function formatarBoletimAeroportos(snapshot, agora) {
+  if (!snapshot || !Array.isArray(snapshot.aeroportos)) return null;
+  const ativos = snapshot.aeroportos.filter((a) => a.status === "ok" && a.total != null && a.total > 0);
+  if (!ativos.length) return null;
+
+  const brt = new Date(agora - 3 * 3600000);
+  const dia = String(brt.getUTCDate()).padStart(2, "0");
+  const mes = String(brt.getUTCMonth() + 1).padStart(2, "0");
+
+  const atualizadoEm = snapshot.atualizado_em ? new Date(snapshot.atualizado_em).getTime() : null;
+  const idadeMin = atualizadoEm ? Math.round((agora - atualizadoEm) / 60000) : null;
+
+  let texto = `✈️ <b>AEROPORTOS OFFSHORE — ${dia}/${mes}</b>\n\n`;
+  for (const a of ativos) {
+    const nome = NOMES_AEROPORTO_AGENDADOR[a.airport] || a.airport;
+    const partes = [];
+    if (a.concluidos != null) partes.push(`${a.concluidos} pous.`);
+    if (a.em_voo > 0) partes.push(`${a.em_voo} em voo`);
+    if (a.pendentes > 0) partes.push(`${a.pendentes} pend.`);
+    if (a.transferidos_cancelados > 0) partes.push(`${a.transferidos_cancelados} canc.`);
+    texto += `<b>${escaparHtmlTelegram(nome)}</b>: ${a.total} voo${a.total !== 1 ? "s" : ""}`;
+    if (partes.length) texto += ` (${partes.join(", ")})`;
+    texto += "\n";
+  }
+  if (idadeMin !== null) texto += `\nDados de ~${idadeMin}min atrás`;
+  texto += `\nownews.com.br/aeroportos`;
+  return texto;
+}
+
+function selecionarDicaOffshore(agora) {
+  const brt = new Date(agora - 3 * 3600000);
+  const inicioAno = Date.UTC(brt.getUTCFullYear(), 0, 1);
+  const diaDoAno = Math.floor(
+    (Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()) - inicioAno) / 86400000
+  );
+  return DICAS_OFFSHORE[diaDoAno % DICAS_OFFSHORE.length];
+}
+
+async function publicarMensagemDiretaTelegram(env, texto) {
+  const dryRun = env.TELEGRAM_DRY_RUN !== "false";
+  if (dryRun) {
+    console.log("[TelegramAgendador DRY_RUN] mensagem pronta:", texto.slice(0, 80) + "…");
+    return { ok: true, dryRun: true };
+  }
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHANNEL_ID) {
+    return { ok: false, motivo: "secrets do Telegram não configurados" };
+  }
+  const base = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
+  const resposta = await fetchComTimeoutTelegram(`${base}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: env.TELEGRAM_CHANNEL_ID, text: texto, parse_mode: "HTML" })
+  });
+  await interpretarRespostaTelegramApi(resposta, "TelegramAgendador/sendMessage");
+  return { ok: true, enviado: true };
+}
+
+export class TelegramAgendadorPoller {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.pronto = this.inicializar();
+  }
+
+  async inicializar() {
+    const alarmeExiste = await this.state.storage.getAlarm();
+    if (!alarmeExiste) {
+      await this.state.storage.setAlarm(proximoAlarmeAgendador(Date.now(), null));
+    }
+  }
+
+  async fetch() {
+    await this.pronto;
+    return new Response(JSON.stringify({ ok: true, tipo: "TelegramAgendadorPoller" }), {
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  async alarm() {
+    const agora = Date.now();
+    const horaUTC = new Date(agora).getUTCHours();
+    const hojeStr = dataBRTString(agora);
+    let ultimoTipoEnviado = null;
+
+    try {
+      const boletimDia = await this.state.storage.get("boletim_dia");
+      const dicaDia = await this.state.storage.get("dica_dia");
+      const jaEnviouBoletim = boletimDia === hojeStr;
+      const jaEnviouDica = dicaDia === hojeStr;
+
+      // 09:00–11:00 UTC = janela do boletim (06:00–08:00 BRT)
+      const ehJanelaBoletim = horaUTC >= 9 && horaUTC < 11;
+      // 14:30–16:30 UTC = janela da dica (11:30–13:30 BRT)
+      const ehJanelaDica = horaUTC >= 14 && horaUTC < 17;
+
+      if (ehJanelaBoletim && !jaEnviouBoletim) {
+        await this.enviarBoletim(hojeStr, agora);
+        ultimoTipoEnviado = "boletim";
+      } else if (ehJanelaDica && !jaEnviouDica) {
+        await this.enviarDica(hojeStr, agora);
+        ultimoTipoEnviado = "dica";
+      } else {
+        // Fora de janela ou já enviou: decide próximo agendamento pelo horário atual
+        ultimoTipoEnviado = horaUTC >= 11 && horaUTC < 14 ? "boletim" : null;
+      }
+    } catch (e) {
+      console.error("[TelegramAgendador] erro na execução do alarm, ignorado com segurança:", e.message);
+    }
+
+    await this.state.storage.setAlarm(proximoAlarmeAgendador(agora, ultimoTipoEnviado));
+  }
+
+  async enviarBoletim(hojeStr, agora) {
+    try {
+      const snapshot = await obterSnapshotOffVoosDoKV(this.env);
+      const texto = formatarBoletimAeroportos(snapshot, agora);
+      if (!texto) {
+        console.warn("[TelegramAgendador] boletim aeroportos: sem dados disponíveis em", hojeStr);
+        return;
+      }
+      const resultado = await publicarMensagemDiretaTelegram(this.env, texto);
+      if (resultado.ok) await this.state.storage.put("boletim_dia", hojeStr);
+      console.log("[TelegramAgendador] boletim enviado:", hojeStr, resultado.dryRun ? "(dry_run)" : "(real)");
+    } catch (e) {
+      console.error("[TelegramAgendador] erro ao enviar boletim:", e.message);
+    }
+  }
+
+  async enviarDica(hojeStr, agora) {
+    try {
+      const dica = selecionarDicaOffshore(agora);
+      const texto = `💡 <b>DICA OFFSHORE</b>\n\n${escaparHtmlTelegram(dica)}\n\nownews.com.br`;
+      const resultado = await publicarMensagemDiretaTelegram(this.env, texto);
+      if (resultado.ok) await this.state.storage.put("dica_dia", hojeStr);
+      console.log("[TelegramAgendador] dica enviada:", hojeStr, resultado.dryRun ? "(dry_run)" : "(real)");
+    } catch (e) {
+      console.error("[TelegramAgendador] erro ao enviar dica:", e.message);
+    }
+  }
+}
+
+async function garantirTelegramAgendadorAtivo(env) {
+  try {
+    if (!env.TELEGRAM_AGENDADOR_DO) return;
+    const id = env.TELEGRAM_AGENDADOR_DO.idFromName("global");
+    const stub = env.TELEGRAM_AGENDADOR_DO.get(id);
+    await stub.fetch("https://telegram-agendador.interno/ping");
+  } catch { /* nunca derruba o collector */ }
 }
