@@ -1045,7 +1045,9 @@ html.embarcado header{backdrop-filter:none}
   .latest-body{grid-template-columns:1.3fr 1fr;align-items:start}
   .latest-body.latest-count-1{grid-template-columns:1fr}
   .latest-count-2 .row-list{justify-content:center}
+  .latest-count-3 .row-list{justify-content:space-between;height:100%}
   .latest-count-4 .row-list{justify-content:space-between;height:100%}
+  .latest-count-3{align-items:stretch}
   .latest-feature{border-bottom:0;padding-bottom:0}
   .latest-feature h3{font-size:27px}
 }
@@ -15056,6 +15058,7 @@ function renderCCDashboard() {
     'var g=d.ferramentas[nome];' +
     'html+=\'<div class="cc-grupo-ferramenta"><div class="cc-grupo-titulo"><span>\'+esc(nome)+\'</span><span>\'+fmtNum(g.total)+\'</span></div>\';' +
     'g.linhas.forEach(function(l){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(l.rotulo)+\'</span><span class="cc-linha-valor">\'+fmtNum(l.valor)+\'</span></div>\';});' +
+    'if(nome==="Minha Escala"){var _ab=g.linhas.find(function(l){return l.rotulo==="Aberturas";});var _cfg=g.linhas.find(function(l){return l.rotulo==="Configurações salvas";});if(_ab&&_cfg&&_ab.valor>0){var _taxa=Math.round((_cfg.valor/_ab.valor)*100);html+=\'<div class="cc-linha" style="border-top:1px dashed var(--line-soft);margin-top:4px"><span class="cc-linha-nome" style="color:var(--muted-dim)">Taxa de configuração</span><span class="cc-linha-valor" style="color:var(--yellow)">\'+_taxa+\'%</span></div>\';}}' +
     'html+=\'</div>\';' +
     '});}' +
     'document.getElementById("ccPainelFerramentas").innerHTML=html;' +
