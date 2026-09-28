@@ -1288,6 +1288,14 @@ svg.me-utility-ico{width:16px;height:16px;flex:none}
 .me-utility-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
 .me-utility-btn[aria-pressed="true"] .me-utility-label{color:var(--green)}
 .me-utility-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim)}
+.me-utility-canal{display:none}
+.utility-tg-bar{display:flex;align-items:center;gap:10px;background:rgba(8,40,58,0.72);border:1px solid var(--line-soft);border-radius:8px;padding:9px 14px;margin-bottom:10px;text-decoration:none}
+.utility-tg-bar>svg{width:17px;height:17px;flex:none;color:var(--cyan-dim)}
+.utility-tg-bar-corpo{min-width:0;flex:1}
+.utility-tg-bar-titulo{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--white);display:block}
+.utility-tg-bar-sub{font-family:var(--ui);font-size:11px;color:var(--muted-dim);display:block}
+.utility-tg-bar-cta{flex:none;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--navy-950);background:var(--cyan-dim);border-radius:99px;padding:5px 12px;white-space:nowrap}
+@media(min-width:480px){.utility-tg-bar{display:none}.me-utility-canal{display:flex}.me-utility-aeroportos{display:none}}
 /* Faixa utilitária compacta (item 21-22 do mockup): 4 atalhos de igual
    peso visual — Aeroportos/Modo Embarcado/Giro 24h/Mercado. Mesmo
    componente .embarcado-btn de sempre, só re-embrulhado num tile igual
@@ -1781,14 +1789,23 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
     </a>
   </section>
 
-  <!-- Home OWNews 2.0 (2026-09-27): faixa utilitária compacta logo após o
-       hero (item 21 do mockup) — Aeroportos/Modo Embarcado/Giro 24h/
-       Mercado priorizados (âncoras pras seções que já existem mais
-       abaixo, nenhum motor novo). Instagram/Telegram continuam
-       funcionando 100%, só desceram pra faixa social secundária
-       logo abaixo (não competem mais pelo espaço premium). -->
+  <!-- Telegram canal: mobile = barra full-width; desktop = item no grid (substitui Aeroportos) -->
+  <a class="utility-tg-bar" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer" aria-label="Entrar no canal OWNews no Telegram">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.82.11.67.79z"/></svg>
+    <span class="utility-tg-bar-corpo">
+      <span class="utility-tg-bar-titulo">Notícias direto no Telegram</span>
+      <span class="utility-tg-bar-sub">@ownewsradar · OWNews | Radar Offshore</span>
+    </span>
+    <span class="utility-tg-bar-cta">ENTRAR NO CANAL ↗</span>
+  </a>
+
   <nav class="me-utility-row" id="utilityRow" aria-label="Acesso rápido">
-    <a class="me-utility-item" href="#aeroportos">
+    <a class="me-utility-item me-utility-canal" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer">
+      <svg class="me-utility-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.82.11.67.79z"/></svg>
+      <span class="me-utility-label">Canal</span>
+      <span class="me-utility-sub">Entrar ↗</span>
+    </a>
+    <a class="me-utility-item me-utility-aeroportos" href="#aeroportos">
       <span class="me-utility-ico" aria-hidden="true">✈️</span>
       <span class="me-utility-label">Aeroportos</span>
       <span class="me-utility-sub">Condições</span>
