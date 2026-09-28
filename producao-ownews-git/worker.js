@@ -1013,13 +1013,15 @@ html.embarcado header{backdrop-filter:none}
   .masthead.one-lateral,.masthead.two-laterais,.masthead.three-laterais{grid-template-columns:1fr}
   .masthead.one-lateral .highlight .thumb{height:180px}
 }
-/* Jornalismo-first no mobile: hero e Últimas Notícias sobem ao topo
-   em vez de ficar soterradas abaixo da faixa Minha Escala, Telegram
-   e atalhos. Desktop (760px+) não é afetado — usa a ordem do DOM. */
+/* Ordem mobile (max-width:759px): Minha Escala → Aeroportos → Giro 24h
+   → 4 acessos (Telegram/Vagas/Embarcado/Redes) → resto em DOM.
+   Desktop (760px+) usa a ordem do DOM. */
 @media(max-width:759px){
   #conteudo{display:flex;flex-direction:column}
-  #destaque{order:-2}
-  #ultimas{order:-1}
+  #minhaEscalaHome{order:-5}
+  #aeroportos{order:-4}
+  #giro24h{order:-3}
+  #accessRow{order:-2}
 }
 
 /* ---------- seções editoriais ---------- */
@@ -1280,32 +1282,24 @@ html.embarcado header{backdrop-filter:none}
   .me-bar-headline{font-size:14px}
   .me-bar-sub{white-space:normal}
 }
-/* Faixa utilitária compacta (item 21-22 do mockup): 4 atalhos de igual
-   peso visual — Aeroportos/Modo Embarcado/Giro 24h/Mercado. Mesmo
-   componente .embarcado-btn de sempre, só re-embrulhado num tile igual
-   aos outros 3 (aplicarClasseEmbarcado() segue só por id, DOM novo não
-   quebra nada). */
-.me-utility-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
-.me-utility-item{
+/* 4 acessos rápidos: Telegram, Vagas, Modo Embarcado, Redes Sociais */
+.access-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+@media(min-width:600px){.access-row{grid-template-columns:repeat(4,1fr)}}
+.access-card{
   display:flex;flex-direction:column;align-items:flex-start;gap:2px;
   background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;
-  padding:10px 12px;font-family:inherit;cursor:pointer;text-align:left;
+  padding:11px 13px;font-family:inherit;cursor:pointer;text-align:left;
+  text-decoration:none;transition:border-color .18s;
 }
-.me-utility-item:hover{border-color:var(--cyan-dim)}
-.me-utility-btn[aria-pressed="true"]{background:rgba(66,216,121,.08);border-color:var(--green)}
-.me-utility-ico{font-size:16px;line-height:1;color:var(--cyan-dim)}
-svg.me-utility-ico{width:16px;height:16px;flex:none}
-.me-utility-btn[aria-pressed="true"] .me-utility-ico{color:var(--green)}
-.me-utility-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
-.me-utility-btn[aria-pressed="true"] .me-utility-label{color:var(--green)}
-.me-utility-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim)}
-.me-utility-canal{display:none!important}
-.utility-tg-bar{display:flex;align-items:center;gap:10px;background:rgba(8,40,58,0.72);border:1px solid var(--line-soft);border-radius:8px;padding:9px 14px;margin-bottom:10px;text-decoration:none}
-.utility-tg-bar>svg{width:17px;height:17px;flex:none;color:var(--cyan-dim)}
-.utility-tg-bar-corpo{min-width:0;flex:1}
-.utility-tg-bar-titulo{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--white);display:block}
-.utility-tg-bar-sub{font-family:var(--ui);font-size:11px;color:var(--muted-dim);display:block}
-.utility-tg-bar-cta{flex:none;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.03em;color:var(--navy-950);background:var(--cyan-dim);border-radius:99px;padding:5px 12px;white-space:nowrap}
+.access-card:hover{border-color:var(--cyan-dim)}
+.access-card-btn[aria-pressed="true"]{background:rgba(66,216,121,.08);border-color:var(--green)}
+.access-ico{font-size:17px;line-height:1;color:var(--cyan-dim);margin-bottom:1px}
+svg.access-ico{width:17px;height:17px;flex:none}
+.access-card-btn[aria-pressed="true"] .access-ico{color:var(--green)}
+.access-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
+.access-card-btn[aria-pressed="true"] .access-label{color:var(--green)}
+.access-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);line-height:1.3}
+.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px}
 /* ── Carreiras Offshore 2.0 ─────────────────────────────────────────── */
 .carreiras-hero{padding:32px 0 20px}
 .carreiras-hero h1{font-family:var(--ui);font-size:clamp(22px,5vw,34px);font-weight:900;color:var(--white);margin:0 0 10px;letter-spacing:-.01em}
@@ -1392,26 +1386,24 @@ mark.hl{background:rgba(18,168,238,0.25);color:var(--white);border-radius:2px;pa
 .fn-rel-item-area{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim)}
 .fn-sonda-back{display:inline-flex;align-items:center;gap:6px;font-family:var(--ui);font-size:12px;color:var(--muted-dim);text-decoration:none;margin-bottom:16px;padding:7px 12px;border:1px solid var(--line-hair);border-radius:6px}
 .fn-sonda-back:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}
-/* Faixa utilitária compacta (item 21-22 do mockup): 4 atalhos de igual
-   peso visual — Aeroportos/Modo Embarcado/Giro 24h/Mercado. Mesmo
-   componente .embarcado-btn de sempre, só re-embrulhado num tile igual
-   aos outros 3 (aplicarClasseEmbarcado() segue só por id, DOM novo não
-   quebra nada). */
-.me-utility-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
-.me-utility-item{
+/* 4 acessos rápidos (segundo bloco — mesmo CSS, contexto embarcado) */
+.access-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+@media(min-width:600px){.access-row{grid-template-columns:repeat(4,1fr)}}
+.access-card{
   display:flex;flex-direction:column;align-items:flex-start;gap:2px;
   background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;
-  padding:10px 12px;font-family:inherit;cursor:pointer;text-align:left;
+  padding:11px 13px;font-family:inherit;cursor:pointer;text-align:left;
+  text-decoration:none;transition:border-color .18s;
 }
-.me-utility-item:hover{border-color:var(--cyan-dim)}
-.me-utility-btn[aria-pressed="true"]{background:rgba(66,216,121,.08);border-color:var(--green)}
-.me-utility-ico{font-size:16px;line-height:1;color:var(--cyan-dim)}
-svg.me-utility-ico{width:16px;height:16px;flex:none}
-.me-utility-btn[aria-pressed="true"] .me-utility-ico{color:var(--green)}
-.me-utility-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
-.me-utility-btn[aria-pressed="true"] .me-utility-label{color:var(--green)}
-.me-utility-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim)}
-@media(min-width:600px){.me-utility-row{grid-template-columns:repeat(4,1fr)}}
+.access-card:hover{border-color:var(--cyan-dim)}
+.access-card-btn[aria-pressed="true"]{background:rgba(66,216,121,.08);border-color:var(--green)}
+.access-ico{font-size:17px;line-height:1;color:var(--cyan-dim);margin-bottom:1px}
+svg.access-ico{width:17px;height:17px;flex:none}
+.access-card-btn[aria-pressed="true"] .access-ico{color:var(--green)}
+.access-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
+.access-card-btn[aria-pressed="true"] .access-label{color:var(--green)}
+.access-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);line-height:1.3}
+.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px}
 /* Faixa social secundária: mesmo componente .baia-bloco de sempre, agora
    uma faixa hierarquicamente menor (abaixo dos atalhos utilitários) —
    zero funcionalidade removida, só posição/peso visual. */
@@ -1886,41 +1878,30 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
     </a>
   </section>
 
-  <!-- Telegram canal: mobile = barra full-width; desktop = item no grid (substitui Aeroportos) -->
-  <a class="utility-tg-bar" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer" aria-label="Entrar no canal OWNews no Telegram">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.82.11.67.79z"/></svg>
-    <span class="utility-tg-bar-corpo">
-      <span class="utility-tg-bar-titulo">Notícias direto no Telegram</span>
-      <span class="utility-tg-bar-sub">@ownewsradar · OWNews | Radar Offshore</span>
-    </span>
-    <span class="utility-tg-bar-cta">ENTRAR NO CANAL ↗</span>
-  </a>
-
-  <nav class="me-utility-row" id="utilityRow" aria-label="Acesso rápido">
-    <a class="me-utility-item me-utility-canal" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer">
-      <svg class="me-utility-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.82.11.67.79z"/></svg>
-      <span class="me-utility-label">Canal</span>
-      <span class="me-utility-sub">Entrar ↗</span>
+  <nav class="access-row" id="accessRow" aria-label="Acesso rápido">
+    <a class="access-card" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer">
+      <svg class="access-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.82.11.67.79z"/></svg>
+      <span class="access-label">Telegram</span>
+      <span class="access-sub">@ownewsradar · Radar Offshore</span>
+      <span class="access-cta">ENTRAR NO CANAL ↗</span>
     </a>
-    <a class="me-utility-item me-utility-aeroportos" href="#aeroportos">
-      <span class="me-utility-ico" aria-hidden="true">✈️</span>
-      <span class="me-utility-label">Aeroportos</span>
-      <span class="me-utility-sub">Condições</span>
+    <a class="access-card" href="/vagas">
+      <svg class="access-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      <span class="access-label">Vagas</span>
+      <span class="access-sub">Oportunidades offshore</span>
+      <span class="access-cta">VER VAGAS →</span>
     </a>
-    <button type="button" class="me-utility-item me-utility-btn" aria-pressed="false" id="embarcadoBtn" title="Versão leve para internet a bordo">
-      <svg class="embarcado-btn-icon me-utility-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15.5l1.6 4.3h12.8l1.6-4.3"/><path d="M6 15.5V9.5h12v6"/><path d="M9.5 9.5V6h1.6v3.5M13.5 9.5V6.8h1.6v2.7"/><path d="M2.7 20.3c1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0"/></svg>
-      <span class="me-utility-label" id="embarcadoBtnLabel">Modo Embarcado</span>
-      <span class="me-utility-sub" id="embarcadoBtnSub">Internet lenta?</span>
+    <button type="button" class="access-card access-card-btn" aria-pressed="false" id="embarcadoBtn" title="Versão leve para internet a bordo">
+      <svg class="embarcado-btn-icon access-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15.5l1.6 4.3h12.8l1.6-4.3"/><path d="M6 15.5V9.5h12v6"/><path d="M9.5 9.5V6h1.6v3.5M13.5 9.5V6.8h1.6v2.7"/><path d="M2.7 20.3c1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0 1.3.85 2.6.85 3.9 0"/></svg>
+      <span class="access-label" id="embarcadoBtnLabel">Modo Embarcado</span>
+      <span class="access-sub" id="embarcadoBtnSub">Versão leve para internet a bordo</span>
+      <span class="access-cta">ACESSAR →</span>
     </button>
-    <a class="me-utility-item" href="#giro24h">
-      <span class="me-utility-ico" aria-hidden="true">⚡</span>
-      <span class="me-utility-label">Giro 24h</span>
-      <span class="me-utility-sub">Resumo do dia</span>
-    </a>
-    <a class="me-utility-item" href="#mercadoAgora">
-      <svg class="me-utility-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>
-      <span class="me-utility-label">Mercado</span>
-      <span class="me-utility-sub">Cotações</span>
+    <a class="access-card" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">
+      <svg class="access-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>
+      <span class="access-label">Redes Sociais</span>
+      <span class="access-sub">@ownewsbr · @offshoreworks</span>
+      <span class="access-cta">SEGUIR ↗</span>
     </a>
   </nav>
 
@@ -1968,6 +1949,13 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
   </section>
   ` : ''}
 
+  <section class="ed-section mo-section" id="mercadoOffshore" aria-label="Mercado Offshore">
+    <div class="ed-head"><h2>Mercado Offshore</h2><span class="ed-sub">Ações das empresas do ecossistema</span></div>
+    <div class="mo-ticker-mobile" id="moTickerMobile"></div>
+    <div class="mo-strip" id="moStrip"></div>
+    <div class="mo-links"><a class="mo-ver-todos" href="/mercado">Ver Mercado Offshore completo →</a></div>
+  </section>
+
   <section class="ed-section" id="ultimas">
     <div class="ed-head"><h2>Últimas Notícias</h2><span class="ed-sub">Direto das fontes oficiais</span></div>
     <div class="latest-body" id="ultimasBody"></div>
@@ -1990,15 +1978,6 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         </span>
       </div>
     </div>
-
-    <div class="baia-bloco baia-telegram">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.64 6.8-1.6 7.54c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.5.24l.18-2.52 4.59-4.15c.2-.18-.04-.28-.31-.1l-5.67 3.57-2.44-.76c-.53-.17-.54-.53.11-.78l9.54-3.68c.44-.16.83.1.68.79z"/></svg>
-      <div class="baia-corpo">
-        <span class="baia-titulo">Notícias direto no Telegram</span>
-        <span class="baia-sub">@ownewsradar · OWNews | Radar Offshore</span>
-      </div>
-      <a class="baia-cta" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer">ENTRAR NO CANAL ↗</a>
-    </div>
   </div>
 
   <a class="me-home-card" id="agendaHomeCard" href="/agenda" style="margin-top:10px" hidden>
@@ -2009,13 +1988,6 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
     </span>
     <span class="me-home-cta">Ver Agenda →</span>
   </a>
-
-  <section class="ed-section mo-section" id="mercadoOffshore" aria-label="Mercado Offshore">
-    <div class="ed-head"><h2>Mercado Offshore</h2><span class="ed-sub">Ações das empresas do ecossistema</span></div>
-    <div class="mo-ticker-mobile" id="moTickerMobile"></div>
-    <div class="mo-strip" id="moStrip"></div>
-    <div class="mo-links"><a class="mo-ver-todos" href="/mercado">Ver Mercado Offshore completo →</a></div>
-  </section>
 
   <section class="ed-section" id="mercado">
     <div class="ed-head"><h2>Mercado &amp; Energia</h2><span class="ed-sub">Royalties, leilões e regulação</span></div>

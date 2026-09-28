@@ -560,6 +560,10 @@ if (url.pathname === "/teste-materia") {
       return executarTeste(() => corrigirTitulosEmIngles(env));
     }
 
+    if (url.pathname === "/corrigir-body-en") {
+      return executarTeste(() => corrigirBodyEmIngles(env));
+    }
+
     if (url.pathname === "/corrigir-imagens-banner") {
       return executarTeste(() => corrigirImagensBannerRepetidas(env));
     }
@@ -2720,7 +2724,9 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         original_url: item.url,
         original_published_at: dataEditorial,
         summary: resumoPublicado,
-        content: detalhes.content || detalhes.summary,
+        // Fontes 100% EN: body nunca é armazenado em inglês — usa resumo PT já traduzido.
+        // Fontes PT: corpo extraído normalmente.
+        content: FONTES_IDIOMA_EN.has(fonte) ? resumoPublicado : (detalhes.content || detalhes.summary),
 image_url: imageUrlValidada,
 image_caption: imageUrlValidada ? (detalhes.imageCaption || null) : null,
 image_credit: detalhes.imageCredit || null,
@@ -3687,6 +3693,55 @@ async function corrigirTitulosEmIngles(env) {
     } else {
       resultado.erros++;
       resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: `patch_erro_${patch.status}` });
+    }
+  }
+
+  return { ok: true, ...resultado };
+}
+
+/* Backfill P0 (Missão 1.1, 2026-09-28): corrige artigos publicados de
+   FONTES_IDIOMA_EN onde o campo `content` está em inglês (sem diacríticos PT).
+   Substitui content pelo summary já em PT-BR — não usa AI, apenas copia o
+   campo já traduzido. Idempotente: artigos já corrigidos não são tocados
+   (summary em PT → content em PT → ausência de diacrítico não dispara). */
+async function corrigirBodyEmIngles(env) {
+  validarAmbiente(env);
+
+  const d30 = new Date(Date.now() - 30 * 86400000).toISOString();
+  const fontes = Array.from(FONTES_IDIOMA_EN).map(f => encodeURIComponent(f)).join(",");
+  const resp = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,image_credit&status=eq.published&image_credit=in.(${fontes})&published_at=gte.${d30}&order=published_at.desc&limit=300`,
+    { headers: { ...supabaseHeaders(env), "Content-Type": "application/json" } }
+  );
+  if (!resp.ok) return { ok: false, erro: `Supabase select: ${resp.status}` };
+
+  const artigos = await resp.json();
+  const PT_DIACRITIC_RE = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
+  const resultado = { total_analisados: artigos.length, corrigidos: 0, ignorados: 0, erros: 0, detalhes: [] };
+
+  for (const a of artigos) {
+    const body = a.content || "";
+    // Verifica os primeiros 100 chars: nomes técnicos PT (FPSO Itajaí, etc.)
+    // aparecem no meio/fim, não no início de texto originalmente EN.
+    const ehBodyEN = body.length > 30 && !PT_DIACRITIC_RE.test(body.slice(0, 100));
+    if (!ehBodyEN) { resultado.ignorados++; continue; }
+    const novoBody = a.summary || "";
+    if (!novoBody || novoBody.length < 20) { resultado.ignorados++; continue; }
+
+    const patch = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${a.id}`,
+      {
+        method: "PATCH",
+        headers: { ...supabaseHeaders(env), "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ content: novoBody })
+      }
+    );
+    if (patch.ok) {
+      resultado.corrigidos++;
+      resultado.detalhes.push({ id: a.id, titulo: a.title, fonte: a.image_credit, status: "corrigido" });
+    } else {
+      resultado.erros++;
+      resultado.detalhes.push({ id: a.id, titulo: a.title, status: `patch_erro_${patch.status}` });
     }
   }
 
