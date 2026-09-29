@@ -6579,7 +6579,8 @@ function renderCarreirasIndex() {
     "Carreiras Offshore — Funções, Hierarquia e Caminhos de Carreira",
     "Conheça as funções a bordo, a estrutura das equipes e os caminhos possíveis para crescer no setor offshore.",
     conteudo,
-    "/carreiras"
+    "/carreiras",
+    { eventoAbertura: "carreiras_aberta" }
   );
 }
 
@@ -6971,7 +6972,8 @@ function renderVagasIndex(){
     "Vagas Verificadas OWNews",
     "Vagas offshore verificadas diretamente na fonte oficial da empresa — sem agregação de posts ou reposts de terceiros. Candidatura sempre no canal oficial.",
     conteudo,
-    "/vagas"
+    "/vagas",
+    { eventoAbertura: "vagas_index_aberta" }
   );
 }
 
@@ -7084,7 +7086,8 @@ function renderMercadoOffshore(){
     "Mercado Offshore",
     "Commodities, câmbio e ações das empresas do ecossistema offshore — cotação de referência real, empresas de capital fechado sem preço inventado.",
     conteudo,
-    "/mercado"
+    "/mercado",
+    { eventoAbertura: "mercado_aberto" }
   );
 }
 
@@ -7151,7 +7154,8 @@ function renderAeroportosOffshore(){
     "Aeroportos Offshore",
     "Meteorologia e movimento operacional de todos os aeroportos e heliportos offshore acompanhados pelo OWNews, agrupados por estado.",
     conteudo,
-    "/aeroportos"
+    "/aeroportos",
+    { eventoAbertura: "aeroportos_aberto" }
   );
 }
 
@@ -14938,6 +14942,18 @@ export class PageViews {
       });
     }
 
+    if (request.method === "GET" && url.pathname === "/historico") {
+      const dias = Math.min(Math.max(parseInt(url.searchParams.get("dias") || "7", 10), 1), 65);
+      const desde = Date.now() - dias * 86400000;
+      const cursor = this.sql.exec(
+        "SELECT substr(datetime(ts/1000,'unixepoch'),1,10) as dia, COUNT(DISTINCT session_id) as visitantes, COUNT(*) as visualizacoes FROM pageviews_raw WHERE ts >= ? GROUP BY dia ORDER BY dia ASC",
+        desde
+      );
+      return new Response(JSON.stringify({ dias, dados: [...cursor] }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     return new Response("not found", { status: 404 });
   }
 
@@ -15027,78 +15043,8 @@ async function ccRegistrarFalhaLogin(request, env) {
   await env.PERGUNTE_IA_KV.put(chave, String(atual + 1), { expirationTtl: 3600 });
 }
 
-const CC_ESTILO =
-  ':root{--navy-950:#061c2b;--navy-900:#08283a;--navy-800:#0a2c40;--navy-700:#0e3450;--line-soft:#123c53;--line-hair:#153a50;--cyan:#12a8ee;--cyan-dim:#5fc4ee;--white:#f7fafc;--muted:#9eb5c5;--muted-dim:#6f8b9c;--green:#42d879;--yellow:#ffd44d;--red:#ff4b4b}' +
-  '*{box-sizing:border-box}body{margin:0;background:var(--navy-950);color:var(--white);font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}' +
-  'a{color:inherit}';
 
-function renderCCLogin(erro) {
-  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<meta name="robots" content="noindex,nofollow,noarchive">' +
-    '<title>Command Center — OWNews</title>' +
-    '<style>' + CC_ESTILO +
-    'body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}' +
-    '.cc-box{width:100%;max-width:340px;padding:32px 28px;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:14px}' +
-    '.cc-box h1{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);margin:0 0 4px;font-weight:800}' +
-    '.cc-box p{font-size:12.5px;color:var(--muted-dim);margin:0 0 24px}' +
-    '.cc-box input{width:100%;background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:13px 14px;color:var(--white);font-size:15px;margin-bottom:14px;font-family:inherit}' +
-    '.cc-box button{width:100%;background:var(--cyan-dim);color:var(--navy-950);border:0;border-radius:8px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}' +
-    '.cc-box button:hover{background:var(--cyan)}' +
-    '.cc-erro{color:var(--red);font-size:12.5px;margin:-6px 0 14px}' +
-    '</style></head><body>' +
-    '<div class="cc-box">' +
-    '<h1>OWNews Command Center</h1>' +
-    '<p>Acesso restrito ao proprietário</p>' +
-    '<form method="POST" action="/command-center/login">' +
-    (erro ? '<p class="cc-erro">Senha incorreta ou acesso bloqueado temporariamente. Tente novamente.</p>' : '') +
-    '<input type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">' +
-    '<button type="submit">Entrar</button>' +
-    '</form></div></body></html>';
-}
-
-async function ccHandleLogin(request, env) {
-  if (!env.CC_PASSWORD || !env.CC_SESSION_SECRET) {
-    return new Response('Command Center ainda não configurado (secrets ausentes).', { status: 503 });
-  }
-  if (request.method === "GET") {
-    return new Response(renderCCLogin(false), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
-  }
-  if (!(await ccRateLimitOk(request, env))) {
-    return new Response(renderCCLogin(true), { status: 429, headers: { "Content-Type": "text/html; charset=UTF-8" } });
-  }
-  let senha = "";
-  try {
-    const form = await request.formData();
-    senha = String(form.get("senha") || "");
-  } catch {}
-  if (senha !== env.CC_PASSWORD) {
-    await ccRegistrarFalhaLogin(request, env);
-    return new Response(renderCCLogin(true), { status: 401, headers: { "Content-Type": "text/html; charset=UTF-8" } });
-  }
-  const sessao = await ccCriarSessao(env);
-  return new Response(null, {
-    status: 302,
-    headers: {
-      "Location": "/command-center",
-      "Set-Cookie": "cc_session=" + encodeURIComponent(sessao) + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + (30 * 24 * 3600)
-    }
-  });
-}
-
-function ccHandleLogout() {
-  return new Response(null, {
-    status: 302,
-    headers: {
-      "Location": "/command-center/login",
-      "Set-Cookie": "cc_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0"
-    }
-  });
-}
-
-// Nome do evento → { grupo (ferramenta exibida), rotulo (linha dentro do
-// grupo) }. Eventos fora deste mapa (ex.: futuros, ainda não previstos)
-// aparecem numa categoria "Outros" — nunca somem silenciosamente.
+// CC_MAPA_EVENTOS — Nome do evento → { grupo, rotulo }
 const CC_MAPA_EVENTOS = {
   minha_escala_aberta: { grupo: "Minha Escala", rotulo: "Aberturas" },
   escala_configurada: { grupo: "Minha Escala", rotulo: "Configurações salvas" },
@@ -15110,11 +15056,6 @@ const CC_MAPA_EVENTOS = {
   minha_escala_save_account_click: { grupo: "Minha Escala", rotulo: "Cliques em salvar na conta" },
   minha_escala_signup_start: { grupo: "Minha Escala", rotulo: "Inícios de cadastro" },
   minha_escala_jobs_click: { grupo: "Minha Escala", rotulo: "Cliques em Vagas" },
-  // Corrigido (auditoria 2026-09-27): este evento cobre os 4 atalhos da
-  // faixa utilitária da Home (Aeroportos/Modo Embarcado/Giro 24h/Mercado),
-  // não só Minha Escala — estava inflando o grupo "Minha Escala".
-  // Reclassificado pra grupo próprio; nenhum dado histórico apagado, só
-  // a agregação de exibição muda.
   atalho_utilitario_clique: { grupo: "Atalhos da Home", rotulo: "Cliques na faixa utilitária" },
   noticia_aberta: { grupo: "Notícias", rotulo: "Aberturas" },
   vaga_aberta: { grupo: "Vagas", rotulo: "Aberturas" },
@@ -15127,7 +15068,13 @@ const CC_MAPA_EVENTOS = {
   compartilhado_whatsapp: { grupo: "Compartilhamentos", rotulo: "WhatsApp" },
   compartilhado_telegram: { grupo: "Compartilhamentos", rotulo: "Telegram" },
   compartilhado_facebook: { grupo: "Compartilhamentos", rotulo: "Facebook" },
-  compartilhado_copiar: { grupo: "Compartilhamentos", rotulo: "Copiar link" }
+  compartilhado_copiar: { grupo: "Compartilhamentos", rotulo: "Copiar link" },
+  carreiras_aberta: { grupo: "Carreiras", rotulo: "Aberturas" },
+  vagas_index_aberta: { grupo: "Vagas", rotulo: "Acessos ao índice" },
+  mercado_aberto: { grupo: "Mercado", rotulo: "Aberturas" },
+  aeroportos_aberto: { grupo: "Aeroportos", rotulo: "Aberturas" },
+  minha_escala_signup_submitted: { grupo: "Minha Escala", rotulo: "Cadastros enviados" },
+  minha_escala_login: { grupo: "Minha Escala", rotulo: "Logins realizados" }
 };
 
 function ccAgruparEventos(eventos) {
@@ -15143,8 +15090,6 @@ function ccAgruparEventos(eventos) {
   return { grupos, compartilhamentosTotal };
 }
 
-// Busca com timeout curto — uma fonte externa lenta/fora do ar nunca
-// pode travar o Command Center inteiro (item explícito da missão).
 async function ccFetchComTimeout(url, ms, opcoesFetch) {
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), ms || 3500);
@@ -15157,6 +15102,41 @@ async function ccFetchComTimeout(url, ms, opcoesFetch) {
     clearTimeout(timer);
     return null;
   }
+}
+
+async function ccFetchSupabaseCount(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms || 3000);
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        apikey: "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt",
+        "Prefer": "count=exact",
+        "Range": "0-0"
+      },
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    const cr = resp.headers.get("Content-Range");
+    if (cr) { const m = cr.match(/\/(\d+)$/); if (m) return parseInt(m[1], 10); }
+    return 0;
+  } catch { clearTimeout(t); return null; }
+}
+
+function ccExtrairFunil(eventos) {
+  const get = (nome) => ((eventos || []).find(e => e.name === nome) || {}).c || 0;
+  return {
+    aberturas: get("minha_escala_aberta"),
+    configuradas: get("escala_configurada"),
+    salvarContaClick: get("minha_escala_save_account_click"),
+    signupStart: get("minha_escala_signup_start"),
+    signupSubmitted: get("minha_escala_signup_submitted"),
+    logins: get("minha_escala_login"),
+    impressoes: get("minha_escala_print"),
+    compartilhamentos: get("escala_compartilhada"),
+    anualView: get("minha_escala_annual_view"),
+    jobsClick: get("minha_escala_jobs_click")
+  };
 }
 
 async function ccColetarSistema(env) {
@@ -15233,7 +15213,7 @@ async function ccColetarSistema(env) {
     fontes.supabase = { ok: false, detalhe: "Sem resposta do Supabase." };
   }
 
-  fontes.cloudflareAnalytics = { ok: null, detalhe: "Conexão pendente — precisa de um token de API Cloudflare com escopo Analytics:Read (novo secret, ação do proprietário)." };
+  fontes.cloudflareAnalytics = { ok: null, detalhe: "Conexão pendente — precisa de um token de API Cloudflare com escopo Analytics:Read." };
   fontes.googleAnalytics = { ok: null, detalhe: "Conexão pendente — GA4 ainda não configurado neste site." };
   fontes.searchConsole = { ok: null, detalhe: "Conexão pendente — precisa de autorização OAuth/service account do Google Search Console." };
 
@@ -15246,8 +15226,72 @@ async function ccColetarSistema(env) {
   return { estadoGeral, mensagem, fontes, atualizadoEm: new Date().toISOString() };
 }
 
+async function ccColetarEditorial() {
+  const saude = await ccFetchComTimeout("https://shrill-pond-a915.olivercamaster.workers.dev/saude", 10000);
+  if (!saude) return { freshness: "DESCONHECIDO", fontes: [], fontesAtivas24h: [], artigos24h: null, artigos6h: null, artigos48h: null, automacao: null, traducao: null, telegram: null, aeroportos: null, mercado: null };
+
+  const fontesAtivas24h = Array.isArray(saude.sources_active_24h) ? saude.sources_active_24h : [];
+  const allFontes = Array.isArray(saude.all_sources) ? saude.all_sources : fontesAtivas24h;
+
+  const fontes = allFontes.map((nome) => ({
+    nome,
+    status: fontesAtivas24h.includes(nome) ? "HEALTHY" : "SEM_DADO_RECENTE"
+  }));
+
+  const auto = saude.automacao || {};
+  const trad = saude.traducao || {};
+  const tg = saude.telegram || {};
+  const offvoos = saude.offvoos || {};
+  const mercado = saude.mercado || {};
+
+  return {
+    freshness: saude.HOME_FRESHNESS || "DESCONHECIDO",
+    horasUltimaColeta: saude.horas_desde_ultima_coleta || null,
+    artigos24h: saude.articles_last_24h || null,
+    artigos6h: saude.articles_last_6h || null,
+    artigos48h: saude.articles_last_48h || null,
+    ultimoTrigger: saude.ultimo_trigger || null,
+    proximoTrigger: saude.proximo_trigger || null,
+    duracao_ms: saude.duracao_ms || null,
+    automacao: auto.encontrados != null ? {
+      encontrados: auto.encontrados,
+      relevantes: auto.relevantes,
+      descartados: auto.descartados,
+      novos: auto.novos
+    } : null,
+    traducao: trad.habilitado != null ? {
+      habilitado: trad.habilitado,
+      traduzidas: trad.traduzidas_ultima_exec || 0,
+      bloqueadas: trad.bloqueadas_ultima_exec || 0,
+      falhas: trad.falhas_ultima_exec || 0
+    } : null,
+    telegram: tg.habilitado != null ? {
+      habilitado: tg.habilitado,
+      canal_ok: tg.canal_ok !== false,
+      enviados_hoje: tg.enviados_hoje || 0,
+      limite_diario: tg.limite_diario_normal || 4,
+      ultimo_envio: tg.ultimo_envio || null,
+      motivo_bloqueio: tg.motivo_bloqueio || null,
+      agendador: tg.agendador || null
+    } : null,
+    aeroportos: offvoos.estado ? {
+      estado: offvoos.estado,
+      monitorados: offvoos.aeroportos_monitorados || 0,
+      comDados: offvoos.aeroportos_com_dados || 0,
+      ultimoFetch: offvoos.ultimo_fetch || null
+    } : null,
+    mercado: mercado.market_status ? {
+      estado: mercado.market_status,
+      tickers: mercado.total_tickers || 0,
+      cotacoesOk: mercado.fresh_quotes || 0
+    } : null,
+    fontes,
+    fontesAtivas24h
+  };
+}
+
 async function ccColetarDados(periodo, env) {
-  let resumo = { visitantes: 0, visualizacoes: 0, recorrentes: null, eventos: [], topPaths: [], origens: [], dispositivos: [], comparacao: null };
+  let resumo = { visitantes: 0, visualizacoes: 0, recorrentes: null, novos: null, eventos: [], topPaths: [], origens: [], dispositivos: [], comparacao: null, topNoticias: [], janelaIncompleta: false, dadosDesde: null, janelaRealHorasConteudo: 192 };
   if (env.PAGEVIEWS) {
     try {
       const idDO = env.PAGEVIEWS.idFromName("global");
@@ -15260,84 +15304,212 @@ async function ccColetarDados(periodo, env) {
   let online = 0;
   if (env.PRESENCA) {
     try {
-      const idDO = env.PRESENCA.idFromName("global");
-      const stub = env.PRESENCA.get(idDO);
-      const respDO = await stub.fetch("https://presenca.interno/");
-      if (respDO.ok) { const j = await respDO.json(); online = j.online || 0; }
+      const idPresenca = env.PRESENCA.idFromName("global");
+      const stubPresenca = env.PRESENCA.get(idPresenca);
+      const respPresenca = await stubPresenca.fetch("https://presenca.interno/count");
+      if (respPresenca.ok) online = (await respPresenca.json()).count || 0;
     } catch {}
   }
 
-  // Conteúdo (notícias mais lidas) — "views" só guarda 8 dias (192h),
-  // então 30d/tudo ficam limitados a essa janela real; sinalizado no
-  // payload (janelaRealHoras) pra UI nunca fingir mais dado do que existe.
-  let topNoticias = [];
-  let janelaRealHoras = 24;
-  if (env.PAGEVIEWS) {
-    try {
-      janelaRealHoras = periodo === "hoje" ? 24 : periodo === "7d" ? 168 : 192;
-      const idDO = env.PAGEVIEWS.idFromName("global");
-      const stub = env.PAGEVIEWS.get(idDO);
-      const respDO = await stub.fetch("https://pageviews.interno/top?horas=" + janelaRealHoras + "&limite=8");
-      if (respDO.ok) {
-        const dadosTop = await respDO.json();
-        const ids = (dadosTop.itens || []).map((it) => it.article_id);
-        if (ids.length) {
-          const idsParam = ids.map((id) => encodeURIComponent(id)).join(",");
-          const respArtigos = await ccFetchComTimeout(
-            "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,title,published_at&id=in.(" + idsParam + ")",
-            3000,
-            { headers: { apikey: "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt" } }
-          );
-          const porId = new Map((respArtigos || []).map((a) => [a.id, a]));
-          topNoticias = dadosTop.itens
-            .map((it) => { const a = porId.get(it.article_id); return a ? { titulo: decodificarEntidadesHTMLServidor(a.title), views: it.views, id: a.id } : null; })
-            .filter(Boolean);
-        }
-      }
-    } catch {}
-  }
+  const { grupos } = ccAgruparEventos(resumo.eventos);
 
-  const { grupos, compartilhamentosTotal } = ccAgruparEventos(resumo.eventos);
-  const novos = resumo.recorrentes !== null ? Math.max(resumo.visitantes - resumo.recorrentes, 0) : null;
+  // Artigos Supabase (hoje = últimas 24h, semana = últimas 7d)
+  let artigos = { hoje: null, semana: null, total: null };
+  try {
+    const agora = new Date();
+    const ontem = new Date(agora - 86400000).toISOString();
+    const semanaPassada = new Date(agora - 7 * 86400000).toISOString();
+    const [h, s, t] = await Promise.all([
+      ccFetchSupabaseCount(`https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id&status=eq.published&published_at=gte.${ontem}`, 3000),
+      ccFetchSupabaseCount(`https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id&status=eq.published&published_at=gte.${semanaPassada}`, 3000),
+      ccFetchSupabaseCount("https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id&status=eq.published", 4000)
+    ]);
+    artigos.hoje = h;
+    artigos.semana = s;
+    artigos.total = t;
+  } catch {}
 
-  // Resumo em português, 100% regras/cálculo determinístico — sem IA,
-  // sem custo (item explícito da missão).
-  const frases = [];
-  const rotuloPeriodo = periodo === "hoje" ? "Hoje" : periodo === "7d" ? "Nos últimos 7 dias" : periodo === "30d" ? "Nos últimos 30 dias" : "Desde o início da coleta";
-  if (resumo.comparacao) {
-    const variacao = resumo.comparacao.visitantesAnterior > 0
-      ? Math.round(((resumo.visitantes - resumo.comparacao.visitantesAnterior) / resumo.comparacao.visitantesAnterior) * 100)
-      : null;
-    if (variacao !== null && Math.abs(variacao) >= 3) {
-      frases.push(rotuloPeriodo + " a audiência está " + Math.abs(variacao) + "% " + (variacao > 0 ? "acima" : "abaixo") + " do período comparável anterior.");
-    } else {
-      frases.push(rotuloPeriodo + " a audiência está estável em relação ao período comparável anterior.");
-    }
-  } else {
-    frases.push(rotuloPeriodo + ": " + resumo.visitantes + " visitante" + (resumo.visitantes === 1 ? "" : "s") + " (dados insuficientes ainda para comparação histórica).");
-  }
-  const ferramentaTopo = Object.keys(grupos).filter((g) => g !== "Compartilhamentos" && g !== "Outros").sort((a, b) => grupos[b].total - grupos[a].total)[0];
-  if (ferramentaTopo) frases.push(ferramentaTopo + " é a ferramenta mais utilizada no período.");
-  const origemTopo = (resumo.origens || []).slice().sort((a, b) => b.c - a.c)[0];
-  if (origemTopo && origemTopo.ref_tipo !== "Direto") frases.push(origemTopo.ref_tipo + " é a principal origem de tráfego identificada.");
+  const vagasAtivas = typeof VAGAS_ABERTAS_ESPECIFICAS !== "undefined" ? VAGAS_ABERTAS_ESPECIFICAS.length : null;
+  const vagasCliques = ((resumo.eventos || []).find(e => e.name === "vaga_aberta") || {}).c || 0;
+  const vagasIndexAberturas = ((resumo.eventos || []).find(e => e.name === "vagas_index_aberta") || {}).c || 0;
+  const carreirasAberturas = ((resumo.eventos || []).find(e => e.name === "carreiras_aberta") || {}).c || 0;
+  const funil = ccExtrairFunil(resumo.eventos);
+
+  // Texto de resumo
+  const p = periodo === "hoje" ? "hoje" : periodo === "7d" ? "nos últimos 7 dias" : periodo === "30d" ? "nos últimos 30 dias" : "no período completo";
+  const resumoTexto = `${resumo.visitantes.toLocaleString("pt-BR")} visitantes únicos e ${resumo.visualizacoes.toLocaleString("pt-BR")} visualizações ${p}.`;
 
   return {
     periodo,
-    online,
     visitantes: resumo.visitantes,
     visualizacoes: resumo.visualizacoes,
-    novos, recorrentes: resumo.recorrentes,
-    compartilhamentos: compartilhamentosTotal,
-    ferramentas: grupos,
+    recorrentes: resumo.recorrentes,
+    novos: resumo.novos,
+    compartilhamentos: (grupos["Compartilhamentos"] || {}).total || 0,
     origens: resumo.origens || [],
     dispositivos: resumo.dispositivos || [],
     topPaths: resumo.topPaths || [],
-    topNoticias, janelaRealHorasConteudo: janelaRealHoras,
-    comparacao: resumo.comparacao,
+    topNoticias: resumo.topNoticias || [],
+    janelaRealHorasConteudo: resumo.janelaRealHorasConteudo || 192,
+    comparacao: resumo.comparacao || null,
+    janelaIncompleta: resumo.janelaIncompleta || false,
     dadosDesde: resumo.dadosDesde || null,
-    janelaIncompleta: !!resumo.janelaIncompleta,
-    resumoTexto: frases.join(" ")
+    ferramentas: grupos,
+    online,
+    resumoTexto,
+    artigos,
+    vagas: { ativas: vagasAtivas, cliques: vagasCliques, indexAberturas: vagasIndexAberturas },
+    carreiras: { aberturas: carreirasAberturas },
+    funil
   };
+}
+
+
+const CC_ESTILO =
+  ':root{--navy-950:#061c2b;--navy-900:#08283a;--navy-800:#0a2c40;--navy-700:#0e3450;--line-soft:#123c53;--line-hair:#153a50;--cyan:#12a8ee;--cyan-dim:#5fc4ee;--white:#f7fafc;--muted:#9eb5c5;--muted-dim:#6f8b9c;--green:#42d879;--yellow:#ffd44d;--red:#ff4b4b;--orange:#ff7a00}' +
+  '*{box-sizing:border-box}body{margin:0;background:var(--navy-950);color:var(--white);font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}a{color:inherit}' +
+  /* Alerta banner */ '.cc-alertas{background:rgba(255,77,0,.08);border:1px solid var(--orange);border-radius:10px;padding:12px 16px;margin-bottom:16px}' +
+  '.cc-alerta-item{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--white);padding:4px 0}' +
+  '.cc-alerta-item+.cc-alerta-item{border-top:1px solid rgba(255,122,0,.2)}' +
+  /* Layout */ 'header.cc-top{position:sticky;top:0;z-index:5;background:var(--navy-950);border-bottom:1px solid var(--line-hair);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}' +
+  '.cc-logo{font-family:Archivo;font-weight:800;font-size:13px;letter-spacing:.06em;color:var(--cyan-dim);text-transform:uppercase}' +
+  '.cc-online{font-size:11px;color:var(--green);font-weight:700}' +
+  '.cc-sair{font-size:11.5px;color:var(--muted);border:1px solid var(--line-soft);border-radius:99px;padding:5px 12px;text-decoration:none}' +
+  'main.cc-main{max-width:1080px;margin:0 auto;padding:16px 16px 90px}' +
+  /* Period buttons */ '.cc-periodos{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}' +
+  '.cc-periodo-btn{font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);background:var(--navy-900);border:1px solid var(--line-soft);border-radius:99px;padding:8px 14px;cursor:pointer}' +
+  '.cc-periodo-btn.ativo{color:var(--navy-950);background:var(--cyan-dim);border-color:var(--cyan-dim)}' +
+  /* Tabs */ '.cc-tabs{display:flex;gap:0;overflow-x:auto;margin-bottom:18px;border-bottom:1px solid var(--line-hair);padding-bottom:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}' +
+  '.cc-tabs::-webkit-scrollbar{display:none}' +
+  '.cc-tab-btn{font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.03em;color:var(--muted-dim);background:none;border:0;padding:10px 14px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0}' +
+  '.cc-tab-btn.ativo{color:var(--cyan-dim);border-bottom-color:var(--cyan-dim)}' +
+  '.cc-painel{display:none}.cc-painel.ativo{display:block}' +
+  /* Cards grid */ '.cc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}' +
+  '@media(min-width:540px){.cc-grid.cc-grid-3{grid-template-columns:repeat(3,1fr)}}' +
+  '@media(min-width:640px){.cc-grid{grid-template-columns:repeat(4,1fr)}}' +
+  '.cc-card{min-width:0;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px}' +
+  '.cc-card-label{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px;overflow-wrap:break-word}' +
+  '.cc-card-valor{font-size:26px;font-weight:800;color:var(--white)}' +
+  '.cc-variacao{font-size:11.5px;font-weight:700;margin-top:4px}.cc-variacao.up{color:var(--green)}.cc-variacao.down{color:var(--red)}' +
+  /* Resumo frase */ '.cc-resumo{background:var(--navy-900);border:1px solid var(--line-soft);border-left:3px solid var(--cyan-dim);border-radius:8px;padding:14px 16px;font-size:13.5px;color:var(--white);line-height:1.5;margin-bottom:18px}' +
+  /* Chart */ '.cc-chart-wrap{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:16px;margin-bottom:18px}' +
+  '.cc-chart-titulo{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}' +
+  '.cc-chart-total{font-size:11px;color:var(--cyan-dim);font-weight:700}' +
+  '.cc-chart-bars{display:flex;align-items:flex-end;gap:3px;height:70px;padding-bottom:20px;position:relative}' +
+  '.cc-chart-bar{flex:1;min-width:0;border-radius:3px 3px 0 0;opacity:.75;position:relative;cursor:default;transition:opacity .15s}' +
+  '.cc-chart-bar:hover{opacity:1}' +
+  '.cc-chart-bar.visitantes{background:var(--cyan-dim)}' +
+  '.cc-chart-bar.visualizacoes{background:var(--navy-700)}' +
+  '.cc-chart-tooltip{position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:var(--navy-700);border:1px solid var(--line-soft);border-radius:6px;padding:5px 9px;font-size:11px;white-space:nowrap;display:none;z-index:10;color:var(--white);pointer-events:none}' +
+  '.cc-chart-bar:hover .cc-chart-tooltip{display:block}' +
+  '.cc-chart-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted-dim);white-space:nowrap}' +
+  '.cc-chart-switch{display:flex;gap:4px}' +
+  '.cc-chart-switch-btn{font-family:inherit;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;border:1px solid var(--line-soft);background:none;color:var(--muted-dim);cursor:pointer}' +
+  '.cc-chart-switch-btn.ativo{background:var(--navy-700);color:var(--cyan-dim);border-color:var(--line-soft)}' +
+  /* Sections */ '.cc-secao{margin-bottom:24px}' +
+  '.cc-secao h2{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim);margin:0 0 10px;font-weight:800}' +
+  '.cc-linha{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line-hair);font-size:13px}' +
+  '.cc-linha:last-child{border-bottom:0}.cc-linha-nome{color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}' +
+  '.cc-linha-valor{color:var(--cyan-dim);font-weight:800;flex:none}' +
+  '.cc-vazio{color:var(--muted-dim);font-size:12.5px;padding:8px 0}' +
+  '.cc-nota{color:var(--muted-dim);font-size:11px;margin:6px 0 0;padding:0;line-height:1.4}' +
+  /* Barra visual de origem/dispositivo */ '.cc-barra-item{margin-bottom:10px}' +
+  '.cc-barra-head{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}' +
+  '.cc-barra-head-nome{color:var(--white);font-weight:700}' +
+  '.cc-barra-head-val{color:var(--muted-dim);font-size:11.5px}' +
+  '.cc-barra-track{background:var(--navy-800);border-radius:99px;height:6px;overflow:hidden}' +
+  '.cc-barra-fill{height:100%;border-radius:99px;background:var(--cyan-dim);transition:width .4s ease}' +
+  '.cc-barra-fill.sec{background:var(--navy-700)}' +
+  /* Funil */ '.cc-funil{margin:8px 0}' +
+  '.cc-funil-etapa{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;margin:0 auto 4px;display:flex;justify-content:space-between;align-items:center;font-size:13px;transition:width .4s ease}' +
+  '.cc-funil-nome{color:var(--white);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+  '.cc-funil-val{color:var(--cyan-dim);font-weight:800;flex:none;margin-left:8px;font-size:12.5px}' +
+  '.cc-funil-pct{color:var(--muted-dim);font-size:11px;margin-left:6px;flex:none}' +
+  /* Grupo ferramenta */ '.cc-grupo{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px;margin-bottom:10px}' +
+  '.cc-grupo-titulo{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13.5px;margin-bottom:8px}' +
+  /* Fonte editorial */ '.cc-fonte-linha{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-hair);font-size:12.5px}' +
+  '.cc-fonte-linha:last-child{border-bottom:0}' +
+  '.cc-fonte-nome{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}' +
+  '.cc-fonte-status{flex:none;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px}' +
+  '.cc-fonte-status.ok{color:var(--green);background:rgba(66,216,121,.1)}' +
+  '.cc-fonte-status.atencao{color:var(--yellow);background:rgba(255,212,77,.1)}' +
+  '.cc-fonte-status.sem_dado{color:var(--muted-dim);background:var(--navy-800)}' +
+  /* Sistema badges */ '.cc-status-badge{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:13px;padding:10px 14px;border-radius:10px;background:var(--navy-900);border:1px solid var(--line-soft);margin-bottom:16px}' +
+  '.cc-status-badge.ok{color:var(--green)}.cc-status-badge.atencao{color:var(--yellow)}' +
+  '.cc-fonte-dot{width:8px;height:8px;border-radius:99px;flex:none;margin-right:8px}' +
+  '.cc-fonte-dot.ok{background:var(--green)}.cc-fonte-dot.erro{background:var(--red)}.cc-fonte-dot.pendente{background:var(--muted-dim)}' +
+  /* Cards pendentes */ '.cc-pendente{background:var(--navy-900);border:1px dashed var(--line-soft);border-radius:12px;padding:18px;color:var(--muted);font-size:13px;line-height:1.6}' +
+  '.cc-atualizado{font-size:11px;color:var(--muted-dim);margin-top:10px}' +
+  '.cc-carregando{color:var(--muted-dim);font-size:13px;padding:20px 0;text-align:center}' +
+  /* 2-col layout */ '.cc-2col{display:grid;grid-template-columns:1fr;gap:14px}' +
+  '@media(min-width:720px){.cc-2col{grid-template-columns:1fr 1fr}}' +
+  /* Telegram card */ '.cc-tg-card{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px;margin-bottom:12px}' +
+  '.cc-tg-titulo{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:8px}' +
+  '.cc-tg-val{font-size:20px;font-weight:800}' +
+  '.cc-tg-sub{font-size:12px;color:var(--muted-dim);margin-top:2px}';
+
+function renderCCLogin(erro) {
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<meta name="robots" content="noindex,nofollow,noarchive">' +
+    '<title>Command Center — OWNews</title>' +
+    '<style>' + CC_ESTILO +
+    'body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}' +
+    '.cc-box{width:100%;max-width:340px;padding:32px 28px;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:14px}' +
+    '.cc-box h1{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);margin:0 0 4px;font-weight:800}' +
+    '.cc-box p{font-size:12.5px;color:var(--muted-dim);margin:0 0 24px}' +
+    '.cc-box input{width:100%;background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:13px 14px;color:var(--white);font-size:15px;margin-bottom:14px;font-family:inherit}' +
+    '.cc-box button{width:100%;background:var(--cyan-dim);color:var(--navy-950);border:0;border-radius:8px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}' +
+    '.cc-box button:hover{background:var(--cyan)}' +
+    '.cc-erro{color:var(--red);font-size:12.5px;margin:-6px 0 14px}' +
+    '</style></head><body>' +
+    '<div class="cc-box">' +
+    '<h1>OWNews Command Center</h1>' +
+    '<p>Acesso restrito ao proprietário</p>' +
+    '<form method="POST" action="/command-center/login">' +
+    (erro ? '<p class="cc-erro">Senha incorreta ou acesso bloqueado temporariamente. Tente novamente.</p>' : '') +
+    '<input type="password" name="senha" placeholder="Senha" autofocus required autocomplete="current-password">' +
+    '<button type="submit">Entrar</button>' +
+    '</form></div></body></html>';
+}
+
+async function ccHandleLogin(request, env) {
+  if (!env.CC_PASSWORD || !env.CC_SESSION_SECRET) {
+    return new Response('Command Center ainda não configurado (secrets ausentes).', { status: 503 });
+  }
+  if (request.method === "GET") {
+    return new Response(renderCCLogin(false), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+  }
+  if (!(await ccRateLimitOk(request, env))) {
+    return new Response(renderCCLogin(true), { status: 429, headers: { "Content-Type": "text/html; charset=UTF-8" } });
+  }
+  let senha = "";
+  try {
+    const form = await request.formData();
+    senha = String(form.get("senha") || "");
+  } catch {}
+  if (senha !== env.CC_PASSWORD) {
+    await ccRegistrarFalhaLogin(request, env);
+    return new Response(renderCCLogin(true), { status: 401, headers: { "Content-Type": "text/html; charset=UTF-8" } });
+  }
+  const sessao = await ccCriarSessao(env);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      "Location": "/command-center",
+      "Set-Cookie": "cc_session=" + encodeURIComponent(sessao) + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + (30 * 24 * 3600)
+    }
+  });
+}
+
+function ccHandleLogout() {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      "Location": "/command-center/login",
+      "Set-Cookie": "cc_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0"
+    }
+  });
 }
 
 function renderCCDashboard() {
@@ -15347,153 +15519,321 @@ function renderCCDashboard() {
     '<meta name="theme-color" content="#061c2b">' +
     '<title>Command Center — OWNews</title>' +
     '<link rel="manifest" href="/command-center/manifest.webmanifest">' +
-    '<style>' + CC_ESTILO +
-    'header.cc-top{position:sticky;top:0;z-index:5;background:var(--navy-950);border-bottom:1px solid var(--line-hair);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}' +
-    '.cc-logo{font-family:Archivo;font-weight:800;font-size:13px;letter-spacing:.06em;color:var(--cyan-dim);text-transform:uppercase}' +
-    '.cc-online{font-size:11px;color:var(--muted-dim)}' +
-    '.cc-sair{font-size:11.5px;color:var(--muted);border:1px solid var(--line-soft);border-radius:99px;padding:5px 12px;text-decoration:none}' +
-    'main.cc-main{max-width:920px;margin:0 auto;padding:16px 16px 90px}' +
-    '.cc-periodos{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}' +
-    '.cc-periodo-btn{font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);background:var(--navy-900);border:1px solid var(--line-soft);border-radius:99px;padding:8px 14px;cursor:pointer}' +
-    '.cc-periodo-btn.ativo{color:var(--navy-950);background:var(--cyan-dim);border-color:var(--cyan-dim)}' +
-    '.cc-tabs{display:flex;gap:4px;overflow-x:auto;margin-bottom:18px;border-bottom:1px solid var(--line-hair);padding-bottom:0}' +
-    '.cc-tab-btn{font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.03em;color:var(--muted-dim);background:none;border:0;padding:10px 12px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}' +
-    '.cc-tab-btn.ativo{color:var(--cyan-dim);border-bottom-color:var(--cyan-dim)}' +
-    '.cc-painel{display:none}.cc-painel.ativo{display:block}' +
-    '.cc-resumo-frase{background:var(--navy-900);border:1px solid var(--line-soft);border-left:3px solid var(--cyan-dim);border-radius:8px;padding:14px 16px;font-size:13.5px;color:var(--white);line-height:1.5;margin-bottom:18px}' +
-    '.cc-grid-numeros{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}' +
-    '@media(min-width:600px){.cc-grid-numeros{grid-template-columns:repeat(4,1fr)}}' +
-    '.cc-numero-card{min-width:0;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px}' +
-    '.cc-numero-label{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px;overflow-wrap:break-word}' +
-    '.cc-numero-valor{font-size:26px;font-weight:800;color:var(--white)}' +
-    '.cc-variacao{font-size:11.5px;font-weight:700;margin-top:4px}' +
-    '.cc-variacao.up{color:var(--green)}.cc-variacao.down{color:var(--red)}' +
-    '.cc-secao{margin-bottom:26px}' +
-    '.cc-secao h2{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim);margin:0 0 10px;font-weight:800}' +
-    '.cc-linha{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-hair);font-size:13px}' +
-    '.cc-linha:last-child{border-bottom:0}' +
-    '.cc-linha-nome{color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '.cc-linha-valor{color:var(--cyan-dim);font-weight:800;flex:none}' +
-    '.cc-vazio{color:var(--muted-dim);font-size:12.5px;padding:8px 0}' +
-    '.cc-nota-dados{color:var(--muted-dim);font-size:11px;margin:6px 0 0;padding:0}' +
-    '.cc-grupo-ferramenta{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px;margin-bottom:10px}' +
-    '.cc-grupo-titulo{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13.5px;margin-bottom:6px}' +
-    '.cc-status-badge{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:13px;padding:10px 14px;border-radius:10px;background:var(--navy-900);border:1px solid var(--line-soft);margin-bottom:16px}' +
-    '.cc-status-badge.ok{color:var(--green)}.cc-status-badge.atencao{color:var(--yellow)}' +
-    '.cc-fonte-linha{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-hair);font-size:13px}' +
-    '.cc-fonte-nome{font-weight:700}' +
-    '.cc-fonte-dot{width:8px;height:8px;border-radius:99px;flex:none;margin-right:8px}' +
-    '.cc-fonte-dot.ok{background:var(--green)}.cc-fonte-dot.erro{background:var(--red)}.cc-fonte-dot.pendente{background:var(--muted-dim)}' +
-    '.cc-pendente-card{background:var(--navy-900);border:1px dashed var(--line-soft);border-radius:12px;padding:18px;color:var(--muted);font-size:13px;line-height:1.6}' +
-    '.cc-atualizado{font-size:11px;color:var(--muted-dim);margin-top:10px}' +
-    '.cc-carregando{color:var(--muted-dim);font-size:13px;padding:20px 0;text-align:center}' +
-    '</style></head><body>' +
-    '<header class="cc-top"><span class="cc-logo">OWNews · Command Center</span>' +
+    '<style>' + CC_ESTILO + '</style></head><body>' +
+
+    '<header class="cc-top">' +
+    '<span class="cc-logo">OWNews · Command Center 2.0</span>' +
     '<span style="display:flex;align-items:center;gap:12px">' +
     '<span class="cc-online" id="ccOnline"></span>' +
     '<a class="cc-sair" href="/command-center/logout">Sair</a>' +
     '</span></header>' +
+
     '<main class="cc-main">' +
+
+    // Alertas — renderizado pelo JS quando há problemas
+    '<div id="ccAlertas" style="display:none"></div>' +
+
+    // Period selector
     '<div class="cc-periodos" id="ccPeriodos">' +
     '<button type="button" class="cc-periodo-btn ativo" data-periodo="hoje">HOJE</button>' +
     '<button type="button" class="cc-periodo-btn" data-periodo="7d">7 DIAS</button>' +
     '<button type="button" class="cc-periodo-btn" data-periodo="30d">30 DIAS</button>' +
     '<button type="button" class="cc-periodo-btn" data-periodo="tudo">TUDO</button>' +
     '</div>' +
+
+    // Tabs
     '<div class="cc-tabs" id="ccTabs">' +
     '<button type="button" class="cc-tab-btn ativo" data-tab="geral">VISÃO GERAL</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="audiencia">AUDIÊNCIA</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="conteudo">CONTEÚDO</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="ferramentas">FERRAMENTAS</button>' +
-    '<button type="button" class="cc-tab-btn" data-tab="seo">SEO</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="editorial">EDITORIAL</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="sistema">SISTEMA</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="seo">SEO</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="receita">RECEITA</button>' +
     '</div>' +
 
     '<div class="cc-painel ativo" data-painel="geral" id="ccPainelGeral"><div class="cc-carregando">Carregando…</div></div>' +
+    '<div class="cc-painel" data-painel="audiencia" id="ccPainelAudiencia"></div>' +
     '<div class="cc-painel" data-painel="conteudo" id="ccPainelConteudo"></div>' +
     '<div class="cc-painel" data-painel="ferramentas" id="ccPainelFerramentas"></div>' +
-    '<div class="cc-painel" data-painel="seo" id="ccPainelSeo">' +
-    '<div class="cc-pendente-card"><strong>SEO / Google Search Console — Conexão pendente.</strong><br><br>Pra mostrar impressões, cliques, CTR, posição média e páginas ganhando/perdendo tráfego aqui, o OWNews precisa de autorização OAuth (ou uma conta de serviço) com acesso de leitura à propriedade do Search Console. Isso exige um passo do proprietário no Google Search Console/Google Cloud — nenhum comando técnico, só autorizar o acesso.</div></div>' +
+    '<div class="cc-painel" data-painel="editorial" id="ccPainelEditorial"><div class="cc-carregando">Carregando…</div></div>' +
     '<div class="cc-painel" data-painel="sistema" id="ccPainelSistema"><div class="cc-carregando">Carregando…</div></div>' +
+    '<div class="cc-painel" data-painel="seo" id="ccPainelSeo">' +
+    '<div class="cc-pendente"><strong>SEO / Google Search Console — Conexão pendente.</strong><br><br>Para exibir impressões, cliques, CTR e posição média aqui, o OWNews precisa de autorização OAuth ou conta de serviço com leitura ao Search Console — ação do proprietário no Google Cloud.</div></div>' +
     '<div class="cc-painel" data-painel="receita" id="ccPainelReceita">' +
-    '<div class="cc-pendente-card"><strong>Receita — AdSense aguardando conexão/aprovação.</strong><br><br>A verificação do AdSense já está no &lt;head&gt; do site (meta tag), mas nenhum anúncio foi instalado e a conta pode ainda estar em aprovação. Quando o AdSense estiver aprovado e conectado, esta aba passa a mostrar receita de hoje/mês, RPM, Page RPM, impressões e páginas de maior receita.</div></div>' +
+    '<div class="cc-pendente"><strong>Receita — AdSense aguardando conexão/aprovação.</strong><br><br>A verificação do AdSense já está no &lt;head&gt; do site. Quando aprovado e conectado, esta aba mostrará receita do dia/mês, RPM, Page RPM, impressões e páginas de maior receita.</div></div>' +
     '</div>' +
 
     '<script>(function(){' +
-    'var periodoAtual="hoje";var cacheDados={};var cacheSistema=null;' +
-    'function fmtNum(n){try{return (n||0).toLocaleString("pt-BR");}catch(e){return String(n||0);}}' +
+    'var periodoAtual="hoje";var cacheDados={};var cacheSistema=null;var cacheEditorial=null;var cacheGrafico={};' +
+    'function fmtNum(n){try{return(n||0).toLocaleString("pt-BR");}catch(e){return String(n||0);}}' +
     'function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}' +
+    'function fmtPct(v,ref){if(!ref||ref<=0)return"";var p=Math.round(((v-ref)/ref)*100);if(Math.abs(p)<3)return"";return\'<div class="cc-variacao \'+(p>0?"up":"down")+\'">\'+(p>0?"↑":"↓")+" "+Math.abs(p)+\'% vs anterior</div>\';}' +
+    'function fmtHora(iso){if(!iso)return"—";try{return new Date(iso).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;}}' +
 
+    // --- ALERTAS ---
+    'function computarAlertas(d,s){' +
+    'var al=[];' +
+    'if(d.comparacao&&d.comparacao.visitantesAnterior>20){' +
+    'var p=Math.round(((d.visitantes-d.comparacao.visitantesAnterior)/d.comparacao.visitantesAnterior)*100);' +
+    'if(p<=-40)al.push("📉 Queda de "+Math.abs(p)+"% na audiência vs período anterior.");' +
+    '}' +
+    'if(s){' +
+    'if(s.fontes.coletorNoticias&&!s.fontes.coletorNoticias.ok)al.push("📰 "+s.fontes.coletorNoticias.detalhe);' +
+    'if(s.fontes.telegram&&!s.fontes.telegram.ok)al.push("✈️ "+s.fontes.telegram.detalhe);' +
+    'if(s.fontes.offvoosAeroportos&&!s.fontes.offvoosAeroportos.ok)al.push("🛫 "+s.fontes.offvoosAeroportos.detalhe);' +
+    '}' +
+    'var divAl=document.getElementById("ccAlertas");' +
+    'if(!divAl)return;' +
+    'if(!al.length){divAl.style.display="none";return;}' +
+    'divAl.style.display="block";' +
+    'divAl.innerHTML=\'<div class="cc-alertas"><strong style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--orange)">Precisa de atenção</strong>\'+(al.map(function(a){return\'<div class="cc-alerta-item"><span>⚠️</span><span>\'+esc(a)+\'</span></div>\';}).join(""))+\'</div>\';' +
+    '}' +
+
+    // --- GERAL ---
     'function renderGeral(d){' +
     'var html="";' +
-    'html+=\'<div class="cc-resumo-frase">\'+esc(d.resumoTexto)+\'</div>\';' +
-    'html+=\'<div class="cc-grid-numeros">\';' +
-    'function card(label,valor,anterior){' +
-    'var variacaoHtml="";' +
-    'if(anterior!=null&&anterior>0){' +
-    'var pct=Math.round(((valor-anterior)/anterior)*100);' +
-    'if(Math.abs(pct)>=3)variacaoHtml=\'<div class="cc-variacao \'+(pct>0?"up":"down")+\'">\'+(pct>0?"↑ ":"↓ ")+Math.abs(pct)+"% vs período anterior</div>";' +
-    '}' +
-    'return \'<div class="cc-numero-card"><div class="cc-numero-label">\'+esc(label)+\'</div><div class="cc-numero-valor">\'+fmtNum(valor)+\'</div>\'+variacaoHtml+\'</div>\';' +
-    '}' +
+    'html+=\'<div class="cc-resumo">\'+esc(d.resumoTexto)+\'</div>\';' +
+    // Executive cards
+    'html+=\'<div class="cc-grid">\';' +
+    'function card(lbl,val,ant){return\'<div class="cc-card"><div class="cc-card-label">\'+esc(lbl)+\'</div><div class="cc-card-valor">\'+fmtNum(val)+\'</div>\'+fmtPct(val,ant)+\'</div>\';}' +
     'html+=card("Visitantes",d.visitantes,d.comparacao?d.comparacao.visitantesAnterior:null);' +
     'html+=card("Visualizações",d.visualizacoes,d.comparacao?d.comparacao.visualizacoesAnterior:null);' +
     'html+=card("Compartilhamentos",d.compartilhamentos,null);' +
-    'var minhaEscala=d.ferramentas&&d.ferramentas["Minha Escala"]?d.ferramentas["Minha Escala"].total:0;' +
-    'html+=card("Minha Escala",minhaEscala,null);' +
+    'var me=d.ferramentas&&d.ferramentas["Minha Escala"]?d.ferramentas["Minha Escala"].total:0;' +
+    'html+=card("Minha Escala",me,null);' +
     'html+=\'</div>\';' +
-    // Partida a frio (2026-09-27): quando o período pedido começa antes do
-    // primeiro registro de visualização/evento, avisa discretamente — a
-    // data vem do próprio banco (MIN(ts) de pageviews_raw), nunca hardcoded.
-    'if(d.janelaIncompleta&&d.dadosDesde){' +
-    'var dd=new Date(d.dadosDesde);' +
-    'var ddFmt;try{ddFmt=dd.toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"});}catch(e){ddFmt=dd.toISOString().slice(0,10);}' +
-    'html+=\'<p class="cc-nota-dados">Visualizações, origens, dispositivos e eventos: dados disponíveis desde \'+esc(ddFmt)+\'.</p>\';' +
-    '}' +
+    // Second row: articles, vagas, cadastros proxy
+    'html+=\'<div class="cc-grid cc-grid-3">\';' +
+    'if(d.artigos&&d.artigos.hoje!=null)html+=card("Notícias hoje",d.artigos.hoje,null);' +
+    'if(d.artigos&&d.artigos.semana!=null)html+=card("Notícias 7d",d.artigos.semana,null);' +
+    'if(d.vagas)html+=card("Vagas ativas",d.vagas.ativas,null);' +
+    'html+=\'</div>\';' +
+    // Recorrentes
     'if(d.recorrentes!=null){' +
     'html+=\'<div class="cc-secao"><h2>Audiência</h2>\';' +
-    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Novos</span><span class="cc-linha-valor">\'+fmtNum(d.novos)+\'</span></div>\';' +
-    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Recorrentes</span><span class="cc-linha-valor">\'+fmtNum(d.recorrentes)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Visitantes novos</span><span class="cc-linha-valor">\'+fmtNum(d.novos)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Visitantes recorrentes</span><span class="cc-linha-valor">\'+fmtNum(d.recorrentes)+\'</span></div>\';' +
     'html+=\'</div>\';' +
     '}' +
-    'html+=\'<div class="cc-secao"><h2>Origem do tráfego</h2>\';' +
-    'if(!d.origens||!d.origens.length){html+=\'<p class="cc-vazio">Ainda sem dado suficiente neste período.</p>\';}' +
-    'else{d.origens.forEach(function(o){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(o.ref_tipo)+\'</span><span class="cc-linha-valor">\'+fmtNum(o.c)+\'</span></div>\';});}' +
-    'html+=\'</div>\';' +
-    'html+=\'<div class="cc-secao"><h2>Dispositivo</h2>\';' +
-    'if(!d.dispositivos||!d.dispositivos.length){html+=\'<p class="cc-vazio">Ainda sem dado suficiente neste período.</p>\';}' +
-    'else{d.dispositivos.forEach(function(o){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(o.dispositivo)+\'</span><span class="cc-linha-valor">\'+fmtNum(o.c)+\'</span></div>\';});}' +
-    'html+=\'</div>\';' +
+    'if(d.janelaIncompleta&&d.dadosDesde){' +
+    'var dd=new Date(d.dadosDesde);var ddFmt;try{ddFmt=dd.toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"});}catch(e){ddFmt=dd.toISOString().slice(0,10);}' +
+    'html+=\'<p class="cc-nota">Coleta iniciada em \'+esc(ddFmt)+\' — histórico anterior indisponível.</p>\';' +
+    '}' +
     'document.getElementById("ccPainelGeral").innerHTML=html;' +
     '}' +
 
+    // --- CHART ---
+    'function renderGrafico(grafico,modo){' +
+    'var dados=grafico.dados||[];' +
+    'if(!dados.length){document.getElementById("ccChartBars").innerHTML=\'<p class="cc-vazio">Sem dados suficientes para o gráfico.</p>\';return;}' +
+    'var vals=dados.map(function(d){return modo==="visualizacoes"?d.visualizacoes:d.visitantes;});' +
+    'var maxV=Math.max.apply(null,vals)||1;' +
+    'var html="";' +
+    'dados.forEach(function(d,i){' +
+    'var v=vals[i];var pct=Math.round((v/maxV)*100)||2;' +
+    'var lbl=d.dia.slice(5);' +
+    'html+=\'<div class="cc-chart-bar \'+modo+\'" style="height:\'+pct+\'%" title="\'+esc(d.dia)+\'"><span class="cc-chart-tooltip">\'+esc(d.dia)+" — "+fmtNum(v)+(modo==="visitantes"?" visitantes":" visualizações")+\'</span><span class="cc-chart-label">\'+esc(lbl)+\'</span></div>\';' +
+    '});' +
+    'document.getElementById("ccChartBars").innerHTML=html;' +
+    '}' +
+
+    'function inicializarGrafico(d){' +
+    'var modoGrafico="visitantes";' +
+    'var diasGrafico=d.periodo==="hoje"?1:d.periodo==="7d"?7:d.periodo==="30d"?30:7;' +
+    'var wrap=\'<div class="cc-chart-wrap">\';' +
+    'wrap+=\'<div class="cc-chart-titulo"><span>Audiência — \'+esc(diasGrafico===1?"24h":diasGrafico+"d")+\'</span>\';' +
+    'wrap+=\'<span class="cc-chart-switch"><button type="button" class="cc-chart-switch-btn ativo" data-modo="visitantes">Visitantes</button><button type="button" class="cc-chart-switch-btn" data-modo="visualizacoes">Visualizações</button></span></div>\';' +
+    'wrap+=\'<div class="cc-chart-bars" id="ccChartBars"><p class="cc-vazio">Carregando gráfico…</p></div>\';' +
+    'wrap+=\'</div>\';' +
+    'var container=document.getElementById("ccPainelGeral");container.insertAdjacentHTML("afterbegin",wrap);' +
+    'container.querySelector(".cc-chart-switch").addEventListener("click",function(e){' +
+    'var btn=e.target.closest(".cc-chart-switch-btn");if(!btn)return;' +
+    'modoGrafico=btn.getAttribute("data-modo");' +
+    '[].forEach.call(container.querySelectorAll(".cc-chart-switch-btn"),function(b){b.classList.toggle("ativo",b===btn);});' +
+    'if(cacheGrafico[periodoAtual])renderGrafico(cacheGrafico[periodoAtual],modoGrafico);' +
+    '});' +
+    'if(cacheGrafico[periodoAtual]){renderGrafico(cacheGrafico[periodoAtual],modoGrafico);return;}' +
+    'fetch("/api/cc/grafico?dias="+diasGrafico).then(function(r){return r.json();}).then(function(g){' +
+    'cacheGrafico[periodoAtual]=g;renderGrafico(g,modoGrafico);' +
+    '}).catch(function(){document.getElementById("ccChartBars").innerHTML=\'<p class="cc-vazio">Gráfico indisponível.</p>\';});' +
+    '}' +
+
+    // --- AUDIÊNCIA ---
+    'function renderAudiencia(d){' +
+    'var html="";' +
+    'var totalOrigens=(d.origens||[]).reduce(function(s,o){return s+o.c;},0)||1;' +
+    'html+=\'<div class="cc-secao"><h2>Origem do tráfego</h2>\';' +
+    'if(!d.origens||!d.origens.length){html+=\'<p class="cc-vazio">Sem dado suficiente neste período.</p>\';}' +
+    'else{d.origens.forEach(function(o){var pct=Math.round((o.c/totalOrigens)*100);html+=\'<div class="cc-barra-item"><div class="cc-barra-head"><span class="cc-barra-head-nome">\'+esc(o.ref_tipo)+\'</span><span class="cc-barra-head-val">\'+fmtNum(o.c)+\' (\'+pct+\'%)</span></div><div class="cc-barra-track"><div class="cc-barra-fill" style="width:\'+pct+\'%"></div></div></div>\';});}' +
+    'html+=\'</div>\';' +
+    'var totalDisp=(d.dispositivos||[]).reduce(function(s,o){return s+o.c;},0)||1;' +
+    'html+=\'<div class="cc-secao"><h2>Dispositivo de acesso</h2>\';' +
+    'if(!d.dispositivos||!d.dispositivos.length){html+=\'<p class="cc-vazio">Sem dado suficiente.</p>\';}' +
+    'else{d.dispositivos.forEach(function(o){var pct=Math.round((o.c/totalDisp)*100);html+=\'<div class="cc-barra-item"><div class="cc-barra-head"><span class="cc-barra-head-nome">\'+esc(o.dispositivo||"desconhecido")+\'</span><span class="cc-barra-head-val">\'+fmtNum(o.c)+\' (\'+pct+\'%)</span></div><div class="cc-barra-track"><div class="cc-barra-fill sec" style="width:\'+pct+\'%"></div></div></div>\';});}' +
+    'html+=\'</div>\';' +
+    // UTM / Campanhas
+    'var campanhas=(d.origens||[]).filter(function(o){return o.ref_tipo==="Campanha";});' +
+    'html+=\'<div class="cc-secao"><h2>Campanhas / UTM</h2>\';' +
+    'if(!campanhas.length){html+=\'<p class="cc-vazio">Nenhum acesso via UTM identificado neste período.</p>\';html+=\'<p class="cc-nota">Links com ?utm_source= são capturados automaticamente. Use em posts do Instagram, Telegram ou WhatsApp para medir o alcance de cada canal.</p>\';}' +
+    'else{campanhas.forEach(function(c){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(c.ref_tipo)+\'</span><span class="cc-linha-valor">\'+fmtNum(c.c)+\'</span></div>\';});}' +
+    'html+=\'</div>\';' +
+    'html+=\'<div class="cc-pendente" style="margin-top:12px"><strong>Localização geográfica</strong><br>Dados de país/região requerem um token de API Cloudflare com escopo Analytics:Read — conexão pendente (ação do proprietário).</div>\';' +
+    'document.getElementById("ccPainelAudiencia").innerHTML=html;' +
+    '}' +
+
+    // --- CONTEÚDO ---
     'function renderConteudo(d){' +
     'var html="";' +
+    'html+=\'<div class="cc-grid cc-grid-3" style="margin-bottom:18px">\';' +
+    'function card(lbl,val){return\'<div class="cc-card"><div class="cc-card-label">\'+esc(lbl)+\'</div><div class="cc-card-valor">\'+fmtNum(val)+\'</div></div>\';}' +
+    'if(d.artigos){' +
+    'if(d.artigos.hoje!=null)html+=card("Publicadas hoje",d.artigos.hoje);' +
+    'if(d.artigos.semana!=null)html+=card("Publicadas 7d",d.artigos.semana);' +
+    'if(d.artigos.total!=null)html+=card("Total publicadas",d.artigos.total);' +
+    '}' +
+    'html+=\'</div>\';' +
     'html+=\'<div class="cc-secao"><h2>Notícias mais lidas</h2>\';' +
     'if(!d.topNoticias||!d.topNoticias.length){html+=\'<p class="cc-vazio">Sem views suficientes neste período.</p>\';}' +
-    'else{d.topNoticias.forEach(function(n){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(n.titulo)+\'</span><span class="cc-linha-valor">\'+fmtNum(n.views)+\'</span></div>\';});}' +
-    'html+=\'<p class="cc-atualizado">Baseado nos últimos \'+d.janelaRealHorasConteudo+\'h de dado real (retenção atual do contador de notícias).</p></div>\';' +
+    'else{d.topNoticias.forEach(function(n,i){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc((i+1)+". "+n.titulo)+\'</span><span class="cc-linha-valor">\'+fmtNum(n.views)+\'</span></div>\';});}' +
+    'html+=\'<p class="cc-nota">Baseado nos últimos \'+d.janelaRealHorasConteudo+\'h de dado real (retenção do contador de notícias).</p></div>\';' +
     'html+=\'<div class="cc-secao"><h2>Páginas mais acessadas</h2>\';' +
     'if(!d.topPaths||!d.topPaths.length){html+=\'<p class="cc-vazio">Sem dado suficiente neste período.</p>\';}' +
     'else{d.topPaths.forEach(function(p){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(p.path)+\'</span><span class="cc-linha-valor">\'+fmtNum(p.c)+\'</span></div>\';});}' +
     'html+=\'</div>\';' +
+    'html+=\'<div class="cc-2col">\';' +
+    // Vagas
+    'if(d.vagas){html+=\'<div class="cc-secao"><h2>Vagas</h2>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Vagas verificadas ativas</span><span class="cc-linha-valor">\'+fmtNum(d.vagas.ativas)+\'</span></div>\';' +
+    'if(d.vagas.cliques)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Cliques em vagas</span><span class="cc-linha-valor">\'+fmtNum(d.vagas.cliques)+\'</span></div>\';' +
+    'if(d.vagas.indexAberturas)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Acessos ao índice</span><span class="cc-linha-valor">\'+fmtNum(d.vagas.indexAberturas)+\'</span></div>\';' +
+    'html+=\'</div>\';}' +
+    // Carreiras
+    'if(d.carreiras&&d.carreiras.aberturas){html+=\'<div class="cc-secao"><h2>Carreiras</h2>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Acessos à área Carreiras</span><span class="cc-linha-valor">\'+fmtNum(d.carreiras.aberturas)+\'</span></div>\';' +
+    'html+=\'</div>\';}' +
+    'html+=\'</div>\';' +
     'document.getElementById("ccPainelConteudo").innerHTML=html;' +
     '}' +
 
+    // --- FERRAMENTAS ---
     'function renderFerramentas(d){' +
     'var html="";' +
-    'var nomes=Object.keys(d.ferramentas||{});' +
-    'if(!nomes.length){html=\'<p class="cc-vazio">Ainda coletando dados de uso — volte em breve.</p>\';}' +
-    'else{nomes.sort(function(a,b){return d.ferramentas[b].total-d.ferramentas[a].total;}).forEach(function(nome){' +
+    // Minha Escala funnel
+    'if(d.funil&&d.funil.aberturas>0){' +
+    'html+=\'<div class="cc-secao"><h2>Minha Escala — Funil de uso</h2><div class="cc-funil">\';' +
+    'var etapas=[' +
+    '[d.funil.aberturas,"Acessaram a página",null],' +
+    '[d.funil.configuradas,"Configuraram escala",d.funil.aberturas],' +
+    '[d.funil.salvarContaClick,"Clicaram em salvar na conta",d.funil.aberturas],' +
+    '[d.funil.signupStart,"Iniciaram cadastro",d.funil.salvarContaClick],' +
+    '[d.funil.signupSubmitted,"Cadastros enviados",d.funil.signupStart],' +
+    '[d.funil.logins,"Logins realizados",null]' +
+    '];' +
+    'var maxV=d.funil.aberturas||1;' +
+    'etapas.forEach(function(e){' +
+    'if(!e[0])return;' +
+    'var pct=Math.round((e[0]/maxV)*100);var widthPct=Math.max(pct,15);' +
+    'var pctRef=e[2]?Math.round((e[0]/e[2])*100):null;' +
+    'html+=\'<div class="cc-funil-etapa" style="width:\'+widthPct+\'%"><span class="cc-funil-nome">\'+esc(e[1])+\'</span>\';' +
+    'html+=\'<span><span class="cc-funil-val">\'+fmtNum(e[0])+\'</span>\';' +
+    'if(pctRef!=null)html+=\'<span class="cc-funil-pct">(\'+pctRef+\'%)</span>\';' +
+    'html+=\'</span></div>\';' +
+    '});' +
+    'html+=\'</div>\';' +
+    // Taxa de configuração
+    'if(d.funil.aberturas>0&&d.funil.configuradas>0){var taxa=Math.round((d.funil.configuradas/d.funil.aberturas)*100);html+=\'<p class="cc-nota">Taxa de configuração: <strong style="color:var(--yellow)">\'+taxa+\'%</strong> dos visitantes configuraram a escala.</p>\';}' +
+    // Extras
+    'if(d.funil.impressoes)html+=\'<div class="cc-linha" style="margin-top:12px;border-top:1px solid var(--line-hair)"><span class="cc-linha-nome">Impressões / PDF</span><span class="cc-linha-valor">\'+fmtNum(d.funil.impressoes)+\'</span></div>\';' +
+    'if(d.funil.anualView)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Aberturas calendário anual</span><span class="cc-linha-valor">\'+fmtNum(d.funil.anualView)+\'</span></div>\';' +
+    'if(d.funil.jobsClick)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Cliques em Vagas (de dentro da Minha Escala)</span><span class="cc-linha-valor">\'+fmtNum(d.funil.jobsClick)+\'</span></div>\';' +
+    'html+=\'</div>\';}' +
+    // Other tools
+    'var nomes=Object.keys(d.ferramentas||{}).filter(function(g){return g!=="Compartilhamentos"&&g!=="Outros"&&g!=="Minha Escala";});' +
+    'if(nomes.length){nomes.sort(function(a,b){return d.ferramentas[b].total-d.ferramentas[a].total;}).forEach(function(nome){' +
     'var g=d.ferramentas[nome];' +
-    'html+=\'<div class="cc-grupo-ferramenta"><div class="cc-grupo-titulo"><span>\'+esc(nome)+\'</span><span>\'+fmtNum(g.total)+\'</span></div>\';' +
+    'html+=\'<div class="cc-grupo"><div class="cc-grupo-titulo"><span>\'+esc(nome)+\'</span><span style="color:var(--cyan-dim)">\'+fmtNum(g.total)+\'</span></div>\';' +
     'g.linhas.forEach(function(l){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(l.rotulo)+\'</span><span class="cc-linha-valor">\'+fmtNum(l.valor)+\'</span></div>\';});' +
-    'if(nome==="Minha Escala"){var _ab=g.linhas.find(function(l){return l.rotulo==="Aberturas";});var _cfg=g.linhas.find(function(l){return l.rotulo==="Configurações salvas";});if(_ab&&_cfg&&_ab.valor>0){var _taxa=Math.round((_cfg.valor/_ab.valor)*100);html+=\'<div class="cc-linha" style="border-top:1px dashed var(--line-soft);margin-top:4px"><span class="cc-linha-nome" style="color:var(--muted-dim)">Taxa de configuração</span><span class="cc-linha-valor" style="color:var(--yellow)">\'+_taxa+\'%</span></div>\';}}' +
     'html+=\'</div>\';' +
     '});}' +
+    // Compartilhamentos
+    'if(d.ferramentas&&d.ferramentas["Compartilhamentos"]){var gc=d.ferramentas["Compartilhamentos"];' +
+    'html+=\'<div class="cc-grupo"><div class="cc-grupo-titulo"><span>Compartilhamentos</span><span style="color:var(--cyan-dim)">\'+fmtNum(gc.total)+\'</span></div>\';' +
+    'gc.linhas.forEach(function(l){html+=\'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(l.rotulo)+\'</span><span class="cc-linha-valor">\'+fmtNum(l.valor)+\'</span></div>\';});' +
+    'html+=\'</div>\';}' +
+    'if(!Object.keys(d.ferramentas||{}).length){html=\'<p class="cc-vazio">Ainda coletando dados de uso — volte em breve.</p>\';}' +
     'document.getElementById("ccPainelFerramentas").innerHTML=html;' +
     '}' +
 
+    // --- EDITORIAL ---
+    'function renderEditorial(e){' +
+    'var html="";' +
+    'var freshOk=e.freshness==="OK";' +
+    'html+=\'<div class="cc-status-badge \'+(freshOk?"ok":"atencao")+\'">\'+(freshOk?"🟢 EDITORIAL OK":"🟠 ATENÇÃO EDITORIAL")+\'</div>\';' +
+    'html+=\'<div class="cc-grid cc-grid-3" style="margin-bottom:18px">\';' +
+    'function card(lbl,val){return\'<div class="cc-card"><div class="cc-card-label">\'+esc(lbl)+\'</div><div class="cc-card-valor">\'+fmtNum(val)+\'</div></div>\';}' +
+    'if(e.artigos24h!=null)html+=card("Publicadas 24h",e.artigos24h);' +
+    'if(e.artigos6h!=null)html+=card("Publicadas 6h",e.artigos6h);' +
+    'if(e.artigos48h!=null)html+=card("Publicadas 48h",e.artigos48h);' +
+    'html+=\'</div>\';' +
+    // Automação stats
+    'html+=\'<div class="cc-secao"><h2>Última execução do coletor</h2>\';' +
+    'if(e.automacao){var a=e.automacao;' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Descobertos</span><span class="cc-linha-valor">\'+fmtNum(a.encontrados)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Aceitos</span><span class="cc-linha-valor">\'+fmtNum(a.relevantes)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Descartados</span><span class="cc-linha-valor">\'+fmtNum(a.descartados)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Novos publicados</span><span class="cc-linha-valor">\'+fmtNum(a.novos)+\'</span></div>\';' +
+    'if(e.duracao_ms)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Duração</span><span class="cc-linha-valor">\'+e.duracao_ms+"ms"+\'</span></div>\';' +
+    '}' +
+    'if(e.ultimoTrigger)html+=\'<p class="cc-nota">Último trigger: \'+esc(fmtHora(e.ultimoTrigger))+\'. Próximo: \'+esc(fmtHora(e.proximoTrigger))+\'</p>\';' +
+    'html+=\'</div>\';' +
+    // Tradução
+    'if(e.traducao&&e.traducao.habilitado){' +
+    'html+=\'<div class="cc-secao"><h2>Tradução EN→PT</h2>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Traduzidas (última exec)</span><span class="cc-linha-valor">\'+fmtNum(e.traducao.traduzidas)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Bloqueadas</span><span class="cc-linha-valor">\'+fmtNum(e.traducao.bloqueadas)+\'</span></div>\';' +
+    'if(e.traducao.falhas)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Falhas de tradução</span><span class="cc-linha-valor" style="color:var(--red)">\'+fmtNum(e.traducao.falhas)+\'</span></div>\';' +
+    'html+=\'</div>\';}' +
+    // Fontes table
+    'html+=\'<div class="cc-secao"><h2>Fontes editoriais (\'+e.fontesAtivas24h.length+\' ativas nas últimas 24h)</h2>\';' +
+    '(e.fontes||[]).forEach(function(f){' +
+    'var st=f.status==="HEALTHY"?"ok":f.status==="SEM_DADO_RECENTE"?"sem_dado":"atencao";' +
+    'var stLabel=f.status==="HEALTHY"?"OK":f.status==="SEM_DADO_RECENTE"?"Sem dado recente":"Atenção";' +
+    'html+=\'<div class="cc-fonte-linha"><span class="cc-fonte-nome">\'+esc(f.nome)+\'</span><span class="cc-fonte-status \'+st+\'">\'+esc(stLabel)+\'</span></div>\';' +
+    '});' +
+    'html+=\'</div>\';' +
+    // Telegram
+    'if(e.telegram){var tg=e.telegram;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Telegram</div>\';' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+(!tg.habilitado?"var(--red)":tg.canal_ok?"var(--green)":"var(--yellow)")+\'">\'+(tg.habilitado?(tg.canal_ok?"Canal ativo":"Canal com problema"):"Publicação desativada")+\'</div>\';' +
+    'if(tg.habilitado){' +
+    'html+=\'<div class="cc-tg-sub">\'+fmtNum(tg.enviados_hoje)+\'/\'+tg.limite_diario+" posts editoriais hoje</div>";' +
+    'if(tg.ultimo_envio)html+=\'<div class="cc-tg-sub">Último: \'+esc(fmtHora(tg.ultimo_envio))+\'</div>\';' +
+    'if(tg.motivo_bloqueio)html+=\'<div class="cc-tg-sub" style="color:var(--muted-dim)">Bloqueio: \'+esc(tg.motivo_bloqueio)+\'</div>\';' +
+    'if(tg.agendador){' +
+    'html+=\'<div class="cc-tg-sub">Boletim aeroportos: \'+(tg.agendador.boletim_hoje?"✓ enviado":"aguardando 06:15")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">Dica Offshore: \'+(tg.agendador.dica_hoje?"✓ enviada":"aguardando 12:00")+\'</div>\';' +
+    '}' +
+    '}' +
+    'html+=\'</div>\';}' +
+    // Aeroportos
+    'if(e.aeroportos){var av=e.aeroportos;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Aeroportos Offshore</div>\';' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+(av.estado==="healthy"?"var(--green)":"var(--yellow)")+\'">\'+(av.estado==="healthy"?"Integração saudável":"Dados desatualizados")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">\'+fmtNum(av.comDados)+\'/\'+fmtNum(av.monitorados)+" aeroportos com dado real</div>";' +
+    'if(av.ultimoFetch)html+=\'<div class="cc-tg-sub">Último fetch: \'+esc(fmtHora(av.ultimoFetch))+\'</div>\';' +
+    'html+=\'</div>\';}' +
+    // Mercado
+    'if(e.mercado){var mc=e.mercado;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Mercado (cotações)</div>\';' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+(mc.estado==="healthy"?"var(--green)":"var(--yellow)")+\'">\'+(mc.estado==="healthy"?"Cotações atualizadas":"Cotações desatualizadas")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">\'+fmtNum(mc.cotacoesOk)+\'/\'+fmtNum(mc.tickers)+" tickers frescos</div>";' +
+    'html+=\'</div>\';}' +
+    'document.getElementById("ccPainelEditorial").innerHTML=html;' +
+    '}' +
+
+    // --- SISTEMA ---
     'function renderSistema(s){' +
     'var badgeClasse=s.estadoGeral==="OPERACIONAL"?"ok":"atencao";' +
     'var badgeTexto=s.estadoGeral==="OPERACIONAL"?"🟢 OPERACIONAL":"🟠 ATENÇÃO";' +
@@ -15512,8 +15852,14 @@ function renderCCDashboard() {
     'document.getElementById("ccPainelSistema").innerHTML=html;' +
     '}' +
 
+    // --- LOADERS ---
     'function carregarDados(periodo){' +
-    'if(cacheDados[periodo]){renderGeral(cacheDados[periodo]);renderConteudo(cacheDados[periodo]);renderFerramentas(cacheDados[periodo]);return;}' +
+    'if(cacheDados[periodo]){' +
+    'renderGeral(cacheDados[periodo]);renderAudiencia(cacheDados[periodo]);renderConteudo(cacheDados[periodo]);renderFerramentas(cacheDados[periodo]);' +
+    'inicializarGrafico(cacheDados[periodo]);' +
+    'if(cacheSistema)computarAlertas(cacheDados[periodo],cacheSistema);' +
+    'return;' +
+    '}' +
     'document.getElementById("ccPainelGeral").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
     'fetch("/api/cc/dados?periodo="+encodeURIComponent(periodo)).then(function(r){' +
     'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
@@ -15522,40 +15868,56 @@ function renderCCDashboard() {
     '}).then(function(d){' +
     'cacheDados[periodo]=d;' +
     'document.getElementById("ccOnline").textContent=d.online?d.online+" online agora":"";' +
-    'renderGeral(d);renderConteudo(d);renderFerramentas(d);' +
+    'renderGeral(d);renderAudiencia(d);renderConteudo(d);renderFerramentas(d);' +
+    'inicializarGrafico(d);' +
+    'if(cacheSistema)computarAlertas(d,cacheSistema);' +
     '}).catch(function(){' +
     'document.getElementById("ccPainelGeral").innerHTML=\'<p class="cc-vazio">Não foi possível carregar os dados agora. Tente novamente em instantes.</p>\';' +
     '});' +
     '}' +
     'function carregarSistema(){' +
-    'if(cacheSistema){renderSistema(cacheSistema);return;}' +
+    'if(cacheSistema){renderSistema(cacheSistema);if(cacheDados[periodoAtual])computarAlertas(cacheDados[periodoAtual],cacheSistema);return;}' +
     'document.getElementById("ccPainelSistema").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
     'fetch("/api/cc/sistema").then(function(r){' +
     'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
     'return r.json();' +
-    '}).then(function(s){cacheSistema=s;renderSistema(s);}).catch(function(){' +
+    '}).then(function(s){cacheSistema=s;renderSistema(s);if(cacheDados[periodoAtual])computarAlertas(cacheDados[periodoAtual],s);}).catch(function(){' +
     'document.getElementById("ccPainelSistema").innerHTML=\'<p class="cc-vazio">Não foi possível carregar o status do sistema agora.</p>\';' +
     '});' +
     '}' +
+    'function carregarEditorial(){' +
+    'if(cacheEditorial){renderEditorial(cacheEditorial);return;}' +
+    'document.getElementById("ccPainelEditorial").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
+    'fetch("/api/cc/editorial").then(function(r){' +
+    'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
+    'return r.json();' +
+    '}).then(function(e){cacheEditorial=e;renderEditorial(e);}).catch(function(){' +
+    'document.getElementById("ccPainelEditorial").innerHTML=\'<p class="cc-vazio">Não foi possível carregar dados editoriais agora.</p>\';' +
+    '});' +
+    '}' +
 
+    // --- EVENT LISTENERS ---
     'document.getElementById("ccPeriodos").addEventListener("click",function(e){' +
     'var btn=e.target.closest(".cc-periodo-btn");if(!btn)return;' +
     'periodoAtual=btn.getAttribute("data-periodo");' +
-    'Array.prototype.slice.call(document.querySelectorAll(".cc-periodo-btn")).forEach(function(b){b.classList.toggle("ativo",b===btn);});' +
+    '[].slice.call(document.querySelectorAll(".cc-periodo-btn")).forEach(function(b){b.classList.toggle("ativo",b===btn);});' +
     'carregarDados(periodoAtual);' +
     '});' +
     'document.getElementById("ccTabs").addEventListener("click",function(e){' +
     'var btn=e.target.closest(".cc-tab-btn");if(!btn)return;' +
     'var alvo=btn.getAttribute("data-tab");' +
-    'Array.prototype.slice.call(document.querySelectorAll(".cc-tab-btn")).forEach(function(b){b.classList.toggle("ativo",b===btn);});' +
-    'Array.prototype.slice.call(document.querySelectorAll(".cc-painel")).forEach(function(p){p.classList.toggle("ativo",p.getAttribute("data-painel")===alvo);});' +
+    '[].slice.call(document.querySelectorAll(".cc-tab-btn")).forEach(function(b){b.classList.toggle("ativo",b===btn);});' +
+    '[].slice.call(document.querySelectorAll(".cc-painel")).forEach(function(p){p.classList.toggle("ativo",p.getAttribute("data-painel")===alvo);});' +
     'if(alvo==="sistema")carregarSistema();' +
+    'if(alvo==="editorial")carregarEditorial();' +
     '});' +
 
     'carregarDados(periodoAtual);' +
+    'carregarSistema();' +
     '})();</script>' +
     '</main></body></html>';
 }
+
 
 export default {
   async fetch(request, env, ctx) {
@@ -15598,6 +15960,30 @@ export default {
       }
       const sistema = await ccColetarSistema(env);
       return new Response(JSON.stringify(sistema), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/cc/editorial" && request.method === "GET") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      const editorial = await ccColetarEditorial();
+      return new Response(JSON.stringify(editorial), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/cc/grafico" && request.method === "GET") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      const diasParam = parseInt(url.searchParams.get("dias") || "7", 10);
+      const dias = Math.min(Math.max(diasParam, 1), 65);
+      let graficoData = { dias, dados: [] };
+      if (env.PAGEVIEWS) {
+        try {
+          const idDO = env.PAGEVIEWS.idFromName("global");
+          const stub = env.PAGEVIEWS.get(idDO);
+          const resp = await stub.fetch("https://pageviews.interno/historico?dias=" + dias);
+          if (resp.ok) graficoData = await resp.json();
+        } catch {}
+      }
+      return new Response(JSON.stringify(graficoData), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
     }
 
     if (url.pathname === "/") {
