@@ -13856,7 +13856,7 @@ function renderMinhaEscala() {
     'if(!painel||!body)return;' +
     'var linhas=\'<div class="escala-dia-detalhe-data">\'+fmtDiaSemanaCompleto(dataUTC)+", "+fmtDataCurta(dataUTC)+"</div>";' +
     'linhas+=\'<div class="escala-dia-detalhe-status \'+st.status+\'">\'+(st.status==="embarcado"?"EMBARCADO":"DE FOLGA")+" · dia "+st.diaDoBloco+"</div>";' +
-    'if(cruzarAtual){var _stCD=cruzarAtual.calc.statusEm(dataUTC);var _nCD=cruzarAtual.nome||cruzarAtual.relacao||"Companheiro";linhas+="<div class=\"escala-dia-detalhe-status "+_stCD.status+"\" style=\"font-size:12px;margin-top:3px;opacity:.85\">"+_nCD+": "+(_stCD.status==="embarcado"?"EMBARCADO":"DE FOLGA")+"</div>";if(st.status==="folga"&&_stCD.status==="folga")linhas+="<div class=\"escala-dia-detalhe-item\" style=\"color:#f472b6\">♥ Vocês estarão juntos</div>";}' +
+    'if(cruzarAtual){var _stCD=cruzarAtual.calc.statusEm(dataUTC);var _nCD=cruzarAtual.nome||cruzarAtual.relacao||"Companheiro";linhas+=\'<div class="escala-dia-detalhe-status \'+_stCD.status+\'" style="font-size:12px;margin-top:3px;opacity:.85">\'+_nCD+": "+(_stCD.status==="embarcado"?"EMBARCADO":"DE FOLGA")+"</div>";if(st.status==="folga"&&_stCD.status==="folga")linhas+=\'<div class="escala-dia-detalhe-item" style="color:#f472b6">♡ Vocês estarão juntos</div>\';}' +
     'info.fer.forEach(function(f){linhas+=\'<div class="escala-dia-detalhe-item feriado">\'+f.emoji+" "+f.nome+(f.tipo==="comemorativa"?" (comemorativa)":"")+"</div>";});' +
     'info.pes.forEach(function(p){linhas+=\'<div class="escala-dia-detalhe-item pessoal">📌 \'+p.nome+"</div>";});' +
     'if(excTipo)linhas+=\'<div class="escala-dia-detalhe-item \'+excTipo+\'">\'+(excTipo==="dobra"?"Dobra":"Férias")+"</div>";' +
@@ -14280,7 +14280,7 @@ function renderMinhaEscala() {
     'function carregarCruzar(){try{return JSON.parse(localStorage.getItem(LS_KEY_CRUZAR)||"null");}catch(e){return null;}}' +
     'function salvarCruzar(cfg){try{localStorage.setItem(LS_KEY_CRUZAR,JSON.stringify(cfg));}catch(e){}}' +
     'function limparCruzar(){localStorage.removeItem(LS_KEY_CRUZAR);cruzarAtual=null;}' +
-    'function fmtDataCurta(utc){var d=new Date(utc);return pad2(d.getUTCDate())+" "+MESES_ABREV[d.getUTCMonth()];}' +
+    'function _cruzFmtData(utc){var d=new Date(utc);return pad2(d.getUTCDate())+" "+MESES_ABREV[d.getUTCMonth()];}' +
     'function diasInclusivos(a,b){return Math.max(1,Math.round((b-a)/86400000)+1);}' +
     'function encontrarJanelasJuntos(calcA,calcB,desdeUTC,maxDias,maxJanelas){' +
     'var janelas=[];var emJanela=false;var inicioJanela=null;' +
@@ -14341,7 +14341,7 @@ function renderMinhaEscala() {
     'el.innerHTML="<div class=\\"cruzar-hero\\"><div class=\\"cruzar-hero-label\\">PRÓXIMA FOLGA JUNTOS</div><div class=\\"cruzar-hero-datas\\">Nenhuma janela nos próximos 180 dias</div></div>"+_cruzarBtnEditar();return;}' +
     'var _p=_jans[0];var _nd=diasInclusivos(_p.inicio,_p.fim);' +
     'var _faltam=Math.max(0,diasInclusivos(_hojeU,_p.inicio)-1);' +
-    'var _iStr=fmtDataCurta(_p.inicio);var _fStr=fmtDataCurta(_p.fim);' +
+    'var _iStr=_cruzFmtData(_p.inicio);var _fStr=_cruzFmtData(_p.fim);' +
     'var _pStr=_p.inicio===_p.fim?_iStr:_iStr+" — "+_fStr;' +
     'var _nomeLabel=(cfg.nome||"").toUpperCase()||cfg.relacao.toUpperCase();' +
     'var _heroH="<div class=\\"cruzar-hero\\">"' +
@@ -14352,7 +14352,7 @@ function renderMinhaEscala() {
     '+"</div>";' +
     'var _lbls=["PRÓXIMA","2ª JANELA","3ª JANELA"];' +
     'var _jHtml="<div class=\\"cruzar-janelas\\">";' +
-    'for(var _ji=0;_ji<_jans.length;_ji++){var _jj=_jans[_ji];var _jnd=diasInclusivos(_jj.inicio,_jj.fim);var _jiStr=fmtDataCurta(_jj.inicio);var _jfStr=fmtDataCurta(_jj.fim);var _jpStr=_jj.inicio===_jj.fim?_jiStr:_jiStr+" – "+_jfStr;_jHtml+="<div class=\\"cruzar-janela\\"><div class=\\"cruzar-janela-label\\">"+_lbls[_ji]+"</div><div class=\\"cruzar-janela-datas\\">"+_jpStr+"</div><div class=\\"cruzar-janela-dur\\">"+_jnd+(_jnd===1?" dia":" dias")+"</div></div>";}' +
+    'for(var _ji=0;_ji<_jans.length;_ji++){var _jj=_jans[_ji];var _jnd=diasInclusivos(_jj.inicio,_jj.fim);var _jiStr=_cruzFmtData(_jj.inicio);var _jfStr=_cruzFmtData(_jj.fim);var _jpStr=_jj.inicio===_jj.fim?_jiStr:_jiStr+" – "+_jfStr;_jHtml+="<div class=\\"cruzar-janela\\"><div class=\\"cruzar-janela-label\\">"+_lbls[_ji]+"</div><div class=\\"cruzar-janela-datas\\">"+_jpStr+"</div><div class=\\"cruzar-janela-dur\\">"+_jnd+(_jnd===1?" dia":" dias")+"</div></div>";}' +
     '_jHtml+="</div>";' +
     'el.innerHTML=_heroH+_jHtml+_cruzarBtnEditar();' +
     'if(window.ownewsEvento)window.ownewsEvento("cross_view");' +
@@ -14360,9 +14360,11 @@ function renderMinhaEscala() {
     'document.addEventListener("click",function(e){' +
     'if(e.target&&e.target.id==="cruzarBtnEditar"){limparCruzar();cruzarAtual=null;renderCruzarSecao();_reRenderCalendarios();if(window.ownewsEvento)window.ownewsEvento("minha_escala_cross_open");}' +
     '});' +
+    'try{' +
     'var _cfgCruzar=carregarCruzar();' +
     'if(_cfgCruzar)cruzarAtual={nome:_cfgCruzar.nome,relacao:_cfgCruzar.relacao,calc:calcularEscala(_cfgCruzar.diasEmb,_cfgCruzar.diasFolga,_cfgCruzar.refUTC,_cfgCruzar.tipoRef)};' +
     'renderCruzarSecao();' +
+    '}catch(_cErr){try{var _cEl=document.getElementById("cruzarConteudo");if(_cEl)_cEl.hidden=true;}catch(e2){}}' +
     // ── End Escalas Conectadas ─────────────────────────────────────────────
 
     '})();' +
