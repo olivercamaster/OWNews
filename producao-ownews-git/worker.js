@@ -116,7 +116,7 @@ function classificarPaginaParaAds(caminho) {
   if (caminho.startsWith("/radar")) return null;
   if (caminho.startsWith("/noticia")) return null;
   if (caminho === "/minha-escala") return null;
-  const ELEGIVEIS = ["/guias", "/funcoes", "/empresas", "/salarios", "/pesquisa-salarial", "/cursos", "/comece-aqui", "/dados"];
+  const ELEGIVEIS = ["/guias", "/funcoes", "/empresas", "/salarios", "/pesquisa-salarial", "/cursos", "/comece-aqui", "/agenda"];
   return ELEGIVEIS.some((p) => caminho === p || caminho.startsWith(p + "/")) ? "content_after_main" : null;
 }
 
@@ -842,14 +842,13 @@ header{
 .me-home-progresso-trilha{flex:1;height:6px;max-width:220px;border-radius:99px;background:var(--navy-800);overflow:hidden}
 .me-home-progresso-fill{display:block;height:100%;width:0;background:var(--cyan-dim);border-radius:99px}
 .me-home-progresso-fracao{flex:none;font-family:var(--ui);font-size:11px;font-weight:700;color:var(--muted-dim);white-space:nowrap}
-.me-home-alerta{font-family:var(--ui);font-size:12.5px;color:var(--muted);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-home-alerta{font-family:var(--ui);font-size:12.5px;color:var(--muted);line-height:1.5;overflow:hidden}
 .me-home-cta{flex:none;font-family:var(--ui);font-weight:800;font-size:12.5px;letter-spacing:.02em;color:var(--cyan-dim);white-space:nowrap;align-self:center}
 @media(max-width:759px){
   .me-home-card{flex-wrap:wrap;row-gap:8px}
   .me-home-icone{align-self:center}
   .me-home-status{font-size:13.5px}
   .me-home-progresso-trilha{max-width:none}
-  .me-home-alerta{white-space:normal}
   .me-home-cta{width:100%;text-align:right}
 }
 @media(min-width:760px){
@@ -1825,13 +1824,11 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
             <a href="/radar" role="menuitem">Radar Offshore</a>
             <a href="/aeroportos" role="menuitem">Aeroportos Offshore</a>
             <a href="/aviacao-offshore" role="menuitem">Aviação Offshore</a>
-            <a href="/dados" role="menuitem">Offshore em Números</a>
             <div class="nav-mais-sep"></div>
             <span class="nav-mais-label">Utilidades</span>
             <a href="/ferramentas" role="menuitem">Central de Ferramentas</a>
             <a href="/conversor" role="menuitem">Conversor Offshore</a>
             <a href="/calculadora-embarque" role="menuitem">Calculadora de Embarque</a>
-            <a href="/comparador-escalas" role="menuitem">Comparador de Escalas</a>
             <a href="/glossario" role="menuitem">Glossário Offshore</a>
             <a href="/horarios" role="menuitem">Horários Offshore</a>
             <div class="nav-mais-sep"></div>
@@ -1998,8 +1995,8 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
   <a class="me-home-card" id="agendaHomeCard" href="/agenda" style="margin-top:10px" hidden>
     <span class="me-home-icone" aria-hidden="true">📅</span>
     <span class="me-home-corpo">
-      <span class="me-home-status">PRÓXIMO EVENTO</span>
-      <span class="me-home-alerta" id="agendaHomeAlerta"></span>
+      <span class="me-home-status" id="agendaHomeLabel">PRÓXIMO EVENTO</span>
+      <span class="me-home-alerta" id="agendaHomeLista"></span>
     </span>
     <span class="me-home-cta">Ver Agenda →</span>
   </a>
@@ -2078,9 +2075,9 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <h3>Plataformas &amp; Sondas</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile secundario" href="/dados">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M11 20V4M18 20v-7"/></svg></span>
-        <h3>Offshore em Números</h3>
+      <a class="central-tile secundario" href="/agenda">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8.5 14.5h3M15.5 14.5h.5"/></svg></span>
+        <h3>Agenda Offshore</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
       <a class="central-tile" href="/minha-escala">
@@ -2231,7 +2228,6 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Glossário Offshore', categoria: 'Ferramentas', url: '/glossario' },
   { titulo: 'Horários Offshore', categoria: 'Ferramentas', url: '/horarios' },
   { titulo: 'Calculadora de Embarque', categoria: 'Ferramentas', url: '/calculadora-embarque' },
-  { titulo: 'Comparador de Escalas', categoria: 'Ferramentas', url: '/comparador-escalas' },
   { titulo: 'Guias OWNews', categoria: 'Guias', url: '/guias' },
   { titulo: 'Offshore Agora', categoria: 'Agora', url: '/offshore-agora' },
   { titulo: 'OW Hub', categoria: 'OW Hub', url: '/meu-ownews' },
@@ -3989,20 +3985,24 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
    data real do navegador. Lista replicada de AGENDA_EVENTOS (server). */
 (function () {
   const card = document.getElementById('agendaHomeCard');
-  const alertaEl = document.getElementById('agendaHomeAlerta');
-  if (!card || !alertaEl) return;
-  const EVENTOS = ${JSON.stringify(AGENDA_EVENTOS.map((e) => ({ slug: e.slug, nome: e.nome, dataInicio: e.dataInicio, dataFim: e.dataFim })))};
+  const listaEl = document.getElementById('agendaHomeLista');
+  const labelEl = document.getElementById('agendaHomeLabel');
+  if (!card || !listaEl) return;
+  const EVENTOS = ${JSON.stringify(AGENDA_EVENTOS.map((e) => ({ slug: e.slug, nome: e.nome, dataInicio: e.dataInicio, dataFim: e.dataFim, cidade: e.cidade, pais: e.pais })))};
   function fmtData(iso) {
-    const [ano, mes, dia] = iso.split('-');
-    const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-    return dia + ' ' + MESES[parseInt(mes, 10) - 1] + ' ' + ano;
+    const [, mes, dia] = iso.split('-');
+    const M = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    return dia + ' ' + M[parseInt(mes, 10) - 1];
   }
   const agora = new Date();
-  const hoje = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
-  const proximo = EVENTOS.filter((ev) => hoje <= ev.dataFim).sort((a, b) => a.dataInicio.localeCompare(b.dataInicio))[0] || null;
-  if (!proximo) return;
-  card.href = '/agenda/' + proximo.slug;
-  alertaEl.textContent = proximo.nome + ' · ' + fmtData(proximo.dataInicio);
+  const hoje = agora.getFullYear() + '-' + String(agora.getMonth()+1).padStart(2,'0') + '-' + String(agora.getDate()).padStart(2,'0');
+  const proximos = EVENTOS.filter((ev) => hoje <= ev.dataFim).sort((a,b) => a.dataInicio.localeCompare(b.dataInicio)).slice(0,3);
+  if (!proximos.length) return;
+  if (labelEl) labelEl.textContent = proximos.length === 1 ? 'PRÓXIMO EVENTO' : 'PRÓXIMOS EVENTOS';
+  listaEl.innerHTML = proximos.map((ev) => {
+    const loc = ev.pais === 'Brasil' ? ev.cidade : ev.cidade + ', ' + ev.pais;
+    return '<span style="display:block"><b style="color:var(--cyan)">' + fmtData(ev.dataInicio) + '</b> · ' + ev.nome + ' · ' + loc + '</span>';
+  }).join('');
   card.hidden = false;
 })();
 
@@ -5076,7 +5076,7 @@ const SONDA_SLUGS_SET = new Set([
    todo o site); páginas de função/salário vêm do cadastro real
    (FUNCOES_OFFSHORE). Sem endpoint técnico, sem rota de teste. */
 const ROTAS_ESTATICAS_SITEMAP = [
-  "/", "/offshore-agora", "/aeroportos", "/mercado", "/comece-aqui", "/cursos", "/conversor", "/glossario", "/horarios", "/calculadora-embarque", "/comparador-escalas", "/dados", "/empresas",
+  "/", "/offshore-agora", "/aeroportos", "/mercado", "/comece-aqui", "/cursos", "/conversor", "/glossario", "/horarios", "/calculadora-embarque", "/empresas",
   "/funcoes", "/guias", "/minha-escala", "/radar", "/pesquisa-salarial",
   "/salarios", "/unidades", "/vagas", "/carreiras", "/carreiras/sonda-de-perfuracao", "/carreiras/cadastre-seu-curriculo", "/carreiras/modelo-curriculo", "/pergunte-ao-ownews",
   "/guias/escala-offshore", "/guias/erros-comuns-golpes",
@@ -5107,6 +5107,7 @@ async function gerarSitemap() {
   partes.push(xmlUrl(base + "/explica"));
   EXPLICA_ARTIGOS.forEach((e) => partes.push(xmlUrl(base + "/explica/" + e.slug)));
   partes.push(xmlUrl(base + "/agenda"));
+  partes.push(xmlUrl(base + "/agenda/submeter"));
   AGENDA_EVENTOS.forEach((ev) => partes.push(xmlUrl(base + "/agenda/" + ev.slug)));
   partes.push(xmlUrl(base + "/aviacao-offshore"));
   partes.push(xmlUrl(base + "/aviacao-offshore/aeronaves"));
@@ -5985,8 +5986,7 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     '<a href="/glossario" role="menuitem">Glossário Offshore</a>' +
     '<a href="/horarios" role="menuitem">Horários Offshore</a>' +
     '<a href="/calculadora-embarque" role="menuitem">Calculadora de Embarque</a>' +
-    '<a href="/comparador-escalas" role="menuitem">Comparador de Escalas</a>' +
-    '<a href="/dados" role="menuitem">Offshore em Números</a>' +
+
     '<a href="/minha-escala" role="menuitem">Minha Escala</a>' +
     '<div class="nav-mais-sep"></div>' +
     '<span class="nav-mais-label">Em desenvolvimento</span>' +
@@ -7729,7 +7729,6 @@ function renderAgora(){
     '<a class="campo-pill neutro" href="/funcoes">👷 Funções a Bordo</a>' +
     '<a class="campo-pill neutro" href="/salarios">💰 Salários Offshore</a>' +
     '<a class="campo-pill neutro" href="/unidades">⚓ Plataformas &amp; Sondas</a>' +
-    '<a class="campo-pill neutro" href="/dados">📊 Offshore em Números</a>' +
     '</div>' +
     '</div>' +
 
@@ -8372,7 +8371,6 @@ function renderFerramentas() {
     '<div class="guias-grid">' +
     cardGuia("/minha-escala", "Minha Escala", "Calcule seu próximo embarque e desembarque — 14x14, 14x21, 14x28 ou personalizada.") +
     cardGuia("/calculadora-embarque", "Calculadora de Embarque", "Informe a data de embarque e a escala pra gerar os próximos embarques/desembarques.") +
-    cardGuia("/comparador-escalas", "Comparador de Escalas", "Compare dias embarcado, dias em casa e ciclos anuais entre escalas diferentes.") +
     cardGuia("/guias/checklist-documentos", "Checklist de Documentos", "Checklist interativo de documentos pro embarque — marque o que já tem.") +
     '</div></div>' +
 
@@ -8387,7 +8385,7 @@ function renderFerramentas() {
     '<div class="guias-grid">' +
     cardGuia("/glossario", "Glossário Offshore", "BOP, DP, DPO, POB, ROV, FPSO, PSV, AHTS e outros termos do setor.") +
     cardGuia("/horarios", "Horários Offshore", "Hora local agora nos principais polos offshore do mundo.") +
-    cardGuia("/dados", "Offshore em Números", "Explorador de dados reais e verificáveis do setor offshore brasileiro.") +
+    cardGuia("/agenda", "Agenda Offshore", "Feiras, congressos e conferências do setor offshore e energia — só com data confirmada.") +
     '</div></div>' +
 
     '<div class="area-group">' +
@@ -9343,6 +9341,10 @@ function renderAgendaIndex() {
       ? '<h2 class="secao-label">Próximos e em andamento</h2>' + proximos.map(cardEvento).join('')
       : '<p class="dado-contexto">Nenhum evento futuro confirmado no momento — nunca preenchemos a agenda sem data real.</p>') +
     (encerrados.length ? '<h2 class="secao-label" style="margin-top:28px">Histórico recente</h2>' + encerrados.map(cardEvento).join('') : '') +
+    '<div class="area-group" style="margin-top:32px;border-top:1px solid var(--line-hair);padding-top:24px">' +
+    '<p class="dado-contexto" style="margin-bottom:12px">Organiza um evento do setor offshore ou de energia?</p>' +
+    '<a href="/agenda/submeter" class="campo-pill">Envie para a Agenda OWNews →</a>' +
+    '</div>' +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/offshore-agora">Offshore Agora →</a>' +
@@ -9388,6 +9390,41 @@ function renderAgendaDetalhe(slug) {
     conteudo,
     "/agenda/" + ev.slug,
     { eventoAbertura: 'evento_agenda_aberto' }
+  );
+}
+
+function renderAgendaSubmeter(sucesso) {
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Agenda Offshore", href: "/agenda" }, { nome: "Enviar evento" }]) +
+    '<div class="hub-hero">' +
+    '<span class="eyebrow">Agenda Offshore</span>' +
+    '<h1>Enviar evento para a Agenda</h1>' +
+    '<p class="hub-lead">Organiza um evento do setor offshore, petróleo e gás ou energia marítima? Envie para análise editorial — publicamos só com data e fonte confirmadas.</p>' +
+    '</div>' +
+    (sucesso
+      ? '<div class="aviso-atualizacao">Recebemos sua sugestão. Nossa equipe editorial analisará e entrará em contato pelo e-mail informado se publicarmos. Obrigado!</div>'
+      : '') +
+    '<form class="form-pesquisa" method="POST" action="/api/agenda/submissao" style="max-width:560px">' +
+    '<div class="campo-form"><label for="agNome">Nome do evento *</label><input type="text" id="agNome" name="nome" required maxlength="160" placeholder="Ex.: OTC 2027 — Offshore Technology Conference"></div>' +
+    '<div class="campo-form"><label for="agOrg">Organizador *</label><input type="text" id="agOrg" name="organizador" required maxlength="120" placeholder="Nome da entidade ou empresa"></div>' +
+    '<div class="campo-form"><label for="agDataInicio">Data de início *</label><input type="date" id="agDataInicio" name="data_inicio" required></div>' +
+    '<div class="campo-form"><label for="agDataFim">Data de encerramento</label><input type="date" id="agDataFim" name="data_fim"></div>' +
+    '<div class="campo-form"><label for="agLocal">Cidade e país *</label><input type="text" id="agLocal" name="local" required maxlength="120" placeholder="Ex.: Houston, Estados Unidos"></div>' +
+    '<div class="campo-form"><label for="agUrl">Site oficial *</label><input type="url" id="agUrl" name="url_oficial" required maxlength="500" placeholder="https://"></div>' +
+    '<div class="campo-form"><label for="agDesc">Descrição curta (opcional)</label><textarea id="agDesc" name="descricao" maxlength="400" rows="3" placeholder="1-2 frases sobre o evento"></textarea></div>' +
+    '<div class="campo-form"><label for="agEmail">Seu e-mail de contato *</label><input type="email" id="agEmail" name="email_contato" required maxlength="200" placeholder="contato@exemplo.com"></div>' +
+    '<button type="submit" class="btn-enviar-pesquisa">Enviar para análise</button>' +
+    '</form>' +
+    '<div class="hub-continue">' +
+    '<span class="hub-continue-label">Continue no OWNews</span>' +
+    '<a href="/agenda">← Agenda Offshore</a>' +
+    '</div>';
+
+  return paginaChrome(
+    "Enviar evento — Agenda Offshore",
+    "Envie seu evento do setor offshore para análise editorial do OWNews.",
+    conteudo,
+    "/agenda/submeter"
   );
 }
 
@@ -9489,7 +9526,6 @@ function renderCalculadoraEmbarque() {
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/minha-escala">Jogar para Minha Escala →</a>' +
-    '<a href="/comparador-escalas">Comparador de Escalas →</a>' +
     '</div>' +
     '<script>' +
     '(function(){' +
@@ -9516,79 +9552,7 @@ function renderCalculadoraEmbarque() {
   );
 }
 
-/* ---------- /comparador-escalas — Comparador de Escalas (Fase 24, Missão
-   Mestre Contínua, 2026-09-18): matemática pura de regimes — nunca diz
-   qual é "melhor". */
-const COMPARADOR_ESCALAS_REGIMES = [
-  { id: "14x14", nome: "14x14", embarcado: 14, folga: 14 },
-  { id: "14x21", nome: "14x21", embarcado: 14, folga: 21 },
-  { id: "14x28", nome: "14x28", embarcado: 14, folga: 28 },
-  { id: "28x28", nome: "28x28", embarcado: 28, folga: 28 }
-];
 
-function renderComparadorEscalas() {
-  const linhasPreset = COMPARADOR_ESCALAS_REGIMES.map((r) =>
-    '<label class="check-item"><input type="checkbox" class="comparadorCheck" data-embarcado="' + r.embarcado + '" data-folga="' + r.folga + '" checked> ' + escaparHTML(r.nome) + '</label>'
-  ).join('');
-
-  const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Comparador de Escalas" }]) +
-    '<style>' +
-    '.comparador-tabela{width:100%;border-collapse:collapse;margin-top:20px;font-family:var(--ui);font-size:13.5px}' +
-    '.comparador-tabela th,.comparador-tabela td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-hair)}' +
-    '.comparador-tabela th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}' +
-    '.comparador-tabela td{color:var(--white)}' +
-    '.comparador-wrap{overflow-x:auto}' +
-    '</style>' +
-    '<div class="hub-hero">' +
-    '<span class="eyebrow">Ferramenta OWNews · client-side</span>' +
-    '<h1>Comparador de Escalas</h1>' +
-    '<p class="hub-lead">Compare regimes de embarque em números — dias offshore/ano, dias onshore/ano e percentual offshore. Sem opinião sobre qual é melhor: cada pessoa pesa isso de um jeito.</p>' +
-    '</div>' +
-    '<div class="checks-grid">' + linhasPreset + '</div>' +
-    '<div class="form-pesquisa" style="max-width:420px;margin-top:16px">' +
-    '<div class="campo-form"><label for="compCustomEmbarcado">Regime personalizado — dias embarcado</label><input type="number" id="compCustomEmbarcado" min="1" placeholder="ex.: 21"></div>' +
-    '<div class="campo-form"><label for="compCustomFolga">Regime personalizado — dias de folga</label><input type="number" id="compCustomFolga" min="1" placeholder="ex.: 21"></div>' +
-    '</div>' +
-    '<div class="comparador-wrap"><table class="comparador-tabela" id="comparadorTabela"><thead><tr><th>Regime</th><th>Ciclo</th><th>Dias offshore/ano</th><th>Dias onshore/ano</th><th>% offshore</th></tr></thead><tbody id="comparadorCorpo"></tbody></table></div>' +
-    '<div class="hub-continue">' +
-    '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/calculadora-embarque">Calculadora de Embarque →</a>' +
-    '<a href="/minha-escala">Minha Escala →</a>' +
-    '</div>' +
-    '<script>' +
-    '(function(){' +
-    'function esc(t){return String(t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}' +
-    'function recalcular(){' +
-    'var linhas=[];' +
-    'document.querySelectorAll(".comparadorCheck:checked").forEach(function(cb){' +
-    'linhas.push({nome:cb.parentElement.textContent.trim(),embarcado:parseInt(cb.getAttribute("data-embarcado"),10),folga:parseInt(cb.getAttribute("data-folga"),10)});' +
-    '});' +
-    'var ceE=parseInt(document.getElementById("compCustomEmbarcado").value,10);var ceF=parseInt(document.getElementById("compCustomFolga").value,10);' +
-    'if(ceE>0&&ceF>0)linhas.push({nome:"Personalizado ("+ceE+"x"+ceF+")",embarcado:ceE,folga:ceF});' +
-    'var corpo=document.getElementById("comparadorCorpo");' +
-    'corpo.innerHTML=linhas.map(function(l){' +
-    'var ciclo=l.embarcado+l.folga;' +
-    'var diasOffshoreAno=Math.round(365*(l.embarcado/ciclo));' +
-    'var diasOnshoreAno=365-diasOffshoreAno;' +
-    'var pct=Math.round((l.embarcado/ciclo)*1000)/10;' +
-    'return "<tr><td>"+esc(l.nome)+"</td><td>"+ciclo+" dias</td><td>"+diasOffshoreAno+"</td><td>"+diasOnshoreAno+"</td><td>"+pct+"%</td></tr>";' +
-    '}).join("");' +
-    '}' +
-    'document.querySelectorAll(".comparadorCheck").forEach(function(cb){cb.addEventListener("change",recalcular);});' +
-    'document.getElementById("compCustomEmbarcado").addEventListener("input",recalcular);' +
-    'document.getElementById("compCustomFolga").addEventListener("input",recalcular);' +
-    'recalcular();' +
-    '})();' +
-    '</script>';
-
-  return paginaChrome(
-    "Comparador de Escalas",
-    "Compare regimes de embarque offshore (14x14, 14x21, 14x28, 28x28 ou personalizado) em dias offshore/ano, dias onshore/ano e percentual offshore.",
-    conteudo,
-    "/comparador-escalas"
-  );
-}
 
 function renderHorarios() {
   const cards = HORARIOS_OFFSHORE_LOCAIS.map((l, i) =>
@@ -10671,40 +10635,6 @@ function renderUnidades(){
   );
 }
 
-/* ---------- /dados (Offshore em Números) ----------
-   Só números reais e verificáveis sobre a própria cobertura do OWNews —
-   nunca estatística de mercado inventada. */
-function renderDados(){
-  const totalFuncoes = FUNCOES_OFFSHORE.length;
-  const totalAreas = Object.keys(AREAS_OFFSHORE).length;
-
-  const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Offshore em Números" }]) +
-    '<div class="hub-hero">' +
-    '<span class="eyebrow">Referência OWNews</span>' +
-    '<h1>Offshore em Números</h1>' +
-    '<p class="hub-lead">Números reais sobre a cobertura do OWNews — não é estatística de mercado, é sobre o que já mapeamos.</p>' +
-    '</div>' +
-    '<div class="campo-grid">' +
-    campoEstrutura("Funções mapeadas em Salários/Funções", '<span class="campo-pill neutro">' + totalFuncoes + '</span>') +
-    campoEstrutura("Áreas profissionais cobertas", '<span class="campo-pill neutro">' + totalAreas + '</span>') +
-    campoEstrutura("Aeroportos offshore monitorados ao vivo", '<span class="campo-pill neutro">6</span>') +
-    campoEstrutura("Fontes oficiais ativas no coletor", '<span class="campo-pill neutro">ANP, Petrobras, MME</span>') +
-    campoEstrutura("Fotos da Biblioteca Editorial OWNews", '<span class="campo-pill neutro">16, licenciadas</span>') +
-    campoEstrutura("Dados de mercado (salários, vagas)", pillAtualizacao("Em atualização — só com fontes confiáveis")) +
-    '</div>' +
-    '<div class="hub-continue">' +
-    '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/salarios">Salários Offshore →</a>' +
-    '<a href="/funcoes">Funções a Bordo →</a>' +
-    '</div>';
-
-  return paginaChrome(
-    "Offshore em Números",
-    "Números reais sobre a cobertura do OWNews.",
-    conteudo
-  );
-}
 
 
 /* =========================================================================
@@ -16250,8 +16180,50 @@ export default {
       });
     }
 
+    if (url.pathname === "/agenda/submeter") {
+      return new Response(renderAgendaSubmeter(false), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
+    if (url.pathname === "/api/agenda/submissao" && request.method === "POST") {
+      try {
+        const body = await request.formData();
+        const nome = (body.get("nome") || "").slice(0, 160).trim();
+        const organizador = (body.get("organizador") || "").slice(0, 120).trim();
+        const dataInicio = (body.get("data_inicio") || "").slice(0, 10).trim();
+        const local = (body.get("local") || "").slice(0, 120).trim();
+        const urlOficial = (body.get("url_oficial") || "").slice(0, 500).trim();
+        const email = (body.get("email_contato") || "").slice(0, 200).trim();
+        if (!nome || !organizador || !dataInicio || !local || !urlOficial || !email) {
+          return new Response(renderAgendaSubmeter(false), {
+            status: 400, headers: { "Content-Type": "text/html; charset=UTF-8" }
+          });
+        }
+        const kvKey = "agenda_sub_" + Date.now();
+        const payload = {
+          nome, organizador, data_inicio: dataInicio,
+          data_fim: (body.get("data_fim") || "").slice(0, 10).trim() || null,
+          local, url_oficial: urlOficial,
+          descricao: (body.get("descricao") || "").slice(0, 400).trim(),
+          email_contato: email,
+          submetido_em: new Date().toISOString(),
+          status: "pendente"
+        };
+        await env.PERGUNTE_IA_KV.put(kvKey, JSON.stringify(payload), { expirationTtl: 7776000 });
+        return new Response(renderAgendaSubmeter(true), {
+          headers: { "Content-Type": "text/html; charset=UTF-8" }
+        });
+      } catch {
+        return new Response(renderAgendaSubmeter(false), {
+          status: 500, headers: { "Content-Type": "text/html; charset=UTF-8" }
+        });
+      }
+    }
+
     if (url.pathname.startsWith("/agenda/")) {
       const slugAgenda = url.pathname.slice("/agenda/".length).replace(/\/$/, "");
+      if (slugAgenda === "submeter") return new Response(renderAgendaSubmeter(false), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
       const paginaAgenda = renderAgendaDetalhe(slugAgenda);
       if (!paginaAgenda) return pagina404();
       return new Response(paginaAgenda, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
@@ -16289,9 +16261,7 @@ export default {
     }
 
     if (url.pathname === "/comparador-escalas") {
-      return new Response(renderComparadorEscalas(), {
-        headers: { "Content-Type": "text/html; charset=UTF-8" }
-      });
+      return Response.redirect("https://" + url.hostname + "/minha-escala", 301);
     }
 
     if (url.pathname === "/saude") {
@@ -16472,9 +16442,7 @@ export default {
     }
 
     if (url.pathname === "/dados") {
-      return new Response(renderDados(), {
-        headers: { "Content-Type": "text/html; charset=UTF-8" }
-      });
+      return Response.redirect("https://" + url.hostname + "/salarios", 301);
     }
 
     if (url.pathname === "/sobre") {
