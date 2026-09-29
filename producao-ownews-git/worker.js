@@ -1041,14 +1041,15 @@ html.embarcado header{backdrop-filter:none}
 .latest-feature h3{font-size:24px;line-height:1.15;font-weight:600}
 .latest-feature p{font-family:var(--editorial);font-size:15.5px;line-height:1.5;color:var(--muted);max-width:68ch}
 .row-list{display:flex;flex-direction:column}
-.row{display:flex;gap:14px;align-items:center;padding-block:12px;border-top:1px solid var(--line-hair);cursor:pointer}
+.row{display:flex;gap:14px;align-items:center;padding-block:13px;border-top:1px solid var(--line-hair);cursor:pointer;transition:opacity .15s}
 .row:first-child{border-top:0}
+.row:hover .row-main h3{color:var(--cyan-dim)}
 .row-thumb{
-  width:92px;height:66px;border-radius:5px;background-size:cover;background-position:center;
+  width:96px;height:70px;border-radius:6px;background-size:cover;background-position:center;
   background-color:var(--navy-900);flex:none;position:relative;
 }
 .row-main{min-width:0}
-.row-main h3{font-size:16.5px;line-height:1.35;font-weight:600}
+.row-main h3{font-size:16.5px;line-height:1.35;font-weight:600;transition:color .15s}
 .row-main .byline{margin-top:5px}
 
 @media(min-width:760px){
@@ -1090,7 +1091,9 @@ html.embarcado header{backdrop-filter:none}
 .ops-card{
   width:min(360px,82vw);flex:0 0 auto;scroll-snap-align:start;border-radius:6px;overflow:hidden;
   position:relative;min-height:340px;cursor:pointer;background:var(--navy-900);
+  transition:transform .18s ease;
 }
+.ops-card:hover{transform:translateY(-2px)}
 .ops-card .cover{position:absolute;inset:0;background-size:cover;background-position:center}
 .ops-card .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,12,18,0) 8%,rgba(4,12,18,.2) 32%,rgba(3,10,15,.6) 55%,rgba(3,10,15,.93) 100%)}
 .ops-card-copy{position:relative;z-index:2;padding:18px;display:flex;flex-direction:column;min-height:340px;pointer-events:none}\n.card-copy-inner{margin-top:auto}
@@ -1300,7 +1303,12 @@ svg.access-ico{width:17px;height:17px;flex:none}
 .access-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
 .access-card-btn[aria-pressed="true"] .access-label{color:var(--green)}
 .access-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);line-height:1.3}
-.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px}
+.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px;text-decoration:none}
+.access-card-social{cursor:default}
+.access-sub-social{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px}
+.access-social-link{color:inherit;text-decoration:none;min-height:28px;display:inline-flex;align-items:center}
+.access-social-link:hover,.access-social-link:focus-visible{color:var(--cyan-dim)}
+.access-social-link:focus-visible{outline:2px solid var(--cyan-dim);outline-offset:2px;border-radius:3px}
 /* ── Carreiras Offshore 2.0 ─────────────────────────────────────────── */
 .carreiras-hero{padding:32px 0 20px}
 .carreiras-hero h1{font-family:var(--ui);font-size:clamp(22px,5vw,34px);font-weight:900;color:var(--white);margin:0 0 10px;letter-spacing:-.01em}
@@ -1404,7 +1412,13 @@ svg.access-ico{width:17px;height:17px;flex:none}
 .access-label{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--white)}
 .access-card-btn[aria-pressed="true"] .access-label{color:var(--green)}
 .access-sub{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);line-height:1.3}
-.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px}
+.access-cta{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--cyan);margin-top:3px;text-decoration:none}
+/* Card Redes Sociais: div sem cursor global, links individuais por handle */
+.access-card-social{cursor:default}
+.access-sub-social{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px}
+.access-social-link{color:inherit;text-decoration:none;min-height:28px;display:inline-flex;align-items:center}
+.access-social-link:hover,.access-social-link:focus-visible{color:var(--cyan-dim)}
+.access-social-link:focus-visible{outline:2px solid var(--cyan-dim);outline-offset:2px;border-radius:3px}
 /* Faixa social secundária: mesmo componente .baia-bloco de sempre, agora
    uma faixa hierarquicamente menor (abaixo dos atalhos utilitários) —
    zero funcionalidade removida, só posição/peso visual. */
@@ -1494,25 +1508,25 @@ a.eco-row:hover .eco-row-mark{color:var(--cyan-dim)}
 }
 
 /* ---------- newsletter ---------- */
-.newsletter{margin-top:52px;padding-top:26px;border-top:1px solid var(--line-hair)}
-.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:12px}
+.newsletter{margin-top:52px;padding-top:26px;padding-bottom:32px;border-top:1px solid var(--line-hair)}
+.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:14px}
 .subscribe{display:flex;max-width:440px}
-.subscribe input{min-width:0;flex:1;padding:12px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit}
-.subscribe button{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 16px;border-radius:0 6px 6px 0}
+.subscribe input{min-width:0;flex:1;padding:12px 14px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit;font-size:14px}
+.subscribe button{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 18px;border-radius:0 6px 6px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap}
 
-footer{margin-top:40px;border-top:1px solid var(--line-soft);padding:36px 0 0;color:var(--muted-dim);font-size:12px}
-.footer-novo{display:grid;grid-template-columns:1fr;gap:26px;padding-bottom:26px}
+footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;color:var(--muted-dim);font-size:12px}
+.footer-novo{display:grid;grid-template-columns:1fr;gap:28px;padding-bottom:28px}
 .footer-col-marca{max-width:320px}
 .footer-logo{display:block;font-family:var(--ui);font-weight:800;font-size:16px;color:var(--white);letter-spacing:.01em}
 .footer-logo span{color:var(--cyan-dim)}
 .footer-tagline{margin:8px 0 6px;font-size:12.5px;line-height:1.5;color:var(--muted)}
 .footer-by{display:block;font-size:11.5px;color:var(--muted-dim)}
-.footer-col-titulo{margin:0 0 10px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.footer-col{display:flex;flex-direction:column;gap:4px}
-.footer-col a{padding:3px 0;color:var(--muted-dim);font-size:12.5px}
+.footer-col-titulo{margin:0 0 12px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.footer-col{display:flex;flex-direction:column;gap:5px}
+.footer-col a{padding:4px 0;color:var(--muted-dim);font-size:12.5px}
 .footer-col a:hover{color:var(--muted)}
-@media(min-width:640px){.footer-novo{grid-template-columns:1.3fr 1fr 1fr 1fr}}
-.footer-bottom{display:flex;flex-direction:column;gap:12px;padding:16px 0 22px;border-top:1px solid var(--line-hair)}
+@media(min-width:640px){.footer-novo{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:32px}}
+.footer-bottom{display:flex;flex-direction:column;gap:12px;padding:18px 0 26px;border-top:1px solid var(--line-hair)}
 @media(min-width:640px){.footer-bottom{flex-direction:row;align-items:center;justify-content:space-between}}
 .footer-bottom-info{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center}
 
@@ -1898,12 +1912,12 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
       <span class="access-sub" id="embarcadoBtnSub">Versão leve para internet a bordo</span>
       <span class="access-cta">ACESSAR →</span>
     </button>
-    <a class="access-card" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">
+    <div class="access-card access-card-social">
       <svg class="access-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>
       <span class="access-label">Redes Sociais</span>
-      <span class="access-sub">@ownewsbr · @offshoreworks</span>
-      <span class="access-cta">SEGUIR ↗</span>
-    </a>
+      <span class="access-sub access-sub-social"><a class="access-social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">@ownewsbr</a><span aria-hidden="true"> · </span><a class="access-social-link" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer">@offshoreworks</a></span>
+      <a class="access-cta" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">SEGUIR ↗</a>
+    </div>
   </nav>
 
   <!-- Ajuste Visual Final da Home (2026-09-27): ordem do topo agora é
@@ -2038,17 +2052,17 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <h3>Empresas Offshore</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/cursos" id="cursos">
+      <a class="central-tile secundario" href="/cursos" id="cursos">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5 2.5 10 12 14.5 21.5 10z"/><path d="M6.5 12v4.5c0 1.1 2.5 2.5 5.5 2.5s5.5-1.4 5.5-2.5V12"/></svg></span>
         <h3>Cursos e Escolas</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/guias">
+      <a class="central-tile secundario" href="/guias">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12.5h5M9.5 16h5"/></svg></span>
         <h3>Guias OWNews</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/explica">
+      <a class="central-tile secundario" href="/explica">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M9.3 9.3a2.7 2.7 0 1 1 3.7 2.5c-.9.4-1 1-1 1.7"/><path d="M12 17h.01"/></svg></span>
         <h3>OWNews Explica</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
@@ -2059,12 +2073,12 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Aeronaves, aeroportos e operação aérea</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/unidades">
+      <a class="central-tile secundario" href="/unidades">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><path d="M12 7v13"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M4.5 13h3M16.5 13h3"/></svg></span>
         <h3>Plataformas &amp; Sondas</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/dados">
+      <a class="central-tile secundario" href="/dados">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M11 20V4M18 20v-7"/></svg></span>
         <h3>Offshore em Números</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
@@ -2075,7 +2089,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Calcule seu próximo embarque e desembarque</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/ferramentas">
+      <a class="central-tile secundario" href="/ferramentas">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 3.5 20.5 9.5 9.5 20.5 3.5 14.5Z"/><path d="M13 5 19 11"/><circle cx="7.5" cy="16.5" r="1.4"/></svg></span>
         <h3>Central de Ferramentas</h3>
         <p>Calculadoras, conversores e utilidades</p>
