@@ -950,7 +950,7 @@ header{
 /* ---------- Modo Embarcado (Fase A, 2026-09-18) ---------- */
 .cover, .thumb, .row-thumb{background:var(--navy-900)} /* fundo sólido quando não há background-image (embarcado) */
 .btn-carregar-imagem{
-  position:absolute;inset:0;margin:auto;width:max-content;max-width:calc(100% - 10px);height:max-content;z-index:3;
+  position:absolute;inset:0 0 45% 0;margin:auto;width:max-content;max-width:calc(100% - 10px);height:max-content;z-index:1;
   background:rgba(6,28,43,.85);border:1px solid var(--line-soft);border-radius:99px;
   color:var(--cyan-dim);font-family:var(--ui);font-size:11px;font-weight:700;
   letter-spacing:.03em;padding:8px 14px;cursor:pointer;white-space:normal;text-align:center;line-height:1.25;
