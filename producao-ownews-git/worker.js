@@ -404,6 +404,16 @@ const AGENDA_EVENTOS = [
     urlOficial: "https://otcbrasil.org/",
     descricao: "Conferência de tecnologia offshore da América Latina — exploração, perfuração, produção, CCUS, IA e transição energética para o contexto brasileiro.",
     fonteNome: "OTC Brasil — site oficial", fonteUrl: "https://otcbrasil.org/"
+  },
+  {
+    slug: "otc-asia-2028", nome: "OTC Asia 2028",
+    dataInicio: "2028-03-21", dataFim: "2028-03-23",
+    cidade: "Kuala Lumpur", pais: "Malásia", local: "Kuala Lumpur Convention Centre",
+    categoria: "Conferência técnica",
+    organizador: "OTC — Offshore Technology Conference",
+    urlOficial: "https://www.otcnet.org/",
+    descricao: "Conferência de tecnologia offshore do Sudeste Asiático — exploração, perfuração, produção e energia offshore.",
+    fonteNome: "OTC — site oficial", fonteUrl: "https://www.otcnet.org/"
   }
 ];
 const AGENDA_FONTES = [

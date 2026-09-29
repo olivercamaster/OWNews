@@ -2341,7 +2341,7 @@ const AGENDA_CRAWLER_FONTES = [
     id: 'otcnet', nome: 'OTC Events (otcnet.org)',
     url: 'https://www.otcnet.org/',
     eventos: [
-      { slug: 'otc-2027', padroes: ['May 3', 'May 3–5', '3–5, 2027', 'May 3-5'] },
+      { slug: 'otc-2027', padroes: ['3–5 May', '3-5 May', 'May 2027', 'NRG Park'] },
       { slug: 'otc-brasil-2027', padroes: ['October 26', 'Rio de Janeiro', 'Oct 26'] }
     ],
     detectarNovos: true
