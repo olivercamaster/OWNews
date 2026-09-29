@@ -2703,6 +2703,7 @@ const RISCO_PADROES = [
   [/\bresgate.{0,60}\b(plataforma|offshore|fpso|sonda|navio|trabalhad)/is, 'RESGATE_OFFSHORE'],
   [/\b(evacuac[a]?o\s+(emergencial|urgente)|(evacuad[o]?[s]?|evacuac[a]?o).{0,40}(incendio|explosao|plataforma))/is, 'EVACUACAO_EMERGENCIA'],
   [/\b(preso|detido|investigado|indiciado|acusado)\b.{0,60}\b(engenheiro|gerente|diretor|executivo|funcionario|operad)/is, 'ACUSACAO_CRIMINAL_PESSOA'],
+  [/\b(engenheiro|gerente|diretor|executivo|funcionario|operad\w*)\b.{0,60}\b(preso|detido|investigado|indiciado|acusado)/is, 'ACUSACAO_CRIMINAL_PESSOA'],
 ];
 
 function classificarRiscoEditorial(artigo) {
