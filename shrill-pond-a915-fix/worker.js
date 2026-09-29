@@ -531,7 +531,8 @@ if (url.pathname === "/teste-materia") {
  if (url.pathname === "/aeroportos") {
   await garantirOffVoosPollerAtivo(env);
   const resultado = await consultarAeroportos(env);
-
+  // Cache snapshot for CC observability and boletim fallback
+  await salvarSnapshotAeroportosNoKV(env, resultado);
   return Response.json(resultado, {
     headers: {
       "Access-Control-Allow-Origin": "*"
@@ -2075,6 +2076,40 @@ async function avaliarSaudeOffVoos(env) {
   };
 }
 
+async function avaliarAeroportosMeteo(env) {
+  const snapshot = await obterSnapshotAeroportosDoKV(env);
+  if (!snapshot || !Array.isArray(snapshot.aeroportos)) {
+    return {
+      fetched_at: null,
+      total: 0,
+      com_dado: 0,
+      verde: 0,
+      amarelo: 0,
+      vermelho: 0,
+      sem_info: 0,
+      estado: "sem_snapshot",
+      observacao: "Snapshot meteorológico ainda não disponível. Visite /aeroportos para iniciar o cache."
+    };
+  }
+  const total = snapshot.aeroportos.length;
+  const verde = snapshot.aeroportos.filter((e) => extrairIcaoEStatus(e).status === "g").length;
+  const amarelo = snapshot.aeroportos.filter((e) => extrairIcaoEStatus(e).status === "y").length;
+  const vermelho = snapshot.aeroportos.filter((e) => extrairIcaoEStatus(e).status === "r").length;
+  const comDado = snapshot.aeroportos.filter((e) => (e.clima || {}).horarioUTC).length;
+  const semInfo = total - verde - amarelo - vermelho;
+  const estado = vermelho > 0 ? "atencao" : amarelo > 0 ? "degradado" : comDado > 0 ? "healthy" : "sem_dados";
+  return {
+    fetched_at: snapshot.fetched_at || null,
+    total,
+    com_dado: comDado,
+    verde,
+    amarelo,
+    vermelho,
+    sem_info: semInfo,
+    estado
+  };
+}
+
 async function avaliarSaudeEditorial(env) {
   const execucaoKV = await obterUltimaExecucaoDoKV(env);
   const sourceCoverage = execucaoKV && execucaoKV.funil ? execucaoKV.funil.SOURCE_COVERAGE || {} : {};
@@ -2199,6 +2234,7 @@ async function avaliarSaudeEditorial(env) {
       telegram: telegramStatus,
       offvoos: offvoosStatus,
       mercado: mercadoStatus,
+      aeroportos_meteo: await avaliarAeroportosMeteo(env),
       imagens,
       traducao,
       jobs_open: null,
@@ -2262,6 +2298,7 @@ async function avaliarSaudeEditorial(env) {
     telegram: telegramStatus,
     offvoos: offvoosStatus,
     mercado: mercadoStatus,
+    aeroportos_meteo: await avaliarAeroportosMeteo(env),
     imagens,
     traducao,
     jobs_open: null,
@@ -4299,18 +4336,23 @@ if (fimObservacao >= 0) {
 
   // Visibilidade
   let visibilidade = null;
+  const temCAVOK = grupos.includes("CAVOK");
 
-  const visGrupo = grupos.find((g) =>
-    /^\d{4}$/.test(g)
-  );
+  if (temCAVOK) {
+    visibilidade = "10+ km (CAVOK)";
+  } else {
+    const visGrupo = grupos.find((g) =>
+      /^\d{4}$/.test(g)
+    );
 
-  if (visGrupo) {
-    const metros = Number(visGrupo);
+    if (visGrupo) {
+      const metros = Number(visGrupo);
 
-    visibilidade =
-      metros >= 9999
-        ? "10+ km"
-        : (metros / 1000).toFixed(1).replace(".0", "") + " km";
+      visibilidade =
+        metros >= 9999
+          ? "10+ km"
+          : (metros / 1000).toFixed(1).replace(".0", "") + " km";
+    }
   }
 
   // Fenômenos meteorológicos usando grupos completos
@@ -4326,10 +4368,11 @@ if (fimObservacao >= 0) {
     /^(FG|BR|HZ|MIFG|BCFG|FZFG)$/.test(g)
   );
 
-  const ovc = grupos.some((g) => /^OVC\d{3}/.test(g));
-  const bkn = grupos.some((g) => /^BKN\d{3}/.test(g));
-  const sct = grupos.some((g) => /^SCT\d{3}/.test(g));
-  const few = grupos.some((g) => /^FEW\d{3}/.test(g));
+  // CAVOK implies no significant clouds below 5000ft, no need to check layers
+  const ovc = !temCAVOK && grupos.some((g) => /^OVC\d{3}/.test(g));
+  const bkn = !temCAVOK && grupos.some((g) => /^BKN\d{3}/.test(g));
+  const sct = !temCAVOK && grupos.some((g) => /^SCT\d{3}/.test(g));
+  const few = !temCAVOK && grupos.some((g) => /^FEW\d{3}/.test(g));
 
   let icone = "☀️";
   let tempo = "Céu claro";
@@ -4369,9 +4412,42 @@ if (fimObservacao >= 0) {
       " UTC";
   }
 
+  // Vento: METAR wind group — VRB05KT, 18012KT, 09015G25KT, 00000KT
+  let vento = null;
+  const ventGrupo = grupos.find((g) => /^(VRB|\d{3})\d{2,3}(G\d{2,3})?KT$/.test(g));
+  if (ventGrupo) {
+    if (/^00000KT$/.test(ventGrupo)) {
+      vento = "Calmo";
+    } else if (ventGrupo.startsWith("VRB")) {
+      const velMatch = ventGrupo.match(/VRB(\d+)/);
+      const vel = velMatch ? Number(velMatch[1]) : 0;
+      vento = `variável/${vel}kt`;
+    } else {
+      const dir = ventGrupo.slice(0, 3);
+      const vel = Number(ventGrupo.slice(3, 5));
+      const gustMatch = ventGrupo.match(/G(\d+)KT$/);
+      vento = `${dir}\xb0/${vel}kt` + (gustMatch ? ` (raj. ${Number(gustMatch[1])}kt)` : "");
+    }
+  }
+
+  // Teto (ceiling): menor camada BKN ou OVC (CAVOK = sem teto restritivo)
+  let teto = null;
+  const camadasTeto = temCAVOK ? [] : grupos.filter((g) => /^(OVC|BKN)\d{3}/.test(g));
+  const camadasSCT = temCAVOK ? [] : grupos.filter((g) => /^SCT\d{3}/.test(g));
+  if (camadasTeto.length) {
+    const ft = Number(camadasTeto[0].slice(3)) * 100;
+    const tipo = camadasTeto[0].startsWith("OVC") ? "nublado" : "semi-nublado";
+    teto = `${ft.toLocaleString("pt-BR")}ft (${tipo})`;
+  } else if (camadasSCT.length) {
+    const ft = Number(camadasSCT[0].slice(3)) * 100;
+    teto = `${ft.toLocaleString("pt-BR")}ft (disperso)`;
+  }
+
   return {
     temperatura,
     visibilidade,
+    vento,
+    teto,
     icone,
     tempo,
     horarioUTC
@@ -6002,31 +6078,92 @@ function dataBRTString(agora) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-function formatarBoletimAeroportos(snapshot, agora) {
-  if (!snapshot || !Array.isArray(snapshot.aeroportos)) return null;
-  const ativos = snapshot.aeroportos.filter((a) => a.status === "ok" && a.total != null && a.total > 0);
-  if (!ativos.length) return null;
+function extrairIcaoEStatus(entrada) {
+  const dados = entrada.dados;
+  if (Array.isArray(dados)) return { icao: dados[0] || null, status: dados[4] || null };
+  return { icao: dados?.icao || null, status: dados?.status || null };
+}
+
+function classificarCondicaoMeteo(status) {
+  if (status === "g") return { emoji: "🟢", label: "VERDE", ordem: 0 };
+  if (status === "y") return { emoji: "🟡", label: "AMARELO", ordem: 1 };
+  if (status === "r") return { emoji: "🔴", label: "VERMELHO", ordem: 2 };
+  return { emoji: "⚪", label: "SEM INFORMAÇÃO", ordem: 3 };
+}
+
+async function obterSnapshotAeroportosDoKV(env) {
+  if (!env.SAUDE_KV) return null;
+  try {
+    const bruto = await env.SAUDE_KV.get("aeroportos_snapshot");
+    if (!bruto) return null;
+    return JSON.parse(bruto);
+  } catch { return null; }
+}
+
+async function salvarSnapshotAeroportosNoKV(env, snapshot) {
+  if (!env.SAUDE_KV) return;
+  try {
+    await env.SAUDE_KV.put("aeroportos_snapshot", JSON.stringify({
+      ...snapshot,
+      fetched_at: new Date().toISOString()
+    }), { expirationTtl: 7200 });
+  } catch {}
+}
+
+function formatarBoletimAeroportos(snapshotAeroportos, agora) {
+  if (!snapshotAeroportos || !Array.isArray(snapshotAeroportos.aeroportos)) return null;
+  const entradas = snapshotAeroportos.aeroportos;
+  if (!entradas.length) return null;
+
+  const comInfo = entradas.filter((e) => {
+    const { status } = extrairIcaoEStatus(e);
+    return status || (e.clima && e.clima.horarioUTC);
+  });
+  if (!comInfo.length) return null;
+
+  const PRIORIDADE_ICAO = ["SBJR", "SBMI", "SBCB", "SBME", "SBFS", "SBVT", "SBAR", "SBSV", "SBFZ", "SBOI", "SBMQ"];
+  const ordenados = [...comInfo].sort((a, b) => {
+    const { icao: ia } = extrairIcaoEStatus(a);
+    const { icao: ib } = extrairIcaoEStatus(b);
+    const pa = PRIORIDADE_ICAO.indexOf(ia);
+    const pb = PRIORIDADE_ICAO.indexOf(ib);
+    if (pa !== -1 && pb !== -1) return pa - pb;
+    if (pa !== -1) return -1;
+    if (pb !== -1) return 1;
+    return classificarCondicaoMeteo(extrairIcaoEStatus(a).status).ordem -
+           classificarCondicaoMeteo(extrairIcaoEStatus(b).status).ordem;
+  });
 
   const brt = new Date(agora - 3 * 3600000);
-  const dia = String(brt.getUTCDate()).padStart(2, "0");
-  const mes = String(brt.getUTCMonth() + 1).padStart(2, "0");
+  const hora = String(brt.getUTCHours()).padStart(2, "0") + ":" + String(brt.getUTCMinutes()).padStart(2, "0");
 
-  const atualizadoEm = snapshot.atualizado_em ? new Date(snapshot.atualizado_em).getTime() : null;
-  const idadeMin = atualizadoEm ? Math.round((agora - atualizadoEm) / 60000) : null;
+  let texto = `🌤️ <b>CONDIÇÕES DOS AEROPORTOS OFFSHORE</b>\nAtualizado às ${hora} BRT\n`;
+  let comMetar = 0;
 
-  let texto = `✈️ <b>AEROPORTOS OFFSHORE — ${dia}/${mes}</b>\n\n`;
-  for (const a of ativos) {
-    const nome = NOMES_AEROPORTO_AGENDADOR[a.airport] || a.airport;
-    const partes = [];
-    if (a.concluidos != null) partes.push(`${a.concluidos} pous.`);
-    if (a.em_voo > 0) partes.push(`${a.em_voo} em voo`);
-    if (a.pendentes > 0) partes.push(`${a.pendentes} pend.`);
-    if (a.transferidos_cancelados > 0) partes.push(`${a.transferidos_cancelados} canc.`);
-    texto += `<b>${escaparHtmlTelegram(nome)}</b>: ${a.total} voo${a.total !== 1 ? "s" : ""}`;
-    if (partes.length) texto += ` (${partes.join(", ")})`;
-    texto += "\n";
+  for (const entrada of ordenados) {
+    const { icao, status } = extrairIcaoEStatus(entrada);
+    const nome = NOMES_AEROPORTO_AGENDADOR[icao] || icao || "Aeroporto";
+    const cond = classificarCondicaoMeteo(status);
+    const c = entrada.clima || {};
+
+    texto += `\n${cond.emoji} <b>${escaparHtmlTelegram(nome)}</b>\n`;
+    texto += `Condição: ${cond.label}\n`;
+
+    if (c.horarioUTC) {
+      if (typeof c.temperatura === "number") texto += `🌡️ ${c.temperatura}°C\n`;
+      if (c.vento) texto += `💨 Vento: ${c.vento}\n`;
+      if (c.visibilidade) texto += `👁️ Visibilidade: ${c.visibilidade}\n`;
+      if (c.teto) texto += `☁️ Teto: ${c.teto}\n`;
+      if (c.tempo && c.tempo !== "Céu claro") texto += `🌦️ Tempo: ${c.tempo}\n`;
+      texto += `🕒 Obs: ${c.horarioUTC}\n`;
+      comMetar++;
+    } else {
+      texto += `⚪ Sem dado meteorológico disponível\n`;
+    }
   }
-  if (idadeMin !== null) texto += `\nDados de ~${idadeMin}min atrás`;
+
+  if (!comMetar) return null;
+
   texto += `\nownews.com.br/aeroportos`;
   return texto;
 }
@@ -6134,10 +6271,19 @@ export class TelegramAgendadorPoller {
 
   async enviarBoletim(hojeStr, agora) {
     try {
-      const snapshot = await obterSnapshotOffVoosDoKV(this.env);
-      const texto = formatarBoletimAeroportos(snapshot, agora);
+      // Fetch fresh REDEMET data for the boletim; fall back to KV cache if unavailable
+      let snapshotAeroportos = null;
+      try {
+        snapshotAeroportos = await consultarAeroportos(this.env);
+        // Save to KV for observability and future fallback
+        await salvarSnapshotAeroportosNoKV(this.env, snapshotAeroportos);
+      } catch (e) {
+        console.warn("[TelegramAgendador] REDEMET indisponível para boletim, usando cache KV:", e.message);
+        snapshotAeroportos = await obterSnapshotAeroportosDoKV(this.env);
+      }
+      const texto = formatarBoletimAeroportos(snapshotAeroportos, agora);
       if (!texto) {
-        console.warn("[TelegramAgendador] boletim aeroportos: sem dados disponíveis em", hojeStr);
+        console.warn("[TelegramAgendador] boletim aeroportos: sem dados meteorológicos disponíveis em", hojeStr);
         return;
       }
       const resultado = await publicarMensagemDiretaTelegram(this.env, texto);

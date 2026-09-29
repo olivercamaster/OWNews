@@ -15278,7 +15278,8 @@ async function ccColetarEditorial() {
       estado: offvoos.estado,
       monitorados: offvoos.aeroportos_monitorados || 0,
       comDados: offvoos.aeroportos_com_dados || 0,
-      ultimoFetch: offvoos.ultimo_fetch || null
+      ultimoFetch: offvoos.ultimo_fetch || null,
+      meteo: saude.aeroportos_meteo || null
     } : null,
     mercado: mercado.market_status ? {
       estado: mercado.market_status,
@@ -15818,11 +15819,20 @@ function renderCCDashboard() {
     '}' +
     'html+=\'</div>\';}' +
     // Aeroportos
-    'if(e.aeroportos){var av=e.aeroportos;' +
-    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Aeroportos Offshore</div>\';' +
-    'html+=\'<div class="cc-tg-val" style="color:\'+(av.estado==="healthy"?"var(--green)":"var(--yellow)")+\'">\'+(av.estado==="healthy"?"Integração saudável":"Dados desatualizados")+\'</div>\';' +
-    'html+=\'<div class="cc-tg-sub">\'+fmtNum(av.comDados)+\'/\'+fmtNum(av.monitorados)+" aeroportos com dado real</div>";' +
-    'if(av.ultimoFetch)html+=\'<div class="cc-tg-sub">Último fetch: \'+esc(fmtHora(av.ultimoFetch))+\'</div>\';' +
+    'if(e.aeroportos){var av=e.aeroportos;var me=av.meteo||null;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Aeroportos — Meteorologia</div>\';' +
+    'var meteoEstado=me?me.estado:av.estado;' +
+    'var meteoColor=meteoEstado==="atencao"?"var(--red)":meteoEstado==="degradado"?"var(--yellow)":meteoEstado==="healthy"?"var(--green)":"var(--muted)";' +
+    'var meteoLabel=meteoEstado==="atencao"?"⚠ Aeroporto(s) em vermelho":meteoEstado==="degradado"?"⚠ Dados parciais":meteoEstado==="healthy"?"Condições atualizadas":"Sem dados meteorológicos";' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+meteoColor+\'">\'+meteoLabel+\'</div>\';' +
+    'if(me){' +
+    'html+=\'<div class="cc-tg-sub">🟢 \'+fmtNum(me.verde)+\' verde &nbsp; 🟡 \'+fmtNum(me.amarelo)+\' amarelo &nbsp; 🔴 \'+fmtNum(me.vermelho)+\' vermelho &nbsp; ⚪ \'+fmtNum(me.sem_info)+\' sem info</div>\';' +
+    'html+=\'<div class="cc-tg-sub">\'+fmtNum(me.com_dado)+\'/\'+fmtNum(me.total)+\' aeroportos com METAR</div>\';' +
+    'if(me.fetched_at)html+=\'<div class="cc-tg-sub">Última atualiz. meteo: \'+esc(fmtHora(me.fetched_at))+\'</div>\';' +
+    '}' +
+    'if(e.telegram&&e.telegram.agendador){' +
+    'html+=\'<div class="cc-tg-sub">Boletim: \'+(e.telegram.agendador.boletim_hoje?"✓ enviado hoje":"aguardando 06:15 BRT")+\'</div>\';' +
+    '}' +
     'html+=\'</div>\';}' +
     // Mercado
     'if(e.mercado){var mc=e.mercado;' +
