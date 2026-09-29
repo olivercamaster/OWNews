@@ -15336,7 +15336,8 @@ async function ccColetarEditorial(env) {
       internacionais: agendaAtivos.filter((ev) => ev.pais !== 'Brasil').length,
       pendentes: agendaPendentes,
       fontesCuradas: AGENDA_FONTES.length,
-      proximos: agendaProximos
+      proximos: agendaProximos,
+      scan: saude.agenda_scan || null
     }
   };
 }
@@ -15899,7 +15900,11 @@ function renderCCDashboard() {
     'html+=\'<div class="cc-tg-sub">\'+fmtNum(ag.fontesCuradas)+" fontes curadas</div>";' +
     'if(ag.proximos&&ag.proximos.length){html+=\'<div class="cc-tg-sub" style="margin-top:6px;color:var(--muted)">Próximos:</div>\';' +
     'ag.proximos.forEach(function(ev){var loc=ev.pais==="Brasil"?ev.cidade:ev.cidade+", "+ev.pais;var d=ev.dataInicio.slice(5).split("-");var meses=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];var dStr=parseInt(d[1],10)+" "+meses[parseInt(d[0],10)-1];html+=\'<div class="cc-tg-sub">&rsaquo; \'+esc(dStr)+" · "+esc(ev.nome)+" · "+esc(loc)+"</div>";});}' +
-    'html+=\'</div>\';}' +
+    'if(ag.scan){var sc=ag.scan;html+=\'<div class="cc-tg-sub" style="margin-top:6px;border-top:1px solid var(--line-hair);padding-top:6px">\';' +
+    'html+=\'Varredura: \'+esc(new Date(sc.timestamp).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}));\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">\'+fmtNum(sc.fontesOK)+"/"+fmtNum((sc.fontesOK||0)+(sc.fontesErro||0))+" fontes OK &nbsp;·&nbsp; "+fmtNum(sc.eventosConfirmados)+" confirmados</div>";' +
+    'if(sc.novosCandidatos)html+=\'<div class="cc-tg-sub" style="color:var(--yellow)">\'+(sc.novosCandidatos===0?"Nenhum candidato novo":fmtNum(sc.novosCandidatos)+" candidato(s) novo(s)")+\'</div>\';' +
+    '}html+=\'</div>\';}' +
     'document.getElementById("ccPainelEditorial").innerHTML=html;' +
     '}' +
 

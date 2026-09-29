@@ -544,6 +544,17 @@ if (url.pathname === "/teste-materia") {
       return executarTeste(() => executarAtualizacaoPrincipal(env));
     }
 
+    if (url.pathname === "/agenda/scan-agora") {
+      try {
+        // Remove throttle key so the scan runs immediately
+        if (env.SAUDE_KV) await env.SAUDE_KV.delete('agenda_scan_ultima');
+        const resultado = await agendaEscanearFontes(env);
+        return Response.json({ ok: true, resultado });
+      } catch (e) {
+        return Response.json({ ok: false, erro: e.message }, { status: 500 });
+      }
+    }
+
     if (url.pathname === "/run-novas-fontes") {
       return executarTeste(() => executarAtualizacaoNovasFontes(env));
     }
@@ -2237,6 +2248,7 @@ async function avaliarSaudeEditorial(env) {
       aeroportos_meteo: await avaliarAeroportosMeteo(env),
       imagens,
       traducao,
+      agenda_scan: await obterAgendaScan(env),
       jobs_open: null,
       jobs_talent_pool: null,
       jobs_suspect: null,
@@ -2308,7 +2320,8 @@ async function avaliarSaudeEditorial(env) {
     jobs_last_run: null,
     jobs_sources_ok: [],
     jobs_sources_error: [],
-    jobs_blocked: "Tabela jobs dedicada ausente; migration DDL preparada em docs/MIGRATION-JOBS-TABLE.sql."
+    jobs_blocked: "Tabela jobs dedicada ausente; migration DDL preparada em docs/MIGRATION-JOBS-TABLE.sql.",
+    agenda_scan: await obterAgendaScan(env)
   };
 }
 
@@ -2316,6 +2329,165 @@ async function avaliarSaudeEditorial(env) {
 // só a idade real da Hero (a notícia publicada mais nova) importa aqui,
 // não a data de coleta. Usada pelo EditorialPoller pra decidir se vale a
 // pena rodar uma varredura extra fora do turno normal da rotação A/B/C/D.
+// ---------------------------------------------------------------
+// Agenda Offshore — Crawler de Verificação (Agenda 1.3, 2026-09-29)
+// Roda no alarm() do EditorialPoller, 1x/dia (throttle 23h via SAUDE_KV).
+// Verifica datas de eventos conhecidos nas fontes oficiais + detecta novos
+// candidatos. Resultados salvos em KV → expostos no /saude → CC Editorial.
+// ---------------------------------------------------------------
+
+const AGENDA_CRAWLER_FONTES = [
+  {
+    id: 'otcnet', nome: 'OTC Events (otcnet.org)',
+    url: 'https://www.otcnet.org/',
+    eventos: [
+      { slug: 'otc-2027', padroes: ['May 3', 'May 3–5', '3–5, 2027', 'May 3-5'] },
+      { slug: 'otc-brasil-2027', padroes: ['October 26', 'Rio de Janeiro', 'Oct 26'] }
+    ],
+    detectarNovos: true
+  },
+  {
+    id: 'adipec', nome: 'ADIPEC (adipec.com)',
+    url: 'https://www.adipec.com/',
+    eventos: [
+      { slug: 'adipec-2026', padroes: ['November 2', '2 November', '2-5 November', '2 – 5 November', 'ADNEC'] }
+    ],
+    detectarNovos: false
+  },
+  {
+    id: 'riopipeline', nome: 'Rio Pipeline (riopipeline.com.br)',
+    url: 'https://www.riopipeline.com.br/',
+    eventos: [
+      { slug: 'rio-pipeline-2027', padroes: ['14', 'SETEMBRO', 'September', '2027'] }
+    ],
+    detectarNovos: false
+  },
+  {
+    id: 'offshoreeurope', nome: 'SPE Offshore Europe (offshore-europe.co.uk)',
+    url: 'https://www.offshore-europe.co.uk/en-gb.html',
+    eventos: [
+      { slug: 'spe-offshore-europe-2027', padroes: ['7-9 September', '7–9 September', 'September 2027', 'P&J Live'] }
+    ],
+    detectarNovos: false
+  },
+  {
+    id: 'osea', nome: 'OSEA (osea-asia.com)',
+    url: 'https://www.osea-asia.com/',
+    eventos: [
+      { slug: 'osea-2027', padroes: ['13', '15 April', 'April 2027', 'Marina Bay'] }
+    ],
+    detectarNovos: false
+  }
+];
+
+async function agendaEscanearFontes(env) {
+  if (!env.SAUDE_KV) return null;
+
+  // Throttle: at most once per 23 hours
+  const THROTTLE_KEY = 'agenda_scan_ultima';
+  const RESULT_KEY = 'agenda_scan_resultado';
+  try {
+    const ultima = await env.SAUDE_KV.get(THROTTLE_KEY);
+    if (ultima) {
+      const diff = Date.now() - parseInt(ultima, 10);
+      if (diff < 23 * 3600 * 1000) return null;
+    }
+  } catch {}
+
+  const scanTs = Date.now();
+  const resultados = [];
+
+  for (const fonte of AGENDA_CRAWLER_FONTES) {
+    const res = {
+      id: fonte.id,
+      nome: fonte.nome,
+      status: 'OK',
+      verificados: [],
+      novosCandidatos: [],
+      erros: []
+    };
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      let r;
+      try {
+        r = await fetch(fonte.url, {
+          headers: { 'User-Agent': 'OWNewsBot/1.0 (+https://ownews.com.br)' },
+          signal: ctrl.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (!r.ok) {
+        res.status = r.status === 403 ? 'BLOQUEADA' : r.status === 404 ? 'NAO_ENCONTRADA' : 'ERRO_HTTP';
+        res.erros.push('HTTP ' + r.status);
+      } else {
+        const html = await r.text();
+        // Strip tags for text matching; keep original for new-event regex
+        const texto = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+        for (const ev of (fonte.eventos || [])) {
+          const encontrou = ev.padroes.some(p => texto.includes(p));
+          res.verificados.push({ slug: ev.slug, status: encontrou ? 'CONFIRMADO' : 'NAO_ENCONTRADO' });
+        }
+
+        // OTCnet: detect upcoming OTC events not yet in AGENDA_EVENTOS
+        if (fonte.detectarNovos) {
+          // Pattern: "OTC Asia" followed by year or month-day-year
+          const otcAsiaRe = /OTC\s+Asia[^.]*?(\d{4})/gi;
+          const dateRe = /(?:March|April|May)\s+\d{1,2}[–\-]\d{1,2},?\s+(\d{4})/gi;
+          let m;
+          const candidatos = new Set();
+          while ((m = otcAsiaRe.exec(texto)) !== null) {
+            const ano = parseInt(m[1], 10);
+            if (ano >= new Date().getFullYear()) candidatos.add('OTC Asia ' + ano);
+          }
+          // Extract date context
+          let dataCtx = null;
+          const dm = dateRe.exec(texto);
+          if (dm) dataCtx = dm[0];
+          for (const c of candidatos) {
+            res.novosCandidatos.push({ nome: c, dataContexto: dataCtx, requerValidacao: true });
+          }
+        }
+      }
+    } catch (e) {
+      res.status = e.name === 'AbortError' ? 'TIMEOUT' : 'ERRO';
+      res.erros.push(e.name === 'AbortError' ? 'Timeout 8s' : String(e.message).slice(0, 120));
+    }
+
+    resultados.push(res);
+  }
+
+  const resultado = {
+    timestamp: new Date(scanTs).toISOString(),
+    fontesOK: resultados.filter(r => r.status === 'OK').length,
+    fontesErro: resultados.filter(r => r.status !== 'OK').length,
+    eventosConfirmados: resultados.reduce((s, r) => s + r.verificados.filter(v => v.status === 'CONFIRMADO').length, 0),
+    eventosSemConfirmacao: resultados.reduce((s, r) => s + r.verificados.filter(v => v.status === 'NAO_ENCONTRADO').length, 0),
+    novosCandidatos: resultados.reduce((s, r) => s + r.novosCandidatos.length, 0),
+    fontes: resultados
+  };
+
+  try {
+    await env.SAUDE_KV.put(THROTTLE_KEY, String(scanTs));
+    await env.SAUDE_KV.put(RESULT_KEY, JSON.stringify(resultado), { expirationTtl: 7 * 24 * 3600 });
+  } catch {}
+
+  return resultado;
+}
+
+async function obterAgendaScan(env) {
+  if (!env.SAUDE_KV) return null;
+  try {
+    return await env.SAUDE_KV.get('agenda_scan_resultado', 'json');
+  } catch {
+    return null;
+  }
+}
+
 async function horasDesdeUltimaPublicacao(env) {
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles` +
@@ -4766,6 +4938,13 @@ export class EditorialPoller {
       await executarRadarTelegram(this.env);
     } catch (e) {
       console.error("[Telegram via EditorialPoller] erro não tratado, ignorado com segurança:", e.message);
+    }
+
+    // Agenda Offshore crawler (1x/dia, throttled via SAUDE_KV)
+    try {
+      await agendaEscanearFontes(this.env);
+    } catch (e) {
+      console.warn("[AgendaCrawler] erro isolado, ignorado:", e.message);
     }
 
     await this.state.storage.setAlarm(Date.now() + 60 * 60000);
