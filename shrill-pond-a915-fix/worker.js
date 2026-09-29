@@ -555,6 +555,61 @@ if (url.pathname === "/teste-materia") {
       }
     }
 
+    // Revisão editorial — acesso interno via CC proxy (cabeçalho X-OWNews-Internal)
+    if (url.pathname === "/revisao" && request.method === "GET") {
+      if (request.headers.get('X-OWNews-Internal') !== '1') {
+        return Response.json({ erro: 'Não autorizado' }, { status: 403 });
+      }
+      try {
+        const resp = await fetch(
+          `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_credit,original_url,published_at,score_reason&status=eq.draft&is_sensitive=eq.true&order=published_at.desc&limit=20`,
+          { headers: supabaseHeaders(env) }
+        );
+        if (!resp.ok) return Response.json({ total: 0, artigos: [], erro: `Supabase HTTP ${resp.status}` });
+        const artigos = await resp.json();
+        return Response.json({ total: artigos.length, artigos });
+      } catch (e) {
+        return Response.json({ total: 0, artigos: [], erro: String(e.message).slice(0, 100) });
+      }
+    }
+
+    if (url.pathname === "/revisao/acao" && request.method === "POST") {
+      if (request.headers.get('X-OWNews-Internal') !== '1') {
+        return Response.json({ erro: 'Não autorizado' }, { status: 403 });
+      }
+      try {
+        const { id, acao } = await request.json();
+        if (!id || !acao) return Response.json({ ok: false, erro: 'id e acao são obrigatórios' }, { status: 400 });
+        if (acao === 'publicar') {
+          const resp = await fetch(
+            `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(id)}`,
+            {
+              method: 'PATCH',
+              headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ status: 'published', is_sensitive: false })
+            }
+          );
+          if (!resp.ok) { const d = await resp.text(); return Response.json({ ok: false, erro: d.slice(0, 100) }); }
+          return Response.json({ ok: true, acao: 'publicado' });
+        } else if (acao === 'descartar') {
+          const resp = await fetch(
+            `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(id)}`,
+            {
+              method: 'PATCH',
+              headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ status: 'rejected' })
+            }
+          );
+          if (!resp.ok) { const d = await resp.text(); return Response.json({ ok: false, erro: d.slice(0, 100) }); }
+          return Response.json({ ok: true, acao: 'descartado' });
+        } else {
+          return Response.json({ ok: false, erro: 'acao inválida — use publicar ou descartar' }, { status: 400 });
+        }
+      } catch (e) {
+        return Response.json({ ok: false, erro: String(e.message).slice(0, 100) }, { status: 500 });
+      }
+    }
+
     if (url.pathname === "/run-novas-fontes") {
       return executarTeste(() => executarAtualizacaoNovasFontes(env));
     }
@@ -2121,6 +2176,20 @@ async function avaliarAeroportosMeteo(env) {
   };
 }
 
+async function contarArtigosEmRevisao(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_KEY) return 0;
+  try {
+    const resp = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/articles?select=id&status=eq.draft&is_sensitive=eq.true&limit=1`,
+      { headers: { ...supabaseHeaders(env), 'Prefer': 'count=exact', 'Range': '0-0' } }
+    );
+    if (!resp.ok) return 0;
+    const cr = resp.headers.get('Content-Range');
+    if (cr) { const m = cr.match(/\/(\d+)$/); if (m) return parseInt(m[1], 10) || 0; }
+    return 0;
+  } catch { return 0; }
+}
+
 async function avaliarSaudeEditorial(env) {
   const execucaoKV = await obterUltimaExecucaoDoKV(env);
   const sourceCoverage = execucaoKV && execucaoKV.funil ? execucaoKV.funil.SOURCE_COVERAGE || {} : {};
@@ -2249,6 +2318,7 @@ async function avaliarSaudeEditorial(env) {
       imagens,
       traducao,
       agenda_scan: await obterAgendaScan(env),
+      revisao_pendente: await contarArtigosEmRevisao(env),
       jobs_open: null,
       jobs_talent_pool: null,
       jobs_suspect: null,
@@ -2321,7 +2391,8 @@ async function avaliarSaudeEditorial(env) {
     jobs_sources_ok: [],
     jobs_sources_error: [],
     jobs_blocked: "Tabela jobs dedicada ausente; migration DDL preparada em docs/MIGRATION-JOBS-TABLE.sql.",
-    agenda_scan: await obterAgendaScan(env)
+    agenda_scan: await obterAgendaScan(env),
+    revisao_pendente: await contarArtigosEmRevisao(env)
   };
 }
 
@@ -2603,6 +2674,54 @@ async function traduzirResumoParaPT(env, resumo) {
 // Scoring server-side — espelho de pontuarDestaque() do frontend (producao-ownews-git).
 // Calculado no momento da coleta e persistido em articles.editorial_score /
 // articles.score_reason. O frontend continua recalculando on-the-fly para artigos
+// ---------------------------------------------------------------
+// Automação Editorial 2.0 — Classificador de Risco (2026-09-29)
+// Determinístico: sem chamadas LLM. Fail-closed: excepção → SENSIVEL.
+// Avalia título + resumo com normalização de diacríticos antes do match.
+// ---------------------------------------------------------------
+
+const RISCO_CONTEXTO_SEGURO = [
+  /prevenc[a]?o\s+de\s+(acidente|morte|explosao|sinistro)/i,
+  /historico\s+de\s+(acidente|morte|vitima|lesao)/i,
+  /anal[i]?se\s+(estat[i]?stica|de\s+risco|de\s+dados|de\s+causa)/i,
+  /semana\s+(nacional|estadual|mundial)\s+de/i,
+  /dia\s+(nacional|internacional|mundial)\s+de/i,
+  /simulac[a]?o\s+de\s+(emergencia|resgate|abandono|combate)/i,
+  /treinamento\s+de\s+(seguranca|emergencia|resgate)/i,
+  /reducao\s+(de\s+)?(acidentes|mortes|vitimas)/i,
+  /\b(estatistica[s]?|indic[e]?[s]?|taxa[s]?)\s+(de\s+)?(acidente|lesao|morte)/i,
+];
+
+const RISCO_PADROES = [
+  [/\b(trabalhadore?s?|operad[o]?re?s?|tripulante[s]?|marinheiro[s]?|mergulhad[o]?re?s?|tecnico[s]?|engenheiro[s]?|supervisor[e]?s?)\b.{0,80}\b(morr|falec|obito|fatalid|vitima\s*fatal)/is, 'FATALIDADE_TRABALHADOR'],
+  [/\b(morr|falec|obito|morte[s]?\b|morto[s]?\b|vitima[s]?\s*fatal).{0,80}\b(trabalh|plataforma|sonda|fpso|navio|offshore|bordo)/is, 'FATALIDADE_OFFSHORE'],
+  [/\b(tripulante[s]?|marinheiro[s]?|pescadore?s?|trabalhadore?s?|operad[o]?re?s?)\b.{0,80}\bdesaparec/is, 'DESAPARECIMENTO_PESSOA'],
+  [/\bdesaparec.{0,60}\b(mar\b|bordo|plataforma|offshore|navio|alto\s*mar)/is, 'DESAPARECIMENTO_OFFSHORE'],
+  [/\b\d+\s*(vitima[s]?|morto[s]?|falecido[s]?|morte[s]?)/is, 'VITIMAS_NUMERADAS'],
+  [/\b(vitima[s]?\s+fatal|morte[s]?\s+confirm|morto[s]?\s+confirm|obito[s]?\s+confirm)/is, 'VITIMAS_CONFIRMADAS'],
+  [/\b(acidente|explosao|incendio|naufragio|colisao)\b.{0,100}\b(vitima|morto|fatal|ferido.{0,15}grave|resgate.{0,20}vida)/is, 'ACIDENTE_COM_VITIMAS'],
+  [/\bresgate.{0,60}\b(plataforma|offshore|fpso|sonda|navio|trabalhad)/is, 'RESGATE_OFFSHORE'],
+  [/\b(evacuac[a]?o\s+(emergencial|urgente)|(evacuad[o]?[s]?|evacuac[a]?o).{0,40}(incendio|explosao|plataforma))/is, 'EVACUACAO_EMERGENCIA'],
+  [/\b(preso|detido|investigado|indiciado|acusado)\b.{0,60}\b(engenheiro|gerente|diretor|executivo|funcionario|operad)/is, 'ACUSACAO_CRIMINAL_PESSOA'],
+];
+
+function classificarRiscoEditorial(artigo) {
+  try {
+    const raw = ((artigo.title || '') + ' ' + (artigo.summary || '')).toLowerCase();
+    const texto = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    for (const re of RISCO_CONTEXTO_SEGURO) {
+      if (re.test(texto)) return { nivel: 'NORMAL', motivo: null };
+    }
+    for (const [re, motivo] of RISCO_PADROES) {
+      if (re.test(texto)) return { nivel: 'SENSIVEL', motivo };
+    }
+    return { nivel: 'NORMAL', motivo: null };
+  } catch (e) {
+    return { nivel: 'SENSIVEL', motivo: 'CLASSIFIER_ERROR' };
+  }
+}
+
 // legados (editorial_score IS NULL) e para a ordenação por recência atual.
 const AUTORIDADE_FONTE_SCORE = {
   PETROBRAS: 20, ANP: 20, PPSA: 16, EPE: 12, MME: 12, MARINHA: 8, IBAMA: 8
@@ -2946,11 +3065,26 @@ slug: criarSlug(tituloPublicado),
         published_at: new Date(dataEditorial).toISOString()
       };
 
+      // Automação Editorial 2.0: classificar risco antes de publicar
+      const risco = classificarRiscoEditorial(artigo);
+      if (risco.nivel === 'SENSIVEL') {
+        artigo.status = 'draft';
+        artigo.is_sensitive = true;
+      }
+
       const { editorial_score, score_reason } = calcularEditorialScore(artigo);
       artigo.editorial_score = editorial_score;
-      artigo.score_reason = score_reason;
+      artigo.score_reason = risco.nivel === 'SENSIVEL'
+        ? '[RETIDO:' + risco.motivo + '] ' + score_reason
+        : score_reason;
 
       await inserirArtigo(env, artigo);
+
+      if (artigo.is_sensitive) {
+        resultado.retidas = (resultado.retidas || 0) + 1;
+        resultado.noticias.push({ titulo: artigo.title, status: 'retida_para_revisao', motivo: risco.motivo, fonte });
+        continue;
+      }
 
       resultado.inseridas++;
 

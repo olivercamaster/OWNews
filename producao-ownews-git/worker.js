@@ -15348,8 +15348,45 @@ async function ccColetarEditorial(env) {
       fontesCuradas: AGENDA_FONTES.length,
       proximos: agendaProximos,
       scan: saude.agenda_scan || null
-    }
+    },
+    revisao_pendente: saude.revisao_pendente || 0
   };
+}
+
+const SHRILL_POND_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
+
+async function ccColetarRevisao(env) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const resp = await fetch(`${SHRILL_POND_URL}/revisao`, {
+      headers: { 'X-OWNews-Internal': '1' },
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (!resp.ok) return { total: 0, artigos: [], erro: `HTTP ${resp.status}` };
+    return await resp.json();
+  } catch (e) {
+    return { total: 0, artigos: [], erro: String(e.message).slice(0, 80) };
+  }
+}
+
+async function ccAplicarAcaoRevisao(env, id, acao) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const resp = await fetch(`${SHRILL_POND_URL}/revisao/acao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-OWNews-Internal': '1' },
+      body: JSON.stringify({ id, acao }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (!resp.ok) { const d = await resp.text(); return { ok: false, erro: d.slice(0, 100) }; }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: String(e.message).slice(0, 80) };
+  }
 }
 
 async function ccColetarDados(periodo, env) {
@@ -15508,7 +15545,19 @@ const CC_ESTILO =
   /* Telegram card */ '.cc-tg-card{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px;margin-bottom:12px}' +
   '.cc-tg-titulo{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:8px}' +
   '.cc-tg-val{font-size:20px;font-weight:800}' +
-  '.cc-tg-sub{font-size:12px;color:var(--muted-dim);margin-top:2px}';
+  '.cc-tg-sub{font-size:12px;color:var(--muted-dim);margin-top:2px}' +
+  /* Revisão editorial */ '.cc-revisao{background:rgba(255,75,75,.07);border:1px solid rgba(255,75,75,.4);border-radius:10px;padding:14px 16px;margin-bottom:16px}' +
+  '.cc-revisao-header{font-size:12.5px;font-weight:800;color:var(--red);margin-bottom:10px}' +
+  '.cc-revisao-item{background:var(--navy-900);border:1px solid rgba(255,75,75,.25);border-radius:8px;padding:12px;margin-top:8px}' +
+  '.cc-revisao-titulo{font-size:12.5px;font-weight:700;color:var(--white);margin-bottom:4px;line-height:1.4}' +
+  '.cc-revisao-meta{font-size:11px;color:var(--muted-dim);margin-bottom:3px}' +
+  '.cc-revisao-motivo{font-size:11px;color:var(--yellow);margin-bottom:8px;word-break:break-word}' +
+  '.cc-revisao-acoes{display:flex;gap:8px;flex-wrap:wrap}' +
+  '.cc-btn-pub{font-size:11.5px;font-weight:700;background:rgba(66,216,121,.12);border:1px solid var(--green);color:var(--green);border-radius:6px;padding:5px 12px;cursor:pointer}' +
+  '.cc-btn-pub:hover{background:rgba(66,216,121,.25)}' +
+  '.cc-btn-rej{font-size:11.5px;font-weight:700;background:rgba(255,75,75,.12);border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 12px;cursor:pointer}' +
+  '.cc-btn-rej:hover{background:rgba(255,75,75,.25)}' +
+  '.cc-revisao-ok{font-size:12px;color:var(--green);padding:4px 0}';
 
 function renderCCLogin(erro) {
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
@@ -15594,6 +15643,7 @@ function renderCCDashboard() {
 
     // Alertas — renderizado pelo JS quando há problemas
     '<div id="ccAlertas" style="display:none"></div>' +
+    '<div id="ccRevisaoAlert"></div>' +
 
     // Period selector
     '<div class="cc-periodos" id="ccPeriodos">' +
@@ -15628,7 +15678,7 @@ function renderCCDashboard() {
     '</div>' +
 
     '<script>(function(){' +
-    'var periodoAtual="hoje";var cacheDados={};var cacheSistema=null;var cacheEditorial=null;var cacheGrafico={};' +
+    'var periodoAtual="hoje";var cacheDados={};var cacheSistema=null;var cacheEditorial=null;var cacheGrafico={};var cacheRevisao=null;' +
     'function fmtNum(n){try{return(n||0).toLocaleString("pt-BR");}catch(e){return String(n||0);}}' +
     'function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}' +
     'function fmtPct(v,ref){if(!ref||ref<=0)return"";var p=Math.round(((v-ref)/ref)*100);if(Math.abs(p)<3)return"";return\'<div class="cc-variacao \'+(p>0?"up":"down")+\'">\'+(p>0?"↑":"↓")+" "+Math.abs(p)+\'% vs anterior</div>\';}' +
@@ -15981,6 +16031,37 @@ function renderCCDashboard() {
     '});' +
     '}' +
 
+    // --- REVISÃO EDITORIAL ---
+    'function renderRevisao(r){' +
+    'var el=document.getElementById("ccRevisaoAlert");if(!el)return;' +
+    'if(!r||r.total===0){el.innerHTML="<div class=\\"cc-revisao-ok\\">\u2713 Nenhuma not\u00edcia retida \u2014 publica\u00e7\u00e3o autom\u00e1tica em dia</div>";return;}' +
+    'var html="<div class=\\"cc-revisao\\"><div class=\\"cc-revisao-header\\">&or; "+(r.total===1?"1 artigo retido":r.total+" artigos retidos")+" &mdash; aguardando revis\u00e3o editorial</div>";' +
+    '(r.artigos||[]).forEach(function(a){' +
+    'html+="<div class=\\"cc-revisao-item\\">";' +
+    'html+="<div class=\\"cc-revisao-titulo\\">"+esc(a.title)+"</div>";' +
+    'html+="<div class=\\"cc-revisao-meta\\">"+esc(a.image_credit||"fonte desconhecida")+" &middot; "+new Date(a.published_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+"</div>";' +
+    'if(a.score_reason)html+="<div class=\\"cc-revisao-motivo\\">"+esc(a.score_reason)+"</div>";' +
+    'html+="<div class=\\"cc-revisao-acoes\\">";' +
+    'html+="<button class=\\"cc-btn-pub\\" data-id=\\""+a.id+"\\" data-acao=\\"publicar\\">\u2713 Publicar</button> ";' +
+    'html+="<button class=\\"cc-btn-rej\\" data-id=\\""+a.id+"\\" data-acao=\\"descartar\\">\u2717 Descartar</button>";' +
+    'html+="</div></div>";});' +
+    'html+="</div>";' +
+    'el.innerHTML=html;' +
+    'el.addEventListener("click",function(ev){var btn=ev.target.closest("[data-acao]");if(btn)acaoRevisao(btn.dataset.id,btn.dataset.acao);},{once:true});' +
+    '}' +
+    'function acaoRevisao(id,acao){' +
+    'fetch("/api/cc/revisao/acao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,acao:acao})})' +
+    '.then(function(r){return r.json();})' +
+    '.then(function(res){if(!res.ok&&res.erro)alert("Erro: "+res.erro);cacheRevisao=null;carregarRevisao();})' +
+    '.catch(function(e){alert("Erro: "+e.message);});' +
+    '}' +
+    'function carregarRevisao(){' +
+    'fetch("/api/cc/revisao")' +
+    '.then(function(r){if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}return r.json();})' +
+    '.then(function(r){cacheRevisao=r;renderRevisao(r);})' +
+    '.catch(function(){});' +
+    '}' +
+
     // --- EVENT LISTENERS ---
     'document.getElementById("ccPeriodos").addEventListener("click",function(e){' +
     'var btn=e.target.closest(".cc-periodo-btn");if(!btn)return;' +
@@ -15999,6 +16080,7 @@ function renderCCDashboard() {
 
     'carregarDados(periodoAtual);' +
     'carregarSistema();' +
+    'carregarRevisao();' +
     '})();</script>' +
     '</main></body></html>';
 }
@@ -16052,6 +16134,21 @@ export default {
       }
       const editorial = await ccColetarEditorial(env);
       return new Response(JSON.stringify(editorial), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/cc/revisao" && request.method === "GET") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      const revisao = await ccColetarRevisao(env);
+      return new Response(JSON.stringify(revisao), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/cc/revisao/acao" && request.method === "POST") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      const body = await request.json();
+      const resultado = await ccAplicarAcaoRevisao(env, body.id, body.acao);
+      return new Response(JSON.stringify(resultado), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
     }
     if (url.pathname === "/api/cc/grafico" && request.method === "GET") {
       if (!(await ccAutenticado(request, env))) {
