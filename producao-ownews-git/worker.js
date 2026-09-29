@@ -1074,14 +1074,14 @@ html.embarcado header{backdrop-filter:none}
    estica visualmente o card em si — só a distribuição vertical). */
 .market-body.market-count-2 .row-list{justify-content:flex-start}
 .market-body.market-count-3 .row-list,
-.market-body.market-count-4 .row-list{justify-content:space-between;height:100%}
+.market-body.market-count-4 .row-list{justify-content:flex-start}
 .market-feature{display:grid;gap:12px;cursor:pointer}
 .market-feature .thumb{width:100%;aspect-ratio:16/9;border-radius:4px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}
 .market-feature h3{font-size:22px;line-height:1.18;font-weight:600}
 .market-feature p{font-family:var(--editorial);font-size:15px;line-height:1.5;color:var(--muted)}
 @media(min-width:760px){
   .market-body{grid-template-columns:1fr 1fr;gap:40px}
-  .market-body.market-count-2{align-items:start}
+  .market-body.market-count-2,.market-body.market-count-3,.market-body.market-count-4{align-items:start}
   .market-feature h3{font-size:25px}
 }
 
