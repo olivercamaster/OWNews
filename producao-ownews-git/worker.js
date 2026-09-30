@@ -13204,6 +13204,14 @@ function renderMinhaEscala() {
     '<a class="escala-vagas-cta" href="/vagas">Ver todas as vagas →</a>' +
     '</div>' +
 
+    '<div class="cruzar-section" id="cruzarEscalasSection">' +
+    '<div class="cruzar-header">' +
+    '<span class="cruzar-titulo">CRUZAR ESCALAS</span>' +
+    '<span class="cruzar-subtitulo">Veja quando você e alguém importante estarão de folga juntos.</span>' +
+    '</div>' +
+    '<div id="cruzarConteudo"></div>' +
+    '</div>' +
+
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/guias/escala-offshore">Como funciona a escala offshore →</a>' +
@@ -14392,7 +14400,7 @@ function renderMinhaEscala() {
     'var _formHtml="<div class=\\"cruzar-form\\">"' +
     '+"<div class=\\"cruzar-form-titulo\\">QUEM VOCÊ QUER CONECTAR?</div>"' +
     '+"<div class=\\"campo-form\\"><label>Nome</label><input type=\\"text\\" id=\\"cruzarNome\\" placeholder=\\"Ana, João, etc.\\" maxlength=\\"40\\"></div>"' +
-    '+"<div class=\\"campo-form\\"><label>Relação</label><select id=\\"cruzarRelacao\\"><option value=\\"Companheira\\">Companheira / Companheiro</option><option value=\\"Familiar\\">Familiar</option><option value=\\"Amigo\\">Amigo / Amiga</option><option value=\\"Outro\\">Outro</option></select></div>"' +
+    '+"<div class=\\"campo-form\\"><label>Relação</label><select id=\\"cruzarRelacao\\"><option value=\\"Companheira\\">Companheira / Companheiro</option><option value=\\"Familiar\\">Familiar</option><option value=\\"Amigo\\">Amigo / Amiga</option><option value=\\"Irmao\\">Irmão / Irmã</option><option value=\\"Outro\\">Outro</option></select></div>"' +
     '+"<div class=\\"cruzar-form-grid\\">"' +
     '+"<div class=\\"campo-form\\"><label>Escala</label><select id=\\"cruzarEscala\\"><option value=\\"14x14\\">14x14</option><option value=\\"14x21\\">14x21</option><option value=\\"14x28\\">14x28</option><option value=\\"personalizada\\">Personalizada</option></select></div>"' +
     '+"<div class=\\"campo-form\\" id=\\"cruzarCamposP\\" style=\\"display:none\\"><label>Dias emb. / folga</label><div style=\\"display:flex;gap:6px\\"><input type=\\"number\\" id=\\"cruzarDiasEmb\\" min=\\"1\\" max=\\"365\\" value=\\"14\\" style=\\"width:70px\\"><input type=\\"number\\" id=\\"cruzarDiasFolga\\" min=\\"1\\" max=\\"365\\" value=\\"14\\" style=\\"width:70px\\"></div></div>"' +
@@ -14400,6 +14408,7 @@ function renderMinhaEscala() {
     '+"<div class=\\"campo-form\\"><label>Data de referência</label><input type=\\"date\\" id=\\"cruzarData\\"></div>"' +
     '+"<div class=\\"campo-form\\"><label>Tipo de referência</label><select id=\\"cruzarTipoRef\\"><option value=\\"embarquei\\">Embarquei nessa data</option><option value=\\"desembarquei\\">Desembarquei nessa data</option></select></div>"' +
     '+"<button type=\\"button\\" class=\\"btn-primario\\" id=\\"cruzarBtnSalvar\\" style=\\"margin-top:8px\\">Ver quando estaremos juntos →</button></div>";' +
+    'function _abrirCruzarForm(){' +
     'el.innerHTML=_formHtml;' +
     'var _hoje=new Date();var _hStr=_hoje.getFullYear()+"-"+pad2(_hoje.getMonth()+1)+"-"+pad2(_hoje.getDate());' +
     'var _dIn=document.getElementById("cruzarData");if(_dIn)_dIn.value=_hStr;' +
@@ -14426,6 +14435,10 @@ function renderMinhaEscala() {
     'if(window.ownewsEvento)window.ownewsEvento("cross_configured");' +
     'renderCruzarSecao();_reRenderCalendarios();' +
     '});' +
+    '}' +
+    'el.innerHTML="<button type=\\"button\\" class=\\"btn-secundario\\" id=\\"cruzarBtnAdicionar\\" style=\\"margin-top:6px\\">+ Adicionar pessoa</button>";' +
+    'var _addBtn=document.getElementById("cruzarBtnAdicionar");' +
+    'if(_addBtn)_addBtn.addEventListener("click",function(){_abrirCruzarForm();if(window.ownewsEvento)window.ownewsEvento("minha_escala_cross_open");});' +
     'return;}' +
     'var _agora=new Date();var _hojeU=Date.UTC(_agora.getFullYear(),_agora.getMonth(),_agora.getDate());' +
     'var _jans=encontrarJanelasJuntos(escalaAtual.calc,cruzarAtual.calc,_hojeU,180,3);' +
