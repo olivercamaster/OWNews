@@ -13481,6 +13481,23 @@ function renderMinhaEscala() {
     'if(!local||!escalasSaoDiferentes(local,c)){try{localStorage.setItem("ownews_minha_escala",JSON.stringify(c));}catch(e){}return false;}' +
     'return c;' +
     '}' +
+    // ── Checkpoint 3: cruzar cloud save ────────────────────────────────
+    'function salvarCruzarNoMeta(s){' +
+    'if(!s||!s.access_token)return;' +
+    'var cfg=carregarCruzar();if(!cfg)return;' +
+    'var metaAtual=(s.user&&s.user.user_metadata)||{};' +
+    'var novaMeta=Object.assign({},metaAtual,{cruzar_config:Object.assign({},cfg,{salvo_em:new Date().toISOString()})});' +
+    'authFetch("/user",{method:"PUT",headers:{Authorization:"Bearer "+s.access_token},body:JSON.stringify({data:novaMeta})}).then(function(r){return r.json().then(function(d){if(r.ok){s.user=d;setSessao(s);}});}).catch(function(){});' +
+    '}' +
+    'function carregarCruzarDaConta(s){' +
+    'if(!s||!s.user)return;' +
+    'var meta=(s.user&&s.user.user_metadata)||{};' +
+    'if(!meta.cruzar_config)return;' +
+    'var nuvem=meta.cruzar_config;' +
+    'var local=carregarCruzar();' +
+    'if(!local||(nuvem.salvo_em&&(!local.salvo_em||nuvem.salvo_em>local.salvo_em))){' +
+    'salvarCruzar(nuvem);cruzarAtual={nome:nuvem.nome,relacao:nuvem.relacao,calc:calcularEscala(nuvem.diasEmb,nuvem.diasFolga,nuvem.refUTC,nuvem.tipoRef)};' +
+    'renderCruzarSecao();_reRenderCalendarios();}}' +
     'function atualizarUIContaEscala(){' +
     'var s=getSessao();' +
     'var sec=document.getElementById("escalaContaSection");if(!sec)return;' +
@@ -13520,7 +13537,7 @@ function renderMinhaEscala() {
     'if(r.ok&&d.access_token){var s=sessaoDe(d);setSessao(s);setMsg("msgContaLogin","",true);' +
     'if(window.ownewsEvento)window.ownewsEvento("minha_escala_login");' +
     'sincronizarDatasPessoais();' +
-    'var _conf=carregarEscalaDaConta(s);if(_conf){mostrarConflito(_conf,escalaLocalAtual());}else{atualizarUIContaEscala();}}' +
+    'var _conf=carregarEscalaDaConta(s);if(_conf){mostrarConflito(_conf,escalaLocalAtual());}else{atualizarUIContaEscala();}carregarCruzarDaConta(s);}' +
     'else{setMsg("msgContaLogin",msgErro(d),false);}' +
     '});}).catch(function(){setMsg("msgContaLogin","Erro de conexão.",false);});' +
     '});' +
@@ -13797,8 +13814,9 @@ function renderMinhaEscala() {
     'if(_sessaoInit&&_sessaoInit.expires_at&&_sessaoInit.expires_at<Date.now()+60000){' +
     'authFetch("/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:_sessaoInit.refresh_token})}).then(function(r){return r.json().then(function(d){' +
     'if(r.ok&&d.access_token){setSessao(sessaoDe(d));}else{setSessao(null);}atualizarUIContaEscala();' +
+    'carregarCruzarDaConta(getSessao());' +
     '});}).catch(function(){atualizarUIContaEscala();});' +
-    '}else{atualizarUIContaEscala();}' +
+    '}else{atualizarUIContaEscala();carregarCruzarDaConta(getSessao());}' +
     '})();' +
 
     'var selTipo=document.getElementById("escalaTipo");' +
@@ -14331,6 +14349,7 @@ function renderMinhaEscala() {
     'var _cfg={nome:_nome,relacao:_rel,diasEmb:_dEmb,diasFolga:_dFol,refUTC:_refU,tipoRef:_tRef};' +
     'salvarCruzar(_cfg);' +
     'cruzarAtual={nome:_cfg.nome,relacao:_cfg.relacao,calc:calcularEscala(_cfg.diasEmb,_cfg.diasFolga,_cfg.refUTC,_cfg.tipoRef)};' +
+    'var _sCruzar=getSessao();if(_sCruzar)salvarCruzarNoMeta(_sCruzar);' +
     'if(window.ownewsEvento)window.ownewsEvento("cross_configured");' +
     'renderCruzarSecao();_reRenderCalendarios();' +
     '});' +
