@@ -1226,6 +1226,15 @@ html.embarcado header{backdrop-filter:none}
 .central-tile.destaque .ct-icon{width:27px;height:27px;color:var(--cyan)}
 .central-tile.destaque h3{font-size:17.5px}
 .central-tile.destaque p{font-size:12.5px;color:var(--muted)}
+.central-grupo-div{
+  grid-column:1/-1;display:flex;align-items:center;gap:10px;
+  margin-top:18px;padding-bottom:8px;border-bottom:1px solid var(--line-hair);
+}
+.central-grupo-div:first-child{margin-top:0}
+.central-grupo-label{
+  font-family:var(--ui);font-size:10px;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted-dim);
+}
 @media(min-width:560px){
   .central-grid{grid-template-columns:repeat(2,1fr)}
 }
@@ -2095,16 +2104,18 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
   <section class="ed-section" id="carreiras">
     <div class="ed-head"><h2>Central Offshore</h2><span class="ed-sub">Tudo pra quem vive ou quer entrar no offshore, num só lugar</span></div>
     <div class="central-grid">
+      <!-- ── Intenção 1: Entrar no Setor ── -->
+      <div class="central-grupo-div"><span class="central-grupo-label">Entrar no setor</span></div>
       <a class="central-tile destaque" href="/comece-aqui">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M14.8 9.2l-2.2 5.6-5.6 2.2 2.2-5.6z"/></svg></span>
         <h3>Comece Aqui</h3>
         <p>Como trabalhar offshore, passo a passo</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile destaque" href="/offshore-agora">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.2-6.5L13 18l2.4-6H21"/></svg></span>
-        <h3>Offshore Agora</h3>
-        <p>O que está acontecendo no offshore brasileiro agora</p>
+      <a class="central-tile" href="/vagas">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5"/><path d="M3 12.5h18"/></svg></span>
+        <h3>Vagas Offshore</h3>
+        <p>Oportunidades verificadas em canais oficiais</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
       <a class="central-tile destaque" href="/carreiras/cadastre-seu-curriculo">
@@ -2113,36 +2124,24 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Canais oficiais das principais empresas do setor</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile destaque" href="/radar">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18M4 17l1.5-6h13L20 17M9 11V6h6v5M11 6V4h2v2"/><circle cx="12" cy="14" r="1"/></svg></span>
-        <h3>Radar Offshore</h3>
-        <p>Encontre navios, sondas e plataformas</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
       <a class="central-tile" href="/carreiras">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15.5a8 8 0 0 1 16 0"/><path d="M12 7.5v-1"/><rect x="2.5" y="15.5" width="19" height="3" rx="1"/></svg></span>
         <h3>Carreiras Offshore</h3>
         <p>Funções, hierarquia e caminhos de carreira</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/empresas">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1"/><path d="M9 8h1.2M13.8 8H15M9 12h1.2M13.8 12H15M9 16h1.2M13.8 16H15"/></svg></span>
-        <h3>Empresas Offshore</h3>
+      <!-- ── Intenção 2: Acompanhar ── -->
+      <div class="central-grupo-div"><span class="central-grupo-label">Acompanhar</span></div>
+      <a class="central-tile destaque" href="/offshore-agora">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.2-6.5L13 18l2.4-6H21"/></svg></span>
+        <h3>Offshore Agora</h3>
+        <p>O que está acontecendo no offshore brasileiro agora</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile secundario" href="/cursos" id="cursos">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5 2.5 10 12 14.5 21.5 10z"/><path d="M6.5 12v4.5c0 1.1 2.5 2.5 5.5 2.5s5.5-1.4 5.5-2.5V12"/></svg></span>
-        <h3>Cursos e Escolas</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/guias">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12.5h5M9.5 16h5"/></svg></span>
-        <h3>Guias OWNews</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/explica">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M9.3 9.3a2.7 2.7 0 1 1 3.7 2.5c-.9.4-1 1-1 1.7"/><path d="M12 17h.01"/></svg></span>
-        <h3>OWNews Explica</h3>
+      <a class="central-tile destaque" href="/radar">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18M4 17l1.5-6h13L20 17M9 11V6h6v5M11 6V4h2v2"/><circle cx="12" cy="14" r="1"/></svg></span>
+        <h3>Radar Offshore</h3>
+        <p>Encontre navios, sondas e plataformas</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
       <a class="central-tile" href="/aviacao-offshore">
@@ -2151,16 +2150,13 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Aeronaves, aeroportos e operação aérea</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile secundario" href="/unidades">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><path d="M12 7v13"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M4.5 13h3M16.5 13h3"/></svg></span>
-        <h3>Plataformas &amp; Sondas</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
       <a class="central-tile secundario" href="/agenda">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8.5 14.5h3M15.5 14.5h.5"/></svg></span>
         <h3>Agenda Offshore</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
+      <!-- ── Intenção 3: Ferramentas ── -->
+      <div class="central-grupo-div"><span class="central-grupo-label">Ferramentas</span></div>
       <a class="central-tile" href="/minha-escala">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/><path d="M8 14.5h2M14 14.5h2M8 18h2"/></svg></span>
         <h3>Minha Escala</h3>
@@ -2173,21 +2169,42 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <p>Calculadoras, conversores e utilidades</p>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
+      <a class="central-tile" href="/pergunte-ao-ownews">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-4 4v-4H4Z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span>
+        <h3>Pergunte ao OWNews</h3>
+        <p>IA offshore — funções, siglas e vagas verificadas</p>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
       <a class="central-tile secundario" href="/salarios">
         <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6.5" width="18" height="12" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14" r="1"/></svg></span>
         <h3>Salários Offshore</h3>
         <span class="tag-em-breve">Dados em preparação</span>
       </a>
-      <a class="central-tile" href="/vagas">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5"/><path d="M3 12.5h18"/></svg></span>
-        <h3>Vagas Offshore</h3>
-        <p>Oportunidades verificadas em canais oficiais</p>
+      <!-- ── Intenção 4: Explorar ── -->
+      <div class="central-grupo-div"><span class="central-grupo-label">Explorar</span></div>
+      <a class="central-tile" href="/empresas">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1"/><path d="M9 8h1.2M13.8 8H15M9 12h1.2M13.8 12H15M9 16h1.2M13.8 16H15"/></svg></span>
+        <h3>Empresas Offshore</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
-      <a class="central-tile" href="/pergunte-ao-ownews">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-4 4v-4H4Z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span>
-        <h3>Pergunte ao OWNews</h3>
-        <p>IA offshore — funções, siglas e vagas verificadas</p>
+      <a class="central-tile secundario" href="/explica">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M9.3 9.3a2.7 2.7 0 1 1 3.7 2.5c-.9.4-1 1-1 1.7"/><path d="M12 17h.01"/></svg></span>
+        <h3>OWNews Explica</h3>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
+      <a class="central-tile secundario" href="/guias">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12.5h5M9.5 16h5"/></svg></span>
+        <h3>Guias OWNews</h3>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
+      <a class="central-tile secundario" href="/cursos" id="cursos">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5 2.5 10 12 14.5 21.5 10z"/><path d="M6.5 12v4.5c0 1.1 2.5 2.5 5.5 2.5s5.5-1.4 5.5-2.5V12"/></svg></span>
+        <h3>Cursos e Escolas</h3>
+        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+      </a>
+      <a class="central-tile secundario" href="/unidades">
+        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><path d="M12 7v13"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M4.5 13h3M16.5 13h3"/></svg></span>
+        <h3>Plataformas &amp; Sondas</h3>
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
     </div>
