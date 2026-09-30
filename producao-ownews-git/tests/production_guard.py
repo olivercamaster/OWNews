@@ -439,8 +439,10 @@ def _check_no_supabase_anon_in_html():
 
 def run_logic():
     suite("LOGIC — schedule engine & Cruzar (node)")
-
     test("logic_test.js passes (39 deterministic tests)", lambda: _run_logic_tests())
+
+    suite("COLLECTOR LOGIC — METAR / dedupe / idioma / risco (node)")
+    test("collector_test.js passes (63 deterministic tests)", lambda: _run_collector_tests())
 
 
 def _run_logic_tests():
@@ -452,9 +454,21 @@ def _run_logic_tests():
         cwd=str(ROOT)
     )
     if r.returncode != 0:
-        # Show which tests failed
-        failed_lines = [l for l in r.stdout.split("\n") if "FAIL" in l or "ERROR" in l]
-        raise AssertionError(f"Logic tests failed:\n" + "\n".join(failed_lines[:10]))
+        failed_lines = [l for l in r.stdout.split("\n") if "✗" in l or "FAIL" in l]
+        raise AssertionError("Logic tests failed:\n" + "\n".join(failed_lines[:10]))
+
+
+def _run_collector_tests():
+    collector_js = TESTS_DIR / "collector_test.js"
+    expect(collector_js.exists(), "collector_test.js not found")
+    r = subprocess.run(
+        ["node", str(collector_js)],
+        capture_output=True, text=True, timeout=30,
+        cwd=str(ROOT)
+    )
+    if r.returncode != 0:
+        failed_lines = [l for l in r.stdout.split("\n") if "✗" in l or "FAIL" in l]
+        raise AssertionError("Collector tests failed:\n" + "\n".join(failed_lines[:10]))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
