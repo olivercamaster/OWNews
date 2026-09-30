@@ -7735,8 +7735,9 @@ function renderOffshoreAgora(){
 
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/#destaque">Ver todas as notícias →</a>' +
-    '<a href="/carreiras">Central Offshore →</a>' +
+    '<a href="/comece-aqui">Comece Aqui — guia de entrada →</a>' +
+    '<a href="/ferramentas">Central de Ferramentas →</a>' +
+    '<a href="/minha-escala">Minha Escala →</a>' +
     '</div>' +
 
     '<script>' +
@@ -7834,8 +7835,9 @@ function renderAgora(){
 
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/#destaque">Ver todas as notícias →</a>' +
-    '<a href="/carreiras">Central Offshore →</a>' +
+    '<a href="/comece-aqui">Comece Aqui — guia de entrada →</a>' +
+    '<a href="/guias">Guias OWNews →</a>' +
+    '<a href="/pergunte-ao-ownews">Pergunte ao OWNews IA →</a>' +
     '</div>' +
 
     '<script>' +
@@ -8634,6 +8636,8 @@ function renderComeceAqui() {
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/guias">Guias OWNews →</a>' +
     '<a href="/salarios">Salários Offshore →</a>' +
+    '<a href="/minha-escala">Organize seus embarques →</a>' +
+    '<a href="/pergunte-ao-ownews">Pergunte ao OWNews IA →</a>' +
     '</div>';
 
   return paginaChrome(
