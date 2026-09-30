@@ -1183,6 +1183,7 @@ html.embarcado header{backdrop-filter:none}
   .ops-rail.ops-count-1 .ops-card{width:100%}
   .ops-rail.ops-count-2 .ops-card{width:calc((100% - 16px)/2)}
   .ops-rail.ops-count-3 .ops-card{width:calc((100% - 32px)/3)}
+  .ops-rail.ops-count-5 .ops-card{width:calc((100% - 64px)/5)}
   .ops-card{min-height:380px}
   .ops-card-copy{min-height:380px}
 }
@@ -3368,7 +3369,7 @@ function renderOperacoes(lista, fallbackEditorial){
   const section = document.getElementById('operacoes');
   if (!lista.length) { section.hidden = true; return; }
   section.hidden = false;
-  el.className = 'ops-rail ops-count-' + Math.min(lista.length, 4);
+  el.className = 'ops-rail ops-count-' + Math.min(lista.length, 5);
   const titulo = section.querySelector('.ed-head h2');
   if (titulo) titulo.textContent = fallbackEditorial ? 'Últimas da editoria' : 'Operações Offshore';
   if (lista.length === 1) {
@@ -3818,10 +3819,10 @@ function renderTudo(noticias){
     ? mercadoHoje
     : mercadoHoje.concat(selecionarEditorial(poolResiliencia48h, 'mercado', 4 - mercadoHoje.length));
 
-  const operacoesHoje = selecionarEditorial(poolElegivelHoje, 'operacoes', 4);
-  const operacoes = operacoesHoje.length >= 4
+  const operacoesHoje = selecionarEditorial(poolElegivelHoje, 'operacoes', 5);
+  const operacoes = operacoesHoje.length >= 5
     ? operacoesHoje
-    : operacoesHoje.concat(selecionarEditorial(poolResiliencia48h, 'operacoes', 4 - operacoesHoje.length));
+    : operacoesHoje.concat(selecionarEditorial(poolResiliencia48h, 'operacoes', 5 - operacoesHoje.length));
 
   renderHero(hero);
   renderHighlights(destaques);
