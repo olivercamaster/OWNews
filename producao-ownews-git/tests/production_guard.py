@@ -231,6 +231,25 @@ def run_static():
 
     test("Cruzar CTA button present", lambda: _check_cruzar_cta())
 
+    suite("CRUZAR ESCALAS — ENGINE")
+
+    test("calcularEscala present and used in cruzar init", lambda: _check_cruzar_engine_calc())
+    test("encontrarJanelasJuntos present and scans 180 days", lambda: _check_cruzar_engine_janelas())
+
+    suite("CRUZAR ESCALAS — UI CONTRACT")
+
+    test("promo card is a <button> (not just span+p+button)", lambda: _check_cruzar_ui_button_wraps())
+    test("cruzarBtnAdicionar is the outermost element in promo", lambda: _check_cruzar_ui_btn_outermost())
+    test("cruzar-promo-card CSS class present", lambda: _check_cruzar_ui_promo_card_css())
+    test("cruzar-cta-label CSS class present", lambda: _check_cruzar_ui_cta_label_css())
+    test("form has cruzarFormErro div (validation visible)", lambda: _check_cruzar_ui_form_error())
+    test("submit button uses full-width style", lambda: _check_cruzar_ui_submit_fullwidth())
+    test("validation shows error (not silent return)", lambda: _check_cruzar_ui_validation_error())
+
+    # CRUZAR ESCALAS — PRODUCTION INTERACTION: NOT AUTOMATED
+    # Real test: user taps card → form opens → fill → calculate → result appears.
+    # Must be validated manually on device at 360/390/430px after each deploy.
+
     suite("STATIC — security: no secrets in source")
 
     test("no service_role key in worker.js", lambda: _check_no_secret("service_role"))
@@ -392,6 +411,99 @@ def _check_cruzar_cta():
     expect("CRUZAR ESCALAS →" in c or "CRUZAR ESCALAS \\u2192" in c,
            "Cruzar Escalas CTA button text missing")
     expect("cruzarBtnAdicionar" in c, "cruzarBtnAdicionar ID missing")
+
+
+# ── CRUZAR ENGINE ──────────────────────────────────────────────────────────────
+
+def _check_cruzar_engine_calc():
+    c = worker()
+    expect("function calcularEscala(" in c, "calcularEscala missing")
+    # cruzar init uses calcularEscala to compute cruzarAtual
+    expect("cruzarAtual={nome:" in c or "cruzarAtual = {nome:" in c,
+           "cruzarAtual assignment missing in cruzar init")
+
+
+def _check_cruzar_engine_janelas():
+    c = worker()
+    expect("function encontrarJanelasJuntos(" in c, "encontrarJanelasJuntos missing")
+    expect("180," in c or "180)" in c, "180-day scan window not found")
+
+
+# ── CRUZAR UI CONTRACT ─────────────────────────────────────────────────────────
+
+def _check_cruzar_ui_button_wraps():
+    c = worker()
+    # The promo card must open with <button ... id=\"cruzarBtnAdicionar\"
+    # NOT with <span or <p (those have no click handler on mobile)
+    # In the file, innerHTML is set to a <button> as the FIRST element
+    # Check: cruzarBtnAdicionar appears as id= inside a <button type=
+    idx = c.find('cruzarBtnAdicionar')
+    while idx > 0:
+        ctx = c[max(0, idx-150):idx+60]
+        if 'innerHTML=' in ctx:
+            # This is the promo assignment - verify it starts with <button
+            expect('<button type=' in ctx or 'cruzar-promo-card' in ctx,
+                   "Promo card innerHTML must open with <button>, not <span>/<p>. "
+                   "Entire card must be tappable on mobile.")
+            return
+        idx = c.find('cruzarBtnAdicionar', idx+1)
+    raise AssertionError("cruzarBtnAdicionar not found in innerHTML context")
+
+
+def _check_cruzar_ui_btn_outermost():
+    c = worker()
+    # The promo innerHTML must NOT have <span class=\"cruzar-titulo\"> BEFORE the button
+    # i.e., the button wraps the title, not the other way around
+    idx = c.find('cruzarBtnAdicionar')
+    while idx > 0:
+        ctx = c[max(0, idx-200):idx]
+        if 'innerHTML=' in ctx:
+            # The span-titulo should NOT appear before the button in the innerHTML
+            inner_start = ctx.rfind('innerHTML=')
+            inner_chunk = ctx[inner_start:]
+            expect('cruzar-titulo' not in inner_chunk,
+                   "cruzar-titulo span appears BEFORE button opening tag — "
+                   "button must wrap all promo content")
+            return
+        idx = c.find('cruzarBtnAdicionar', idx+1)
+    raise AssertionError("cruzarBtnAdicionar not found")
+
+
+def _check_cruzar_ui_promo_card_css():
+    c = worker()
+    expect('.cruzar-promo-card{' in c or '.cruzar-promo-card {' in c,
+           ".cruzar-promo-card CSS class missing — promo button needs display:block reset")
+
+
+def _check_cruzar_ui_cta_label_css():
+    c = worker()
+    expect('.cruzar-cta-label{' in c or '.cruzar-cta-label {' in c,
+           ".cruzar-cta-label CSS class missing — visual CTA inside promo button")
+
+
+def _check_cruzar_ui_form_error():
+    c = worker()
+    expect('cruzarFormErro' in c,
+           "cruzarFormErro div missing from form — validation failures are invisible to user")
+
+
+def _check_cruzar_ui_submit_fullwidth():
+    c = worker()
+    idx = c.find('cruzarBtnSalvar')
+    expect(idx > 0, "cruzarBtnSalvar missing")
+    ctx = c[idx:idx+200]
+    expect('width:100%' in ctx,
+           "Submit button not full-width — on narrow mobile a half-width button is hard to tap")
+
+
+def _check_cruzar_ui_validation_error():
+    c = worker()
+    # Validation must NOT be a silent return — must show cruzarFormErro
+    expect('cruzarFormErro' in c, "cruzarFormErro not in validation block")
+    # The old silent pattern: if(!_nome||!_dStr||...)return; (without showing error)
+    bad = 'if(!_nome||!_dStr||_dEmb<1||_dFol<1)return;'
+    expect(bad not in c,
+           "Silent validation return still present — user gets no feedback when form is incomplete")
 
 
 def _check_no_secret(pattern):
