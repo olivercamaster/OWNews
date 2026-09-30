@@ -1240,12 +1240,12 @@ html.embarcado header{backdrop-filter:none}
    textura sutil até existir uma foto editorial própria. ---------- */
 .ow-institucional{
   margin-top:56px;position:relative;overflow:hidden;border-radius:14px;
-  display:grid;grid-template-columns:1fr;gap:28px;text-decoration:none;
+  display:grid;grid-template-columns:1fr;gap:16px;text-decoration:none;
   background:
     radial-gradient(120% 140% at 12% 0%, rgba(18,168,238,.09) 0%, rgba(18,168,238,0) 45%),
     linear-gradient(155deg, #03101a 0%, #0a2436 55%, #123449 100%);
   border:1px solid var(--line-soft);
-  padding:34px 26px;
+  padding:18px 20px;
 }
 .ow-institucional::before{
   content:"";position:absolute;top:0;left:0;right:0;height:2px;
@@ -1279,7 +1279,7 @@ html.embarcado header{backdrop-filter:none}
 .ow-institucional-sub svg{width:13px;height:13px;transition:transform .15s ease}
 .ow-institucional:hover .ow-institucional-sub, .ow-institucional:focus-visible .ow-institucional-sub{color:var(--cyan-dim)}
 .ow-institucional:hover .ow-institucional-sub svg, .ow-institucional:focus-visible .ow-institucional-sub svg{transform:translate(2px,-2px)}
-.ow-vitrine{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:180px}
+.ow-vitrine{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:80px}
 .ow-vitrine-motivo{position:absolute;inset:0;margin:auto;width:min(120%,420px);height:auto;opacity:.1;color:#c9a35c;pointer-events:none}
 .ow-vitrine-marca{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:20px}
 .ow-vitrine-nome{font-family:var(--ui);font-weight:800;font-size:clamp(30px,6vw,42px);letter-spacing:-.01em;color:rgba(247,250,252,.9)}
@@ -1519,9 +1519,9 @@ svg.access-ico{width:17px;height:17px;flex:none}
   .baia-embarcado .baia-sub{display:none}
 }
 @media(min-width:760px){
-  .ow-institucional{padding:52px 48px;min-height:280px;grid-template-columns:1.15fr 1fr;align-items:center}
+  .ow-institucional{padding:24px 40px;grid-template-columns:1.15fr 1fr;align-items:center}
   .ow-institucional-sub{font-size:13px}
-  .ow-vitrine{min-height:240px}
+  .ow-vitrine{min-height:110px}
 }
 
 /* ---------- Ecossistema: identificação curta das marcas, sem repetir a
