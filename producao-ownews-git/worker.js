@@ -1181,6 +1181,8 @@ html.embarcado header{backdrop-filter:none}
 @media(min-width:760px){
   .ops-card{width:calc((100% - 48px)/4)}
   .ops-rail.ops-count-1 .ops-card{width:100%}
+  .ops-rail.ops-count-2 .ops-card{width:calc((100% - 16px)/2)}
+  .ops-rail.ops-count-3 .ops-card{width:calc((100% - 32px)/3)}
   .ops-card{min-height:380px}
   .ops-card-copy{min-height:380px}
 }
