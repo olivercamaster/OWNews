@@ -1237,6 +1237,50 @@ html.embarcado header{backdrop-filter:none}
   font-family:var(--ui);font-size:10px;font-weight:800;
   letter-spacing:.12em;text-transform:uppercase;color:var(--muted-dim);
 }
+/* Central Offshore 2.0 — intenção por caminho */
+.central-prompt{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-dim);margin:0 0 10px}
+.central-intencoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.central-ic{
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:18px 16px 16px;min-height:110px;
+  background:var(--navy-800);border:1px solid var(--line);border-radius:10px;
+  text-decoration:none;color:var(--white);transition:border-color .15s;
+}
+.central-ic:hover,.central-ic:focus-visible{border-color:var(--cyan-dim)}
+.ci-titulo{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--white);line-height:1.35}
+.ci-desc{font-size:12px;color:var(--muted);margin:6px 0 10px;line-height:1.45}
+.ci-arrow{font-size:12px;font-weight:600;color:var(--cyan)}
+.central-me-cta{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;margin-bottom:14px;
+  background:linear-gradient(135deg,rgba(18,168,238,.07) 0%,rgba(18,168,238,.03) 100%);
+  border:1px solid rgba(18,168,238,.25);border-radius:10px;text-decoration:none;
+}
+.cmec-left{flex:1}
+.cmec-titulo{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan)}
+.cmec-desc{font-size:12px;color:var(--muted);margin-top:4px}
+.cmec-cta{font-size:13px;font-weight:700;color:var(--cyan);white-space:nowrap}
+.central-acesso-rapido{margin-bottom:14px}
+.car-titulo{display:block;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px}
+.car-links{display:flex;flex-wrap:wrap;gap:5px 14px}
+.car-link{font-size:13px;color:var(--cyan-dim);text-decoration:none}
+.car-link:hover{color:var(--cyan)}
+.central-mais{margin-top:8px}
+.central-mais>summary{
+  font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted-dim);cursor:pointer;padding:10px 0;list-style:none;user-select:none;
+  border-top:1px solid var(--line-hair);
+}
+.central-mais>summary::-webkit-details-marker{display:none}
+.central-mais[open]>summary{margin-bottom:8px}
+@media(max-width:759px){
+  .central-intencoes{grid-template-columns:1fr;gap:6px}
+  .central-ic{flex-direction:row;align-items:center;padding:12px 14px;min-height:0;gap:10px}
+  .ci-titulo{font-size:12px}
+  .ci-desc{display:none}
+  .ci-arrow{font-size:18px;color:var(--muted-dim);font-weight:400;margin-top:0}
+  .central-me-cta{flex-direction:column;align-items:flex-start;gap:6px}
+}
 @media(min-width:560px){
   .central-grid{grid-template-columns:repeat(2,1fr)}
 }
@@ -2105,7 +2149,57 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
 
   <section class="ed-section" id="carreiras">
     <div class="ed-head"><h2>Central Offshore</h2><span class="ed-sub">Tudo pra quem vive ou quer entrar no offshore, num só lugar</span></div>
-    <div class="central-grid">
+    <p class="central-prompt">O QUE VOCÊ PROCURA?</p>
+    <div class="central-intencoes">
+      <a class="central-ic" href="/comece-aqui">
+        <div class="ci-body">
+          <div class="ci-titulo">QUERO ENTRAR NO OFFSHORE</div>
+          <div class="ci-desc">Requisitos, cursos, documentos e o caminho para sua primeira vaga.</div>
+        </div>
+        <span class="ci-arrow">Começar →</span>
+      </a>
+      <a class="central-ic" href="/vagas">
+        <div class="ci-body">
+          <div class="ci-titulo">PROCURO OPORTUNIDADES</div>
+          <div class="ci-desc">Vagas verificadas, canais para currículo e o que as empresas pedem.</div>
+        </div>
+        <span class="ci-arrow">Ver oportunidades →</span>
+      </a>
+      <a class="central-ic" href="/minha-escala">
+        <div class="ci-body">
+          <div class="ci-titulo">JÁ TRABALHO OFFSHORE</div>
+          <div class="ci-desc">Minha Escala, Cruzar Escalas, informações de setor e mercado.</div>
+        </div>
+        <span class="ci-arrow">Acessar →</span>
+      </a>
+      <a class="central-ic" href="/offshore-agora">
+        <div class="ci-body">
+          <div class="ci-titulo">QUERO CONSULTAR O SETOR</div>
+          <div class="ci-desc">Notícias, operações, mercado, plataformas e sondas.</div>
+        </div>
+        <span class="ci-arrow">Explorar →</span>
+      </a>
+    </div>
+    <a class="central-me-cta" href="/minha-escala">
+      <div class="cmec-left">
+        <div class="cmec-titulo">MINHA ESCALA · GRÁTIS</div>
+        <div class="cmec-desc">Calcule seu próximo embarque e desembarque. 14x14, 14x21, 14x28 ou personalizada.</div>
+      </div>
+      <span class="cmec-cta">Acessar →</span>
+    </a>
+    <div class="central-acesso-rapido">
+      <span class="car-titulo">ACESSO RÁPIDO</span>
+      <div class="car-links">
+        <a class="car-link" href="/vagas">Vagas →</a>
+        <a class="car-link" href="/aeroportos">Aeroportos →</a>
+        <a class="car-link" href="/agenda">Agenda →</a>
+        <a class="car-link" href="/unidades">Plataformas &amp; Sondas →</a>
+        <a class="car-link" href="/carreiras">Carreiras →</a>
+      </div>
+    </div>
+    <details class="central-mais">
+      <summary>MAIS FERRAMENTAS E CONTEÚDOS</summary>
+      <div class="central-grid">
       <!-- ── Intenção 1: Entrar no Setor ── -->
       <div class="central-grupo-div"><span class="central-grupo-label">Entrar no setor</span></div>
       <a class="central-tile destaque" href="/comece-aqui">
@@ -2210,6 +2304,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
         <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
       </a>
     </div>
+    </details>
   </section>
 
   ${adSlot("home_after_editorial")}
