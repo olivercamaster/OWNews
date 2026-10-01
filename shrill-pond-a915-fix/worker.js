@@ -4545,7 +4545,7 @@ const aeroportosComClima = Array.isArray(lista)
   ? lista.map((aeroporto) => {
       const metar = Array.isArray(aeroporto)
         ? (aeroporto.find((item) =>
-            typeof item === "string" && item.includes("METAR")
+            typeof item === "string" && (item.includes("METAR") || item.includes("SPECI"))
           ) || "")
         : (
             aeroporto.metar ||
