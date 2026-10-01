@@ -2455,7 +2455,6 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Eletricista', categoria: 'Funções', url: '/funcoes/eletricista' },
   { titulo: 'Rádio Operador', categoria: 'Funções', url: '/funcoes/radio-operador' },
   { titulo: 'Enfermeiro Offshore', categoria: 'Funções', url: '/funcoes/enfermeiro-offshore' },
-  { titulo: 'Catering', categoria: 'Funções', url: '/funcoes/catering' },
   { titulo: 'Almoxarife', categoria: 'Funções', url: '/funcoes/almoxarife' },
   { titulo: 'Clerk (Rig Clerk / Offshore Clerk)', categoria: 'Funções', url: '/funcoes/clerk' },
   { titulo: 'Moço de Máquinas', categoria: 'Funções', url: '/funcoes/moco-de-maquinas' },
@@ -2466,7 +2465,6 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Chefe de Máquinas', categoria: 'Funções', url: '/funcoes/chefe-de-maquinas' },
   { titulo: 'ETO (Eletrotécnico de Bordo)', categoria: 'Funções', url: '/funcoes/eto' },
   { titulo: 'Oficial de Náutica', categoria: 'Funções', url: '/funcoes/oficial-de-nautica' },
-  { titulo: 'Oficial de Quarto de Navegação', categoria: 'Funções', url: '/funcoes/oficial-de-quarto' },
   { titulo: 'Imediato', categoria: 'Funções', url: '/funcoes/imediato' },
   { titulo: 'Comandante', categoria: 'Funções', url: '/funcoes/comandante' },
   { titulo: 'OIM (Offshore Installation Manager)', categoria: 'Funções', url: '/funcoes/oim' },
@@ -2483,12 +2481,12 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Senior Toolpusher', categoria: 'Funções', url: '/funcoes/toolpusher', sinonimoDe: 'Toolpusher' },
   { titulo: 'Senior Tool Pusher', categoria: 'Funções', url: '/funcoes/toolpusher', sinonimoDe: 'Toolpusher' },
   { titulo: 'Roughneck', categoria: 'Funções', url: '/funcoes/plataformista', sinonimoDe: 'Plataformista' },
+  { titulo: 'Drilling Section Leader', categoria: 'Funções', url: '/funcoes/superintendente-perfuracao', sinonimoDe: 'Superintendente de Perfuração' },
+  { titulo: 'DSL', categoria: 'Funções', url: '/funcoes/superintendente-perfuracao', sinonimoDe: 'Superintendente de Perfuração' },
   { titulo: 'Lead Roughneck', categoria: 'Funções', url: '/funcoes/plataformista-lider', sinonimoDe: 'Plataformista Líder' },
   { titulo: 'Assistant Derrickman', categoria: 'Funções', url: '/funcoes/assistente-torrista', sinonimoDe: 'Assistente de Torrista (Bombeiro)' },
   { titulo: 'Subchefe de Máquinas', categoria: 'Funções', url: '/funcoes/1-oficial-de-maquinas', sinonimoDe: '1º Oficial de Máquinas' },
-  { titulo: 'Oficial de Quarto', categoria: 'Funções', url: '/funcoes/oficial-de-quarto', sinonimoDe: 'Oficial de Quarto de Navegação' },
   { titulo: 'Oficial de Quarto de Máquinas', categoria: 'Funções', url: '/funcoes/2-oficial-de-maquinas', sinonimoDe: '2º Oficial de Máquinas' },
-  { titulo: 'Officer of the Watch', categoria: 'Funções', url: '/funcoes/oficial-de-quarto', sinonimoDe: 'Oficial de Quarto de Navegação' },
   { titulo: 'Chief Engineer', categoria: 'Funções', url: '/funcoes/chefe-de-maquinas', sinonimoDe: 'Chefe de Máquinas' },
   { titulo: 'Chief Mate', categoria: 'Funções', url: '/funcoes/imediato', sinonimoDe: 'Imediato' },
   { titulo: 'Chief Officer', categoria: 'Funções', url: '/funcoes/imediato', sinonimoDe: 'Imediato' },
@@ -4516,7 +4514,6 @@ const AREAS_OFFSHORE = {
   engine: { nome: "Engine/Máquinas", desc: "Praça de máquinas — propulsão, geração de energia e manutenção mecânica/elétrica da unidade." },
   seguranca: { nome: "Segurança", desc: "Segurança do trabalho e saúde a bordo." },
   marine: { nome: "Marine/Náutica", desc: "Navegação, comando e operações náuticas — do quarto de serviço ao comando da unidade." },
-  catering: { nome: "Catering", desc: "Alimentação, hotelaria e serviços de bordo." },
   logistica: { nome: "Logística/Administração", desc: "Materiais, suprimentos e administração de bordo." },
   gestao: { nome: "Gestão da Instalação", desc: "Coordenação e segurança geral da instalação, em unidades/operadoras que adotam esse modelo de gestão." }
 };
@@ -4617,9 +4614,6 @@ const FUNCOES_OFFSHORE = [
     resumo: "Responsável pelas comunicações da unidade — rádio, telefonia e sistemas de telecomunicação marítima." },
   { slug: "enfermeiro-offshore", nome: "Enfermeiro Offshore", area: "seguranca",
     resumo: "Presta atendimento de saúde e primeiros socorros a bordo, atua na prevenção e nas emergências médicas da tripulação." },
-  { slug: "catering", nome: "Catering", area: "catering",
-    resumo: "Responsável pela alimentação, hotelaria e serviços de bordo, incluindo cozinha, camaradagem e limpeza dos ambientes internos." },
-
   /* ---------- Pesquisado em 2026-09-17 (NORMAM-101/DPC, CBO, Nautical
      Institute, vagas reais) — ver especificacoes/ para a pesquisa completa
      com fontes por atributo. NORMAM-101/DPC reorganizou e substituiu o
@@ -4678,10 +4672,6 @@ const FUNCOES_OFFSHORE = [
     certificacoes: [{ requisito: "Curso de Formação de Oficial de Náutica (Marinha/SEPM) + CIR + registro como 2ON", classificacao: "OBRIGATORIO_REGULAMENTO" }],
     caminhoCarreira: CAMINHO_NAUTICA,
     fontes: [{ label: "NORMAM-101/DPC — Marinha do Brasil", url: "https://assets.marinha.mil.br/sites/default/files/atos-normativos/dpc/normam/normam-101.pdf" }] },
-  { slug: "oficial-de-quarto", nome: "Oficial de Quarto de Navegação", area: "marine",
-    nomeAntigo: "Corrigido em 2026-09-17: nome exibido antes era só \"Oficial de Quarto\", termo ambíguo — a Seção de Máquinas também tem sua própria função de quarto (ver 2º/1º Oficial de Máquinas), então \"de Navegação\" evita confundir as duas. O slug da página não mudou, para não quebrar links já indexados.",
-    resumo: "Designação da FUNÇÃO de vigilância/comando do quarto de navegação no passadiço (equivalente ao \"Officer of the Watch\" da STCW), exercida por um Oficial de Náutica (2ON ou 1ON) durante seu turno. Não é uma categoria/habilitação separada — não localizada como entrada própria no NORMAM-101/DPC; a interpretação mais provável é que se trata de uma função de serviço, não um degrau de carreira paralelo. Por isso não entra na sequência de progressão. Não confundir com o Oficial de Quarto de Máquinas (2º/1º Oficial de Máquinas em plantão na praça de máquinas) — são funções e carreiras diferentes.",
-    certificacoes: [{ requisito: "Certificação de Oficial de Náutica (2ON ou superior)", classificacao: "OBRIGATORIO_REGULAMENTO" }] },
   { slug: "imediato", nome: "Imediato", area: "marine",
     nomeAntigo: "Nome usado internacionalmente: Chief Mate / Chief Officer.",
     resumo: "Segundo em comando da unidade, substituto direto do Comandante em caso de impedimento. O NORMAM-101/DPC tem artigo dedicado (Art. 4.3, \"Das Atribuições do Imediato\") — é uma função de bordo regulamentada pela Marinha do Brasil, não apenas um título informal de empresa.",
@@ -4739,18 +4729,11 @@ const FUNCOES_OFFSHORE = [
     resumo: "Apoia as atividades de HSE da unidade: inspeções de campo, análises de risco (APR/PTW), treinamentos e monitoramento de conformidade com procedimentos de segurança." },
 
   // PERFURAÇÃO — DRILLING
-  { slug: "drilling-section-leader", nome: "Drilling Section Leader", area: "drilling",
-    resumo: "Lidera a seção de perfuração da unidade. Interface entre a gestão da instalação e as equipes de turno de perfuração. Responsável pelo planejamento, execução das operações de poço e conformidade com o programa de perfuração do cliente." },
   { slug: "sr-toolpusher", nome: "Sr. Toolpusher", area: "drilling",
     nomeAntigo: "A distinção entre Toolpusher e Sr. Toolpusher varia por empresa e pela escala da operação — não é um degrau universal padronizado.",
     resumo: "Nível sênior de Toolpusher com maior responsabilidade operacional e interface com o Drilling Section Leader e o cliente operador. Em operações com equipe grande, pode coordenar os Toolpushers de turno." },
 
   // TÉCNICA / MANUTENÇÃO
-  { slug: "technical-section-leader", nome: "Technical Section Leader", area: "engine",
-    nomeAntigo: "Também abreviado como TSL.",
-    resumo: "Lidera toda a seção técnica da unidade: manutenção mecânica, elétrica, eletrônica e operação da sala de máquinas. Interface com a gestão da instalação e com equipes de manutenção de todos os sistemas." },
-  { slug: "assistant-tsl", nome: "Assistant TSL", area: "engine",
-    resumo: "Apoia o Technical Section Leader na coordenação das equipes técnicas. Pode assumir as responsabilidades do TSL durante sua ausência ou rotação de turno." },
   { slug: "engine-room-operator", nome: "Engine Room Operator / Motorman", area: "engine",
     nomeAntigo: "Motorman é o termo histórico do setor; Engine Room Operator (ERO) é a denominação adotada por alguns drilling contractors.",
     resumo: "Opera e monitora os equipamentos da sala de máquinas: geradores, sistemas de propulsão, bombas e auxiliares. Executa manutenção de rotina sob orientação do supervisor técnico." },
@@ -4781,11 +4764,6 @@ const FUNCOES_OFFSHORE = [
     resumo: "Realiza manutenção e operação de equipamentos subsea da unidade: BOP, sistemas de controle submarino, riser e conexões de fundo de poço." },
 
   // MARINE / DECK
-  { slug: "marine-section-leader", nome: "Marine Section Leader", area: "marine",
-    resumo: "Lidera a seção marítima da unidade: posicionamento dinâmico, equipe de convés, Bosun e operações náuticas. Interface com a gestão da instalação." },
-  { slug: "deck-supervisor", nome: "Deck Supervisor", area: "deck",
-    nomeAntigo: "Também chamado de Deck Pusher ou Encarregado de Convés conforme a empresa e o tipo de unidade.",
-    resumo: "Supervisiona as atividades e a equipe de convés. Coordena movimentação de cargas, operações com guindastes e organização geral da área de trabalho no convés." },
   { slug: "bosun", nome: "Bosun", area: "marine",
     nomeAntigo: "Contramestre (denominação náutica em português). Em unidades de perfuração, atua principalmente como supervisor operacional da equipe de convés.",
     resumo: "Supervisiona operacionalmente a equipe de marinheiros/AB Seaman no convés. Organiza atividades de rigging, amarração, conservação de equipamentos náuticos e segurança do convés." },
@@ -4835,14 +4813,13 @@ const SONDA_PERFURACAO_AREAS = [
     titulo: "Perfuração — Drilling",
     desc: "Operação da sonda, coluna de perfuração e controle do poço.",
     hierarquia: [
-      { slug: "drilling-section-leader", nivel: 0 },
-      { slug: "sr-toolpusher", nivel: 1 },
-      { slug: "toolpusher", nivel: 2 },
-      { slug: "driller", nivel: 3 },
-      { slug: "assistant-driller", nivel: 4 },
-      { slug: "torrista-derrickman", nivel: 5 },
-      { slug: "assistente-torrista", nivel: 6 },
-      { slug: "plataformista", nivel: 7 },
+      { slug: "sr-toolpusher", nivel: 0 },
+      { slug: "toolpusher", nivel: 1 },
+      { slug: "driller", nivel: 2 },
+      { slug: "assistant-driller", nivel: 3 },
+      { slug: "torrista-derrickman", nivel: 4 },
+      { slug: "assistente-torrista", nivel: 5 },
+      { slug: "plataformista", nivel: 6 },
     ]
   },
   {
@@ -4850,19 +4827,17 @@ const SONDA_PERFURACAO_AREAS = [
     titulo: "Técnica / Manutenção",
     desc: "Integridade mecânica, elétrica, eletrônica e operação da sala de máquinas.",
     hierarquia: [
-      { slug: "technical-section-leader", nivel: 0 },
-      { slug: "assistant-tsl", nivel: 1 },
-      { slug: "engine-room-operator", nivel: 1 },
-      { slug: "mechanic-supervisor", nivel: 1 },
-      { slug: "sr-mechanic", nivel: 2 },
-      { slug: "mecanico", nivel: 3 },
-      { slug: "assistant-mechanic", nivel: 4 },
-      { slug: "welder", nivel: 2 },
-      { slug: "electrical-supervisor", nivel: 1 },
-      { slug: "sr-electronic-technician", nivel: 2 },
-      { slug: "electronic-technician", nivel: 3 },
-      { slug: "sr-electrician", nivel: 2 },
-      { slug: "eletricista", nivel: 3 },
+      { slug: "engine-room-operator", nivel: 0 },
+      { slug: "mechanic-supervisor", nivel: 0 },
+      { slug: "sr-mechanic", nivel: 1 },
+      { slug: "mecanico", nivel: 2 },
+      { slug: "assistant-mechanic", nivel: 3 },
+      { slug: "welder", nivel: 1 },
+      { slug: "electrical-supervisor", nivel: 0 },
+      { slug: "sr-electronic-technician", nivel: 1 },
+      { slug: "electronic-technician", nivel: 2 },
+      { slug: "sr-electrician", nivel: 1 },
+      { slug: "eletricista", nivel: 2 },
     ]
   },
   {
@@ -4880,14 +4855,12 @@ const SONDA_PERFURACAO_AREAS = [
     titulo: "Marine / Deck",
     desc: "Operações náuticas, posicionamento dinâmico e equipe de convés.",
     hierarquia: [
-      { slug: "marine-section-leader", nivel: 0 },
-      { slug: "deck-supervisor", nivel: 1 },
-      { slug: "bosun", nivel: 2 },
-      { slug: "ab-seaman", nivel: 3 },
-      { slug: "guindasteiro", nivel: 2 },
-      { slug: "assistente-guindasteiro", nivel: 3 },
-      { slug: "roustabout", nivel: 2 },
-      { slug: "dpo", nivel: 1 },
+      { slug: "dpo", nivel: 0 },
+      { slug: "bosun", nivel: 0 },
+      { slug: "ab-seaman", nivel: 1 },
+      { slug: "guindasteiro", nivel: 0 },
+      { slug: "assistente-guindasteiro", nivel: 1 },
+      { slug: "roustabout", nivel: 0 },
     ]
   },
   {
@@ -4913,7 +4886,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Posição máxima da hierarquia a bordo em unidades de drilling contractors que adotam o modelo com Rig Manager. Abaixo do Rig Manager situam-se geralmente o OIM e os líderes de seção. A estrutura exata varia por contractor e contrato.",
     requisitosEntrada: "Os requisitos variam por empresa e operação. Entre os perfis frequentemente encontrados: sólido background operacional em perfuração ou nas áreas técnicas da unidade, experiência significativa em posições de liderança offshore. Certificações de gestão de segurança (OPITO e equivalentes) são comumente exigidas.",
     experienciaValorizada: "Trajetória progressiva em operações offshore com passagem por funções de supervisão e gestão de seção. Familiaridade com sistemas de gestão de segurança (SMS), gestão de contratos com cliente operador e operações de perfuração.",
-    funcoesRelacionadas: ["assistant-rig-manager", "oim", "drilling-section-leader", "technical-section-leader", "marine-section-leader"]
+    funcoesRelacionadas: ["assistant-rig-manager", "oim"]
   },
   "assistant-rig-manager": {
     atividades: ["Suporte ao Rig Manager na gestão diária da instalação", "Acompanhamento de reuniões operacionais e de segurança", "Cobertura das responsabilidades do Rig Manager durante ausências ou rotação de turno", "Coordenação de atividades administrativas e logísticas quando necessário", "Interface com as seções operacionais em nome da gestão da instalação"],
@@ -4921,7 +4894,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta diretamente ao Rig Manager. Em ausência do Rig Manager, pode assumir suas responsabilidades. A existência do cargo e suas atribuições variam por empresa e contrato.",
     requisitosEntrada: "Os requisitos variam. Frequentemente buscado entre profissionais com experiência consolidada em liderança offshore que estão em progressão para a posição de Rig Manager.",
     experienciaValorizada: "Experiência em posições de supervisão ou gestão offshore. Boa compreensão das operações de perfuração, sistemas de gestão de segurança e interface com cliente.",
-    funcoesRelacionadas: ["rig-manager", "oim", "drilling-section-leader"]
+    funcoesRelacionadas: ["rig-manager", "oim"]
   },
   "oim": {
     atividades: ["Autoridade máxima de segurança a bordo — responsável pela segurança de todas as pessoas na instalação", "Gerenciamento de emergências e evacuação: ativação do plano de emergência, coordenação de resposta e comunicação com a base", "Implementação e manutenção do sistema de gestão de segurança (SMS) da instalação", "Aprovação de permissões de trabalho críticas e autorização de atividades de alto risco", "Interface com autoridades regulatórias e com o cliente operador em assuntos de segurança"],
@@ -4929,7 +4902,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Em unidades com Rig Manager, o OIM foca nos aspectos de segurança e autoridade regulatória da instalação. Em unidades sem Rig Manager, o OIM acumula gestão operacional e autoridade de segurança. A estrutura exata varia por contractor e pela legislação da bandeira da unidade.",
     requisitosEntrada: "Os requisitos variam conforme a bandeira da unidade e a legislação do país de operação. Entre as qualificações frequentemente encontradas: certificações específicas de OIM (ex.: OPITO IMIST, cursos de gestão de emergência offshore), ampla experiência em operações offshore e em posições de liderança.",
     experienciaValorizada: "Trajetória extensa em operações offshore, experiência comprovada em gestão de segurança, liderança em situações de emergência e conhecimento da legislação e regulações aplicáveis à instalação.",
-    funcoesRelacionadas: ["rig-manager", "assistant-rig-manager", "hse-advisor-sr", "drilling-section-leader"]
+    funcoesRelacionadas: ["rig-manager", "assistant-rig-manager", "hse-advisor-sr"]
   },
   "hse-advisor-sr": {
     atividades: ["Liderança do sistema de gestão de HSE da instalação — planejamento, implementação e auditoria", "Investigação de incidentes, acidentes e quase-acidentes (near miss): análise de causa raiz e plano de ação", "Condução de programas de treinamento de segurança e emergência a bordo", "Interface com o cliente operador e com as autoridades regulatórias para assuntos de HSE", "Gestão da equipe de HSE Advisors, quando houver mais de um a bordo"],
@@ -4961,7 +4934,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Rig Manager. Função de suporte técnico-analítico à gestão, sem linha hierárquica direta sobre as seções operacionais — a estrutura e escopo variam por empresa.",
     requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: formação em engenharia (mecânica, elétrica, petróleo ou correlata), experiência técnica offshore.",
     experienciaValorizada: "Experiência em operações offshore ou em engenharia aplicada ao setor de óleo e gás. Capacidade analítica e habilidade com elaboração de relatórios técnicos.",
-    funcoesRelacionadas: ["rig-manager", "technical-section-leader", "drilling-section-leader"]
+    funcoesRelacionadas: ["rig-manager"]
   },
   "rig-administrator": {
     atividades: ["Controle do People On Board (POB) — registro preciso de todos os embarcados e desembarcados", "Gestão de documentação da unidade: permissões, registros operacionais, documentos pessoais da tripulação", "Organização logística de pessoal: passagens, hospedagem em trânsito, interface com agentes de viagem offshore", "Suporte às comunicações administrativas entre a unidade e a base em terra", "Apoio ao Rig Manager em atividades administrativas e de rotina da instalação"],
@@ -4971,21 +4944,13 @@ const SONDA_FUNCAO_EXTRA = {
     experienciaValorizada: "Experiência em administração em ambiente industrial ou offshore. Organização, atenção a detalhes e domínio de gestão documental.",
     funcoesRelacionadas: ["rig-manager", "material-administrator", "log-tech"]
   },
-  "drilling-section-leader": {
-    atividades: ["Liderança e coordenação de toda a seção de perfuração — people, performance e safety", "Interface direta com o cliente operador (company man) para planejamento e execução do programa de poço", "Supervisão dos Sr. Toolpushers e Toolpushers, acompanhamento das equipes de turno", "Participação nas reuniões operacionais de alto nível da instalação", "Análise de desempenho da seção e identificação de oportunidades de melhoria operacional"],
-    ondeAtua: "Área operacional de perfuração — piso de sonda, sala de controle (driller's cabin), sala de reuniões operacionais.",
-    posicaoNaEstrutura: "Reporta ao Rig Manager ou OIM. Lidera os Sr. Toolpushers e, através deles, as equipes de turno de perfuração.",
-    requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: trajetória progressiva em operações de perfuração (Driller → Toolpusher → posição de liderança), familiaridade com programas de poço, controle de poço e interface com cliente.",
-    experienciaValorizada: "Histórico sólido como Toolpusher com experiência em diferentes tipos de operação de poço e em interface com cliente operador. Conhecimento de sistemas de gestão de segurança.",
-    funcoesRelacionadas: ["sr-toolpusher", "toolpusher", "oim", "rig-manager"]
-  },
   "sr-toolpusher": {
     atividades: ["Supervisão e coordenação dos Toolpushers de turno", "Interface com o Drilling Section Leader e com o cliente operador em situações que demandam maior autoridade ou experiência", "Acompanhamento do desempenho das equipes de perfuração e de indicadores da seção", "Tomada de decisão em situações de maior complexidade operacional na seção de perfuração"],
     ondeAtua: "Área de perfuração — piso de sonda, sala de controle e escritório da seção.",
     posicaoNaEstrutura: "Posição de senioridade entre Toolpusher e Drilling Section Leader. Não é um cargo padronizado universalmente — a existência e atribuições do Sr. Toolpusher variam por empresa e pela escala da operação.",
     requisitosEntrada: "Os requisitos variam. Comumente, profissionais com experiência sólida e consolidada como Toolpusher.",
     experienciaValorizada: "Experiência extensa como Toolpusher, com histórico de gestão de equipes de perfuração e desempenho operacional reconhecido.",
-    funcoesRelacionadas: ["toolpusher", "drilling-section-leader", "driller"]
+    funcoesRelacionadas: ["toolpusher", "driller"]
   },
   "toolpusher": {
     atividades: ["Supervisão das operações de perfuração durante o turno — garante que as atividades seguem o programa do poço com segurança e eficiência", "Gestão operacional da equipe de turno: Driller, Assistant Drillers, Derrickman e Roughnecks", "Comunicação direta com o representante do cliente operador (company man) sobre o andamento das operações", "Aprovação de permissões de trabalho e análises de risco na seção de perfuração", "Coordenação da resposta a eventos anormais do poço — acionamento dos procedimentos de controle de poço"],
@@ -4993,7 +4958,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Supervisiona diretamente o Driller e, através dele, as equipes de turno. Reporta ao Sr. Toolpusher ou Drilling Section Leader.",
     requisitosEntrada: "Os requisitos variam por empresa e operação. Entre as qualificações frequentemente encontradas: certificações de Well Control (controle de poço), experiência progressiva em operações de perfuração, historicamente como Driller.",
     experienciaValorizada: "Experiência sólida como Driller, incluindo bom domínio de controle de poço, gestão de equipes e interface com cliente operador. Familiaridade com diferentes tipos de formação geológica e operações de poço.",
-    funcoesRelacionadas: ["sr-toolpusher", "drilling-section-leader", "driller", "assistant-driller"]
+    funcoesRelacionadas: ["sr-toolpusher", "driller", "assistant-driller"]
   },
   "driller": {
     atividades: ["Operação do painel de controle da sonda (driller's console) durante perfuração, içamento e manobras da coluna", "Monitoramento contínuo dos parâmetros do poço e da operação: torque, peso sobre broca (WOB), pressão de bombeio, vazão, ganho ou perda de fluido", "Coordenação operacional do turno no piso de sonda: Assistant Driller, Derrickman e Roughnecks", "Detecção de eventos do poço (kick, lost circulation, stuck pipe) e acionamento dos procedimentos correspondentes", "Comunicação com o Toolpusher sobre o andamento da operação e situações que demandem autorização ou decisão superior"],
@@ -5035,29 +5000,13 @@ const SONDA_FUNCAO_EXTRA = {
     experienciaValorizada: "Disposição para trabalho físico intenso em ambiente offshore. Experiência em trabalho industrial ou offshore é positiva, mas algumas empresas treinam a bordo.",
     funcoesRelacionadas: ["torrista-derrickman", "assistant-driller", "assistente-torrista"]
   },
-  "technical-section-leader": {
-    atividades: ["Liderança e coordenação da seção técnica da unidade: manutenção mecânica, elétrica, eletrônica e operação da sala de máquinas", "Planejamento de manutenção preventiva e corretiva de todos os sistemas da unidade — priorizando disponibilidade e integridade", "Interface com a gestão da instalação e com a engenharia da base em terra para assuntos técnicos", "Gestão de orçamento da seção técnica e requisição de materiais e peças de reposição", "Coordenação de paradas para manutenção maior e interface com fabricantes e prestadores de serviço técnico"],
-    ondeAtua: "Sala de máquinas, oficinas mecânica e elétrica, sala de quadros e escritório da seção técnica — toda a infraestrutura física da unidade.",
-    posicaoNaEstrutura: "Reporta ao Rig Manager ou OIM. Lidera o Assistant TSL, Mechanic Supervisor e Electrical Supervisor.",
-    requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: formação técnica ou de engenharia, trajetória progressiva em manutenção offshore, experiência em liderança de equipes multidisciplinares.",
-    experienciaValorizada: "Experiência ampla em manutenção offshore abrangendo múltiplos sistemas de uma unidade de perfuração. Capacidade de gestão de equipes e interface com base.",
-    funcoesRelacionadas: ["assistant-tsl", "mechanic-supervisor", "electrical-supervisor", "engine-room-operator", "rig-manager"]
-  },
-  "assistant-tsl": {
-    atividades: ["Apoio ao TSL na coordenação das equipes técnicas e no planejamento de manutenção", "Cobertura das responsabilidades do TSL durante ausências ou rotação de turno", "Acompanhamento e supervisão de trabalhos de manutenção de maior complexidade ou criticidade", "Suporte na gestão de ordens de serviço, requisições de material e relatórios técnicos"],
-    ondeAtua: "Todas as áreas técnicas da unidade — oficinas, sala de máquinas, painéis elétricos e instrumentação.",
-    posicaoNaEstrutura: "Reporta ao TSL. Pode assumir as responsabilidades do TSL durante sua ausência.",
-    requisitosEntrada: "Os requisitos variam. Frequentemente, profissionais com sólida experiência técnica em offshore e perfil de liderança em desenvolvimento para a posição de TSL.",
-    experienciaValorizada: "Experiência em manutenção offshore, familiaridade com diferentes sistemas da unidade e com a coordenação de equipes técnicas.",
-    funcoesRelacionadas: ["technical-section-leader", "mechanic-supervisor", "electrical-supervisor"]
-  },
   "engine-room-operator": {
     atividades: ["Operação e monitoramento dos sistemas de geração de energia elétrica (dieséis geradores, sistemas auxiliares) durante o turno de plantão", "Monitoramento de sistemas de propulsão (em drillships e semissubmersíveis com DP), sistemas de lastro e bombas auxiliares", "Execução de manutenção de rotina na sala de máquinas: lubrificação, troca de filtros, verificações periódicas", "Registro de leituras e parâmetros operacionais — consumo de combustível, temperaturas, pressões", "Reporte imediato de anomalias ao supervisor técnico responsável (Mechanic Supervisor ou TSL)"],
     ondeAtua: "Sala de máquinas (Engine Room) — área de geração de energia e propulsão da unidade offshore.",
     posicaoNaEstrutura: "Reporta ao Mechanic Supervisor, Electrical Supervisor ou ao TSL conforme a estrutura da empresa. Função de operação em turno.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: formação técnica em mecânica, eletrotécnica ou engenharia naval/mecânica, certificações offshore.",
     experienciaValorizada: "Experiência em operação ou manutenção de máquinas em ambiente industrial, naval ou offshore. Familiaridade com sistemas de geração a diesel e com painéis de controle de sala de máquinas.",
-    funcoesRelacionadas: ["technical-section-leader", "mechanic-supervisor", "sr-mechanic"]
+    funcoesRelacionadas: ["mechanic-supervisor", "sr-mechanic"]
   },
   "mechanic-supervisor": {
     atividades: ["Coordenação e supervisão das atividades de manutenção mecânica preventiva e corretiva da unidade", "Planejamento de trabalhos de manutenção, alocação de equipe e controle de ordens de serviço", "Orientação técnica de Sr. Mechanics e assistentes durante trabalhos complexos ou críticos", "Inspeção de qualidade dos trabalhos executados pela equipe mecânica", "Interface com o TSL para planejamento de paradas maiores e solicitação de materiais"],
@@ -5065,7 +5014,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao TSL ou Assistant TSL. Lidera a equipe de mecânicos: Sr. Mechanic, Mechanic e Assistant Mechanic.",
     requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: formação técnica em mecânica, experiência progressiva em manutenção mecânica offshore, habilidade de liderança.",
     experienciaValorizada: "Trajetória como mecânico offshore, com progressão para posições de maior responsabilidade. Conhecimento abrangente dos sistemas mecânicos de uma sonda (bombas de alta pressão, top drive, drawworks, guindastes).",
-    funcoesRelacionadas: ["technical-section-leader", "sr-mechanic", "mecanico", "assistant-mechanic", "welder"]
+    funcoesRelacionadas: ["sr-mechanic", "mecanico", "assistant-mechanic", "welder"]
   },
   "sr-mechanic": {
     atividades: ["Execução de manutenções mecânicas de maior complexidade: bombas de alta pressão, drawworks, top drive, guindastes, sistemas de içamento", "Diagnóstico de falhas em equipamentos mecânicos da unidade e proposição de soluções", "Orientação de mecânicos e assistentes durante trabalhos específicos", "Elaboração de relatórios de manutenção e registros técnicos de anomalias"],
@@ -5073,7 +5022,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Mechanic Supervisor. Com maior autonomia técnica e responsabilidade que o Mechanic.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: formação técnica em mecânica, experiência consolidada em manutenção mecânica offshore.",
     experienciaValorizada: "Experiência em manutenção de equipamentos específicos de sonda — drawworks, top drive, bombas de alta pressão, guindastes pedestal. Domínio de técnicas de diagnóstico mecânico.",
-    funcoesRelacionadas: ["mechanic-supervisor", "mecanico", "assistant-mechanic", "technical-section-leader"]
+    funcoesRelacionadas: ["mechanic-supervisor", "mecanico", "assistant-mechanic"]
   },
   "mecanico": {
     atividades: ["Execução de manutenção preventiva e corretiva em equipamentos mecânicos conforme ordens de serviço", "Lubrificação, troca de componentes, ajustes e reparos em bombas, motores, válvulas, sistemas hidráulicos e mecânicos da unidade", "Registro das atividades de manutenção realizadas no sistema de gestão de manutenção", "Participação em trabalhos de maior escopo sob orientação do Mechanic Supervisor ou Sr. Mechanic"],
@@ -5097,7 +5046,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Mechanic Supervisor ou TSL. Função especializada que atende diferentes áreas da instalação sob demanda.",
     requisitosEntrada: "Os requisitos variam por empresa e pelo tipo de soldagem exigida. Entre as qualificações frequentemente encontradas: qualificação de soldador (conforme norma aplicável — AWS D1.1, ASME IX ou similar), certificações offshore básicas. Para alguns trabalhos, ensaios não destrutivos (radiografia, ultrassom) podem ser exigidos.",
     experienciaValorizada: "Experiência em soldagem em ambiente industrial, naval ou offshore. Qualificação em diferentes processos. Familiaridade com materiais especiais (aços inox, ligas especiais) é valorizada em determinadas operações.",
-    funcoesRelacionadas: ["mechanic-supervisor", "sr-mechanic", "technical-section-leader"]
+    funcoesRelacionadas: ["mechanic-supervisor", "sr-mechanic"]
   },
   "electrical-supervisor": {
     atividades: ["Coordenação e supervisão das atividades de manutenção elétrica e eletrônica da unidade", "Planejamento de trabalhos elétricos, inspeção de sistemas elétricos e controle de ordens de serviço", "Orientação técnica de Sr. Electricians, Electricians e técnicos de eletrônica", "Resposta a falhas elétricas críticas — análise de causa e coordenação da solução para minimizar downtime", "Interface com o TSL para planejamento de paradas elétricas e trabalhos de maior escopo"],
@@ -5105,7 +5054,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao TSL ou Assistant TSL. Lidera eletricistas (Sr. e júnior) e técnicos de eletrônica.",
     requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: formação técnica em eletrotécnica ou elétrica, experiência em manutenção elétrica offshore, certificação em segurança elétrica (NR-10 com SEP ou equivalente internacional, Ex/ATEX para zonas classificadas).",
     experienciaValorizada: "Experiência em manutenção elétrica offshore, incluindo sistemas de alta tensão, painéis de controle e sistemas de automação. Liderança de equipes técnicas.",
-    funcoesRelacionadas: ["technical-section-leader", "sr-electrician", "eletricista", "sr-electronic-technician", "electronic-technician"]
+    funcoesRelacionadas: ["sr-electrician", "eletricista", "sr-electronic-technician", "electronic-technician"]
   },
   "sr-electronic-technician": {
     atividades: ["Diagnóstico e manutenção de sistemas de controle, automação e instrumentação da unidade (DCS, PLC, SCADA)", "Manutenção de sistemas de comunicação de bordo: rádio VHF, HF, satélite, PABX offshore", "Calibração e verificação de instrumentos de processo e segurança (transmissores de pressão, temperatura, nível)", "Suporte a sistemas eletrônicos de alta complexidade ou criticidade para a operação"],
@@ -5113,7 +5062,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Electrical Supervisor. Com maior autonomia técnica que o Electronic Technician.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: formação técnica em eletrônica, instrumentação ou telecomunicações, experiência offshore.",
     experienciaValorizada: "Experiência em sistemas de automação e controle em ambiente offshore — familiaridade com protocolos industriais (Modbus, Profibus, Foundation Fieldbus) e sistemas de instrumentação de segurança (SIS/SIL).",
-    funcoesRelacionadas: ["electronic-technician", "electrical-supervisor", "sr-electrician", "technical-section-leader"]
+    funcoesRelacionadas: ["electronic-technician", "electrical-supervisor", "sr-electrician"]
   },
   "electronic-technician": {
     atividades: ["Manutenção e diagnóstico de equipamentos eletrônicos e de instrumentação da unidade", "Verificação e calibração de instrumentos e sensores conforme plano de manutenção", "Manutenção de sistemas de comunicação de bordo", "Execução de manutenção preventiva em sistemas eletrônicos conforme cronograma da seção"],
@@ -5145,7 +5094,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Rig Manager, OIM ou Drilling Section Leader, dependendo da estrutura da empresa e do tipo de operação.",
     requisitosEntrada: "Os requisitos variam. Entre os perfis frequentemente encontrados: trajetória em engenharia ou tecnologia subsea, experiência progressiva em operações com BOP e equipamentos submarinos.",
     experienciaValorizada: "Experiência em operações de BOP e sistemas de controle submarino. Interface com cliente operador em contexto subsea e conhecimento de controle de poço.",
-    funcoesRelacionadas: ["subsea-engineer", "subsea-technician", "drilling-section-leader", "oim"]
+    funcoesRelacionadas: ["subsea-engineer", "subsea-technician", "oim"]
   },
   "subsea-engineer": {
     atividades: ["Suporte de engenharia às operações subsea: análise de dados técnicos de BOP, riser e controle submarino", "Elaboração e revisão de procedimentos de intervenção em equipamentos submarinos", "Monitoramento e registro de parâmetros operacionais de sistemas subsea durante as operações", "Comunicação técnica com a engenharia da base em terra sobre assuntos subsea"],
@@ -5163,29 +5112,13 @@ const SONDA_FUNCAO_EXTRA = {
     experienciaValorizada: "Experiência em manutenção de equipamentos hidráulicos, pneumáticos e subsea offshore. Treinamentos específicos de fabricantes de BOP (Cameron/SLB, TechnipFMC, NOV, etc.) são frequentemente valorizados.",
     funcoesRelacionadas: ["subsea-engineer", "subsea-supervisor"]
   },
-  "marine-section-leader": {
-    atividades: ["Liderança da seção marítima: DPO, Deck Supervisor, Bosun e equipe de convés", "Interface com o Rig Manager/OIM para assuntos náuticos, de posicionamento e operações de deck", "Supervisão das operações de posicionamento dinâmico e das operações náuticas da instalação", "Coordenação de operações de deck: movimentação de cargas, guindastes e logística de embarque/desembarque", "Gestão da documentação náutica e de segurança da seção marítima"],
-    ondeAtua: "Passadiço (bridge/DP room), deck, área de guindastes e toda a seção marítima da unidade.",
-    posicaoNaEstrutura: "Reporta ao Rig Manager ou OIM. Em alguns drilling contractors, tem equivalência funcional ao Imediato de uma embarcação. A estrutura varia por empresa e tipo de unidade.",
-    requisitosEntrada: "Os requisitos variam por empresa e tipo de unidade. Entre as qualificações frequentemente encontradas: habilitação náutica quando exigida pela bandeira, certificação DPO, experiência em operações offshore de posicionamento e deck.",
-    experienciaValorizada: "Trajetória em operações marítimas offshore, incluindo DPO e/ou supervisão de deck. Familiaridade com operações em diferentes tipos de sonda (semissubmersível, drillship, jack-up).",
-    funcoesRelacionadas: ["dpo", "deck-supervisor", "bosun", "oim", "rig-manager"]
-  },
-  "deck-supervisor": {
-    atividades: ["Supervisão das atividades e da equipe de convés: movimentação de cargas, içamentos, limpeza e conservação do deck", "Coordenação de Crane Operators, Bosun, AB Seamen e Roustabouts na área de deck", "Aprovação e participação nas análises de risco para operações de levantamento e movimentação de cargas", "Controle e gestão de cargas recebidas e expedidas pela unidade — interface com a logística da base em terra", "Interface com o Marine Section Leader para planejamento de operações náuticas e de deck"],
-    ondeAtua: "Todo o convés da unidade — deck principal, área de guindastes e interfaces marítimas.",
-    posicaoNaEstrutura: "Reporta ao Marine Section Leader. Supervisiona diretamente Crane Operators, Bosun, AB Seamen e Roustabouts.",
-    requisitosEntrada: "Os requisitos variam por empresa. Entre as qualificações frequentemente encontradas: experiência em operações de deck offshore, certificações de movimentação de cargas e offshore.",
-    experienciaValorizada: "Experiência em operações de convés offshore, incluindo içamentos de cargas pesadas e coordenação de equipes de deck.",
-    funcoesRelacionadas: ["marine-section-leader", "guindasteiro", "bosun", "roustabout", "deck-pusher"]
-  },
   "bosun": {
     atividades: ["Supervisão operacional direta de AB Seamen e Roustabouts no convés durante as atividades de deck", "Organização e coordenação de atividades de rigging: preparação de eslingas, verificação de acessórios de içamento e cálculo de carga", "Manutenção e inspeção de cabos, eslingas, shackles e demais acessórios de içamento", "Atividades de conservação e manutenção de estruturas e equipamentos do convés", "Comunicação com o Deck Supervisor e com os Crane Operators durante operações de movimentação de carga"],
     ondeAtua: "Convés da unidade — deck principal, decks secundários e área de guindastes.",
     posicaoNaEstrutura: "Reporta ao Deck Supervisor. Coordena operacionalmente AB Seamen e Roustabouts.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: experiência em operações de convés offshore, certificações de rigging e movimentação de cargas, certificações offshore básicas.",
     experienciaValorizada: "Experiência como AB Seaman ou em trabalho de rigging offshore. Conhecimento de acessórios de içamento e técnicas de amarração.",
-    funcoesRelacionadas: ["deck-supervisor", "ab-seaman", "guindasteiro", "roustabout"]
+    funcoesRelacionadas: ["ab-seaman", "guindasteiro", "roustabout"]
   },
   "ab-seaman": {
     atividades: ["Atividades de rigging e movimentação de cargas no convés: preparação de cargas, posicionamento, sinalização para o guindasteiro", "Amarração, desamarração e trabalhos gerais de convés (deck work)", "Conservação e limpeza de equipamentos, cabos e estruturas do convés", "Apoio às operações de embarque e desembarque de pessoal e materiais", "Participação em simulacros de emergência e manutenção de equipamentos de salvatagem"],
@@ -5193,7 +5126,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Bosun. Integra a equipe de convés sob supervisão operacional do Bosun.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: certificações offshore básicas (HUET, sobrevivência), experiência em trabalho de convés ou operações de deck offshore.",
     experienciaValorizada: "Experiência em operações de deck offshore, trabalho de rigging ou em ambiente naval. Algumas empresas treinam a bordo.",
-    funcoesRelacionadas: ["bosun", "deck-supervisor", "roustabout", "guindasteiro"]
+    funcoesRelacionadas: ["bosun", "roustabout", "guindasteiro"]
   },
   "guindasteiro": {
     atividades: ["Operação de guindastes da unidade nas movimentações de cargas entre o deck e embarcações de apoio (PSVs), e entre áreas da instalação", "Planejamento e checagem pré-operacional de cada içamento: verificação de peso, centro de gravidade (CG) da carga e método de içamento adequado", "Comunicação com a equipe de rigging no convés e com o sinaleiro durante as operações de içamento", "Inspeção pré-operacional do guindaste conforme procedimento padrão", "Preenchimento de registros de operação do guindaste"],
@@ -5201,7 +5134,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Deck Supervisor ou Marine Section Leader. Trabalha em conjunto com o Assistant Crane Operator e a equipe de deck.",
     requisitosEntrada: "Os requisitos variam por empresa e tipo de guindaste. Entre as qualificações frequentemente encontradas: certificado de Operador de Guindaste emitido por órgão reconhecido (ABHO, OPITO ou equivalente conforme o contrato), certificações offshore, experiência operacional.",
     experienciaValorizada: "Experiência em operação de guindastes offshore pesados. Familiaridade com guindastes pedestal de diferentes capacidades e com operações de deck-to-vessel (deck para PSV e vice-versa).",
-    funcoesRelacionadas: ["assistente-guindasteiro", "deck-supervisor", "bosun", "roustabout", "marine-section-leader"]
+    funcoesRelacionadas: ["assistente-guindasteiro", "bosun", "roustabout"]
   },
   "assistente-guindasteiro": {
     atividades: ["Sinalização e rigging para o guindasteiro durante as operações de içamento", "Preparação de cargas: inspeção de eslingas e acessórios de içamento, cálculo de peso e CG estimado, montagem do ponto de içamento", "Aprendizagem progressiva da operação do guindaste sob orientação do Crane Operator", "Participação nas atividades de convés quando não estiver em atividade de içamento"],
@@ -5209,7 +5142,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Crane Operator e ao Deck Supervisor. É o ponto de entrada na trajetória de Crane Operator.",
     requisitosEntrada: "Os requisitos variam. Entre as qualificações frequentemente encontradas: certificações offshore básicas, experiência em operações de deck ou rigging.",
     experienciaValorizada: "Experiência em trabalho de convés, rigging ou como sinaleiro em operações de içamento. Certificação de Sinaleiro é frequentemente valorizada.",
-    funcoesRelacionadas: ["guindasteiro", "deck-supervisor", "bosun", "roustabout"]
+    funcoesRelacionadas: ["guindasteiro", "bosun", "roustabout"]
   },
   "roustabout": {
     atividades: ["Atividades gerais de convés: limpeza e organização das áreas de trabalho, suporte às operações de carga e descarga", "Apoio às equipes de manutenção e drilling com transporte de materiais, ferramentas e equipamentos", "Atividades de conservação — pintura, anticorrosão e manutenção preventiva leve de estruturas do deck", "Suporte à equipe de rigging durante movimentações de carga", "Apoio logístico durante operações de embarque e desembarque de pessoal e materiais"],
@@ -5217,7 +5150,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Bosun ou Deck Supervisor. É o ponto de entrada na trajetória de convés/deck da sonda.",
     requisitosEntrada: "Os requisitos variam por empresa. Entre as qualificações frequentemente encontradas: certificações offshore básicas de sobrevivência e HUET. Algumas empresas admitem candidatos sem experiência prévia offshore para treinamento a bordo.",
     experienciaValorizada: "Disposição para trabalho físico intenso em ambiente offshore. Experiência em trabalho de convés, construção civil offshore ou atividades físicas correlatas é positiva.",
-    funcoesRelacionadas: ["bosun", "ab-seaman", "assistente-guindasteiro", "deck-supervisor"]
+    funcoesRelacionadas: ["bosun", "ab-seaman", "assistente-guindasteiro"]
   },
   "dpo": {
     atividades: ["Operação do sistema de posicionamento dinâmico (DP) durante o turno de watchstanding — controle de posição, heading e modo de operação da unidade", "Monitoramento contínuo dos parâmetros do sistema DP: sensores de posição (GNSS diferencial, HPR, laser), sensores ambientais (MRU, wind, gyro), status dos thrusters", "Resposta a alertas e degradações do sistema DP — análise de causa dentro do escopo do DPO, acionamento de procedimentos quando necessário", "Interface com o Driller/Toolpusher durante atividades que demandem precisão de posicionamento (conexão de riser, watchdog em operação)", "Registro de eventos no log de operações DP e preenchimento de relatórios de watchkeeping"],
@@ -5225,7 +5158,7 @@ const SONDA_FUNCAO_EXTRA = {
     posicaoNaEstrutura: "Reporta ao Marine Section Leader. Trabalha em turnos com outros DPOs.",
     requisitosEntrada: "Entre as qualificações encontradas no mercado: certificado DPO emitido por organismo reconhecido (Nautical Institute, IMCA) com tempo de mar em operações DP. Progressão típica: Inwatch (familiarização) → DPO → Senior DPO. Em unidades com requisito de habilitação náutica (conforme bandeira e contrato), podem ser aplicadas exigências adicionais.",
     experienciaValorizada: "Horas de watchkeeping em sistemas DP, familiaridade com equipamentos de diferentes classes (DP1, DP2, DP3) e experiência em operações de drilling DP.",
-    funcoesRelacionadas: ["senior-dpo", "marine-section-leader", "deck-supervisor"]
+    funcoesRelacionadas: ["senior-dpo"]
   },
   "material-administrator": {
     atividades: ["Recebimento, conferência e armazenamento de materiais, peças e equipamentos que chegam à unidade", "Controle de estoque: localização de itens, inventário periódico e identificação de necessidades de reposição", "Expedição de itens requisitados pelas seções da unidade — rastreamento de saídas e devoluções", "Interface logística com a base em terra: envio de requisições de compra e acompanhamento de entregas pendentes", "Controle e armazenamento de produtos químicos e materiais perigosos conforme procedimentos de segurança e ficha de segurança (FISPQ/SDS)"],
@@ -5255,13 +5188,13 @@ function funcaoComExtra(f) {
 /* Retorna os slugs de funções da sonda de perfuração (para o link de back). */
 const SONDA_SLUGS_SET = new Set([
   'rig-manager','assistant-rig-manager','oim','hse-advisor-sr','hse-advisor',
-  'medico-offshore','rig-engineer','rig-administrator','drilling-section-leader',
+  'medico-offshore','rig-engineer','rig-administrator',
   'sr-toolpusher','toolpusher','driller','assistant-driller','torrista-derrickman',
-  'assistente-torrista','plataformista','technical-section-leader','assistant-tsl',
+  'assistente-torrista','plataformista',
   'engine-room-operator','mechanic-supervisor','sr-mechanic','mecanico',
   'assistant-mechanic','welder','electrical-supervisor','sr-electronic-technician',
   'electronic-technician','sr-electrician','eletricista','subsea-supervisor',
-  'subsea-engineer','subsea-technician','marine-section-leader','deck-supervisor',
+  'subsea-engineer','subsea-technician',
   'bosun','ab-seaman','guindasteiro','assistente-guindasteiro','roustabout',
   'dpo','material-administrator','log-tech'
 ]);
@@ -16747,6 +16680,24 @@ export default {
       return new Response(renderFuncoesIndex(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
+    }
+
+    // Funções removidas — 301 para evitar 404 em URLs indexadas
+    {
+      const FUNCOES_301 = {
+        "drilling-section-leader": "/funcoes/superintendente-perfuracao",
+        "deck-supervisor": "/funcoes",
+        "technical-section-leader": "/funcoes",
+        "assistant-tsl": "/funcoes",
+        "oficial-de-quarto": "/funcoes",
+        "marine-section-leader": "/funcoes",
+        "catering": "/funcoes",
+      };
+      if (url.pathname.startsWith("/funcoes/") || url.pathname.startsWith("/carreiras/") || url.pathname.startsWith("/salarios/")) {
+        const _slug301 = url.pathname.split("/")[2];
+        const _redir301 = FUNCOES_301[_slug301];
+        if (_redir301) return Response.redirect("https://ownews.com.br" + _redir301, 301);
+      }
     }
 
     if (url.pathname.startsWith("/funcoes/")) {
