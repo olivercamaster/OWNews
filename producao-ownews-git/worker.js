@@ -13073,7 +13073,7 @@ function renderMinhaEscala() {
     '<span class="escala-legenda-item escala-legenda-exc" id="legendaFeriasMes" hidden><span class="escala-legenda-swatch ferias"></span>Férias</span>' +
     '<span class="escala-legenda-item"><span class="esc-badge fer-b" style="font-size:8px;padding:2px 4px">FERIADO</span></span>' +
     '<span class="escala-legenda-item"><span class="esc-badge pes-b" style="font-size:8px;padding:2px 4px">PESSOAL</span></span>' +
-    '<span class="escala-legenda-item" id="legendaJuntosMes" hidden><span class="esc-badge juntos-b" style="font-size:8px;padding:2px 4px">JUNTOS</span></span>' +
+    '<span class="escala-legenda-item" id="legendaJuntosMes" hidden><span class="esc-badge juntos-b" id="legendaJuntosBadge" style="font-size:8px;padding:2px 4px">🔗 JUNTOS</span></span>' +
     '</div>' +
     '<p class="dado-contexto" style="margin-top:6px">Toque ou clique em um dia para ver os detalhes.</p>' +
     '</div>' +
@@ -13391,7 +13391,7 @@ function renderMinhaEscala() {
     'var ldm=document.getElementById(\'legendaDobraMes\');if(ldm)ldm.hidden=!temDobra;' +
     'var lfm=document.getElementById(\'legendaFeriasMes\');if(lfm)lfm.hidden=!temFerias;' +
     'var lda=document.getElementById(\'legendaDobraAnual\');if(lda)lda.hidden=!temDobra;' +
-    'var ljm=document.getElementById(\'legendaJuntosMes\');if(ljm)ljm.hidden=!cruzarAtual;' +
+    'var ljm=document.getElementById(\'legendaJuntosMes\');if(ljm)ljm.hidden=!cruzarAtual;var _ljB=document.getElementById("legendaJuntosBadge");if(_ljB&&cruzarAtual){var _ljI=_cruzRelMeta(cruzarAtual.relacao||"").icon;_ljB.textContent=_ljI+" JUNTOS";}' +
     'var lfa=document.getElementById(\'legendaFeriasAnual\');if(lfa)lfa.hidden=!temFerias;' +
     'if(!list.length){el.innerHTML=\'\';return;}' +
     'var html=\'\';' +
@@ -13632,7 +13632,7 @@ function renderMinhaEscala() {
     'var infoA=_infoDia(dataUTC,mes+1,dia,anoAnual);' +
     'if(infoA.fer.length||infoA.pes.length||excInfoA)cls+=" com-marca";' +
     'var tituloA=_tituloDia((st.status==="embarcado"?"Embarcado":"Folga")+", dia "+st.diaDoBloco,infoA);' +
-    'html+=\'<div class="\'+cls+\'" title="\'+tituloA+\'" tabindex="0" role="button" aria-label="\'+tituloA+\'" data-utc="\'+dataUTC+\'" data-mes1="\'+(mes+1)+\'" data-dia="\'+dia+\'" data-ano="\'+anoAnual+\'">\'+dia+_marcasDiaHtml(infoA,excInfoA)+"</div>";' +
+    'html+=\'<div class="\'+cls+\'" title="\'+tituloA+\'" tabindex="0" role="button" aria-label="\'+tituloA+\'" data-utc="\'+dataUTC+\'" data-mes1="\'+(mes+1)+\'" data-dia="\'+dia+\'" data-ano="\'+anoAnual+\'">\'+dia+_marcasDiaHtml(infoA,excInfoA,(cls.indexOf(" juntos")!==-1&&cruzarAtual)?(cruzarAtual.relacao||"Outro"):"")+"</div>";' +
     '}' +
     'html+="</div></div>";' +
     '}' +
@@ -14166,7 +14166,8 @@ function renderMinhaEscala() {
     '});' +
     'return{fer:fer,pes:pes};' +
     '}' +
-    'function _marcasDiaHtml(info,excInfo,isJuntos){' +
+    'function _cruzRelMeta(rel){var _m={"Companheira":{icon:"❤️"},"Companheiro":{icon:"❤️"},"Irmao":{icon:"🤜🤛"},"Amigo":{icon:"🤝"},"Familiar":{icon:"👥"},"Colega":{icon:"⚓"}};return _m[rel]||{icon:"🔗"};} ' +
+    'function _marcasDiaHtml(info,excInfo,juntosRel){' +
     'var h="";' +
     'if(excInfo){' +
     'var _eLabel=excInfo.pos==="ini"||excInfo.pos==="solo"?(excInfo.tipo==="dobra"?"DOBRA":"FÉRIAS"):"  ";' +
@@ -14175,7 +14176,7 @@ function renderMinhaEscala() {
     'var _bads="";' +
     'if(info.fer.length)_bads+=\'<span class="esc-badge fer-b">FERIADO</span>\';' +
     'if(info.pes.length){var _pN=(info.pes[0].nome||"").toUpperCase().replace(/[<>&"]/g,"").substring(0,8)||"PESSOAL";_bads+=\'<span class="esc-badge pes-b">\'+_pN+\'</span>\';}' +
-    'if(isJuntos)_bads+=\'<span class="esc-badge juntos-b">JUNTOS</span>\';' +
+    'if(juntosRel)_bads+=\'<span class="esc-badge juntos-b">\'+_cruzRelMeta(juntosRel).icon+\' JUNTOS</span>\';' +
     'if(_bads)h+=\'<div class="esc-badges-area">\'+_bads+\'</div>\';' +
     'return h;' +
     '}' +
@@ -14198,7 +14199,7 @@ function renderMinhaEscala() {
     'info.fer.forEach(function(f){linhas+=\'<div class="escala-dia-detalhe-item feriado">\'+f.emoji+" "+f.nome+(f.tipo==="comemorativa"?" (comemorativa)":"")+"</div>";});' +
     'info.pes.forEach(function(p){var _pFmt=p.start_date?" · "+_dpFmtPeriodo(p):"";linhas+=\'<div class="escala-dia-detalhe-item pessoal">📌 \'+p.nome+_pFmt+"</div>";});' +
     'if(cruzarAtual){var _stCD2=cruzarAtual.calc.statusEm(dataUTC);var _nCD2=cruzarAtual.nome||cruzarAtual.relacao||"Companheiro";' +
-    'if(st.status==="folga"&&_stCD2.status==="folga")linhas+=\'<div class="escala-dia-detalhe-item" style="color:#fbbf24;font-weight:800">🤝 FOLGA JUNTOS · \'+_nCD2+"</div>";' +
+    'if(st.status==="folga"&&_stCD2.status==="folga"){var _rdm=_cruzRelMeta(cruzarAtual.relacao||"");linhas+=\'<div class="escala-dia-detalhe-item" style="color:#fbbf24;font-weight:800">\'+_rdm.icon+\' FOLGA EM COMUM · \'+_nCD2+"</div>";}' +
     'else linhas+=\'<div class="escala-dia-detalhe-status \'+_stCD2.status+\'" style="font-size:12px;margin-top:6px;opacity:.8">\'+_nCD2+": "+(_stCD2.status==="embarcado"?"EMBARCADO":"DE FOLGA")+"</div>";}' +
     'body.innerHTML=linhas;painel.hidden=false;' +
     '}' +
@@ -14236,7 +14237,7 @@ function renderMinhaEscala() {
     'var isoD=calAno+"-"+pad2(calMes+1)+"-"+pad2(dia);var excInfo=excecaoPeriodoInfo(isoD);if(excInfo)classes+=" "+excInfo.tipo+" exc-"+excInfo.pos;' +
     'var info=_infoDia(dataUTC,calMes+1,dia,calAno);' +
     'var titulo=_tituloDia((st.status==="embarcado"?"Embarcado":"Folga")+", dia "+st.diaDoBloco,info);' +
-    'html+=\'<div class="\'+classes+\'" title="\'+titulo+\'" tabindex="0" role="button" aria-label="\'+titulo+\'" data-utc="\'+dataUTC+\'" data-mes1="\'+(calMes+1)+\'" data-dia="\'+dia+\'" data-ano="\'+calAno+\'">\'+dia+_marcasDiaHtml(info,excInfo,classes.indexOf(" juntos")!==-1)+"</div>";' +
+    'html+=\'<div class="\'+classes+\'" title="\'+titulo+\'" tabindex="0" role="button" aria-label="\'+titulo+\'" data-utc="\'+dataUTC+\'" data-mes1="\'+(calMes+1)+\'" data-dia="\'+dia+\'" data-ano="\'+calAno+\'">\'+dia+_marcasDiaHtml(info,excInfo,(classes.indexOf(" juntos")!==-1&&cruzarAtual)?(cruzarAtual.relacao||"Outro"):"")+"</div>";' +
     '}' +
     'document.getElementById("calGrid").innerHTML=html;' +
     'document.getElementById("calMesLabel").textContent=MESES_COMPLETO[calMes].toUpperCase()+" "+calAno;' +
@@ -14643,7 +14644,7 @@ function renderMinhaEscala() {
     'var _formHtml="<div class=\\"cruzar-form\\">"' +
     '+"<div class=\\"cruzar-form-titulo\\">QUEM VOCÊ QUER CONECTAR?</div>"' +
     '+"<div class=\\"campo-form\\"><label>Nome</label><input type=\\"text\\" id=\\"cruzarNome\\" placeholder=\\"Ana, João, etc.\\" maxlength=\\"40\\"></div>"' +
-    '+"<div class=\\"campo-form\\"><label>Relação</label><select id=\\"cruzarRelacao\\"><option value=\\"Companheira\\">Companheira / Companheiro</option><option value=\\"Familiar\\">Familiar</option><option value=\\"Amigo\\">Amigo / Amiga</option><option value=\\"Irmao\\">Irmão / Irmã</option><option value=\\"Outro\\">Outro</option></select></div>"' +
+    '+"<div class=\\"campo-form\\"><label>Relação</label><select id=\\"cruzarRelacao\\"><option value=\\"Companheira\\">Companheira / Companheiro</option><option value=\\"Familiar\\">Familiar</option><option value=\\"Amigo\\">Amigo / Amiga</option><option value=\\"Irmao\\">Irmão / Irmã</option><option value=\\"Colega\\">Colega de embarque</option><option value=\\"Outro\\">Outro</option></select></div>"' +
     '+"<div class=\\"cruzar-form-grid\\">"' +
     '+"<div class=\\"campo-form\\"><label>Escala</label><select id=\\"cruzarEscala\\"><option value=\\"14x14\\">14x14</option><option value=\\"14x21\\">14x21</option><option value=\\"14x28\\">14x28</option><option value=\\"personalizada\\">Personalizada</option></select></div>"' +
     '+"<div class=\\"campo-form\\" id=\\"cruzarCamposP\\" style=\\"display:none\\"><label>Dias emb. / folga</label><div style=\\"display:flex;gap:6px\\"><input type=\\"number\\" id=\\"cruzarDiasEmb\\" min=\\"1\\" max=\\"365\\" value=\\"14\\" style=\\"width:70px\\"><input type=\\"number\\" id=\\"cruzarDiasFolga\\" min=\\"1\\" max=\\"365\\" value=\\"14\\" style=\\"width:70px\\"></div></div>"' +
@@ -14686,16 +14687,16 @@ function renderMinhaEscala() {
     'var _agora=new Date();var _hojeU=Date.UTC(_agora.getFullYear(),_agora.getMonth(),_agora.getDate());' +
     'var _jans=encontrarJanelasJuntos(escalaAtual.calc,cruzarAtual.calc,_hojeU,180,3);' +
     'if(_jans.length===0){' +
-    'el.innerHTML="<div class=\\"cruzar-hero\\"><div class=\\"cruzar-hero-label\\">PRÓXIMA FOLGA JUNTOS</div><div class=\\"cruzar-hero-datas\\">Nenhuma janela nos próximos 180 dias</div></div>"+_cruzarBtnEditar();return;}' +
+    'var _rm0=_cruzRelMeta((cfg&&cfg.relacao)||"");el.innerHTML="<div class=\\"cruzar-hero\\"><div class=\\"cruzar-hero-label\\">"+_rm0.icon+" PRÓXIMA FOLGA EM COMUM</div><div class=\\"cruzar-hero-datas\\">Nenhuma janela nos próximos 180 dias</div></div>"+_cruzarBtnEditar();return;}' +
     'var _p=_jans[0];var _nd=diasInclusivos(_p.inicio,_p.fim);' +
     'var _faltam=Math.max(0,diasInclusivos(_hojeU,_p.inicio)-1);' +
     'var _iStr=_cruzFmtData(_p.inicio);var _fStr=_cruzFmtData(_p.fim);' +
     'var _pStr=_p.inicio===_p.fim?_iStr:_iStr+" — "+_fStr;' +
     'var _nomeLabel=(cfg.nome||"").toUpperCase()||cfg.relacao.toUpperCase();' +
     'var _heroH="<div class=\\"cruzar-hero\\">"' +
-    '+"<div class=\\"cruzar-hero-label\\">PRÓXIMA FOLGA JUNTOS — "+_nomeLabel+"</div>"' +
+    '+"<div class=\\"cruzar-hero-label\\">"+_cruzRelMeta(cfg.relacao||"").icon+" PRÓXIMA FOLGA EM COMUM — "+_nomeLabel+"</div>"' +
     '+"<div class=\\"cruzar-hero-datas\\">"+_pStr+"</div>"' +
-    '+"<div class=\\"cruzar-hero-duracao\\">"+_nd+(_nd===1?" dia juntos":" dias juntos")+"</div>"' +
+    '+"<div class=\\"cruzar-hero-duracao\\">"+_nd+(_nd===1?" dia em comum":" dias em comum")+"</div>"' +
     '+(_faltam>0?"<div class=\\"cruzar-hero-faltam\\">Faltam "+_faltam+(_faltam===1?" dia":" dias")+"</div>":"<div class=\\"cruzar-hero-faltam\\" style=\\"color:var(--green)\\">Já está acontecendo!</div>")' +
     '+"</div>";' +
     'var _lbls=["PRÓXIMA","2ª JANELA","3ª JANELA"];' +

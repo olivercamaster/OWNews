@@ -246,6 +246,18 @@ def run_static():
     test("submit button uses full-width style", lambda: _check_cruzar_ui_submit_fullwidth())
     test("validation shows error (not silent return)", lambda: _check_cruzar_ui_validation_error())
 
+    suite("CRUZAR ESCALAS — RELAÇÃO → ÍCONE")
+    test("_cruzRelMeta helper present", lambda: _check_cruzrel_helper_present())
+    test("Companheira → ❤️ (romantic only for explicit choice)", lambda: _check_cruzrel_companheira())
+    test("Amigo → 🤝 (not ❤️)", lambda: _check_cruzrel_amigo())
+    test("Irmao → 🤜🤛", lambda: _check_cruzrel_irmao())
+    test("Familiar → 👥", lambda: _check_cruzrel_familiar())
+    test("Colega → ⚓", lambda: _check_cruzrel_colega())
+    test("unknown relacao → 🔗 (neutral fallback, never ❤️)", lambda: _check_cruzrel_fallback())
+    test("Colega de embarque option in form select", lambda: _check_cruzrel_colega_option())
+    test("FOLGA JUNTOS text replaced by FOLGA EM COMUM", lambda: _check_cruzrel_text_neutral())
+    test("PRÓXIMA FOLGA EM COMUM in hero", lambda: _check_cruzrel_hero_neutral())
+
     # CRUZAR ESCALAS — PRODUCTION INTERACTION: NOT AUTOMATED
     # Real test: user taps card → form opens → fill → calculate → result appears.
     # Must be validated manually on device at 360/390/430px after each deploy.
@@ -504,6 +516,86 @@ def _check_cruzar_ui_validation_error():
     bad = 'if(!_nome||!_dStr||_dEmb<1||_dFol<1)return;'
     expect(bad not in c,
            "Silent validation return still present — user gets no feedback when form is incomplete")
+
+
+def _check_cruzrel_helper_present():
+    c = worker()
+    expect('function _cruzRelMeta' in c, "_cruzRelMeta helper not found in worker.js")
+    expect('return _m[rel]||' in c, "_cruzRelMeta missing fallback return")
+
+
+def _check_cruzrel_companheira():
+    c = worker()
+    expect('"Companheira":{icon:' in c or "'Companheira':{icon:" in c,
+           "Companheira key missing in _cruzRelMeta")
+    expect('❤️' in c, "❤️ icon not found in _cruzRelMeta")
+
+
+def _check_cruzrel_amigo():
+    c = worker()
+    expect('"Amigo":{icon:' in c or "'Amigo':{icon:" in c,
+           "Amigo key missing in _cruzRelMeta")
+    expect('🤝' in c, "🤝 icon not found in _cruzRelMeta")
+    # Amigo must NOT map to ❤️
+    amigo_idx = c.find('"Amigo":{icon:')
+    amigo_icon = c[amigo_idx:amigo_idx+30]
+    expect('❤️' not in amigo_icon, f"Amigo wrongly maps to ❤️: {amigo_icon}")
+
+
+def _check_cruzrel_irmao():
+    c = worker()
+    expect('"Irmao":{icon:' in c or "'Irmao':{icon:" in c,
+           "Irmao key missing in _cruzRelMeta")
+    expect('🤜🤛' in c, "🤜🤛 icon not found in _cruzRelMeta")
+
+
+def _check_cruzrel_familiar():
+    c = worker()
+    expect('"Familiar":{icon:' in c or "'Familiar':{icon:" in c,
+           "Familiar key missing in _cruzRelMeta")
+    expect('👥' in c, "👥 icon not found in _cruzRelMeta")
+
+
+def _check_cruzrel_colega():
+    c = worker()
+    expect('"Colega":{icon:' in c or "'Colega':{icon:" in c,
+           "Colega key missing in _cruzRelMeta")
+    # Verify Colega maps to ⚓
+    colega_idx = c.find('"Colega":{icon:')
+    colega_icon = c[colega_idx:colega_idx+30]
+    expect('⚓' in colega_icon, f"Colega not mapped to ⚓: {colega_icon}")
+
+
+def _check_cruzrel_fallback():
+    c = worker()
+    # Fallback must be neutral (🔗), not romantic (❤️)
+    fallback_idx = c.find('return _m[rel]||{icon:')
+    expect(fallback_idx > 0, "fallback return not found")
+    fallback_str = c[fallback_idx:fallback_idx+50]
+    expect('🔗' in fallback_str, f"Fallback icon is not 🔗: {fallback_str}")
+    expect('❤️' not in fallback_str, f"Fallback wrongly uses ❤️: {fallback_str}")
+
+
+def _check_cruzrel_colega_option():
+    c = worker()
+    expect('Colega de embarque' in c, "Colega de embarque option not found in select")
+    expect('value=\\\\"Colega\\\\"' in c or 'value="Colega"' in c or 'Colega de embarque</option>' in c,
+           "Colega option value attribute not found")
+
+
+def _check_cruzrel_text_neutral():
+    c = worker()
+    expect('FOLGA JUNTOS' not in c,
+           "Old 'FOLGA JUNTOS' text still present — must be replaced by 'FOLGA EM COMUM'")
+    expect('FOLGA EM COMUM' in c, "FOLGA EM COMUM text not found")
+
+
+def _check_cruzrel_hero_neutral():
+    c = worker()
+    expect('PRÓXIMA FOLGA EM COMUM' in c,
+           "Hero label 'PRÓXIMA FOLGA EM COMUM' not found in worker.js")
+    expect('PRÓXIMA FOLGA JUNTOS' not in c,
+           "Old 'PRÓXIMA FOLGA JUNTOS' hero label still present")
 
 
 def _check_no_secret(pattern):
