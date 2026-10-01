@@ -14711,7 +14711,6 @@ function renderMinhaEscala() {
     'if(window.ownewsEvento)window.ownewsEvento(\'cross_view\');' +
     'var _cConn=carregarConexaoCruzar();if(_cConn&&_cConn.status===\'pending\'&&_cConn.link){var _cLi=document.getElementById(\'cruzarLinkConvite\');if(_cLi)_cLi.value=_cConn.link;}' +
     '}' +
-    '}' +
     'document.addEventListener("click",function(e){' +
     'var _edBtn=e.target.closest?e.target.closest(".cruzar-btn-ed"):null;' +
     'if(_edBtn){var _edId=_edBtn.getAttribute("data-cruzid");if(_edId)_abrirCruzarForm(_edId);}' +
