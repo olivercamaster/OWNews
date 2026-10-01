@@ -4588,6 +4588,8 @@ const aeroportosComClima = Array.isArray(lista)
             em_voo: registro.em_voo,
             pendentes: registro.pendentes,
             transferidos_cancelados: registro.transferidos_cancelados,
+            transferidos: registro.transferidos ?? null,
+            cancelados: registro.cancelados ?? null,
             fetched_at: registro.fetched_at,
             frescor, // "ao_vivo" | "recente"
             fonte: "OffVoos"
@@ -4838,12 +4840,20 @@ function parseOffVoosTbody(html) {
 
   const numOuNull = (s) => (typeof s === "string" && /^\d+$/.test(s)) ? parseInt(s, 10) : null;
 
+  const tc = numOuNull(mapa["Transf. + canc."]);
+  // Mini breakdown "N transf. · M canc." inside mc-kpi-sub — separates the aggregate
+  const miniMatch = String(html || "").match(/(\d+)\s+transf\.\s+·\s+(\d+)\s+canc\./);
+  const transferidos = miniMatch ? parseInt(miniMatch[1], 10) : (tc === 0 ? 0 : null);
+  const cancelados = miniMatch ? parseInt(miniMatch[2], 10) : (tc === 0 ? 0 : null);
+
   return {
     total: numOuNull(mapa["Voos"]),
     concluidos: numOuNull(mapa["Pousados"]),
     em_voo: numOuNull(mapa["Em voo"]),
     pendentes: numOuNull(mapa["Pendentes"]),
-    transferidos_cancelados: numOuNull(mapa["Transf. + canc."])
+    transferidos_cancelados: tc,
+    transferidos,
+    cancelados
   };
 }
 
@@ -4868,19 +4878,19 @@ async function coletarOffVoosHub(hub) {
     clearTimeout(timeoutId);
 
     if (!resposta.ok) {
-      return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, status: "error", erro: `HTTP ${resposta.status}` };
+      return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, transferidos: null, cancelados: null, status: "error", erro: `HTTP ${resposta.status}` };
     }
 
     const html = await resposta.text();
     const dados = parseOffVoosTbody(html);
     if (!dados) {
-      return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, status: "error", erro: "estrutura HTML não reconhecida" };
+      return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, transferidos: null, cancelados: null, status: "error", erro: "estrutura HTML não reconhecida" };
     }
 
     return { ...base, ...dados, status: "ok" };
   } catch (erro) {
     clearTimeout(timeoutId);
-    return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, status: "error", erro: erro.name === "AbortError" ? "timeout" : erro.message };
+    return { ...base, total: null, concluidos: null, em_voo: null, pendentes: null, transferidos_cancelados: null, transferidos: null, cancelados: null, status: "error", erro: erro.name === "AbortError" ? "timeout" : erro.message };
   }
 }
 
