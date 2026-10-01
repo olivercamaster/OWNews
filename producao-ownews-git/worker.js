@@ -4098,7 +4098,24 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
   if (!headline || !cta) return;
   let salvo = null;
   try { const raw = localStorage.getItem('ownews_minha_escala'); salvo = raw ? JSON.parse(raw) : null; } catch (e) {}
-  if (!salvo || !salvo.data) return; // sem escala salva: mantém o convite padrão (Estado A) já no HTML
+  if (!salvo || !salvo.data) {
+    // Fallback: authenticated user on a new device — read from session metadata
+    try {
+      const _rawS = localStorage.getItem('ownews_auth_sessao');
+      const _sess = _rawS ? JSON.parse(_rawS) : null;
+      const _sc = _sess && _sess.user && _sess.user.user_metadata && _sess.user.user_metadata.escala_config;
+      if (_sc && _sc.data) salvo = _sc;
+    } catch (_e2) {}
+    if (!salvo || !salvo.data) return;
+  } else if (!salvo.aeroporto) {
+    // Local config exists but has no aeroporto — supplement from session if available
+    try {
+      const _rawS2 = localStorage.getItem('ownews_auth_sessao');
+      const _sess2 = _rawS2 ? JSON.parse(_rawS2) : null;
+      const _sc2 = _sess2 && _sess2.user && _sess2.user.user_metadata && _sess2.user.user_metadata.escala_config;
+      if (_sc2 && _sc2.aeroporto) salvo = Object.assign({}, salvo, {aeroporto: _sc2.aeroporto});
+    } catch (_e3) {}
+  } // sem escala salva: mantém o convite padrão (Estado A) já no HTML
 
   // Ajuste Visual Final (item 2 do mockup): faixa passa de AQUISIÇÃO pra
   // UTILIDADE — badge GRÁTIS some, entra o status real (dot + rótulo).
@@ -4157,7 +4174,7 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
         if (!climaConfirmado(_cl)) { _climaEl.hidden = true; return; }
         const _temp = typeof _cl.temperatura === 'number' ? ' · ' + _cl.temperatura + '°C' : '';
         const _tpo = _cl.tempo ? ' · ' + _cl.icone + ' ' + _cl.tempo : '';
-        const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.' : '';
+        const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.+canc.' : '';
         _climaEl.textContent = '✈ ' + _arNome + _temp + _tpo + _ov;
         _climaEl.hidden = false;
       };
@@ -13656,7 +13673,11 @@ function renderMinhaEscala() {
     'if(!meta.escala_config)return false;' +
     'var c=meta.escala_config;' +
     'var local=escalaLocalAtual();' +
-    'if(!local||!escalasSaoDiferentes(local,c)){try{localStorage.setItem("ownews_minha_escala",JSON.stringify(c));}catch(e){}return false;}' +
+    'if(!local||!escalasSaoDiferentes(local,c)){' +
+    'var _cw=(!c.aeroporto&&local&&local.aeroporto)?Object.assign({},c,{aeroporto:local.aeroporto}):c;' +
+    'try{localStorage.setItem("ownews_minha_escala",JSON.stringify(_cw));}catch(e){}' +
+    'if(_cw!==c){try{salvarEscalaNoMeta(s,null);}catch(e){}}' +
+    'return false;}' +
     'return c;' +
     '}' +
     // ── Checkpoint 3: cruzar cloud save ────────────────────────────────
