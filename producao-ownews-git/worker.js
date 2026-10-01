@@ -13345,7 +13345,7 @@ function renderMinhaEscala() {
     'var ldm=document.getElementById(\'legendaDobraMes\');if(ldm)ldm.hidden=!temDobra;' +
     'var lfm=document.getElementById(\'legendaFeriasMes\');if(lfm)lfm.hidden=!temFerias;' +
     'var lda=document.getElementById(\'legendaDobraAnual\');if(lda)lda.hidden=!temDobra;' +
-    'var ljm=document.getElementById(\'legendaJuntosMes\');if(ljm)ljm.hidden=!cruzarLista.length;var _ljB=document.getElementById("legendaJuntosBadge");if(_ljB&&cruzarLista.length>0){var _ljI=cruzarLista.length===1?(cruzarLista[0].icon||"🔗"):"👥 "+cruzarLista.length;_ljB.textContent=_ljI+" JUNTOS";}' +
+    'var ljm=document.getElementById(\'legendaJuntosMes\');if(ljm)ljm.hidden=!(cruzarLista&&cruzarLista.length);var _ljB=document.getElementById("legendaJuntosBadge");if(_ljB&&cruzarLista&&cruzarLista.length>0){var _ljI=cruzarLista.length===1?(cruzarLista[0].icon||"🔗"):"👥 "+cruzarLista.length;_ljB.textContent=_ljI+" JUNTOS";}' +
     'var lfa=document.getElementById(\'legendaFeriasAnual\');if(lfa)lfa.hidden=!temFerias;' +
     'if(!list.length){el.innerHTML=\'\';return;}' +
     'var html=\'\';' +
@@ -13594,7 +13594,7 @@ function renderMinhaEscala() {
     'var dataUTC=Date.UTC(anoAnual,mes,dia);' +
     'var st=escalaAtual.calc.statusEm(dataUTC);' +
     'var cls="escala-anual-dia "+st.status;' +
-    'var _jIconsA=[];if(cruzarLista.length>0&&st.status==="folga"){for(var _cai=0;_cai<cruzarLista.length;_cai++){if(cruzarLista[_cai].calc&&cruzarLista[_cai].calc.statusEm(dataUTC).status==="folga")_jIconsA.push(cruzarLista[_cai].icon);}if(_jIconsA.length>0)cls+=" juntos";}' +
+    'var _jIconsA=[];if(cruzarLista&&cruzarLista.length>0&&st.status==="folga"){for(var _cai=0;_cai<cruzarLista.length;_cai++){if(cruzarLista[_cai].calc&&cruzarLista[_cai].calc.statusEm(dataUTC).status==="folga")_jIconsA.push(cruzarLista[_cai].icon);}if(_jIconsA.length>0)cls+=" juntos";}' +
     'if(st.diaDoBloco===1)cls+=st.status==="embarcado"?" embarque":" desembarque";' +
     'if(dataUTC===hojeUTC)cls+=" hoje";' +
     'var isoA=anoAnual+"-"+pad2(mes+1)+"-"+pad2(dia);var excInfoA=excecaoPeriodoInfo(isoA);if(excInfoA)cls+=" "+excInfoA.tipo+" exc-"+excInfoA.pos;' +
@@ -14166,7 +14166,7 @@ function renderMinhaEscala() {
     'linhas+=\'<div class="escala-dia-detalhe-item \'+excTipo+\'" style="display:flex;align-items:center">\'+(excTipo==="dobra"?"📋 Dobra":"🏖️ Férias")+\'<button type="button" class="esc-detalhe-edit-btn" data-iso-edit="\'+_iso2+\'">\'+(excTipo==="dobra"?"EDITAR DOBRA":"EDITAR F\u00C9RIAS")+\'</button></div>\';' +
     '}' +
     'var _temEv=info.fer.length||info.pes.length;' +
-    'if(cruzarLista.length>0&&st.status==="folga"){for(var _dc=0;_dc<cruzarLista.length;_dc++){if(cruzarLista[_dc].calc&&cruzarLista[_dc].calc.statusEm(dataUTC).status==="folga"){_temEv=true;break;}}}' +
+    'if(cruzarLista&&cruzarLista.length>0&&st.status==="folga"){for(var _dc=0;_dc<cruzarLista.length;_dc++){if(cruzarLista[_dc].calc&&cruzarLista[_dc].calc.statusEm(dataUTC).status==="folga"){_temEv=true;break;}}}' +
     'if(_temEv)linhas+=\'<div class="escala-dia-detalhe-secao" style="margin-top:8px">EVENTOS</div>\';' +
     'info.fer.forEach(function(f){linhas+=\'<div class="escala-dia-detalhe-item feriado">\'+f.emoji+" "+f.nome+(f.tipo==="comemorativa"?" (comemorativa)":"")+"</div>";});' +
     'info.pes.forEach(function(p){var _pFmt=p.start_date?" · "+_dpFmtPeriodo(p):"";linhas+=\'<div class="escala-dia-detalhe-item pessoal">📌 \'+p.nome+_pFmt+"</div>";});' +
@@ -14203,7 +14203,7 @@ function renderMinhaEscala() {
     'var dataUTC=Date.UTC(calAno,calMes,dia);' +
     'var st=escalaAtual.calc.statusEm(dataUTC);' +
     'var classes="escala-dia "+st.status;' +
-    'var _jIcons=[];if(cruzarLista.length>0&&st.status==="folga"){for(var _ci=0;_ci<cruzarLista.length;_ci++){if(cruzarLista[_ci].calc&&cruzarLista[_ci].calc.statusEm(dataUTC).status==="folga")_jIcons.push(cruzarLista[_ci].icon);}if(_jIcons.length>0)classes+=" juntos";}' +
+    'var _jIcons=[];if(cruzarLista&&cruzarLista.length>0&&st.status==="folga"){for(var _ci=0;_ci<cruzarLista.length;_ci++){if(cruzarLista[_ci].calc&&cruzarLista[_ci].calc.statusEm(dataUTC).status==="folga")_jIcons.push(cruzarLista[_ci].icon);}if(_jIcons.length>0)classes+=" juntos";}' +
     'if(st.diaDoBloco===1)classes+=st.status==="embarcado"?" embarque":" desembarque";' +
     'if(dataUTC===hojeUTC)classes+=" hoje";' +
     'var isoD=calAno+"-"+pad2(calMes+1)+"-"+pad2(dia);var excInfo=excecaoPeriodoInfo(isoD);if(excInfo)classes+=" "+excInfo.tipo+" exc-"+excInfo.pos;' +
@@ -15714,7 +15714,7 @@ async function ccColetarSistema(env) {
     if (typeof tg.enviados_hoje === "number") partes.push(`Hoje: ${tg.enviados_hoje}/${tg.limite_diario_normal || 4} post(s) editoriais.`);
     if (tg.ultimo_envio) partes.push(`Último: ${new Date(tg.ultimo_envio).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}.`);
     if (tg.agendador) {
-      partes.push(`Boletim aeroportos: ${tg.agendador.boletim_hoje ? "enviado hoje" : "aguardando 06:15"}.`);
+      partes.push(`Boletim aeroportos: ${tg.agendador.boletim_hoje ? "enviado hoje" : "aguardando 06:23"}.`);
       partes.push(`Dica Offshore: ${tg.agendador.dica_hoje ? "enviada hoje" : "aguardando 12:00"}.`);
     }
     return { ok: true, detalhe: partes.join(" ") };
@@ -16406,7 +16406,7 @@ function renderCCDashboard() {
     'if(tg.ultimo_envio)html+=\'<div class="cc-tg-sub">Último: \'+esc(fmtHora(tg.ultimo_envio))+\'</div>\';' +
     'if(tg.motivo_bloqueio)html+=\'<div class="cc-tg-sub" style="color:var(--muted-dim)">Bloqueio: \'+esc(tg.motivo_bloqueio)+\'</div>\';' +
     'if(tg.agendador){' +
-    'html+=\'<div class="cc-tg-sub">Boletim aeroportos: \'+(tg.agendador.boletim_hoje?"✓ enviado":"aguardando 06:15")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">Boletim aeroportos: \'+(tg.agendador.boletim_hoje?"✓ enviado":"aguardando 06:23")+\'</div>\';' +
     'html+=\'<div class="cc-tg-sub">Dica Offshore: \'+(tg.agendador.dica_hoje?"✓ enviada":"aguardando 12:00")+\'</div>\';' +
     '}' +
     '}' +
@@ -16424,7 +16424,7 @@ function renderCCDashboard() {
     'if(me.fetched_at)html+=\'<div class="cc-tg-sub">Última atualiz. meteo: \'+esc(fmtHora(me.fetched_at))+\'</div>\';' +
     '}' +
     'if(e.telegram&&e.telegram.agendador){' +
-    'html+=\'<div class="cc-tg-sub">Boletim: \'+(e.telegram.agendador.boletim_hoje?"✓ enviado hoje":"aguardando 06:15 BRT")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">Boletim: \'+(e.telegram.agendador.boletim_hoje?"✓ enviado hoje":"aguardando 06:23 BRT")+\'</div>\';' +
     '}' +
     'html+=\'</div>\';}' +
     // Mercado

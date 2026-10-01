@@ -715,7 +715,7 @@ if (url.pathname === "/teste-materia") {
       } catch (e) {
         console.error("[Telegram] erro não tratado, ignorado com segurança:", e.message);
       }
-      // Mantém o agendador diário do Telegram ativo (boletim 06:15 + dica 12:00).
+      // Mantém o agendador diário do Telegram ativo (boletim 06:23 + dica 12:00).
       // NÃO usa cron trigger — usa Alarm de Durable Object (conta já está
       // no limite 5/5 do plano Free). Idempotente: o DO só agenda o alarme
       // na primeira chamada; chamadas subsequentes retornam ok imediato.
@@ -6248,7 +6248,7 @@ async function executarRadarTelegram(env) {
 /* =========================================================================
    TELEGRAM — AGENDADOR DIÁRIO (2026-09-28)
    =========================================================================
-   Boletim de aeroportos às 06:15 BRT (09:15 UTC) + Dica Offshore às 12:00
+   Boletim de aeroportos às 06:23 BRT (09:23 UTC) + Dica Offshore às 12:00
    BRT (15:00 UTC). Durable Object Alarm — NÃO usa cron trigger (conta já
    está no limite 5/5 do plano Free). Blindado: nunca lança nem interrompe
    o collector em nenhuma circunstância. Idempotente: cada envio diário é
@@ -6383,8 +6383,8 @@ function proximoHorarioAgendadorUTC(agora, horaAlvo, minutoAlvo) {
 function proximoAlarmeAgendador(agora, ultimoTipoEnviado) {
   // Após enviar boletim → próximo é dica (15:00 UTC = 12:00 BRT)
   if (ultimoTipoEnviado === "boletim") return proximoHorarioAgendadorUTC(agora, 15, 0);
-  // Após enviar dica (ou sem histórico) → próximo é boletim (09:15 UTC = 06:15 BRT)
-  return proximoHorarioAgendadorUTC(agora, 9, 15);
+  // Após enviar dica (ou sem histórico) → próximo é boletim (09:23 UTC = 06:23 BRT)
+  return proximoHorarioAgendadorUTC(agora, 9, 23);
 }
 
 function dataBRTString(agora) {
