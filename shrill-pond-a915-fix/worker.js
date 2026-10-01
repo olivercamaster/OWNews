@@ -4841,10 +4841,26 @@ function parseOffVoosTbody(html) {
   const numOuNull = (s) => (typeof s === "string" && /^\d+$/.test(s)) ? parseInt(s, 10) : null;
 
   const tc = numOuNull(mapa["Transf. + canc."]);
-  // Mini breakdown "N transf. · M canc." inside mc-kpi-sub — separates the aggregate
-  const miniMatch = String(html || "").match(/(\d+)\s+transf\.\s+·\s+(\d+)\s+canc\./);
-  const transferidos = miniMatch ? parseInt(miniMatch[1], 10) : (tc === 0 ? 0 : null);
-  const cancelados = miniMatch ? parseInt(miniMatch[2], 10) : (tc === 0 ? 0 : null);
+  // mc-kpi-sub breakdown: "N transf. · M canc." (both), "N transf." (only transf),
+  // "N canc." (only canc), or absent when KPI=0. Separates the aggregate reliably.
+  const raw = String(html || "");
+  const bothMatch = raw.match(/(\d+)\s+transf\.\s+·\s+(\d+)\s+canc\./);
+  const transfOnly = !bothMatch && raw.match(/(\d+)\s+transf\.(?!\s+[·])/);
+  const cancOnly = !bothMatch && !transfOnly && raw.match(/(\d+)\s+canc\.(?!\s+[·])/);
+  let transferidos, cancelados;
+  if (bothMatch) {
+    transferidos = parseInt(bothMatch[1], 10);
+    cancelados = parseInt(bothMatch[2], 10);
+  } else if (transfOnly) {
+    transferidos = parseInt(transfOnly[1], 10);
+    cancelados = 0;
+  } else if (cancOnly) {
+    transferidos = 0;
+    cancelados = parseInt(cancOnly[1], 10);
+  } else {
+    transferidos = tc === 0 ? 0 : null;
+    cancelados = tc === 0 ? 0 : null;
+  }
 
   return {
     total: numOuNull(mapa["Voos"]),
