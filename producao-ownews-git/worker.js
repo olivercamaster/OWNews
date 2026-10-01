@@ -4171,9 +4171,9 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
       window._atualizarHeroClima = function() {
         const _i = MAPA_AEROPORTOS[salvo.aeroporto] || {};
         const _cl = _i.clima || {};
-        if (!climaConfirmado(_cl)) { _climaEl.hidden = true; return; }
+        if (!_cl.icone && typeof _cl.temperatura !== 'number') { _climaEl.hidden = true; return; }
         const _temp = typeof _cl.temperatura === 'number' ? ' · ' + _cl.temperatura + '°C' : '';
-        const _tpo = _cl.tempo ? ' · ' + _cl.icone + ' ' + _cl.tempo : '';
+        const _tpo = (_cl.icone && _cl.tempo) ? ' · ' + _cl.icone + ' ' + _cl.tempo : (_cl.icone ? ' · ' + _cl.icone : '');
         const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.+canc.' : '';
         _climaEl.textContent = '✈ ' + _arNome + _temp + _tpo + _ov;
         _climaEl.hidden = false;
