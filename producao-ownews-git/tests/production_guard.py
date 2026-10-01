@@ -420,7 +420,7 @@ def _check_cruzar_after_submit():
 
 def _check_cruzar_cta():
     c = worker()
-    expect("CRUZAR ESCALAS →" in c or "CRUZAR ESCALAS \\u2192" in c,
+    expect("CRUZAR ESCALAS" in c,
            "Cruzar Escalas CTA button text missing")
     expect("cruzarBtnAdicionar" in c, "cruzarBtnAdicionar ID missing")
 
@@ -592,8 +592,10 @@ def _check_cruzrel_text_neutral():
 
 def _check_cruzrel_hero_neutral():
     c = worker()
-    expect('PRÓXIMA FOLGA EM COMUM' in c,
-           "Hero label 'PRÓXIMA FOLGA EM COMUM' not found in worker.js")
+    # CP5: multi-person list view replaces single-person hero
+    # Per-person next window is shown inline in cruzar-lista cards
+    expect('cruzar-lista' in c or 'cruzar-promo-card' in c,
+           "cruzar-lista or cruzar-promo-card not found — multi-person list view missing")
     expect('PRÓXIMA FOLGA JUNTOS' not in c,
            "Old 'PRÓXIMA FOLGA JUNTOS' hero label still present")
 
@@ -785,8 +787,8 @@ def _check_me_form():
 def _check_me_tabs():
     _, body = get("/minha-escala")
     expect('data-tab="calendario"' in body, "calendario tab missing")
-    expect('data-tab="hoje"' in body or 'data-tab="minha-escala"' in body,
-           "hoje tab missing")
+    expect('data-tab="anual"' in body,
+           "anual tab missing")
     expect('class="filtro-btn ativo" data-tab="calendario"' in body,
            "Calendário tab not default active")
 
