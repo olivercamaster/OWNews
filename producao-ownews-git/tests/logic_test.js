@@ -362,6 +362,105 @@ console.log("\n[LOGIC] proximaTransicao");
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Aeroporto sync — meHeroCard IIFE session fallback (Fix 1)
+// ═══════════════════════════════════════════════════════════════
+console.log("\n[SYNC] meHeroCard session fallback");
+{
+  // Simulates the Fix 1 logic extracted from meHeroCard IIFE
+  function resolveHeroSalvo(localME, sessionData) {
+    let salvo = null;
+    try { salvo = localME ? JSON.parse(localME) : null; } catch(e) {}
+    if (!salvo || !salvo.data) {
+      try {
+        const _rawS = sessionData ? JSON.parse(sessionData) : null;
+        const _sc = _rawS && _rawS.user && _rawS.user.user_metadata && _rawS.user.user_metadata.escala_config;
+        if (_sc && _sc.data) salvo = _sc;
+      } catch(_e2) {}
+      if (!salvo || !salvo.data) return null;
+    } else if (!salvo.aeroporto) {
+      try {
+        const _rawS2 = sessionData ? JSON.parse(sessionData) : null;
+        const _sc2 = _rawS2 && _rawS2.user && _rawS2.user.user_metadata && _rawS2.user.user_metadata.escala_config;
+        if (_sc2 && _sc2.aeroporto) salvo = Object.assign({}, salvo, {aeroporto: _sc2.aeroporto});
+      } catch(_e3) {}
+    }
+    return salvo;
+  }
+
+  const escGIG = {tipo:'14x14',diasEmbarcado:14,diasFolga:14,data:'2026-10-01',tipoRef:'embarquei',aeroporto:'GIG'};
+  const escNoAir = {tipo:'14x14',diasEmbarcado:14,diasFolga:14,data:'2026-10-01',tipoRef:'embarquei'};
+  const sessGIG = JSON.stringify({user:{user_metadata:{escala_config:escGIG}}});
+
+  test("sem local + sessão com aeroporto → usa sessão", () => {
+    const r = resolveHeroSalvo(null, sessGIG);
+    eq(r !== null, true);
+    eq(r.aeroporto, 'GIG');
+  });
+  test("sem local + sem sessão → null (sem widget)", () => {
+    eq(resolveHeroSalvo(null, null), null);
+  });
+  test("local sem aeroporto + sessão com aeroporto → suplementa", () => {
+    const r = resolveHeroSalvo(JSON.stringify(escNoAir), sessGIG);
+    eq(r.aeroporto, 'GIG');
+    eq(r.tipo, '14x14'); // local config preserved
+  });
+  test("local COM aeroporto → sessão NÃO sobrescreve", () => {
+    const escSDU = Object.assign({}, escGIG, {aeroporto: 'SDU'});
+    const r = resolveHeroSalvo(JSON.stringify(escSDU), sessGIG); // session has GIG
+    eq(r.aeroporto, 'SDU'); // local SDU wins
+  });
+  test("sessão sem data → não usa sessão como fallback", () => {
+    const sessNoData = JSON.stringify({user:{user_metadata:{escala_config:{tipo:'14x14'}}}});
+    eq(resolveHeroSalvo(null, sessNoData), null);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Aeroporto sync — carregarEscalaDaConta migration (Fix 2)
+// ═══════════════════════════════════════════════════════════════
+console.log("\n[SYNC] carregarEscalaDaConta aeroporto migration");
+{
+  function escalasSaoDiferentes(a, b) { return a.tipo !== b.tipo; }
+
+  function carregarComMigration(c, local, backfillFn) {
+    if (!local || !escalasSaoDiferentes(local, c)) {
+      const _cw = (!c.aeroporto && local && local.aeroporto)
+        ? Object.assign({}, c, {aeroporto: local.aeroporto})
+        : c;
+      if (_cw !== c) backfillFn(_cw);
+      return {written: _cw, conflict: false};
+    }
+    return {written: null, conflict: true};
+  }
+
+  const cloud = {tipo:'14x14',diasEmbarcado:14,diasFolga:14,data:'2026-10-01',tipoRef:'embarquei'};
+  const localGIG = Object.assign({}, cloud, {aeroporto: 'GIG'});
+  let backfilled = null;
+
+  test("cloud sem aeroporto + local com GIG → merge preserva GIG", () => {
+    backfilled = null;
+    const r = carregarComMigration(cloud, localGIG, (v) => { backfilled = v; });
+    eq(r.written.aeroporto, 'GIG');
+    eq(r.conflict, false);
+  });
+  test("cloud sem aeroporto + local com GIG → backfill cloud chamado", () => {
+    eq(backfilled !== null, true);
+    eq(backfilled.aeroporto, 'GIG');
+  });
+  test("cloud COM aeroporto → não dispara backfill", () => {
+    backfilled = null;
+    const cloudGIG = Object.assign({}, cloud, {aeroporto: 'GIG'});
+    carregarComMigration(cloudGIG, localGIG, (v) => { backfilled = v; });
+    eq(backfilled, null);
+  });
+  test("sem local → backfill não dispara (nada para migrar)", () => {
+    backfilled = null;
+    carregarComMigration(cloud, null, (v) => { backfilled = v; });
+    eq(backfilled, null);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════════════════════════
 console.log("\n" + "═".repeat(60));
