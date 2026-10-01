@@ -520,11 +520,12 @@ if (url.pathname === "/teste-materia") {
   return Response.json(await avaliarSaudeEditorial(env));
 }
 
- if (url.pathname === "/debug-agendador") {
+ if (url.pathname === "/debug-agendador" || url.pathname === "/reset-agendador-alarm") {
   if (!env.TELEGRAM_AGENDADOR_DO) return Response.json({ ok: false, erro: "TELEGRAM_AGENDADOR_DO não disponível" });
   const id = env.TELEGRAM_AGENDADOR_DO.idFromName("global");
   const stub = env.TELEGRAM_AGENDADOR_DO.get(id);
-  const resp = await stub.fetch("https://telegram-agendador.interno/debug");
+  const route = url.pathname === "/reset-agendador-alarm" ? "/reset-alarm" : "/debug";
+  const resp = await stub.fetch("https://telegram-agendador.interno" + route);
   return new Response(resp.body, { headers: { "Content-Type": "application/json" } });
 }
 
@@ -6524,10 +6525,28 @@ export class TelegramAgendadorPoller {
     }
   }
 
-  async fetch() {
+  async fetch(request) {
     await this.pronto;
     const agora = Date.now();
     const hojeStr = dataBRTString(agora);
+    const url = new URL(request.url);
+    // One-time alarm reset endpoint — recalculates next alarm with current code
+    if (url.pathname === "/reset-alarm") {
+      const [boletimDia, dicaDia] = await Promise.all([
+        this.state.storage.get("boletim_dia"),
+        this.state.storage.get("dica_dia"),
+      ]);
+      // If both sent today → next is boletim tomorrow; if only boletim → next is dica today
+      let ultimoTipo = null;
+      if (boletimDia === hojeStr && dicaDia === hojeStr) ultimoTipo = "dica";
+      else if (boletimDia === hojeStr) ultimoTipo = "boletim";
+      const novoAlarme = proximoAlarmeAgendador(agora, ultimoTipo);
+      await this.state.storage.setAlarm(novoAlarme);
+      return new Response(JSON.stringify({
+        ok: true, reset: true,
+        proximo_alarme_iso: new Date(novoAlarme).toISOString()
+      }), { headers: { "Content-Type": "application/json" } });
+    }
     const [boletimDia, dicaDia, alarme] = await Promise.all([
       this.state.storage.get("boletim_dia"),
       this.state.storage.get("dica_dia"),
