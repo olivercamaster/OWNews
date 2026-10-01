@@ -2642,17 +2642,17 @@ const SEED_ARTICLES = [{"id":"9cd1c489-0048-4a33-a796-19ee1f278c72","title":"Fal
    (slug/hub responde 200 com dados reais). uf/cidade só pra agrupamento
    da página /aeroportos — nunca exibidos como fonte de meteorologia. */
 const AEROPORTOS_ORDEM = [
-  { codigo:'SBJR', nome:'Jacarepaguá', cidade:'Rio de Janeiro', uf:'RJ', slugOffVoos:'jacarepagua' },
-  { codigo:'SBMI', nome:'Maricá', cidade:'Maricá', uf:'RJ', slugOffVoos:'marica' },
-  { codigo:'SBCB', nome:'Cabo Frio', cidade:'Cabo Frio', uf:'RJ', slugOffVoos:'cabo-frio' },
-  { codigo:'SBME', nome:'Macaé', cidade:'Macaé', uf:'RJ', slugOffVoos:'macae' },
-  { codigo:'SBFS', nome:'Farol de São Tomé', cidade:'Campos dos Goytacazes', uf:'RJ', slugOffVoos:'sao-tome' },
-  { codigo:'SBVT', nome:'Vitória', cidade:'Vitória', uf:'ES', slugOffVoos:'vitoria' },
-  { codigo:'SBAR', nome:'Aracaju', cidade:'Aracaju', uf:'SE', slugOffVoos:'aracaju' },
-  { codigo:'SBSV', nome:'Salvador', cidade:'Salvador', uf:'BA', slugOffVoos:'salvador' },
-  { codigo:'SBFZ', nome:'Fortaleza', cidade:'Fortaleza', uf:'CE', slugOffVoos:'fortaleza' },
-  { codigo:'SBOI', nome:'Oiapoque', cidade:'Oiapoque', uf:'AP', slugOffVoos:'oiapoque' },
-  { codigo:'SBMQ', nome:'Macapá', cidade:'Macapá', uf:'AP', slugOffVoos:'macapa' }
+  { codigo:'SBJR', nome:'Jacarepaguá', sigla:'SBJR', cidade:'Rio de Janeiro', uf:'RJ', slugOffVoos:'jacarepagua' },
+  { codigo:'SBMI', nome:'Maricá', sigla:'Maricá', cidade:'Maricá', uf:'RJ', slugOffVoos:'marica' },
+  { codigo:'SBCB', nome:'Cabo Frio', sigla:'CFB', cidade:'Cabo Frio', uf:'RJ', slugOffVoos:'cabo-frio' },
+  { codigo:'SBME', nome:'Macaé', sigla:'MEA', cidade:'Macaé', uf:'RJ', slugOffVoos:'macae' },
+  { codigo:'SBFS', nome:'Farol de São Tomé', sigla:'SBFS', cidade:'Campos dos Goytacazes', uf:'RJ', slugOffVoos:'sao-tome' },
+  { codigo:'SBVT', nome:'Vitória', sigla:'VIX', cidade:'Vitória', uf:'ES', slugOffVoos:'vitoria' },
+  { codigo:'SBAR', nome:'Aracaju', sigla:'AJU', cidade:'Aracaju', uf:'SE', slugOffVoos:'aracaju' },
+  { codigo:'SBSV', nome:'Salvador', sigla:'SSA', cidade:'Salvador', uf:'BA', slugOffVoos:'salvador' },
+  { codigo:'SBFZ', nome:'Fortaleza', sigla:'FOR', cidade:'Fortaleza', uf:'CE', slugOffVoos:'fortaleza' },
+  { codigo:'SBOI', nome:'Oiapoque', sigla:'OYK', cidade:'Oiapoque', uf:'AP', slugOffVoos:'oiapoque' },
+  { codigo:'SBMQ', nome:'Macapá', sigla:'MCP', cidade:'Macapá', uf:'AP', slugOffVoos:'macapa' }
 ];
 
 // Item 42 da missão (Home 3.0, 2026-09-18): a faixa da HOME mostra só os 6
@@ -4164,6 +4164,7 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
     if (diasAteDesembarque <= 2 && salvo.aeroporto) {
       const _arInfo = AEROPORTOS_ORDEM.find(function(a){return a.codigo === salvo.aeroporto;});
       const _arNome = _arInfo ? _arInfo.nome : salvo.aeroporto;
+      const _arSigla = _arInfo ? (_arInfo.sigla || _arInfo.nome) : salvo.aeroporto;
       const _climaEl = document.createElement('div');
       _climaEl.id = 'meHeroClima';
       _climaEl.style.cssText = 'margin-top:4px;font-size:11px;color:var(--muted);font-family:var(--ui);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
@@ -4172,10 +4173,15 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
         const _i = MAPA_AEROPORTOS[salvo.aeroporto] || {};
         const _cl = _i.clima || {};
         if (!_cl.icone && typeof _cl.temperatura !== 'number') { _climaEl.hidden = true; return; }
+        const _mob = window.matchMedia && window.matchMedia('(max-width:480px)').matches;
         const _temp = typeof _cl.temperatura === 'number' ? ' · ' + _cl.temperatura + '°C' : '';
         const _tpo = (_cl.icone && _cl.tempo) ? ' · ' + _cl.icone + ' ' + _cl.tempo : (_cl.icone ? ' · ' + _cl.icone : '');
-        const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.+canc.' : '';
-        _climaEl.textContent = '✈ ' + _arNome + _temp + _tpo + _ov;
+        const _ovNum = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? _i.offvoos.transferidos_cancelados : null;
+        if (_mob && _ovNum !== null) {
+          _climaEl.innerHTML = '✈ ' + _arSigla + _temp + _tpo + ' · <abbr title="Transferidos + cancelados nas últimas 48h" style="text-decoration:none">↪ ' + _ovNum + ' T+C</abbr>';
+        } else {
+          _climaEl.textContent = '✈ ' + (_mob ? _arSigla : _arNome) + _temp + _tpo + (_ovNum !== null ? ' · ↪ ' + _ovNum + ' transf.+canc.' : '');
+        }
         _climaEl.hidden = false;
       };
       window._atualizarHeroClima();
