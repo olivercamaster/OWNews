@@ -4174,14 +4174,19 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
         const _cl = _i.clima || {};
         if (!_cl.icone && typeof _cl.temperatura !== 'number') { _climaEl.hidden = true; return; }
         const _mob = window.matchMedia && window.matchMedia('(max-width:480px)').matches;
+        const _dot = _i.status === 'g' ? ' · 🟢' : _i.status === 'y' ? ' · 🟡' : _i.status === 'r' ? ' · 🔴' : '';
         const _temp = typeof _cl.temperatura === 'number' ? ' · ' + _cl.temperatura + '°C' : '';
-        const _tpo = (_cl.icone && _cl.tempo) ? ' · ' + _cl.icone + ' ' + _cl.tempo : (_cl.icone ? ' · ' + _cl.icone : '');
-        const _ovNum = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente') && typeof _i.offvoos.transferidos_cancelados === 'number') ? _i.offvoos.transferidos_cancelados : null;
-        if (_mob && _ovNum !== null) {
-          _climaEl.innerHTML = '✈ ' + _arSigla + _temp + _tpo + ' · <abbr title="Transferidos + cancelados nas últimas 48h" style="text-decoration:none">↪ ' + _ovNum + ' T+C</abbr>';
-        } else {
-          _climaEl.textContent = '✈ ' + (_mob ? _arSigla : _arNome) + _temp + _tpo + (_ovNum !== null ? ' · ↪ ' + _ovNum + ' transf.+canc.' : '');
-        }
+        const _tpo = _mob
+          ? (_cl.icone ? ' · ' + _cl.icone : '')
+          : ((_cl.icone && _cl.tempo) ? ' · ' + _cl.icone + ' ' + _cl.tempo : (_cl.icone ? ' · ' + _cl.icone : ''));
+        const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente'))
+          ? (typeof _i.offvoos.transferidos === 'number'
+              ? ' · ↪ ' + _i.offvoos.transferidos + (_i.offvoos.transferidos === 1 ? ' transferido' : ' transferidos')
+              : typeof _i.offvoos.transferidos_cancelados === 'number'
+                ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.+canc.'
+                : '')
+          : '';
+        _climaEl.textContent = '✈ ' + (_mob ? _arSigla : _arNome) + _dot + _temp + _tpo + _ov;
         _climaEl.hidden = false;
       };
       window._atualizarHeroClima();
