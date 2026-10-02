@@ -1,0 +1,70 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Worker isolado e novo, só para a automação de publicação no Instagram
+  // @ownewsbr (MISSÃO FINAL — INSTAGRAM AUTOMÁTICO OWNEWS, 2026-09-17).
+  // Nunca deve ser fundido com shrill-pond-a915 (collector) nem ownews-git
+  // (frontend): falha aqui nunca pode afetar coleta de notícias nem o site.
+  //
+  // Renderização da arte NÃO acontece neste Worker (plano Free trava CPU em
+  // 10ms/invocação — confirmado em produção, erro 1102 — e upgrade de plano
+  // foi recusado pelo usuário). A arte é gerada no VPS Hostinger já
+  // existente (ver ../ownews-instagram-render-vps/) via fila de jobs
+  // pull-based em KV: o VPS sempre inicia a conversa (poll a cada minuto
+  // via cron), nunca aceita conexão de fora — zero porta nova exposta.
+  "name": "ownews-instagram-publisher",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-08",
+
+  // SUPABASE_URL não é segredo (mesma URL pública já usada pelos outros
+  // Workers do projeto). INSTAGRAM_ACCOUNT_ID não é segredo (é só um ID
+  // numérico público da conta) — fica aqui por clareza operacional. O que
+  // realmente não pode vazar (token do Instagram e o segredo compartilhado
+  // com o VPS) fica sempre via `wrangler secret`.
+  //
+  // INSTAGRAM_DRY_RUN="false" a partir de 2026-09-17 (ativação final,
+  // aprovada explicitamente pelo proprietário após dry run ponta a ponta,
+  // post real de lançamento confirmado via Graph API, e revisão visual dos
+  // templates N1/N2/N3 + institucionais). A partir daqui, os cron triggers
+  // abaixo publicam de verdade — sempre sujeitos a freshness, score, dedupe,
+  // idempotência e validação de imagem/arte (SKIP honesto quando qualquer
+  // trava falhar). Nunca dispara nada fora desses horários — ativar esta flag
+  // não publica retroativo, só afeta a PRÓXIMA janela.
+  "vars": {
+    "SUPABASE_URL": "https://awyowuhwkqfyhwgdpepp.supabase.co",
+    "INSTAGRAM_DRY_RUN": "false",
+    "INSTAGRAM_ACCOUNT_ID": "28252418611092368"
+  },
+
+  // MUDOU em 2026-09-19 (P1 crítico — bug real encontrado em produção):
+  // este binding compartilhava o MESMO namespace SAUDE_KV do collector
+  // (shrill-pond-a915). Cota de escrita do plano Free é de 1000 puts/dia
+  // POR NAMESPACE — o heartbeat daqui sozinho (1x/min, chamado pelo
+  // poller do VPS) já usava até 1440/dia, estourando a cota compartilhada
+  // e travando SILENCIOSAMENTE a gravação de dados do collector também
+  // (OffVoos/Mercado/execução) pelo resto do dia. Reproduzido ao vivo:
+  // "KV put() limit exceeded for the day." Corrigido em duas frentes: (1)
+  // heartbeat agora só grava a cada 5min, não a cada chamada (ver
+  // /render-jobs/pending no worker.js); (2) namespace PRÓPRIO aqui —
+  // como a cota é por namespace, cada Worker com seu próprio namespace
+  // multiplica a cota total disponível, de graça, sem upgrade de plano.
+  // Efeito colateral aceito: o histórico de "instagram_ultima_execucao"
+  // reseta (não tinha nada crítico em voo — nenhum job pendente no
+  // momento da troca, só o registro informativo da última execução).
+  "kv_namespaces": [
+    { "binding": "SAUDE_KV", "id": "89bbf2698c1a483eb48e1e88aa000343" }
+  ],
+
+  // Horários oficiais (America/Sao_Paulo, UTC-3 fixo — Brasil não tem mais
+  // horário de verão desde 2019):
+  // - "0 15 * * *"   = 12:00 BRT todo dia  -> 1 post jornalístico/dia
+  //   (MISSÃO INSTAGRAM 2.0, 2026-10-02: reduzido de 2 posts/dia para 1,
+  //   qualidade acima de quantidade — horário de pico de leitura no Brasil)
+  // - "0 16 * * SUN" = 13:00 BRT aos domingos -> institucional semanal
+  //   (período diurno, longe do post jornalístico, só aos domingos).
+  //   Cron do Cloudflare usa 1=domingo..7=sábado (diferente do unix-cron
+  //   comum) — por isso o dia da semana vai por nome (SUN), sem ambiguidade.
+  // REMOVIDOS (2026-10-02): "50 7 * * *" (04:50 BRT) e "15 23 * * *" (20:15 BRT).
+  "triggers": {
+    "crons": ["0 15 * * *", "0 16 * * SUN"]
+  }
+}
