@@ -4529,6 +4529,8 @@ const _SIGLAS_TITULO = new Set([
   'OPEP','OCDE','OIT','OGX','PETROBRAS','COPPE','BNDES','BR','GE','BP',
   'CNPE','ANEEL','ANAC','ANTT','ANVISA','INMETRO','CENPES','BID','FMI',
   'BRICS','PDVSA','YPF','LABH2','ABDIB','ABNT','CADE','CMN','TBN',
+  // Adicionadas (2026-10-02, backfill auditoria 3.0):
+  'IA','CHC','MODEC','SEBRAE','FIRJAN','VALE','GALP','SEAP','ATVOS',
 ]);
 const _PREPS_TITULO = new Set([
   'de','do','da','dos','das','e','a','o','em','com','por','para','ao','à','às',
