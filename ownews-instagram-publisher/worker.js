@@ -701,6 +701,21 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // Rota temporária de preview para aprovação visual (MISSÃO 2.0, 2026-10-02).
+    // Noindex. Não aparece em menus nem no site. Removida após aprovação.
+    if (url.pathname === '/preview-instagram') {
+      const html = await (async () => { try { return await env.SAUDE_KV.get('instagram_preview_html'); } catch { return null; } })();
+      if (!html) return new Response('Previews não carregados ainda. Aguarde.', { status: 503 });
+      return new Response(html, { headers: { 'Content-Type': 'text/html;charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store' } });
+    }
+    if (url.pathname.startsWith('/preview-instagram/img/')) {
+      const key = 'preview_ig_' + url.pathname.slice('/preview-instagram/img/'.length).replace(/\.jpg$/, '').replace(/[^A-Za-z0-9_]/g, '');
+      if (!key || key.length > 30) return new Response('not found', { status: 404 });
+      const bytes = await (async () => { try { return await env.SAUDE_KV.get(key, 'arrayBuffer'); } catch { return null; } })();
+      if (!bytes) return new Response('not found', { status: 404 });
+      return new Response(bytes, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=3600', 'X-Robots-Tag': 'noindex' } });
+    }
+
     if (url.pathname.startsWith('/media/')) {
       const id = url.pathname.slice('/media/'.length).replace(/\.jpg$/, '');
       const bytes = await env.SAUDE_KV.get(`media_${id}`, 'arrayBuffer');
