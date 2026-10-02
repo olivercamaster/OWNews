@@ -15915,7 +15915,10 @@ async function ccColetarDados(periodo, env) {
     try {
       const idDO = env.PAGEVIEWS.idFromName("global");
       const stub = env.PAGEVIEWS.get(idDO);
-      const respDO = await stub.fetch("https://pageviews.interno/resumo?periodo=" + encodeURIComponent(periodo));
+      const ctrlDO = new AbortController();
+      const tmoDO = setTimeout(() => ctrlDO.abort(), 5000);
+      const respDO = await stub.fetch("https://pageviews.interno/resumo?periodo=" + encodeURIComponent(periodo), { signal: ctrlDO.signal });
+      clearTimeout(tmoDO);
       if (respDO.ok) resumo = await respDO.json();
     } catch {}
   }
@@ -15925,7 +15928,10 @@ async function ccColetarDados(periodo, env) {
     try {
       const idPresenca = env.PRESENCA.idFromName("global");
       const stubPresenca = env.PRESENCA.get(idPresenca);
-      const respPresenca = await stubPresenca.fetch("https://presenca.interno/count");
+      const ctrlP = new AbortController();
+      const tmoP = setTimeout(() => ctrlP.abort(), 2000);
+      const respPresenca = await stubPresenca.fetch("https://presenca.interno/count", { signal: ctrlP.signal });
+      clearTimeout(tmoP);
       if (respPresenca.ok) online = (await respPresenca.json()).count || 0;
     } catch {}
   }
@@ -15963,7 +15969,7 @@ async function ccColetarDados(periodo, env) {
     visitantes: resumo.visitantes,
     visualizacoes: resumo.visualizacoes,
     recorrentes: resumo.recorrentes,
-    novos: resumo.novos,
+    novos: resumo.novos != null ? resumo.novos : (resumo.recorrentes != null ? Math.max(0, resumo.visitantes - resumo.recorrentes) : null),
     compartilhamentos: (grupos["Compartilhamentos"] || {}).total || 0,
     origens: resumo.origens || [],
     dispositivos: resumo.dispositivos || [],
@@ -16517,7 +16523,9 @@ function renderCCDashboard() {
     'return;' +
     '}' +
     'document.getElementById("ccPainelGeral").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
-    'fetch("/api/cc/dados?periodo="+encodeURIComponent(periodo)).then(function(r){' +
+    'var _dadosCtrl=new AbortController();var _dadosTmo=setTimeout(function(){_dadosCtrl.abort();},15000);' +
+    'fetch("/api/cc/dados?periodo="+encodeURIComponent(periodo),{signal:_dadosCtrl.signal}).then(function(r){' +
+    'clearTimeout(_dadosTmo);' +
     'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
     'if(!r.ok)throw new Error("erro "+r.status);' +
     'return r.json();' +
@@ -16528,6 +16536,7 @@ function renderCCDashboard() {
     'inicializarGrafico(d);' +
     'if(cacheSistema)computarAlertas(d,cacheSistema);' +
     '}).catch(function(){' +
+    'clearTimeout(_dadosTmo);' +
     'document.getElementById("ccPainelGeral").innerHTML=\'<p class="cc-vazio">Não foi possível carregar os dados agora. Tente novamente em instantes.</p>\';' +
     '});' +
     '}' +
