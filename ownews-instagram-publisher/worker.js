@@ -706,7 +706,7 @@ export default {
     if (url.pathname === '/preview-instagram') {
       const html = await (async () => { try { return await env.SAUDE_KV.get('instagram_preview_html'); } catch { return null; } })();
       if (!html) return new Response('Previews não carregados ainda. Aguarde.', { status: 503 });
-      return new Response(html, { headers: { 'Content-Type': 'text/html;charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-store' } });
+      return new Response(html, { headers: { 'Content-Type': 'text/html;charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate', 'Pragma': 'no-cache', 'Expires': '0', 'Surrogate-Control': 'no-store', 'CF-Cache-Status': 'BYPASS' } });
     }
     if (url.pathname.startsWith('/preview-instagram/img/')) {
       const key = 'preview_ig_' + url.pathname.slice('/preview-instagram/img/'.length).replace(/\.jpg$/, '').replace(/[^A-Za-z0-9_]/g, '');
