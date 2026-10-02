@@ -2866,14 +2866,19 @@ function mostrarDetalheAeroporto(codigo, manterAberto){
     if (typeof ov.concluidos === 'number') linhas.push(\`<div class="ops-metric"><strong>\${ov.concluidos}</strong><span>Finalizados</span></div>\`);
     if (typeof ov.em_voo === 'number') linhas.push(\`<div class="ops-metric"><strong>\${ov.em_voo}</strong><span>Em rota</span></div>\`);
     if (typeof ov.pendentes === 'number') linhas.push(\`<div class="ops-metric"><strong>\${ov.pendentes}</strong><span>Aguardando</span></div>\`);
-    if (typeof ov.transferidos_cancelados === 'number') linhas.push(\`<div class="ops-metric"><strong>\${ov.transferidos_cancelados}</strong><span>Transf./Cancel.</span></div>\`);
+    if (typeof ov.transferidos === 'number' && typeof ov.cancelados === 'number') {
+      linhas.push(\`<div class="ops-metric"><strong>\${ov.transferidos}</strong><span>Transferidos</span></div>\`);
+      linhas.push(\`<div class="ops-metric"><strong>\${ov.cancelados}</strong><span>Cancelados</span></div>\`);
+    } else if (typeof ov.transferidos_cancelados === 'number') {
+      linhas.push(\`<div class="ops-metric"><strong>\${ov.transferidos_cancelados}</strong><span>Transf./Cancel.</span></div>\`);
+    }
     blocoOperacao = \`
     <div class="ops-detail-operacao">
       <div class="ops-detail-operacao-head">
         \${ov.frescor === 'ao_vivo' ? '<span class="tag-ao-vivo">● AO VIVO</span>' : \`<span class="tag-recente">atualizado \${escaparHTML(horaFetch)}</span>\`}
       </div>
       <div class="ops-metrics">\${linhas.join('')}</div>
-      <div class="ops-detail-offvoos"><a class="ops-detail-cta-discreta" href="https://offvoos.com.br/\${meta.slugOffVoos}" target="_blank" rel="noopener noreferrer">dados: OffVoos ↗</a></div>
+      <div class="ops-detail-offvoos"><a class="ops-detail-cta-discreta" href="https://offvoos.com.br/\${meta.slugOffVoos}" target="_blank" rel="noopener noreferrer">dados: OffVoos ↗</a> <span class="ops-detail-offvoos-tag">· Hoje (BRT)</span></div>
     </div>\`;
   } else if (ov) {
     blocoOperacao = \`<div class="ops-detail-operacao ops-detail-operacao-indisponivel">Dados operacionais temporariamente indisponíveis <a class="ops-detail-cta-discreta" href="https://offvoos.com.br/\${meta.slugOffVoos}" target="_blank" rel="noopener noreferrer">fonte: OffVoos ↗</a></div>\`;
@@ -4167,25 +4172,27 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
       const _arSigla = _arInfo ? (_arInfo.sigla || _arInfo.nome) : salvo.aeroporto;
       const _climaEl = document.createElement('div');
       _climaEl.id = 'meHeroClima';
-      _climaEl.style.cssText = 'margin-top:4px;font-size:11px;color:var(--muted);font-family:var(--ui);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      _climaEl.style.cssText = 'margin-top:4px;font-size:11px;color:var(--muted);font-family:var(--ui);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer';
       _climaEl.hidden = true;
+      _climaEl.onclick = function() { if (typeof mostrarDetalheAeroporto === 'function') mostrarDetalheAeroporto(salvo.aeroporto); };
       window._atualizarHeroClima = function() {
         const _i = MAPA_AEROPORTOS[salvo.aeroporto] || {};
         const _cl = _i.clima || {};
         if (!_cl.icone && typeof _cl.temperatura !== 'number') { _climaEl.hidden = true; return; }
         const _mob = window.matchMedia && window.matchMedia('(max-width:480px)').matches;
-        const _dot = _i.status === 'g' ? ' · 🟢' : _i.status === 'y' ? ' · 🟡' : _i.status === 'r' ? ' · 🔴' : '';
+        const _dot = _i.status === 'g' ? ' · 🟢' : _i.status === 'y' ? ' · 🟡' : _i.status === 'r' ? ' · 🔴' : ' · ⚪';
         const _temp = typeof _cl.temperatura === 'number' ? ' · ' + _cl.temperatura + '°C' : '';
         const _tpo = _mob
           ? (_cl.icone ? ' · ' + _cl.icone : '')
           : ((_cl.icone && _cl.tempo) ? ' · ' + _cl.icone + ' ' + _cl.tempo : (_cl.icone ? ' · ' + _cl.icone : ''));
-        const _ov = (_i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente'))
-          ? (typeof _i.offvoos.transferidos === 'number'
-              ? ' · ↪ ' + _i.offvoos.transferidos + (_i.offvoos.transferidos === 1 ? ' transferido' : ' transferidos')
-              : typeof _i.offvoos.transferidos_cancelados === 'number'
-                ? ' · ↪ ' + _i.offvoos.transferidos_cancelados + ' transf.+canc.'
-                : '')
-          : '';
+        const _hasOv = _i.offvoos && (_i.offvoos.frescor === 'ao_vivo' || _i.offvoos.frescor === 'recente');
+        let _ov = '';
+        if (_hasOv) {
+          const _tc = (typeof _i.offvoos.transferidos === 'number' && typeof _i.offvoos.cancelados === 'number')
+            ? _i.offvoos.transferidos + _i.offvoos.cancelados
+            : typeof _i.offvoos.transferidos_cancelados === 'number' ? _i.offvoos.transferidos_cancelados : null;
+          if (_tc !== null && _tc > 0) _ov = ' · ↪ ' + _tc + (_tc === 1 ? ' alteração' : ' alterações');
+        }
         _climaEl.textContent = '✈ ' + (_mob ? _arSigla : _arNome) + _dot + _temp + _tpo + _ov;
         _climaEl.hidden = false;
       };
