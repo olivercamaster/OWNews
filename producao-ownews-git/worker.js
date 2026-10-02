@@ -16386,7 +16386,7 @@ function renderCCDashboard() {
     'if(d.funil.impressoes)html+=\'<div class="cc-linha" style="margin-top:12px;border-top:1px solid var(--line-hair)"><span class="cc-linha-nome">Impressões / PDF</span><span class="cc-linha-valor">\'+fmtNum(d.funil.impressoes)+\'</span></div>\';' +
     'if(d.funil.anualView)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Aberturas calendário anual</span><span class="cc-linha-valor">\'+fmtNum(d.funil.anualView)+\'</span></div>\';' +
     'if(d.funil.jobsClick)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Cliques em Vagas (de dentro da Minha Escala)</span><span class="cc-linha-valor">\'+fmtNum(d.funil.jobsClick)+\'</span></div>\';' +
-    'if(d.funil.crossConfigured||d.funil.crossView){html+=\'<div class="cc-linha" style="border-top:1px solid var(--line-soft);margin-top:6px"><span class="cc-linha-nome">Escalas Conectadas — configuradas</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossConfigured||0)+\'</span></div>\';html+=\'<div class="cc-linha"><span class="cc-linha-nome">Escalas Conectadas — visualizações</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossView||0)+\'</span></div>\';if(d.funil.crossInviteCreated)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Convites criados</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossInviteCreated)+\'</span></div>\';if(d.funil.crossInviteAccepted)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Convites aceitos</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossInviteAccepted)+\'</span></div>\\\';}' +
+    'if(d.funil.crossConfigured||d.funil.crossView){html+=\'<div class="cc-linha" style="border-top:1px solid var(--line-soft);margin-top:6px"><span class="cc-linha-nome">Escalas Conectadas — configuradas</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossConfigured||0)+\'</span></div>\';html+=\'<div class="cc-linha"><span class="cc-linha-nome">Escalas Conectadas — visualizações</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossView||0)+\'</span></div>\';if(d.funil.crossInviteCreated)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Convites criados</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossInviteCreated)+\'</span></div>\';if(d.funil.crossInviteAccepted)html+=\'<div class="cc-linha"><span class="cc-linha-nome">Convites aceitos</span><span class="cc-linha-valor">\'+fmtNum(d.funil.crossInviteAccepted)+\'</span></div>\';}' +
     'html+=\'</div>\';}' +
     // Other tools
     'var nomes=Object.keys(d.ferramentas||{}).filter(function(g){return g!=="Compartilhamentos"&&g!=="Outros"&&g!=="Minha Escala";});' +
@@ -16488,7 +16488,7 @@ function renderCCDashboard() {
     'if(ag.proximos&&ag.proximos.length){html+=\'<div class="cc-tg-sub" style="margin-top:6px;color:var(--muted)">Próximos:</div>\';' +
     'ag.proximos.forEach(function(ev){var loc=ev.pais==="Brasil"?ev.cidade:ev.cidade+", "+ev.pais;var d=ev.dataInicio.slice(5).split("-");var meses=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];var dStr=parseInt(d[1],10)+" "+meses[parseInt(d[0],10)-1];html+=\'<div class="cc-tg-sub">&rsaquo; \'+esc(dStr)+" · "+esc(ev.nome)+" · "+esc(loc)+"</div>";});}' +
     'if(ag.scan){var sc=ag.scan;html+=\'<div class="cc-tg-sub" style="margin-top:6px;border-top:1px solid var(--line-hair);padding-top:6px">\';' +
-    'html+=\'Varredura: \'+esc(new Date(sc.timestamp).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}));\'</div>\';' +
+    'html+=\'Varredura: \'+esc(new Date(sc.timestamp).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}));html+=\'</div>\';' +
     'html+=\'<div class="cc-tg-sub">\'+fmtNum(sc.fontesOK)+"/"+fmtNum((sc.fontesOK||0)+(sc.fontesErro||0))+" fontes OK &nbsp;·&nbsp; "+fmtNum(sc.eventosConfirmados)+" confirmados</div>";' +
     'if(sc.novosCandidatos)html+=\'<div class="cc-tg-sub" style="color:var(--yellow)">\'+(sc.novosCandidatos===0?"Nenhum candidato novo":fmtNum(sc.novosCandidatos)+" candidato(s) novo(s)")+\'</div>\';' +
     '}html+=\'</div>\';}' +
@@ -16641,7 +16641,7 @@ export default {
       if (!(await ccAutenticado(request, env))) {
         return new Response(null, { status: 302, headers: { "Location": "/command-center/login" } });
       }
-      return new Response(renderCCDashboard(), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      return new Response(renderCCDashboard(), { headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, no-cache" } });
     }
     if (url.pathname === "/api/cc/dados" && request.method === "GET") {
       if (!(await ccAutenticado(request, env))) {
