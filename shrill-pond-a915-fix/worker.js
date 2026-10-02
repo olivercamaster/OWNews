@@ -3016,7 +3016,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       // vence item.title (RSS) quando presente. A limpeza anterior só
       // cobria o caminho RSS; título final agora é limpo aqui, no ponto
       // único de montagem, não importa de qual extração ele veio.
-      const tituloFinal = limparSufixoFonte(detalhes.title || item.title, fonte);
+      const tituloFinal = normalizarTituloAllCaps(limparSufixoFonte(detalhes.title || item.title, fonte));
 
       // Tradução PT-BR para fontes EN: título e resumo traduzidos antes de
       // inserir. Se título detectado como EN e tradução falhar: artigo
@@ -4520,6 +4520,43 @@ function limparSufixoFonte(titulo, nomeFonte) {
     }
   }
   return titulo;
+}
+
+const _SIGLAS_TITULO = new Set([
+  'ANP','GNL','LNG','FPSO','FSO','FSRU','FLNG','EPE','MME','CCS','GLP','LPG',
+  'GNV','ROV','AUV','PSV','AHTS','UEP','INB','ANTAQ','IBAMA','PPSA','FUP',
+  'EBC','SBM','CEO','CFO','PIB','TCU','AGU','CVM','ONU','IMO','API','EPC',
+  'OPEP','OCDE','OIT','OGX','PETROBRAS','COPPE','BNDES','BR','GE','BP',
+  'CNPE','ANEEL','ANAC','ANTT','ANVISA','INMETRO','CENPES','BID','FMI',
+  'BRICS','PDVSA','YPF','LABH2','ABDIB','ABNT','CADE','CMN','TBN',
+]);
+const _PREPS_TITULO = new Set([
+  'de','do','da','dos','das','e','a','o','em','com','por','para','ao','à','às',
+  'aos','no','na','nos','nas','se','que','ou','já','até','sobre','entre','sem',
+  'após','ante','sob','um','uma','uns','umas',
+]);
+
+// Detectado em 2026-10-02 (auditoria editorial 3.0): PetroNotícias publica todos
+// os títulos em CAIXA ALTA. Esta função normaliza para title case PT-BR apenas
+// quando ≥75% das letras do título são maiúsculas — nunca toca títulos já
+// corretamente capitalizados.
+function normalizarTituloAllCaps(titulo) {
+  if (!titulo) return titulo;
+  const letras = titulo.replace(/[^A-Za-zÀ-ÿ]/g, '');
+  if (letras.length < 5) return titulo;
+  const maiusculas = [...letras].filter(c => c !== c.toLowerCase()).length;
+  if (maiusculas / letras.length < 0.75) return titulo;
+  return titulo.split(' ').map((palavra, i) => {
+    if (!palavra) return palavra;
+    if (!/[A-Za-zÀ-ÿ]/.test(palavra)) return palavra;
+    const letrasP = palavra.replace(/[^A-Za-zÀ-ÿ]/g, '');
+    if (i > 0 && _PREPS_TITULO.has(letrasP.toLowerCase())) return palavra.toLowerCase();
+    const contemEspecial = /[0-9&/]/.test(palavra);
+    if (letrasP === letrasP.toUpperCase() && (contemEspecial || _SIGLAS_TITULO.has(letrasP))) {
+      return palavra;
+    }
+    return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+  }).join(' ');
 }
 
 async function consultarAeroportos(env) {

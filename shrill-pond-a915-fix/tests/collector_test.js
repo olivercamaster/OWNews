@@ -413,6 +413,95 @@ test("fetched_at inválido → sem_dados", () => {
   assertEq(classificarFrescorOffVoos({ status: "ok", fetched_at: "not-a-date" }), "sem_dados");
 });
 
+// ── Normalização de títulos ALL-CAPS ─────────────────────────────────────────
+
+const _SIGLAS_TITULO = new Set([
+  'ANP','GNL','LNG','FPSO','FSO','FSRU','FLNG','EPE','MME','CCS','GLP','LPG',
+  'GNV','ROV','AUV','PSV','AHTS','UEP','INB','ANTAQ','IBAMA','PPSA','FUP',
+  'EBC','SBM','CEO','CFO','PIB','TCU','AGU','CVM','ONU','IMO','API','EPC',
+  'OPEP','OCDE','OIT','OGX','PETROBRAS','COPPE','BNDES','BR','GE','BP',
+  'CNPE','ANEEL','ANAC','ANTT','ANVISA','INMETRO','CENPES','BID','FMI',
+  'BRICS','PDVSA','YPF','LABH2','ABDIB','ABNT','CADE','CMN','TBN',
+]);
+const _PREPS_TITULO = new Set([
+  'de','do','da','dos','das','e','a','o','em','com','por','para','ao','à','às',
+  'aos','no','na','nos','nas','se','que','ou','já','até','sobre','entre','sem',
+  'após','ante','sob','um','uma','uns','umas',
+]);
+
+function normalizarTituloAllCaps(titulo) {
+  if (!titulo) return titulo;
+  const letras = titulo.replace(/[^A-Za-zÀ-ÿ]/g, '');
+  if (letras.length < 5) return titulo;
+  const maiusculas = [...letras].filter(c => c !== c.toLowerCase()).length;
+  if (maiusculas / letras.length < 0.75) return titulo;
+  return titulo.split(' ').map((palavra, i) => {
+    if (!palavra) return palavra;
+    if (!/[A-Za-zÀ-ÿ]/.test(palavra)) return palavra;
+    const letrasP = palavra.replace(/[^A-Za-zÀ-ÿ]/g, '');
+    if (i > 0 && _PREPS_TITULO.has(letrasP.toLowerCase())) return palavra.toLowerCase();
+    const contemEspecial = /[0-9&/]/.test(palavra);
+    if (letrasP === letrasP.toUpperCase() && (contemEspecial || _SIGLAS_TITULO.has(letrasP))) {
+      return palavra;
+    }
+    return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+console.log("\nNormalização ALL-CAPS — normalizarTituloAllCaps");
+
+test("título já correto → não alterado", () => {
+  assertEq(
+    normalizarTituloAllCaps("Petrobras anuncia novo FPSO no pré-sal"),
+    "Petrobras anuncia novo FPSO no pré-sal"
+  );
+});
+
+test("título all-caps com sigla ANP → sigla preservada", () => {
+  assertEq(
+    normalizarTituloAllCaps("ANP REALIZA WORKSHOP SOBRE GÁS RELEASE"),
+    "ANP Realiza Workshop sobre Gás Release"
+  );
+});
+
+test("título all-caps com FPSO → sigla preservada", () => {
+  assertEq(
+    normalizarTituloAllCaps("PETROBRAS ANUNCIA NOVO FPSO NO PRÉ-SAL"),
+    "PETROBRAS Anuncia Novo FPSO no Pré-sal"
+  );
+});
+
+test("título all-caps com preposições → preposições em minúsculo", () => {
+  assertEq(
+    normalizarTituloAllCaps("LEILÃO DE PETRÓLEO ATRAIU INVESTIDORES DE TODO O PAÍS"),
+    "Leilão de Petróleo Atraiu Investidores de Todo o País"
+  );
+});
+
+test("título all-caps com GLP e dígito S500 → preservados", () => {
+  assertEq(
+    normalizarTituloAllCaps("ANP ACOMPANHA PARTICIPAÇÃO DO DIESEL S500 E DO GLP"),
+    "ANP Acompanha Participação do Diesel S500 e do GLP"
+  );
+});
+
+test("título null → null (não lança)", () => {
+  assertEq(normalizarTituloAllCaps(null), null);
+});
+
+test("título vazio → string vazia", () => {
+  assertEq(normalizarTituloAllCaps(""), "");
+});
+
+test("menos de 5 letras → não alterado", () => {
+  assertEq(normalizarTituloAllCaps("GNL"), "GNL");
+});
+
+test("título misto (não all-caps) → não alterado", () => {
+  const t = "ExxonMobil e TotalEnergies vencem leilão de petróleo";
+  assertEq(normalizarTituloAllCaps(t), t);
+});
+
 // ── Deduplicação — similaridadeTitulos ───────────────────────────────────────
 
 console.log("\nDedupe — similaridadeTitulos");
