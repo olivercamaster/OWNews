@@ -351,7 +351,7 @@ const DOMINIOS_FOTO_PERMITIDOS = [
   'www.presalpetroleo.gov.br', 'epe.gov.br', 'www.epe.gov.br', 'agencia.marinha.mil.br',
   'petronoticias.com.br', 'www.petronoticias.com.br',
   'portosenavios.com.br', 'offshore-energy.biz', 'marinetechnologynews.com',
-  'megawhat.uol.com.br',
+  'megawhat.uol.com.br', 'megawhat.energy',
   // 2ª leva (2026-09-27, também autorizada): fontes que JÁ estavam ativas
   // no collector mas nunca entraram aqui — mesma falha silenciosa do caso
   // PetroNotícias, descoberta ao mapear hostname real por fonte. Eixos é

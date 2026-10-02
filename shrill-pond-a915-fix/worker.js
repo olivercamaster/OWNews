@@ -243,9 +243,9 @@ const FONTES_REGISTRY = [
     // relevantes (feed do dia era 100% setor elétrico) — o filtro
     // descartou tudo sem custo de subrequest, exatamente o esperado.
     id: "megawhat", nome: "MegaWhat",
-    dominio: "megawhat.uol.com.br", tipo: "imprensa", categoria: "imprensa de energia (backup Petrobras/gás)", pais: "BR", idioma: "pt",
+    dominio: "megawhat.uol.com.br", dominio_cdn: "uploads.megawhat.energy", tipo: "imprensa", categoria: "imprensa de energia (backup Petrobras/gás)", pais: "BR", idioma: "pt",
     prioridade: "baixa", confiabilidade: "imprensa especializada — não é fonte primária", metodo_coleta: "RSS",
-    endpoint: MEGAWHAT_FEED_URL, grupo: "E", imagem_permitida: false, fonte_primaria: false
+    endpoint: MEGAWHAT_FEED_URL, grupo: "E", imagem_permitida: true, fonte_primaria: false
   },
   {
     // Expansão 2026-09-27: melhor fonte internacional testada — 100%
