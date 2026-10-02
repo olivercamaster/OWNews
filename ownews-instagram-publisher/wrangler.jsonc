@@ -56,15 +56,17 @@
 
   // Horários oficiais (America/Sao_Paulo, UTC-3 fixo — Brasil não tem mais
   // horário de verão desde 2019):
-  // - "0 15 * * *"   = 12:00 BRT todo dia  -> 1 post jornalístico/dia
+  // - "0 15 * * MON-SAT" = 12:00 BRT segunda-sábado -> 1 post jornalístico/dia
   //   (MISSÃO INSTAGRAM 2.0, 2026-10-02: reduzido de 2 posts/dia para 1,
   //   qualidade acima de quantidade — horário de pico de leitura no Brasil)
-  // - "0 16 * * SUN" = 13:00 BRT aos domingos -> institucional semanal
-  //   (período diurno, longe do post jornalístico, só aos domingos).
-  //   Cron do Cloudflare usa 1=domingo..7=sábado (diferente do unix-cron
-  //   comum) — por isso o dia da semana vai por nome (SUN), sem ambiguidade.
+  //   NÃO dispara no domingo para não bloquear o institucional de 13:00.
+  // - "0 16 * * SUN"     = 13:00 BRT aos domingos -> institucional semanal
+  //   Único post do domingo (nenhum jornalístico aos domingos).
+  //   Nomes de dia (MON-SAT, SUN) evitam ambiguidade numérica do cron.
   // REMOVIDOS (2026-10-02): "50 7 * * *" (04:50 BRT) e "15 23 * * *" (20:15 BRT).
+  // CORRIGIDO (2026-10-02 auditoria 3.0): "0 15 * * *" → "0 15 * * MON-SAT"
+  //   para não bloquear o institucional de domingo via rate limit diário.
   "triggers": {
-    "crons": ["0 15 * * *", "0 16 * * SUN"]
+    "crons": ["0 15 * * MON-SAT", "0 16 * * SUN"]
   }
 }
