@@ -16930,11 +16930,13 @@ async function ccColetarSistema(env) {
     const hoje = new Date().toISOString().slice(0, 10);
     const executouHoje = ult.em && ult.em.startsWith(hoje);
     if (!executouHoje) return { ok: false, detalhe: `Última execução: ${new Date(ult.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} — cron não disparou hoje.` };
-    if (ult.resultado === "published") return { ok: true, detalhe: `Publicado hoje: "${ult.candidato || ""}".` };
+    const tmplStr = ult.template_label ? ` [template ${ult.template_label}]` : "";
+    const fbStr = ult.fallback ? ` ⚠ Fallback A→C: ${ult.fallback.razao}` : "";
+    if (ult.resultado === "published") return { ok: !ult.fallback, detalhe: `Publicado hoje: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
     if (ult.resultado === "skip") return { ok: true, detalhe: `Sem artigo elegível hoje: ${ult.motivo || "sem detalhe"}.` };
-    if (ult.resultado === "dry_run") return { ok: true, detalhe: `Dry run executado: "${ult.candidato || ""}" — não publicado.` };
-    if (ult.resultado === "job_enfileirado") return { ok: true, detalhe: `Job enfileirado para render: "${ult.candidato || ""}".` };
-    if (ult.resultado === "visual_guard_rejected") return { ok: false, detalhe: `VISUAL GUARD REJEITOU: ${ult.motivo || "sem detalhe"}.` };
+    if (ult.resultado === "dry_run") return { ok: true, detalhe: `Dry run: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
+    if (ult.resultado === "job_enfileirado") return { ok: true, detalhe: `Aguardando render: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
+    if (ult.resultado === "visual_guard_rejected") return { ok: false, detalhe: `🛡 Visual Guard rejeitou: ${ult.motivo || "sem detalhe"}.` };
     return { ok: false, detalhe: `Falha: ${ult.motivo || ult.resultado}.` };
   })() : { ok: false, detalhe: "Publisher Instagram não respondeu." };
 
@@ -17056,6 +17058,7 @@ async function ccColetarEditorial(env) {
       dry_run: igFrag.dry_run,
       freeze_manutencao: igFrag.freeze_manutencao || false,
       ultima_execucao: igFrag.ultima_execucao || null,
+      ultimo_fallback: igFrag.ultimo_fallback || null,
       proxima_janela: igFrag.proxima_janela || null,
       ultimo_heartbeat_vps: igFrag.ultimo_heartbeat_vps || null,
     } : null,

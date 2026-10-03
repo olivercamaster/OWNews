@@ -120,6 +120,94 @@ function limparPrefixoFonte(s) {
   return s.replace(/^[^|]{2,40}\s*\|\s*/u, '').trim();
 }
 
+// WordPress thumbnails append -WxH before the extension (e.g. -300x242.jpg).
+// Try the full-resolution original by removing that suffix.
+function tentarUpgradeWpThumbnail(url) {
+  const q = url.indexOf('?');
+  const path = q >= 0 ? url.slice(0, q) : url;
+  const query = q >= 0 ? url.slice(q) : '';
+  const upgraded = path.replace(/-\d{2,5}x\d{2,5}(?=\.[a-zA-Z]{2,5}$)/, '');
+  return upgraded === path ? url : upgraded + query;
+}
+
+// Map image validation failure to a category code for fallback logging.
+function categorizarFallbackMotivo(motivo) {
+  if (!motivo || motivo.includes('sem image_url')) return 'NO_IMAGE';
+  if (motivo.includes('lista de fontes') || motivo.includes('domínio')) return 'IMAGE_DOMAIN_REJECTED';
+  if (motivo.includes('falha ao buscar')) return 'IMAGE_DOWNLOAD_FAILED';
+  if (motivo.includes('HTTP')) return 'IMAGE_HTTP_ERROR';
+  if (motivo.includes('formato não')) return 'IMAGE_CONTENT_TYPE_INVALID';
+  if (motivo.includes('resolução') || motivo.includes('resolucao')) return 'IMAGE_DIMENSIONS_INVALID';
+  if (motivo.includes('proporção')) return 'IMAGE_ASPECT_RATIO_INVALID';
+  if (motivo.includes('pequena em bytes')) return 'IMAGE_QUALITY_REJECTED';
+  if (motivo.includes('padrão inadequado')) return 'IMAGE_URL_PATTERN_REJECTED';
+  if (motivo.includes('malformada')) return 'IMAGE_URL_MALFORMED';
+  return 'IMAGE_OTHER';
+}
+
+// Palavras que NUNCA devem estar capitalizadas mid-sentence em português correto.
+// Presença de 2+ delas em maiúsculo (exceto 1ª palavra) = sinal forte de Title Case.
+const PALAVRAS_NUNCA_CAPITALIZADAS_PT = new Set([
+  // Preposições e artigos
+  'da', 'do', 'das', 'dos', 'de', 'pelo', 'pela', 'pelos', 'pelas',
+  'no', 'na', 'nos', 'nas', 'ao', 'aos', 'às', 'para', 'com', 'sem',
+  'por', 'sobre', 'entre', 'antes', 'após', 'desde', 'até', 'sob',
+  'a', 'o', 'as', 'os', 'uma', 'um', 'que', 'e', 'ou', 'mas', 'se',
+  'como', 'quando', 'enquanto', 'embora', 'porque', 'pois', 'portanto',
+  // Verbos comuns (jamais são nomes próprios)
+  'diz', 'disse', 'afirma', 'afirmou', 'anuncia', 'anunciou',
+  'confirma', 'confirmou', 'revela', 'revelou', 'indica', 'indicou',
+  'aumenta', 'aumentou', 'mostra', 'mostrou', 'aponta', 'apontou',
+  'declara', 'declarou', 'prevê', 'preve', 'vai', 'deve', 'pode',
+  'tem', 'tem', 'são', 'está', 'estão', 'será', 'será',
+]);
+
+// Title Case → natural Portuguese sentence case, preserving proper nouns and siglas.
+const NOMES_PROPRIOS_IG_MAP = new Map([
+  ['petrobras', 'Petrobras'], ['petrobrás', 'Petrobrás'],
+  ['shell', 'Shell'], ['totalenergies', 'TotalEnergies'], ['equinor', 'Equinor'],
+  ['exxonmobil', 'ExxonMobil'], ['bhp', 'BHP'], ['saipem', 'Saipem'],
+  ['subsea7', 'Subsea7'], ['transocean', 'Transocean'], ['sbm', 'SBM'],
+  ['schlumberger', 'Schlumberger'], ['halliburton', 'Halliburton'],
+  ['cepsa', 'Cepsa'], ['repsol', 'Repsol'], ['chevron', 'Chevron'], ['eni', 'Eni'],
+  ['anp', 'ANP'], ['ppsa', 'PPSA'], ['epe', 'EPE'], ['ibama', 'IBAMA'],
+  ['aneel', 'ANEEL'], ['cnen', 'CNEN'], ['ibge', 'IBGE'], ['bndes', 'BNDES'],
+  ['cnpe', 'CNPE'], ['mme', 'MME'], ['opep', 'OPEP'], ['opec', 'OPEC'],
+  ['sindipetro', 'Sindipetro'], ['fup', 'FUP'],
+  ['fpso', 'FPSO'], ['uep', 'UEP'], ['gnl', 'GNL'], ['glp', 'GLP'],
+  ['gnv', 'GNV'], ['ccs', 'CCS'], ['rov', 'ROV'], ['bop', 'BOP'],
+  ['wti', 'WTI'], ['brent', 'Brent'],
+  ['brasil', 'Brasil'], ['amapá', 'Amapá'], ['amapa', 'Amapá'],
+  ['pará', 'Pará'], ['para', 'Pará'], ['ceará', 'Ceará'], ['ceara', 'Ceará'],
+  ['maranhão', 'Maranhão'], ['maranhao', 'Maranhão'],
+  ['sergipe', 'Sergipe'], ['bahia', 'Bahia'],
+  ['santos', 'Santos'], ['campos', 'Campos'],
+  ['búzios', 'Búzios'], ['buzios', 'Búzios'],
+  ['tupi', 'Tupi'], ['libra', 'Libra'], ['mero', 'Mero'],
+  ['sapinhoá', 'Sapinhoá'], ['sapinhoa', 'Sapinhoá'],
+  ['carcará', 'Carcará'], ['carcara', 'Carcará'],
+  ['lula', 'Lula'], ['morpho', 'Morpho'], ['atapu', 'Atapu'], ['iracema', 'Iracema'],
+  ['ownews', 'OWNews'], ['offshoreworks', 'OffshoreWorks'],
+]);
+function normalizarCapitalizacaoTitulo(titulo) {
+  if (!titulo || typeof titulo !== 'string') return titulo;
+  const palavras = titulo.trim().split(/\s+/);
+  // Detect Title Case via words that are NEVER capitalized mid-sentence in correct Portuguese.
+  // If 2+ of them appear capitalized (after position 0), it's almost certainly Title Case.
+  const sinaisTitleCase = palavras.slice(1).filter(
+    (p) => PALAVRAS_NUNCA_CAPITALIZADAS_PT.has(p.toLowerCase()) && /^[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ]/.test(p)
+  );
+  if (sinaisTitleCase.length < 2) return titulo; // not Title Case — leave untouched
+  return palavras.map((p, i) => {
+    if (/^[A-Z][A-Z0-9]{1,}$/.test(p)) return p; // acronym: all-caps 2+ chars → preserve
+    const keyNFD = p.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+    const canonical = NOMES_PROPRIOS_IG_MAP.get(p.toLowerCase()) || NOMES_PROPRIOS_IG_MAP.get(keyNFD);
+    if (canonical) return canonical;
+    if (i === 0) return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+    return p.toLowerCase();
+  }).join(' ');
+}
+
 function normalizarTitulo(t) {
   return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 3);
@@ -284,8 +372,8 @@ function truncar(s, max) {
   if (!s) return '';
   return s.length <= max ? s : s.slice(0, max - 1).trim() + '…';
 }
-function gerarLegendaNoticia(artigo) {
-  const fato = truncar(artigo.title, 200);
+function gerarLegendaNoticia(artigo, headlineNormalizada) {
+  const fato = truncar(headlineNormalizada || artigo.title, 200);
   const contexto = artigo.summary ? truncar(artigo.summary, 260) : '';
   const linhas = [fato];
   if (contexto) linhas.push(contexto);
@@ -382,7 +470,7 @@ const DOMINIOS_FOTO_PERMITIDOS = [
   'sbmoffshore.com', 'noticiasmacae.com',
 ];
 
-async function validarImagemArtigo(imageUrl) {
+async function validarImagemArtigo(imageUrl, { tentativaUpgrade = false } = {}) {
   if (!imageUrl) return { ok: false, motivo: 'artigo sem image_url' };
   let host;
   try { host = new URL(imageUrl).hostname; } catch { return { ok: false, motivo: 'URL de imagem malformada' }; }
@@ -408,6 +496,14 @@ async function validarImagemArtigo(imageUrl) {
   else dims = dimensoesJpeg(buf);
   if (!dims) return { ok: false, motivo: 'não foi possível determinar as dimensões da imagem (formato não reconhecido)' };
   if (dims.largura < LARGURA_MINIMA_FOTO || dims.altura < ALTURA_MINIMA_FOTO) {
+    // WordPress thumbnails (-300x242) often have a larger original — try once.
+    if (!tentativaUpgrade) {
+      const fullResUrl = tentarUpgradeWpThumbnail(imageUrl);
+      if (fullResUrl !== imageUrl) {
+        const tentativa = await validarImagemArtigo(fullResUrl, { tentativaUpgrade: true });
+        if (tentativa.ok) return tentativa; // fotoUrl points to the full-res URL
+      }
+    }
     return { ok: false, motivo: `resolução insuficiente (${dims.largura}x${dims.altura}, mínimo ${LARGURA_MINIMA_FOTO}x${ALTURA_MINIMA_FOTO})` };
   }
   const aspectRatio = dims.largura / dims.altura;
@@ -417,7 +513,7 @@ async function validarImagemArtigo(imageUrl) {
   if (aspectRatio > 3.2 || aspectRatio < 0.28) {
     return { ok: false, motivo: `proporção incomum (${aspectRatio.toFixed(2)}:1) — inadequada pros templates disponíveis` };
   }
-  return { ok: true, dims, aspectRatio };
+  return { ok: true, dims, aspectRatio, fotoUrl: imageUrl };
 }
 
 // Escolha DETERMINÍSTICA de template (ETAPA 5): mesma foto/manchete sempre
@@ -609,16 +705,22 @@ async function enfileirarJanelaNoticia(env, janela) {
   // de novo (subrequest duplicado).
   const imagemResp = selecao.imagemResp || await validarImagemArtigo(artigo.image_url);
   const categoriaLabel = editoriaDeInstagram(artigo);
-  const caption = gerarLegendaNoticia(artigo);
-  const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: artigo.title });
+  const headlineFinal = normalizarCapitalizacaoTitulo(artigo.title);
+  const caption = gerarLegendaNoticia(artigo, headlineFinal);
+  const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
+  const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
+  const fallback = !imagemResp.ok ? { de: 'A', para: 'C', razao: categorizarFallbackMotivo(imagemResp.motivo), motivo_raw: imagemResp.motivo } : null;
+  if (fallback) {
+    try { await env.SAUDE_KV.put('instagram_ultimo_fallback', JSON.stringify({ ...fallback, articleId: artigo.id, em: new Date().toISOString() }), { expirationTtl: 86400 }); } catch { /* melhor esforço */ }
+  }
 
   const job = await enfileirarJob(env, {
     tipo: 'noticia',
-    arte: { template, categoria: categoriaLabel, headline: artigo.title, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? artigo.image_url : null },
-    publicar: { tipo: 'noticia', janela, articleId: artigo.id, canonicalUrl: artigo.original_url, headline: artigo.title, caption, score: selecao.score },
+    arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
+    publicar: { tipo: 'noticia', janela, articleId: artigo.id, canonicalUrl: artigo.original_url, headline: headlineFinal, caption, score: selecao.score, template_label: templateLabel, fallback: fallback || null },
   });
-  await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template, score: selecao.score, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
-  return { ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, score: selecao.score };
+  await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template, template_label: templateLabel, fallback: fallback || null, score: selecao.score, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+  return { ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, score: selecao.score };
 }
 
 async function enfileirarInstitucional(env) {
@@ -705,7 +807,7 @@ async function finalizarComImagem(env, request, job, jpegBytes) {
   }
 
   await gravarHistorico(env, { ...baseHistorico, status: 'published', ig_media_id: mediaId, ig_permalink: permalink, published_at: new Date().toISOString() });
-  await registrarExecucao(env, { tipo: pub.tipo, janela: pub.janela, em: new Date().toISOString(), resultado: 'published', ig_media_id: mediaId, dry_run: false });
+  await registrarExecucao(env, { tipo: pub.tipo, janela: pub.janela, em: new Date().toISOString(), resultado: 'published', candidato: pub.headline, template: job.arte && job.arte.template, template_label: pub.template_label || null, fallback: pub.fallback || null, ig_media_id: mediaId, dry_run: false });
   return { ok: true, resultado: 'published', mediaId, permalink };
 }
 
@@ -755,12 +857,14 @@ export default {
       const execucao = await (async () => { try { return JSON.parse(await env.SAUDE_KV.get('instagram_ultima_execucao')); } catch { return null; } })();
       const heartbeatVps = await (async () => { try { return await env.SAUDE_KV.get('instagram_ultimo_heartbeat_vps'); } catch { return null; } })();
       const freezeManutencao = await (async () => { try { return (await env.SAUDE_KV.get('instagram_freeze_manutencao')) === 'true'; } catch { return false; } })();
+      const ultimoFallback = await (async () => { try { const v = await env.SAUDE_KV.get('instagram_ultimo_fallback'); return v ? JSON.parse(v) : null; } catch { return null; } })();
       const proximos = calcularProximosTriggers(new Date());
       return Response.json({
         habilitado: !!(env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_ACCOUNT_ID),
         dry_run: env.INSTAGRAM_DRY_RUN !== 'false',
         freeze_manutencao: freezeManutencao,
         ultima_execucao: execucao,
+        ultimo_fallback: ultimoFallback,
         // Timestamp da última vez que o poller do VPS efetivamente chamou
         // este Worker (a cada minuto, via cron) — se isso parar de avançar
         // mas o Worker continuar "online", é sinal de falha silenciosa no
@@ -888,17 +992,20 @@ export default {
         }
         const imagemResp = await validarImagemArtigo(artigo.image_url);
         const categoriaLabel = editoriaDeInstagram(artigo);
-        const caption = gerarLegendaNoticia(artigo);
-        const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: artigo.title });
+        const headlineFinal = normalizarCapitalizacaoTitulo(artigo.title);
+        const caption = gerarLegendaNoticia(artigo, headlineFinal);
+        const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
+        const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
+        const fallback = !imagemResp.ok ? { de: 'A', para: 'C', razao: categorizarFallbackMotivo(imagemResp.motivo), motivo_raw: imagemResp.motivo } : null;
         const job = await enfileirarJob(env, {
           tipo: 'noticia',
-          arte: { template, categoria: categoriaLabel, headline: artigo.title, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? artigo.image_url : null },
-          publicar: { tipo: 'noticia', janela: 'recuperacao_manual', articleId: artigo.id, canonicalUrl: artigo.original_url, headline: artigo.title, caption, score: 999 },
+          arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
+          publicar: { tipo: 'noticia', janela: 'recuperacao_manual', articleId: artigo.id, canonicalUrl: artigo.original_url, headline: headlineFinal, caption, score: 999, template_label: templateLabel, fallback: fallback || null },
           forcarReal: true,
           forcarRateLimit: true,
         });
-        await registrarExecucao(env, { tipo: 'noticia', janela: 'recuperacao_manual', em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template, score: 999, dry_run: false });
-        return Response.json({ ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template });
+        await registrarExecucao(env, { tipo: 'noticia', janela: 'recuperacao_manual', em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template, template_label: templateLabel, fallback: fallback || null, score: 999, dry_run: false });
+        return Response.json({ ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template });
       } catch (erro) { return Response.json({ ok: false, erro: erro.message }, { status: 500 }); }
     }
 
