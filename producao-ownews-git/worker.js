@@ -17906,7 +17906,7 @@ export default {
         icons: []
       }), { headers: { "Content-Type": "application/manifest+json; charset=UTF-8" } });
     }
-    if (url.pathname === "/command-center") {
+    if (url.pathname === "/command-center" || url.pathname === "/command-center/") {
       if (!(await ccAutenticado(request, env))) {
         return new Response(null, { status: 302, headers: { "Location": "/command-center/login" } });
       }
