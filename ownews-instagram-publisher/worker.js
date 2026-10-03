@@ -56,6 +56,14 @@ const PALAVRAS_RISCO = [
 const PALAVRAS_ACUSACAO = [
   'acusa', 'acusada', 'condenada', 'culpada', 'processo contra', 'investigação sobre', 'investigacao sobre',
 ];
+// Conteúdo político/eleitoral não tem categoria editorial segura no Instagram automático.
+// Artigos sobre propostas de governo / programas eleitorais são rejeitados aqui.
+const PALAVRAS_POLITICO_ELEITORAL = [
+  'presidenciável', 'presidenciáveis', 'presidenciavel', 'presidenciaveis',
+  'programa de governo', 'programas de governo', 'proposta de governo', 'propostas de governo',
+  'eleições presidenciais', 'eleicoes presidenciais', 'campanha presidencial',
+  'primeiro turno', 'segundo turno', 'candidato à presidência', 'candidatos à presidência',
+];
 
 const PALAVRAS_PRIORIDADE_ALTA = [
   'petrobras', 'petróleo', 'petroleo', 'gás', 'gas natural', 'offshore', 'sonda', 'fpso',
@@ -68,8 +76,13 @@ const PALAVRAS_PRIORIDADE_MEDIA = [
   'offshore wind', 'eólic', 'eolic', 'ccs', 'captura de carbono', 'hidrogênio', 'hidrogenio', 'geopolít', 'geopolit',
 ];
 
+// Normaliza texto para scoring: remove acentos, permitindo que 'petrobrás' → 'petrobras'.
+function normalizeParaScore(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 function calcularScoreCandidato(artigo, agora) {
-  const texto = `${artigo.title} ${artigo.summary || ''}`.toLowerCase();
+  const texto = normalizeParaScore(`${artigo.title} ${artigo.summary || ''}`);
   let score = 0;
   const horas = (agora - new Date(artigo.published_at).getTime()) / 3600000;
   if (horas <= 3) score += 40;
@@ -94,10 +107,17 @@ function calcularScoreCandidato(artigo, agora) {
 const LIMIAR_MINIMO_SCORE = 30;
 
 function falhaFiltroDuro(artigo) {
-  const texto = `${artigo.title} ${artigo.summary || ''}`.toLowerCase();
+  const texto = normalizeParaScore(`${artigo.title} ${artigo.summary || ''}`);
   if (PALAVRAS_RISCO.some((p) => texto.includes(p))) return `vocabulário de risco/vítima detectado: "${PALAVRAS_RISCO.find((p) => texto.includes(p))}"`;
   if (PALAVRAS_ACUSACAO.some((p) => texto.includes(p))) return `vocabulário de acusação não confirmada detectado: "${PALAVRAS_ACUSACAO.find((p) => texto.includes(p))}"`;
+  if (PALAVRAS_POLITICO_ELEITORAL.some((p) => texto.includes(p))) return `conteúdo político/eleitoral detectado — sem categoria editorial segura no Instagram: "${PALAVRAS_POLITICO_ELEITORAL.find((p) => texto.includes(p))}"`;
   return null;
+}
+
+// Strip leading source/category prefix like "gás week | ", "PETRONOTICIAS | ".
+function limparPrefixoFonte(s) {
+  if (!s || typeof s !== 'string') return s;
+  return s.replace(/^[^|]{2,40}\s*\|\s*/u, '').trim();
 }
 
 function normalizarTitulo(t) {
@@ -455,7 +475,7 @@ async function validarRateLimit(env) {
   const hoje = await jaPublicouHoje(env);
   return hoje ? { ok: false, motivo: 'já existe 1 publicação real hoje (trava por dia, independente do horário)' } : { ok: true };
 }
-async function rodarValidacoesFinais(ctx, env) {
+async function rodarValidacoesFinais(ctx, env, { ignorarRateLimit = false } = {}) {
   const passos = [
     ['validateCandidate', validarCandidato(ctx)],
     ['validateFreshness', validarFreshness(ctx)],
@@ -464,7 +484,7 @@ async function rodarValidacoesFinais(ctx, env) {
     ['validateArtwork', validarArtwork(ctx)],
     ['validateCaption', validarCaption(ctx)],
     ['validateAccount', validarConta(env)],
-    ['validateRateLimit', validarRateLimit(env)],
+    ...(!ignorarRateLimit ? [['validateRateLimit', validarRateLimit(env)]] : []),
   ];
   for (const [nome, promessa] of passos) {
     const r = await promessa;
@@ -549,8 +569,8 @@ function calcularProximosTriggers(agora) {
    ========================================================================= */
 const JOB_KV_KEY = 'render_job_current';
 
-async function enfileirarJob(env, { tipo, arte, publicar, forcarReal }) {
-  const job = { id: crypto.randomUUID(), tipo, status: 'pending', criadoEm: new Date().toISOString(), arte, publicar, forcarReal: !!forcarReal };
+async function enfileirarJob(env, { tipo, arte, publicar, forcarReal, forcarRateLimit }) {
+  const job = { id: crypto.randomUUID(), tipo, status: 'pending', criadoEm: new Date().toISOString(), arte, publicar, forcarReal: !!forcarReal, forcarRateLimit: !!forcarRateLimit };
   await env.SAUDE_KV.put(JOB_KV_KEY, JSON.stringify(job), { expirationTtl: 3600 });
   return job;
 }
@@ -569,6 +589,14 @@ function autenticado(request, env) {
    imagem, e enfileira o job de arte. Rápido — não usa CPU de renderização.
    ========================================================================= */
 async function enfileirarJanelaNoticia(env, janela) {
+  // Freeze durante manutenção — não remove o cron, só impede publicação defeituosa.
+  try {
+    const freeze = await env.SAUDE_KV.get('instagram_freeze_manutencao');
+    if (freeze === 'true') {
+      await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo: 'publicação congelada — manutenção em andamento', dry_run: true });
+      return { ok: true, resultado: 'skip', motivo: 'publicação congelada — manutenção em andamento' };
+    }
+  } catch { /* se KV falhar, prosseguir normalmente */ }
   const selecao = await selecionarCandidatoNoticia(env);
   if (!selecao.escolhido) {
     await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo: selecao.motivo, avaliados: selecao.avaliados, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
@@ -586,7 +614,7 @@ async function enfileirarJanelaNoticia(env, janela) {
 
   const job = await enfileirarJob(env, {
     tipo: 'noticia',
-    arte: { template, categoria: categoriaLabel, headline: artigo.title, contexto: artigo.summary ? truncar(artigo.summary, 140) : null, fotoUrl: imagemResp.ok ? artigo.image_url : null },
+    arte: { template, categoria: categoriaLabel, headline: artigo.title, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? artigo.image_url : null },
     publicar: { tipo: 'noticia', janela, articleId: artigo.id, canonicalUrl: artigo.original_url, headline: artigo.title, caption, score: selecao.score },
   });
   await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template, score: selecao.score, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
@@ -639,7 +667,7 @@ async function finalizarComImagem(env, request, job, jpegBytes) {
     } catch { /* validateFreshness vai falhar com segurança se isso não vier */ }
   }
 
-  const validacao = await rodarValidacoesFinais(ctx, env);
+  const validacao = await rodarValidacoesFinais(ctx, env, { ignorarRateLimit: !!job.forcarRateLimit });
   const dryRun = env.INSTAGRAM_DRY_RUN !== 'false' && !job.forcarReal;
   const baseHistorico = pub.tipo === 'noticia'
     ? { post_type: 'noticia', article_id: pub.articleId, canonical_url: pub.canonicalUrl, janela: pub.janela, headline: pub.headline, caption: pub.caption, score: pub.score }
@@ -688,9 +716,9 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       try {
-        // "0 15 * * *" = 12:00 BRT — 1 post jornalístico por dia (MISSÃO 2.0, 2026-10-02).
+        // "0 15 * * MON-SAT" = 12:00 BRT seg-sab — 1 post jornalístico por dia (MISSÃO 2.0, 2026-10-02).
         // "50 7 * * *" (04:50) e "15 23 * * *" (20:15) removidos na mesma data.
-        if (event.cron === '0 15 * * *') await enfileirarJanelaNoticia(env, 'meio_dia_12h00');
+        if (event.cron === '0 15 * * MON-SAT') await enfileirarJanelaNoticia(env, 'meio_dia_12h00');
         else if (event.cron === '0 16 * * SUN') await enfileirarInstitucional(env);
       } catch (e) {
         await registrarExecucao(env, { em: new Date().toISOString(), resultado: 'erro_nao_tratado', motivo: e.message, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
@@ -726,10 +754,12 @@ export default {
     if (url.pathname === '/saude-fragment') {
       const execucao = await (async () => { try { return JSON.parse(await env.SAUDE_KV.get('instagram_ultima_execucao')); } catch { return null; } })();
       const heartbeatVps = await (async () => { try { return await env.SAUDE_KV.get('instagram_ultimo_heartbeat_vps'); } catch { return null; } })();
+      const freezeManutencao = await (async () => { try { return (await env.SAUDE_KV.get('instagram_freeze_manutencao')) === 'true'; } catch { return false; } })();
       const proximos = calcularProximosTriggers(new Date());
       return Response.json({
         habilitado: !!(env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_ACCOUNT_ID),
         dry_run: env.INSTAGRAM_DRY_RUN !== 'false',
+        freeze_manutencao: freezeManutencao,
         ultima_execucao: execucao,
         // Timestamp da última vez que o poller do VPS efetivamente chamou
         // este Worker (a cada minuto, via cron) — se isso parar de avançar
@@ -776,6 +806,25 @@ export default {
       return Response.json({ id: job.id, tipo: job.tipo, arte: job.arte });
     }
 
+    // VPS chama este endpoint quando o Visual Guard rejeita a arte — evita job preso em in_progress.
+    if (url.pathname.startsWith('/render-jobs/') && url.pathname.endsWith('/guard-fail') && request.method === 'POST') {
+      if (!autenticado(request, env)) return new Response('unauthorized', { status: 401 });
+      const id = url.pathname.split('/')[2];
+      const job = await lerJobAtual(env);
+      if (!job || job.id !== id) return new Response('job não encontrado', { status: 404 });
+      let motivo = 'VISUAL_GUARD_REJECTED sem motivo';
+      try { const body = await request.json(); motivo = body.motivo || motivo; } catch { /* usa default */ }
+      job.status = 'failed';
+      await env.SAUDE_KV.put(JOB_KV_KEY, JSON.stringify(job), { expirationTtl: 3600 });
+      const pub = job.publicar || {};
+      const baseHistorico = pub.tipo === 'noticia'
+        ? { post_type: 'noticia', article_id: pub.articleId, canonical_url: pub.canonicalUrl, janela: pub.janela, headline: pub.headline, caption: pub.caption, score: pub.score }
+        : { post_type: 'institucional', tema_institucional: pub.tema, janela: pub.janela, headline: pub.headline, caption: pub.caption };
+      await gravarHistorico(env, { ...baseHistorico, status: 'failed', error_message: motivo });
+      await registrarExecucao(env, { tipo: pub.tipo || 'noticia', janela: pub.janela, em: new Date().toISOString(), resultado: 'visual_guard_rejected', motivo, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+      return Response.json({ ok: false, resultado: 'visual_guard_rejected', motivo });
+    }
+
     if (url.pathname.startsWith('/render-jobs/') && url.pathname.endsWith('/complete') && request.method === 'POST') {
       if (!autenticado(request, env)) return new Response('unauthorized', { status: 401 });
       const id = url.pathname.split('/')[2];
@@ -809,6 +858,48 @@ export default {
       if (!autenticado(request, env)) return new Response('unauthorized', { status: 401 });
       try { return Response.json(await enfileirarLancamentoReal(env, true)); }
       catch (erro) { return Response.json({ ok: false, erro: erro.message }, { status: 500 }); }
+    }
+
+    // Endpoint de recuperação: publica artigo específico por ID, ignorando score mínimo e rate limit.
+    // Autorizado apenas para posts de recuperação explicitamente aprovados pelo operador.
+    // Rota autenticada (RENDER_SHARED_SECRET). O resto do pipeline (freshness, dedup, guard) continua ativo.
+    if (url.pathname === '/publicar-recuperacao' && request.method === 'POST') {
+      if (!autenticado(request, env)) return new Response('unauthorized', { status: 401 });
+      try {
+        const { articleId } = await request.json();
+        if (!articleId) return Response.json({ ok: false, erro: 'articleId obrigatório' }, { status: 400 });
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at&id=eq.${encodeURIComponent(articleId)}`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        });
+        if (!r.ok) return Response.json({ ok: false, erro: `Supabase HTTP ${r.status}` }, { status: 502 });
+        const linhas = await r.json();
+        if (!linhas[0]) return Response.json({ ok: false, erro: 'artigo não encontrado no Supabase' }, { status: 404 });
+        const artigo = linhas[0];
+        // Valida freshness (ainda dentro de 24h)
+        const horas = (Date.now() - new Date(artigo.published_at).getTime()) / 3600000;
+        if (horas > 24) return Response.json({ ok: false, erro: `artigo fora da janela de frescor (${horas.toFixed(1)}h)` }, { status: 422 });
+        // Valida filtro duro (fonte, risco)
+        const motivoDuro = falhaFiltroDuro(artigo);
+        if (motivoDuro) return Response.json({ ok: false, erro: `filtro duro: ${motivoDuro}` }, { status: 422 });
+        // Valida dedup
+        const historicoResp = await buscarHistoricoInstagram(env, 60);
+        if (historicoResp.ok && historicoResp.historico.some(h => h.article_id === artigo.id && h.status !== 'failed' && h.status !== 'deleted')) {
+          return Response.json({ ok: false, erro: 'artigo já tem post registrado (dedup)' }, { status: 422 });
+        }
+        const imagemResp = await validarImagemArtigo(artigo.image_url);
+        const categoriaLabel = editoriaDeInstagram(artigo);
+        const caption = gerarLegendaNoticia(artigo);
+        const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: artigo.title });
+        const job = await enfileirarJob(env, {
+          tipo: 'noticia',
+          arte: { template, categoria: categoriaLabel, headline: artigo.title, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? artigo.image_url : null },
+          publicar: { tipo: 'noticia', janela: 'recuperacao_manual', articleId: artigo.id, canonicalUrl: artigo.original_url, headline: artigo.title, caption, score: 999 },
+          forcarReal: true,
+          forcarRateLimit: true,
+        });
+        await registrarExecucao(env, { tipo: 'noticia', janela: 'recuperacao_manual', em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template, score: 999, dry_run: false });
+        return Response.json({ ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: artigo.title, template });
+      } catch (erro) { return Response.json({ ok: false, erro: erro.message }, { status: 500 }); }
     }
 
     // Rotas manuais de teste (fase 1 apenas — enfileiram, sempre em dry run).

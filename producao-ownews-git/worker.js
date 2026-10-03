@@ -16920,6 +16920,24 @@ async function ccColetarSistema(env) {
     return { ok: true, detalhe: partes.join(" ") };
   })() : { ok: false, detalhe: "Sem dado do Telegram." };
 
+  const igSaude = await ccFetchComTimeout(INSTAGRAM_PUBLISHER_URL + '/saude-fragment', 5000);
+  fontes.instagram = igSaude ? (() => {
+    const ult = igSaude.ultima_execucao;
+    if (!igSaude.habilitado) return { ok: null, detalhe: "Instagram não configurado (sem token/account_id)." };
+    if (igSaude.dry_run) return { ok: null, detalhe: "Instagram em modo dry_run — não publica de verdade." };
+    if (igSaude.freeze_manutencao) return { ok: null, detalhe: "Instagram congelado — manutenção em andamento." };
+    if (!ult) return { ok: false, detalhe: "Nenhuma execução registrada ainda." };
+    const hoje = new Date().toISOString().slice(0, 10);
+    const executouHoje = ult.em && ult.em.startsWith(hoje);
+    if (!executouHoje) return { ok: false, detalhe: `Última execução: ${new Date(ult.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} — cron não disparou hoje.` };
+    if (ult.resultado === "published") return { ok: true, detalhe: `Publicado hoje: "${ult.candidato || ""}".` };
+    if (ult.resultado === "skip") return { ok: true, detalhe: `Sem artigo elegível hoje: ${ult.motivo || "sem detalhe"}.` };
+    if (ult.resultado === "dry_run") return { ok: true, detalhe: `Dry run executado: "${ult.candidato || ""}" — não publicado.` };
+    if (ult.resultado === "job_enfileirado") return { ok: true, detalhe: `Job enfileirado para render: "${ult.candidato || ""}".` };
+    if (ult.resultado === "visual_guard_rejected") return { ok: false, detalhe: `VISUAL GUARD REJEITOU: ${ult.motivo || "sem detalhe"}.` };
+    return { ok: false, detalhe: `Falha: ${ult.motivo || ult.resultado}.` };
+  })() : { ok: false, detalhe: "Publisher Instagram não respondeu." };
+
   try {
     const supa = await ccFetchComTimeout(
       "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id&status=eq.published&limit=1",
@@ -16976,6 +16994,8 @@ async function ccColetarEditorial(env) {
     slug: ev.slug, nome: ev.nome, dataInicio: ev.dataInicio, cidade: ev.cidade, pais: ev.pais
   }));
 
+  const igFrag = await ccFetchComTimeout(INSTAGRAM_PUBLISHER_URL + '/saude-fragment', 5000);
+
   return {
     freshness: saude.HOME_FRESHNESS || "DESCONHECIDO",
     horasUltimaColeta: saude.horas_desde_ultima_coleta || null,
@@ -17030,11 +17050,20 @@ async function ccColetarEditorial(env) {
       proximos: agendaProximos,
       scan: saude.agenda_scan || null
     },
-    revisao_pendente: saude.revisao_pendente || 0
+    revisao_pendente: saude.revisao_pendente || 0,
+    instagram: igFrag ? {
+      habilitado: igFrag.habilitado,
+      dry_run: igFrag.dry_run,
+      freeze_manutencao: igFrag.freeze_manutencao || false,
+      ultima_execucao: igFrag.ultima_execucao || null,
+      proxima_janela: igFrag.proxima_janela || null,
+      ultimo_heartbeat_vps: igFrag.ultimo_heartbeat_vps || null,
+    } : null,
   };
 }
 
 const SHRILL_POND_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
+const INSTAGRAM_PUBLISHER_URL = 'https://ownews-instagram-publisher.olivercamaster.workers.dev';
 
 async function ccColetarRevisao(env) {
   try {
@@ -17649,6 +17678,27 @@ function renderCCDashboard() {
     '}' +
     '}' +
     'html+=\'</div>\';}' +
+    // Instagram
+    'if(e.instagram){var ig=e.instagram;var ult=ig.ultima_execucao||null;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Instagram @ownewsbr</div>\';' +
+    'if(!ig.habilitado){html+=\'<div class="cc-tg-val" style="color:var(--muted)">Não configurado</div>\';}' +
+    'else if(ig.dry_run){html+=\'<div class="cc-tg-val" style="color:var(--yellow)">Dry run ativo</div>\';}' +
+    'else if(ig.freeze_manutencao){html+=\'<div class="cc-tg-val" style="color:var(--yellow)">⏸ Congelado (manutenção)</div>\';}' +
+    'else if(!ult){html+=\'<div class="cc-tg-val" style="color:var(--muted)">Sem execução registrada</div>\';}' +
+    'else{' +
+    'var hoje=new Date().toISOString().slice(0,10);' +
+    'var executouHoje=ult.em&&ult.em.startsWith(hoje);' +
+    'var corRes=ult.resultado==="published"||ult.resultado==="dry_run"||ult.resultado==="job_enfileirado"?"var(--green)":ult.resultado==="skip"?"var(--cyan)":ult.resultado==="visual_guard_rejected"?"var(--red)":"var(--red)";' +
+    'var labelRes={published:"✓ Publicado",skip:"Sem elegível",failed:"Falha",job_enfileirado:"Enfileirado",dry_run:"Dry run",erro_nao_tratado:"Erro inesperado",visual_guard_rejected:"🛡 Visual Guard rejeitou"}[ult.resultado]||ult.resultado;' +
+    'if(!executouHoje){html+=\'<div class="cc-tg-val" style="color:var(--red)">⚠ Cron não disparou hoje</div>\';}' +
+    'else{html+=\'<div class="cc-tg-val" style="color:\'+corRes+\'">\'+esc(labelRes)+\'</div>\';}' +
+    'if(ult.candidato)html+=\'<div class="cc-tg-sub" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\'+esc(ult.candidato)+\'</div>\';' +
+    'if(ult.motivo&&ult.resultado!=="published")html+=\'<div class="cc-tg-sub" style="color:var(--muted-dim)">\'+esc(ult.motivo.slice(0,160))+\'</div>\';' +
+    'if(ult.em)html+=\'<div class="cc-tg-sub">Última exec: \'+esc(fmtHora(ult.em))+\'</div>\';' +
+    '}' +
+    'if(ig.proxima_janela)html+=\'<div class="cc-tg-sub">Próxima: \'+esc(fmtHora(ig.proxima_janela))+\'</div>\';' +
+    'if(ig.ultimo_heartbeat_vps)html+=\'<div class="cc-tg-sub">VPS heartbeat: \'+esc(fmtHora(ig.ultimo_heartbeat_vps))+\'</div>\';' +
+    'html+=\'</div>\';}' +
     // Aeroportos
     'if(e.aeroportos){var av=e.aeroportos;var me=av.meteo||null;' +
     'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Aeroportos — Meteorologia</div>\';' +
@@ -17694,7 +17744,7 @@ function renderCCDashboard() {
     'var badgeTexto=s.estadoGeral==="OPERACIONAL"?"🟢 OPERACIONAL":"🟠 ATENÇÃO";' +
     'var html=\'<div class="cc-status-badge \'+badgeClasse+\'">\'+badgeTexto+\'</div>\';' +
     'html+=\'<p style="font-size:13px;color:var(--muted);margin-bottom:18px">\'+esc(s.mensagem)+\'</p>\';' +
-    'var rotulos={coletorNoticias:"Coleta de notícias",editorial:"Pipeline editorial",offvoosAeroportos:"Aeroportos / OffVoos",mercado:"Mercado (cotações)",telegram:"Telegram",supabase:"Supabase",cloudflareAnalytics:"Cloudflare Analytics",googleAnalytics:"Google Analytics (GA4)",searchConsole:"Google Search Console"};' +
+    'var rotulos={coletorNoticias:"Coleta de notícias",editorial:"Pipeline editorial",offvoosAeroportos:"Aeroportos / OffVoos",mercado:"Mercado (cotações)",telegram:"Telegram",instagram:"Instagram @ownewsbr",supabase:"Supabase",cloudflareAnalytics:"Cloudflare Analytics",googleAnalytics:"Google Analytics (GA4)",searchConsole:"Google Search Console"};' +
     'html+=\'<div class="cc-secao"><h2>Fontes monitoradas</h2>\';' +
     'Object.keys(rotulos).forEach(function(k){' +
     'var f=s.fontes[k];if(!f)return;' +
