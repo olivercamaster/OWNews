@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Config isolada, só pra deploy do FRONTEND aprovado em produção (ownews-git).
+  // Nome fixo — nunca deve apontar pra outro Worker.
+  // Sem "assets", sem "vars", sem "triggers.crons": confirmado via API da
+  // Cloudflare em 2026-09-12 que a produção atual não usa nenhum desses —
+  // manter EXATAMENTE assim para não alterar nada além do código aprovado.
+  "name": "ownews-git",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-07",
+  // Dois Durable Objects, cada um com um propósito único e documentado no
+  // worker.js: PRESENCA (contador "leitores online agora", só memória,
+  // TTL 120s) e PAGEVIEWS (infra de "Mais Lidas", storage SQLite com
+  // retenção de 8 dias). Nenhum dos dois guarda IP/nome/e-mail/PII.
+  "durable_objects": {
+    "bindings": [
+      { "name": "PRESENCA", "class_name": "PresencaOnline" },
+      { "name": "PAGEVIEWS", "class_name": "PageViews" },
+      { "name": "PESQUISA", "class_name": "PesquisaSalarial" }
+    ]
+  },
+  // new_sqlite_classes (não new_classes): exigido pelo plano free da conta
+  // para Durable Objects — confirmado no primeiro deploy (erro 10097).
+  // Cada classe nova entra como uma migração própria, nunca reaberta.
+  "migrations": [
+    { "tag": "v1-presenca", "new_sqlite_classes": ["PresencaOnline"] },
+    { "tag": "v2-pageviews", "new_sqlite_classes": ["PageViews"] },
+    { "tag": "v3-pesquisa", "new_sqlite_classes": ["PesquisaSalarial"] }
+  ],
+  // AI (Etapa 6, 2026-09-24 — "Pergunte ao OWNews"): Workers AI, incluído no
+  // plano Free sem cartão/cobrança — 10.000 Neurons/dia grátis, testado
+  // isoladamente antes de ligar aqui (~1.6 neurons por resposta curta com
+  // @cf/meta/llama-3.2-3b-instruct). Acima do limite diário próprio do
+  // OWNews (bem menor que o teto da Cloudflare, ver PERGUNTE_IA_LIMITE_DIA
+  // no worker.js), o endpoint recusa educadamente — nunca cobra, nunca
+  // habilita plano pago.
+  "ai": { "binding": "AI" },
+  // KV dedicado só pro orçamento diário / rate limit / cache de perguntas
+  // normalizadas da IA — nenhum dado pessoal, só contadores e respostas já
+  // geradas (ver registrarUsoIA/perguntaEmCache no worker.js).
+  "kv_namespaces": [
+    { "binding": "PERGUNTE_IA_KV", "id": "cedf263f9dce418189dea07bce83eab0" }
+  ]
+}
