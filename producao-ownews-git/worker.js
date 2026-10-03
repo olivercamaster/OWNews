@@ -15913,13 +15913,45 @@ async function ccColetarDados(periodo, env) {
   let resumo = { visitantes: 0, visualizacoes: 0, recorrentes: null, novos: null, eventos: [], topPaths: [], origens: [], dispositivos: [], comparacao: null, topNoticias: [], janelaIncompleta: false, dadosDesde: null, janelaRealHorasConteudo: 192 };
   if (env.PAGEVIEWS) {
     try {
+      const janelaH = periodo === 'hoje' ? 24 : periodo === '7d' ? 168 : 192;
       const idDO = env.PAGEVIEWS.idFromName("global");
       const stub = env.PAGEVIEWS.get(idDO);
       const ctrlDO = new AbortController();
       const tmoDO = setTimeout(() => ctrlDO.abort(), 5000);
-      const respDO = await stub.fetch("https://pageviews.interno/resumo?periodo=" + encodeURIComponent(periodo), { signal: ctrlDO.signal });
+      const ctrlTop = new AbortController();
+      const tmoTop = setTimeout(() => ctrlTop.abort(), 4000);
+      const [respDO, respTop] = await Promise.all([
+        stub.fetch("https://pageviews.interno/resumo?periodo=" + encodeURIComponent(periodo), { signal: ctrlDO.signal }),
+        stub.fetch("https://pageviews.interno/top?horas=" + janelaH + "&limite=10", { signal: ctrlTop.signal }),
+      ]);
       clearTimeout(tmoDO);
+      clearTimeout(tmoTop);
       if (respDO.ok) resumo = await respDO.json();
+      if (respTop.ok) {
+        const dadosTop = await respTop.json();
+        const rankeados = (dadosTop.itens || []).filter(function(it) { return it.views >= 1; });
+        if (rankeados.length > 0) {
+          const idsTop = rankeados.slice(0, 8).map(function(it) { return it.article_id; });
+          const idsParam = idsTop.map(function(id) { return encodeURIComponent(id); }).join(',');
+          const ctrlSb = new AbortController();
+          const tmoSb = setTimeout(() => ctrlSb.abort(), 4000);
+          try {
+            const respArt = await fetch(
+              'https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,title&status=eq.published&id=in.(' + idsParam + ')',
+              { headers: { apikey: 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt' }, signal: ctrlSb.signal }
+            );
+            clearTimeout(tmoSb);
+            if (respArt.ok) {
+              const artigos = await respArt.json();
+              const mapaArtigos = {};
+              artigos.forEach(function(a) { mapaArtigos[a.id] = a.title; });
+              resumo.topNoticias = rankeados
+                .filter(function(it) { return mapaArtigos[it.article_id]; })
+                .map(function(it) { return { titulo: mapaArtigos[it.article_id], views: it.views }; });
+            }
+          } catch (_e2) { clearTimeout(tmoSb); }
+        }
+      }
     } catch {}
   }
 
