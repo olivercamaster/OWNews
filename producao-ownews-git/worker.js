@@ -1873,7 +1873,7 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 /* ---- Central do Trabalhador / Meus Certificados ---- */
 /* ---- Central do Trabalhador — Tech Interface ---- */
 .cw-header{margin-bottom:22px}
-.cw-header-nome{font-family:var(--ui);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan-dim);display:flex;align-items:center;gap:8px}
+.cw-header-nome{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--cyan-dim);display:flex;align-items:center;gap:8px}
 .cw-header-nome::before{content:'';display:inline-block;width:14px;height:1px;background:currentColor;opacity:.5}
 .cw-header-status{display:flex;align-items:center;gap:8px;margin:6px 0 2px}
 .cw-header-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -1923,6 +1923,7 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 /* sub + detail */
 .cw-card-sub{font-family:var(--ui);font-size:11px;color:var(--muted);line-height:1.35;margin-bottom:2px}
 .cw-card-detail{font-family:var(--ui);font-size:10.5px;color:var(--cyan-dim)}
+.cw-escala-gratis{font-family:var(--ui);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-top:3px}
 /* divider before footer */
 .cw-card-divider{height:1px;background:rgba(255,255,255,.04);margin:10px 0 10px}
 /* footer */
@@ -8084,18 +8085,19 @@ function renderCentralTrabalhador() {
     '<div class="cw-cards-grid">' +
 
     /* Card 1: Minha Escala */
-    '<a class="cw-card" href="/minha-escala" id="cwCardEscala">' +
+    '<a class="cw-card" href="/minha-escala" id="cwCardEscala" onclick="if(window.ownewsEvento)window.ownewsEvento(\'central_module_click\')">' +
     '<div class="cw-card-accent" id="cwAccentEscala"></div>' +
     '<div class="cw-card-inner">' +
     '<div class="cw-card-top"><span class="cw-card-eyebrow">ESCALA</span><span class="cw-card-status"><span class="cw-status-dot cw-status-dot--muted" id="cwEscalaDot"></span><span class="cw-status-lbl" id="cwEscalaStatusLbl">CONFIG</span></span></div>' +
     '<div class="cw-card-main cw-card-main--sm" id="cwEscalaMain">—</div>' +
-    '<div class="cw-card-sub" id="cwEscalaSub">Embarques · folgas · calendário</div>' +
+    '<div class="cw-card-sub" id="cwEscalaSub">Organize seus embarques e folgas do ano inteiro</div>' +
+    '<div class="cw-escala-gratis" id="cwEscalaGratis">GRÁTIS · SEM CADASTRO</div>' +
     '<div class="cw-card-divider"></div>' +
     '<div class="cw-card-footer"><span class="cw-card-cta" id="cwEscalaCta">CONFIGURAR</span><span class="cw-card-btn"><span class="cw-btn-arrow">→</span></span></div>' +
     '</div></a>' +
 
     /* Card 2: Meus Certificados */
-    '<a class="cw-card" href="/meus-certificados" id="cwCardCerts">' +
+    '<a class="cw-card" href="/meus-certificados" id="cwCardCerts" onclick="if(window.ownewsEvento)window.ownewsEvento(\'central_module_click\')">' +
     '<div class="cw-card-accent" id="cwAccentCerts"></div>' +
     '<div class="cw-card-inner">' +
     '<div class="cw-card-top"><span class="cw-card-eyebrow">DOCUMENTOS</span><span class="cw-card-status"><span class="cw-status-dot cw-status-dot--muted" id="cwCertsDot"></span><span class="cw-status-lbl" id="cwCertsStatusLbl">VAZIO</span></span></div>' +
@@ -8107,7 +8109,7 @@ function renderCentralTrabalhador() {
     '</div></a>' +
 
     /* Card 3: Vagas Offshore */
-    '<a class="cw-card" href="/vagas">' +
+    '<a class="cw-card" href="/vagas" onclick="if(window.ownewsEvento)window.ownewsEvento(\'central_module_click\')">' +
     '<div class="cw-card-accent cw-card-accent--green"></div>' +
     '<div class="cw-card-inner">' +
     '<div class="cw-card-top"><span class="cw-card-eyebrow">OPORTUNIDADES</span><span class="cw-card-status"><span class="cw-status-dot cw-status-dot--green"></span><span class="cw-status-lbl">VERIFICADAS</span></span></div>' +
@@ -8118,12 +8120,12 @@ function renderCentralTrabalhador() {
     '</div></a>' +
 
     /* Card 4: Minha Carreira */
-    '<a class="cw-card" href="/carreiras" id="cwCardCarreira">' +
+    '<a class="cw-card" href="/carreiras" id="cwCardCarreira" onclick="if(window.ownewsEvento)window.ownewsEvento(\'central_module_click\')">' +
     '<div class="cw-card-accent" id="cwAccentCarreira"></div>' +
     '<div class="cw-card-inner">' +
     '<div class="cw-card-top"><span class="cw-card-eyebrow" id="cwCarreiraEyebrow">CARREIRA</span><span class="cw-card-status"><span class="cw-status-dot cw-status-dot--muted" id="cwCarreiraDot"></span><span class="cw-status-lbl" id="cwCarreiraStatusLbl">OFFSHORE</span></span></div>' +
     '<div class="cw-card-main cw-card-main--sm" id="cwCarreiraMain">Offshore</div>' +
-    '<div class="cw-card-sub" id="cwCarreiraSub">Perfil e evolução da sua função</div>' +
+    '<div class="cw-card-sub" id="cwCarreiraSub">Funções · Salários · Carreira offshore</div>' +
     '<div class="cw-card-divider"></div>' +
     '<div class="cw-card-footer"><span class="cw-card-cta" id="cwCarreiraCta">VER CARREIRAS</span><span class="cw-card-btn"><span class="cw-btn-arrow">→</span></span></div>' +
     '</div></a>' +
@@ -8192,7 +8194,7 @@ function renderCentralTrabalhador() {
     '  // --- Cabeçalho pessoal ---\n' +
     '  var nome=meta.nome?meta.nome.split(" ")[0]:""; \n' +
     '  var nomeEl=document.getElementById("cwHeaderNome");\n' +
-    '  if(nomeEl&&nome)nomeEl.textContent="OLA, "+nome.toUpperCase();\n' +
+    '  if(nomeEl&&nome)nomeEl.textContent="Olá, "+nome.charAt(0).toUpperCase()+nome.slice(1).toLowerCase();\n' +
     '  var detalheEl=document.getElementById("cwHeaderDetalhe");\n' +
     '  // --- Escala ---\n' +
     '  var esc=carregarEscala();\n' +
@@ -8221,6 +8223,7 @@ function renderCentralTrabalhador() {
     '    if(escDot)escDot.className="cw-status-dot "+(calc.embarcado?"cw-status-dot--cyan":"cw-status-dot--green");\n' +
     '    if(escSLbl)escSLbl.textContent=calc.embarcado?"EMBARCADO":"FOLGA";\n' +
     '    if(accentEsc)accentEsc.className="cw-card-accent "+(calc.embarcado?"cw-card-accent--cyan":"cw-card-accent--green");\n' +
+    '    if(escGratis)escGratis.hidden=true;\n' +
     '  }\n' +
     '  // --- Certificados ---\n' +
     '  var certs=carregarCerts();\n' +
@@ -15434,6 +15437,13 @@ function renderMinhaEscala() {
     'try{renderCruzarSecao();}catch(_rcs){}' +
     '}' +
     '});' +
+    '(function(){' +
+    'var _st=false;' +
+    'function _onStart(){if(_st||escalaAtual)return;_st=true;if(window.ownewsEvento)window.ownewsEvento("minha_escala_started");}' +
+    'var _sel=document.getElementById("escalaTipo"),_dat=document.getElementById("escalaData");' +
+    'if(_sel)_sel.addEventListener("change",_onStart,{once:true});' +
+    'if(_dat)_dat.addEventListener("change",_onStart,{once:true});' +
+    '})();' +
 
     'document.getElementById("btnEditarEscala").addEventListener("click",function(){' +
     'expandirConfig();' +
@@ -16788,7 +16798,9 @@ const CC_MAPA_EVENTOS = {
   certificado_account_save_click: { grupo: "Central do Trabalhador", rotulo: "Cliques em salvar na conta" },
   certificado_alert_view: { grupo: "Central do Trabalhador", rotulo: "Alertas exibidos" },
   certificado_escala_insight_view: { grupo: "Central do Trabalhador", rotulo: "Insights escala×validade" },
-  central_home_click: { grupo: "Central do Trabalhador", rotulo: "Cliques na Home" }
+  central_home_click: { grupo: "Central do Trabalhador", rotulo: "Cliques na Home" },
+  central_module_click: { grupo: "Central do Trabalhador", rotulo: "Cliques nos módulos" },
+  minha_escala_started: { grupo: "Minha Escala", rotulo: "Configurações iniciadas" }
 };
 
 function ccAgruparEventos(eventos) {
