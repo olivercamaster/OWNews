@@ -83,9 +83,29 @@ check('Apoio com reticências (deve ser rejeitado no Template C)',
     return { ok, msg: ok ? 'endsWith "…" — contextoC retornaria null ✓' : 'sem reticências' };
 });
 
-console.log('\n=== MORPHO (candidato para recuperação) ===');
-check('Morpho headline',
+console.log('\n=== MORPHO ===');
+check('Morpho headline original (Title Case)',
   () => fitN1('Presidente da Petrobrás Diz que Resultados do Poço Morpho Aumenta Valor do Amapá e Indicam a Abertura de uma Nova Fronteira'));
+check('Morpho headline condensada (Petrobrás: ...)',
+  () => fitN1('Petrobrás: Resultados do poço Morpho aumentam o valor do Amapá e indicam a abertura de uma nova fronteira'));
+
+console.log('\n=== CATEGORIAS EDITORIAIS ===');
+check('Descoberta de campo',
+  () => fitN1('Petrobras anuncia descoberta de reservatório de óleo leve no Bloco FZA-M-59 na Margem Equatorial do Amapá'));
+check('Contrato de afretamento',
+  () => fitN1('Petrobras e Saipem fecham contrato de cinco anos para serviços de SURF no Campo de Mero na Bacia de Santos'));
+check('Acidente / incidente',
+  () => fitN1('Vazamento de óleo de pequeno porte é detectado próximo ao FPSO Cidade de Paraty na Bacia de Santos'));
+check('Declaração atribuída — forma original',
+  () => fitN1('Presidente da Equinor diz que empresa avalia expansão de portfólio no Brasil para além do campo de Bacalhau'));
+check('Declaração atribuída — forma condensada',
+  () => fitN1('Equinor: empresa avalia expansão de portfólio no Brasil para além do campo de Bacalhau'));
+check('Título com número cardinal',
+  () => fitN1('ANP registra produção de 3,2 milhões de barris por dia em setembro de 2026, novo recorde histórico'));
+check('Título com siglas múltiplas',
+  () => fitN1('PPSA e ANP publicam resultado do 17º Rodada da Cessão Onerosa com blocos no pré-sal de Santos'));
+check('Incidente com FPSO',
+  () => fitN1('FPSO Almirante Tamandaré interrompe operações no Campo de Búzios após detecção de anomalia no casco'));
 
 console.log(`\n=== RESULTADO: ${passed} passed, ${failed} failed ===\n`);
 if (failed > 0) process.exit(1);

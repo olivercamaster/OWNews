@@ -133,6 +133,7 @@ function tentarUpgradeWpThumbnail(url) {
 // Map image validation failure to a category code for fallback logging.
 function categorizarFallbackMotivo(motivo) {
   if (!motivo || motivo.includes('sem image_url')) return 'NO_IMAGE';
+  if (motivo.includes('EDITORIAL_IMAGE_REJECTED_SCREENSHOT')) return 'EDITORIAL_IMAGE_REJECTED_SCREENSHOT';
   if (motivo.includes('lista de fontes') || motivo.includes('domínio')) return 'IMAGE_DOMAIN_REJECTED';
   if (motivo.includes('falha ao buscar')) return 'IMAGE_DOWNLOAD_FAILED';
   if (motivo.includes('HTTP')) return 'IMAGE_HTTP_ERROR';
@@ -206,6 +207,19 @@ function normalizarCapitalizacaoTitulo(titulo) {
     if (i === 0) return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
     return p.toLowerCase();
   }).join(' ');
+}
+
+const ATRIBUICAO_DECLARACAO_RE = /^(?:Presidente[a]?|Diretora?|CEO|Ministra?|Secretári[ao]|Chefe)\s+(?:da|do|de|dos|das)\s+([A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ]\S+(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ]\S+){0,2})\s+(?:diz|afirma|confirma|declara|revela|destaca|ressalta)\s+que\s+(.+)$/;
+function condensarHeadlineSocial(titulo) {
+  if (!titulo || typeof titulo !== 'string') return titulo;
+  const m = ATRIBUICAO_DECLARACAO_RE.exec(titulo);
+  if (m) {
+    const entidade = m[1];
+    const corpo = m[2].charAt(0).toUpperCase() + m[2].slice(1);
+    const candidata = `${entidade}: ${corpo}`;
+    if (candidata.length < titulo.length - 8) return candidata;
+  }
+  return titulo;
 }
 
 function normalizarTitulo(t) {
@@ -427,6 +441,25 @@ function dimensoesPng(bytes) {
   return { largura, altura };
 }
 const PADROES_IMAGEM_INADEQUADA = ['favicon', 'logo', 'spcommon', 'sprite', 'icon', '.svg', 'placeholder'];
+// Filename patterns that signal non-editorial images (screenshots, app captures, WhatsApp).
+// URL-based only — no fetch needed — checked before any download.
+const PADROES_SCREENSHOT_FILENAME = [
+  /^screenshot[_\-]/i,      // Android/iOS: Screenshot_20231010_..., Screenshot-...
+  /^img-\d{6,8}-wa\d{4}/i,  // WhatsApp: IMG-20231010-WA0001
+  /[_.]wa\d{4}\./i,         // WhatsApp variant: ..._WA0001.jpg
+  /^captura[-_]/i,          // Portuguese: Captura_de_tela, Captura-...
+];
+function avaliarQualidadeEditorialImagem(imageUrl) {
+  if (!imageUrl) return { ok: true };
+  let filename;
+  try { filename = new URL(imageUrl).pathname.split('/').pop(); } catch { return { ok: true }; }
+  for (const pat of PADROES_SCREENSHOT_FILENAME) {
+    if (pat.test(filename)) {
+      return { ok: false, detalhe: `EDITORIAL_IMAGE_REJECTED_SCREENSHOT — filename indica screenshot/captura: ${filename}` };
+    }
+  }
+  return { ok: true };
+}
 const LARGURA_MINIMA_FOTO = 800;
 const ALTURA_MINIMA_FOTO = 500;
 
@@ -472,6 +505,8 @@ const DOMINIOS_FOTO_PERMITIDOS = [
 
 async function validarImagemArtigo(imageUrl, { tentativaUpgrade = false } = {}) {
   if (!imageUrl) return { ok: false, motivo: 'artigo sem image_url' };
+  const editorialCheck = avaliarQualidadeEditorialImagem(imageUrl);
+  if (!editorialCheck.ok) return { ok: false, motivo: editorialCheck.detalhe };
   let host;
   try { host = new URL(imageUrl).hostname; } catch { return { ok: false, motivo: 'URL de imagem malformada' }; }
   if (!DOMINIOS_FOTO_PERMITIDOS.some((d) => host === d || host.endsWith('.' + d))) {
@@ -502,6 +537,7 @@ async function validarImagemArtigo(imageUrl, { tentativaUpgrade = false } = {}) 
       if (fullResUrl !== imageUrl) {
         const tentativa = await validarImagemArtigo(fullResUrl, { tentativaUpgrade: true });
         if (tentativa.ok) return tentativa; // fotoUrl points to the full-res URL
+        if (tentativa.motivo && tentativa.motivo.includes('EDITORIAL_IMAGE_REJECTED')) return tentativa;
       }
     }
     return { ok: false, motivo: `resolução insuficiente (${dims.largura}x${dims.altura}, mínimo ${LARGURA_MINIMA_FOTO}x${ALTURA_MINIMA_FOTO})` };
@@ -705,7 +741,8 @@ async function enfileirarJanelaNoticia(env, janela) {
   // de novo (subrequest duplicado).
   const imagemResp = selecao.imagemResp || await validarImagemArtigo(artigo.image_url);
   const categoriaLabel = editoriaDeInstagram(artigo);
-  const headlineFinal = normalizarCapitalizacaoTitulo(artigo.title);
+  const headlineNorm = normalizarCapitalizacaoTitulo(artigo.title);
+  const headlineFinal = condensarHeadlineSocial(headlineNorm);
   const caption = gerarLegendaNoticia(artigo, headlineFinal);
   const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
   const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
@@ -992,7 +1029,8 @@ export default {
         }
         const imagemResp = await validarImagemArtigo(artigo.image_url);
         const categoriaLabel = editoriaDeInstagram(artigo);
-        const headlineFinal = normalizarCapitalizacaoTitulo(artigo.title);
+        const headlineNorm = normalizarCapitalizacaoTitulo(artigo.title);
+        const headlineFinal = condensarHeadlineSocial(headlineNorm);
         const caption = gerarLegendaNoticia(artigo, headlineFinal);
         const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
         const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
