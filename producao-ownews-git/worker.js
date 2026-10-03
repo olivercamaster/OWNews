@@ -1870,6 +1870,55 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 .sal-confianca.formacao{background:rgba(100,130,150,.12);color:var(--muted)}
 @media(max-width:600px){.sal-destaques{grid-template-columns:1fr}}
 
+/* ---- Central do Trabalhador / Meus Certificados ---- */
+.central-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+.central-bloco{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:20px 20px 16px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;transition:border-color .18s}
+.central-bloco:hover{border-color:var(--cyan-dim)}
+.central-bloco-icon{font-size:22px;line-height:1}
+.central-bloco-titulo{font-family:var(--ui);font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-dim)}
+.central-bloco-valor{font-family:var(--ui);font-size:26px;font-weight:700;color:var(--white);line-height:1.1}
+.central-bloco-sub{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:2px}
+.central-bloco-cta{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan-dim);margin-top:auto;padding-top:8px}
+.central-alerta-strip{background:rgba(255,212,77,.09);border:1px solid rgba(255,212,77,.25);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-family:var(--ui);font-size:13px;color:var(--yellow);display:flex;gap:8px;align-items:flex-start}
+.central-alerta-strip span{flex:1}
+.central-login-pill{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.central-login-pill p{font-family:var(--ui);font-size:13px;color:var(--muted);margin:0;flex:1}
+.central-login-pill a{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim);text-decoration:none;white-space:nowrap}
+.central-login-pill a:hover{text-decoration:underline}
+.central-dashboard{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:18px 20px;margin-bottom:20px}
+.central-dashboard-nome{font-family:var(--ui);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-dim)}
+.central-dashboard-status{font-family:var(--ui);font-size:22px;font-weight:800;color:var(--white);margin:4px 0}
+.central-dashboard-detalhe{font-family:var(--ui);font-size:12.5px;color:var(--muted)}
+
+.cert-lista{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.cert-card{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .18s}
+.cert-card:hover{border-color:var(--cyan-dim)}
+.cert-card-head{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+.cert-card-nome{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white)}
+.cert-badge{font-family:var(--ui);font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.cert-badge.valido{background:rgba(66,216,121,.12);color:#42d879}
+.cert-badge.atencao{background:rgba(255,212,77,.12);color:#ffd44d}
+.cert-badge.vencido{background:rgba(255,75,75,.12);color:#ff6b6b}
+.cert-badge.sem-data{background:rgba(100,130,150,.1);color:var(--muted)}
+.cert-card-validade{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:5px}
+.cert-card-insight{font-family:var(--ui);font-size:11.5px;color:var(--cyan-dim);margin-top:4px}
+.cert-card-detalhe{border-top:1px solid var(--line-soft);margin-top:12px;padding-top:12px;display:none;flex-direction:column;gap:8px}
+.cert-card-detalhe.aberto{display:flex}
+.cert-detalhe-campo{font-family:var(--ui);font-size:12.5px;color:var(--muted)}
+.cert-detalhe-campo strong{color:var(--white);font-weight:600}
+.cert-acoes{display:flex;gap:8px;margin-top:4px}
+.cert-btn-editar,.cert-btn-excluir{font-family:var(--ui);font-size:12px;font-weight:700;padding:6px 14px;border-radius:6px;border:1px solid var(--line-soft);background:transparent;cursor:pointer;transition:border-color .15s}
+.cert-btn-editar{color:var(--cyan-dim)}
+.cert-btn-editar:hover{border-color:var(--cyan-dim)}
+.cert-btn-excluir{color:#ff6b6b}
+.cert-btn-excluir:hover{border-color:#ff6b6b}
+
+.cert-form-wrap{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:20px;margin-bottom:20px;display:none}
+.cert-form-wrap.aberto{display:block}
+.cert-form-titulo{font-family:var(--ui);font-size:14px;font-weight:800;color:var(--white);margin-bottom:14px}
+.cert-vazio{font-family:var(--ui);font-size:13.5px;color:var(--muted);text-align:center;padding:32px 0}
+@media(max-width:600px){.central-grid{grid-template-columns:1fr}.cert-card-head{flex-wrap:wrap}}
+
 .busca-vazio{font-family:var(--ui);color:var(--muted-dim);text-align:center;padding:30px 0}
 
 @media(min-width:760px){
@@ -6211,6 +6260,8 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     '<a href="/calculadora-embarque" role="menuitem">Calculadora de Embarque</a>' +
 
     '<a href="/minha-escala" role="menuitem">Minha Escala</a>' +
+    '<a href="/central-do-trabalhador" role="menuitem">Central do Trabalhador</a>' +
+    '<a href="/meus-certificados" role="menuitem">Meus Certificados</a>' +
     '<div class="nav-mais-sep"></div>' +
     '<span class="nav-mais-label">Em desenvolvimento</span>' +
     '<a href="/vagas" role="menuitem">Vagas Verificadas</a>' +
@@ -7872,6 +7923,639 @@ function renderMeuOwnews(){
     "Sua central offshore no OWNews — aeroporto favorito, empresas seguidas, escala, novidades desde sua última visita e conta opcional para sincronizar tudo.",
     conteudo,
     "/meu-ownews"
+  );
+}
+
+/* ============================================================
+   renderCentralTrabalhador — /central-do-trabalhador
+   Hub pessoal: Minha Escala + Certificados + Vagas + Carreira.
+   Funciona sem login; sincroniza com conta quando disponível.
+   ============================================================ */
+function renderCentralTrabalhador() {
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central do Trabalhador Offshore" }]) +
+    '<div class="hub-hero">' +
+    '<span class="eyebrow">Área Pessoal · OWNews</span>' +
+    '<h1>Central do Trabalhador Offshore</h1>' +
+    '<p class="hub-lead">Sua vida offshore organizada em um só lugar — escala, certificados, vagas e carreira.</p>' +
+    '</div>' +
+    '<div id="centralLoginPill" class="central-login-pill" hidden>' +
+    '<p>Seus dados estão salvos neste dispositivo. Entre para mantê-los disponíveis em qualquer aparelho.</p>' +
+    '<a href="/meu-ownews">Entrar gratuitamente →</a>' +
+    '</div>' +
+    '<div id="centralDashboard" class="central-dashboard" hidden>' +
+    '<div class="central-dashboard-nome" id="centralSaudacao">Carregando...</div>' +
+    '<div class="central-dashboard-status" id="centralStatusEmbarque"></div>' +
+    '<div class="central-dashboard-detalhe" id="centralDetalheEmbarque"></div>' +
+    '</div>' +
+    '<div id="centralAlertaFaixa" class="central-alerta-strip" hidden>' +
+    '<span>⚠</span>' +
+    '<span id="centralAlertaTexto"></span>' +
+    '</div>' +
+    '<div class="central-grid">' +
+    '<a class="central-bloco" href="/minha-escala">' +
+    '<div class="central-bloco-icon">📅</div>' +
+    '<div class="central-bloco-titulo">Minha Escala</div>' +
+    '<div class="central-bloco-valor" id="centralEscalaValor">—</div>' +
+    '<div class="central-bloco-sub" id="centralEscalaSub"></div>' +
+    '<div class="central-bloco-cta">Abrir escala →</div>' +
+    '</a>' +
+    '<a class="central-bloco" href="/meus-certificados">' +
+    '<div class="central-bloco-icon">📋</div>' +
+    '<div class="central-bloco-titulo">Meus Certificados</div>' +
+    '<div class="central-bloco-valor" id="centralCertsValor">—</div>' +
+    '<div class="central-bloco-sub" id="centralCertsSub"></div>' +
+    '<div class="central-bloco-cta">Gerenciar →</div>' +
+    '</a>' +
+    '<a class="central-bloco" href="/vagas">' +
+    '<div class="central-bloco-icon">💼</div>' +
+    '<div class="central-bloco-titulo">Vagas</div>' +
+    '<div class="central-bloco-valor">' + VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).length + '</div>' +
+    '<div class="central-bloco-sub">oportunidades verificadas</div>' +
+    '<div class="central-bloco-cta">Ver vagas →</div>' +
+    '</a>' +
+    '<a class="central-bloco" href="/carreiras" id="centralCarreiraBloco">' +
+    '<div class="central-bloco-icon">🧭</div>' +
+    '<div class="central-bloco-titulo" id="centralCarreiraLabel">Minha Carreira</div>' +
+    '<div class="central-bloco-valor" id="centralCarreiraValor">Offshore</div>' +
+    '<div class="central-bloco-sub" id="centralCarreiraSub">Explore perfis de carreira</div>' +
+    '<div class="central-bloco-cta" id="centralCarreiraCta">Ver carreiras →</div>' +
+    '</a>' +
+    '</div>' +
+    '<script>(function(){\n' +
+    'var LS_ESCALA="ownews_minha_escala";\n' +
+    'var LS_CERTS="ownews_certificados";\n' +
+    'var LS_SESSAO="ownews_auth_sessao";\n' +
+    'var MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];\n' +
+    'function diasEntre(a,b){return Math.round((b-a)/86400000);}\n' +
+    'function fmtData(utc){var d=new Date(utc);return d.getUTCDate()+" "+MESES[d.getUTCMonth()]+".";}\n' +
+    'function getSessao(){try{return JSON.parse(localStorage.getItem(LS_SESSAO)||"null");}catch(e){return null;}}\n' +
+    'function carregarEscala(){\n' +
+    '  try{\n' +
+    '    var raw=localStorage.getItem(LS_ESCALA);\n' +
+    '    var salvo=raw?JSON.parse(raw):null;\n' +
+    '    // Tentar também de user_metadata se logado\n' +
+    '    if(!salvo||!salvo.data){\n' +
+    '      var s=getSessao();\n' +
+    '      if(s&&s.user&&s.user.user_metadata&&s.user.user_metadata.escala_config&&s.user.user_metadata.escala_config.data)\n' +
+    '        salvo=s.user.user_metadata.escala_config;\n' +
+    '    }\n' +
+    '    if(!salvo||!salvo.data)return null;\n' +
+    '    return salvo;\n' +
+    '  }catch(e){return null;}\n' +
+    '}\n' +
+    'function calcEscalaCentral(salvo){\n' +
+    '  var d=salvo.data;\n' +
+    '  var dEm=d.tipo==="14x14"||d.tipo==="14x21"||d.tipo==="14x28"?14:parseInt(d.diasEmbarcado,10);\n' +
+    '  var dFo=d.tipo==="14x14"?14:d.tipo==="14x21"?21:d.tipo==="14x28"?28:parseInt(d.diasFolga,10);\n' +
+    '  if(!dEm||!dFo||isNaN(dEm)||isNaN(dFo))return null;\n' +
+    '  var refUTC=new Date(d.dataRef).setUTCHours(12,0,0,0);\n' +
+    '  if(isNaN(refUTC))return null;\n' +
+    '  var anchor=d.tipoRef==="embarquei"?refUTC:refUTC-dEm*86400000;\n' +
+    '  var ciclo=dEm+dFo;\n' +
+    '  var agora=new Date().setUTCHours(12,0,0,0);\n' +
+    '  var fase=(Math.round((agora-anchor)/86400000)%ciclo+ciclo)%ciclo;\n' +
+    '  var embarcado=fase<dEm;\n' +
+    '  var diasRestantes=embarcado?dEm-fase:ciclo-fase;\n' +
+    '  var prox=agora+diasRestantes*86400000;\n' +
+    '  return{embarcado:embarcado,diasRestantes:diasRestantes,proxData:prox,dEm:dEm,dFo:dFo,ciclo:ciclo,anchor:anchor};\n' +
+    '}\n' +
+    'function carregarCerts(){\n' +
+    '  try{\n' +
+    '    var raw=localStorage.getItem(LS_CERTS);\n' +
+    '    var local=raw?JSON.parse(raw):[];\n' +
+    '    var s=getSessao();\n' +
+    '    var nuvem=s&&s.user&&s.user.user_metadata&&Array.isArray(s.user.user_metadata.certificados)?s.user.user_metadata.certificados:[];\n' +
+    '    return mergeCerts(local,nuvem);\n' +
+    '  }catch(e){return [];}\n' +
+    '}\n' +
+    'function mergeCerts(local,nuvem){\n' +
+    '  var map={};\n' +
+    '  local.concat(nuvem).forEach(function(c){\n' +
+    '    if(!map[c.id]||new Date(c.updated_at)>new Date(map[c.id].updated_at))map[c.id]=c;\n' +
+    '  });\n' +
+    '  return Object.values(map).filter(function(c){return !c._deleted;});\n' +
+    '}\n' +
+    'function statusCert(c,agora){\n' +
+    '  if(!c.validade)return"sem-data";\n' +
+    '  var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
+    '  var dias=diasEntre(agora,v);\n' +
+    '  if(dias<0)return"vencido";\n' +
+    '  if(dias<=90)return"atencao";\n' +
+    '  return"valido";\n' +
+    '}\n' +
+    'function atualizarUI(){\n' +
+    '  var agora=new Date().setUTCHours(12,0,0,0);\n' +
+    '  // Escala\n' +
+    '  var esc=carregarEscala();\n' +
+    '  var calc=esc?calcEscalaCentral(esc):null;\n' +
+    '  if(calc){\n' +
+    '    var eValor=document.getElementById("centralEscalaValor");\n' +
+    '    var eSub=document.getElementById("centralEscalaSub");\n' +
+    '    if(eValor)eValor.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";\n' +
+    '    if(eValor)eValor.style.color=calc.embarcado?"var(--cyan-dim)":"var(--green)";\n' +
+    '    if(eSub)eSub.textContent=(calc.embarcado?"Desembarca em ":"Embarca em ")+fmtData(calc.proxData)+" ("+calc.diasRestantes+" dias)";\n' +
+    '    // Dashboard\n' +
+    '    var dash=document.getElementById("centralDashboard");\n' +
+    '    if(dash){dash.hidden=false;}\n' +
+    '    var s=getSessao();\n' +
+    '    var nome=s&&s.user&&s.user.user_metadata&&s.user.user_metadata.nome?s.user.user_metadata.nome:"Olá";\n' +
+    '    var saud=document.getElementById("centralSaudacao");\n' +
+    '    if(saud)saud.textContent=nome.toUpperCase();\n' +
+    '    var st=document.getElementById("centralStatusEmbarque");\n' +
+    '    if(st)st.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";\n' +
+    '    var dt=document.getElementById("centralDetalheEmbarque");\n' +
+    '    if(dt)dt.textContent=(calc.embarcado?"Desembarca: ":"Próximo embarque: ")+fmtData(calc.proxData)+" · "+calc.diasRestantes+" dias";\n' +
+    '  }\n' +
+    '  // Certificados\n' +
+    '  var certs=carregarCerts();\n' +
+    '  var certValEl=document.getElementById("centralCertsValor");\n' +
+    '  var certSubEl=document.getElementById("centralCertsSub");\n' +
+    '  if(certs.length===0){\n' +
+    '    if(certValEl)certValEl.textContent="Nenhum";\n' +
+    '    if(certSubEl)certSubEl.textContent="Adicione seus certificados →";\n' +
+    '  } else {\n' +
+    '    var atencao=certs.filter(function(c){var st=statusCert(c,agora);return st==="atencao"||st==="vencido";});\n' +
+    '    if(certValEl)certValEl.textContent=certs.length;\n' +
+    '    if(certSubEl)certSubEl.textContent=atencao.length>0?atencao.length+" precisam de atenção":"todos em dia";\n' +
+    '    if(atencao.length>0&&certSubEl)certSubEl.style.color="var(--yellow)";\n' +
+    '    // Alerta do próximo vencimento\n' +
+    '    var proxVenc=null;\n' +
+    '    certs.forEach(function(c){\n' +
+    '      if(!c.validade)return;\n' +
+    '      var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
+    '      var dias=diasEntre(agora,v);\n' +
+    '      if(dias>=0&&dias<=90&&(!proxVenc||dias<proxVenc.dias))proxVenc={nome:c.nome,dias:dias,data:v};\n' +
+    '    });\n' +
+    '    if(proxVenc){\n' +
+    '      var faixa=document.getElementById("centralAlertaFaixa");\n' +
+    '      var txt=document.getElementById("centralAlertaTexto");\n' +
+    '      if(faixa&&txt){\n' +
+    '        faixa.hidden=false;\n' +
+    '        var msgAlerta=proxVenc.nome+" vence em "+proxVenc.dias+" dias ("+fmtData(proxVenc.data)+")";\n' +
+    '        // Cruzar com escala se disponível\n' +
+    '        if(calc){\n' +
+    '          var vData=new Date(proxVenc.data);\n' +
+    '          var faseV=(Math.round((vData.setUTCHours(12,0,0,0)-calc.anchor)/86400000)%calc.ciclo+calc.ciclo)%calc.ciclo;\n' +
+    '          var naFolga=faseV>=calc.dEm;\n' +
+    '          if(naFolga)msgAlerta+=" — vence durante sua folga.";\n' +
+    '          else msgAlerta+=" — vence enquanto você está embarcado.";\n' +
+    '          if(window.ownewsEvento)window.ownewsEvento("certificado_escala_insight_view");\n' +
+    '        }\n' +
+    '        txt.textContent=msgAlerta;\n' +
+    '        if(window.ownewsEvento)window.ownewsEvento("certificado_alert_view");\n' +
+    '      }\n' +
+    '    }\n' +
+    '  }\n' +
+    '  // Login pill para usuários não logados com dados locais\n' +
+    '  var s2=getSessao();\n' +
+    '  if(!s2&&(esc||certs.length>0)){\n' +
+    '    var pill=document.getElementById("centralLoginPill");\n' +
+    '    if(pill)pill.hidden=false;\n' +
+    '  }\n' +
+    '  // Carreira\n' +
+    '  var s3=getSessao();\n' +
+    '  if(s3&&s3.user&&s3.user.user_metadata&&s3.user.user_metadata.funcao){\n' +
+    '    var fn=s3.user.user_metadata.funcao;\n' +
+    '    var blocoCarreira=document.getElementById("centralCarreiraBloco");\n' +
+    '    var carreiraLabel=document.getElementById("centralCarreiraLabel");\n' +
+    '    var carreiraValor=document.getElementById("centralCarreiraValor");\n' +
+    '    var carreiraSub=document.getElementById("centralCarreiraSub");\n' +
+    '    var carreiraCta=document.getElementById("centralCarreiraCta");\n' +
+    '    if(blocoCarreira)blocoCarreira.href="/carreiras/"+fn;\n' +
+    '    if(carreiraLabel)carreiraLabel.textContent="MINHA CARREIRA";\n' +
+    '    if(carreiraValor)carreiraValor.textContent=fn.replace(/-/g," ").replace(/\\b\\w/g,function(l){return l.toUpperCase();});\n' +
+    '    if(carreiraSub)carreiraSub.textContent="Ver perfil completo";\n' +
+    '    if(carreiraCta)carreiraCta.textContent="Ver minha função →";\n' +
+    '  }\n' +
+    '}\n' +
+    'try{atualizarUI();}catch(e){}\n' +
+    'if(window.ownewsEvento)window.ownewsEvento("central_trabalhador_view");\n' +
+    '})();</script>' +
+
+    '<div class="hub-continue">' +
+    '<h2 class="secao-label">Explore também</h2>' +
+    '<div class="guias-grid">' +
+    cardGuia("/minha-escala", "Minha Escala", "Calcule próximo embarque e desembarque com seu tipo de escala.") +
+    cardGuia("/meus-certificados", "Meus Certificados", "CBSP, HUET, ASO, NR-37 — acompanhe validades e receba alertas.") +
+    cardGuia("/vagas", "Vagas Verificadas", "Oportunidades verificadas pelo OWNews.") +
+    cardGuia("/salarios", "Salários Offshore", "Dados de remuneração por função.") +
+    '</div></div>';
+  return paginaChrome(
+    "Central do Trabalhador Offshore",
+    "Sua vida offshore organizada em um só lugar — escala, certificados, vagas e carreira.",
+    conteudo,
+    "/central-do-trabalhador"
+  );
+}
+
+/* ============================================================
+   renderMeusCertificados — /meus-certificados
+   Gerenciamento de certificados e documentos com status de validade.
+   Dados salvos em localStorage; sincroniza com conta Supabase.
+   ============================================================ */
+function renderMeusCertificados() {
+  const CERTS_PREDEFINIDOS = [
+    "CBSP","HUET","T-HUET","CIR","ASO","NR-10","NR-33","NR-35","NR-37","STCW-Basic","Passaporte","Outro"
+  ];
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central do Trabalhador", href: "/central-do-trabalhador" }, { nome: "Meus Certificados" }]) +
+    '<div class="hub-hero">' +
+    '<span class="eyebrow">Área Pessoal · OWNews</span>' +
+    '<h1>Meus Certificados</h1>' +
+    '<p class="hub-lead">CBSP, HUET, ASO, NR-37 e outros — acompanhe validades, receba alertas e saiba quando renovar em relação à sua escala.</p>' +
+    '</div>' +
+
+    '<div id="certLoginAviso" class="central-login-pill" hidden>' +
+    '<p>Dados salvos neste dispositivo. Entre para sincronizar em qualquer aparelho.</p>' +
+    '<a href="/meu-ownews" id="certSalvarContaBtn">Salvar na minha conta →</a>' +
+    '</div>' +
+
+    '<div id="certAlertaFaixa" class="central-alerta-strip" hidden>' +
+    '<span>⚠</span>' +
+    '<span id="certAlertaTexto"></span>' +
+    '</div>' +
+
+    '<button type="button" class="btn-enviar-pesquisa" id="certBtnAdicionar" style="margin-bottom:12px">+ Adicionar certificado</button>' +
+
+    '<div class="cert-form-wrap" id="certFormWrap">' +
+    '<div class="cert-form-titulo" id="certFormTitulo">Novo certificado</div>' +
+    '<form class="form-pesquisa" id="certForm" style="margin:0">' +
+    '<input type="hidden" id="certFormId">' +
+    '<div class="campo-form">' +
+    '<label for="certFormNome">Certificado / Documento</label>' +
+    '<select id="certFormNome">' +
+    CERTS_PREDEFINIDOS.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('') +
+    '</select>' +
+    '</div>' +
+    '<div class="campo-form" id="certFormOutroWrap" hidden>' +
+    '<label for="certFormNomeOutro">Nome do certificado</label>' +
+    '<input type="text" id="certFormNomeOutro" maxlength="80" placeholder="Ex: EBS, FOET…">' +
+    '</div>' +
+    '<div class="campo-form">' +
+    '<label for="certFormValidade">Validade <span style="color:var(--muted-dim)">(obrigatória para alertas)</span></label>' +
+    '<input type="date" id="certFormValidade">' +
+    '</div>' +
+    '<div class="campo-form">' +
+    '<label for="certFormEmissao">Data de emissão <span style="color:var(--muted-dim)">(opcional)</span></label>' +
+    '<input type="date" id="certFormEmissao">' +
+    '</div>' +
+    '<div class="campo-form">' +
+    '<label for="certFormInstituicao">Instituição <span style="color:var(--muted-dim)">(opcional)</span></label>' +
+    '<input type="text" id="certFormInstituicao" maxlength="100" placeholder="Ex: SENAI, Cenformar…">' +
+    '</div>' +
+    '<div class="campo-form">' +
+    '<label for="certFormObs">Observação <span style="color:var(--muted-dim)">(opcional)</span></label>' +
+    '<input type="text" id="certFormObs" maxlength="200">' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:4px">' +
+    '<button type="submit" class="btn-enviar-pesquisa" id="certFormBtn">Salvar</button>' +
+    '<button type="button" class="compartilhar-link" id="certFormCancelar">Cancelar</button>' +
+    '</div>' +
+    '<div class="pesquisa-status" id="certFormStatus" style="margin-top:8px"></div>' +
+    '</form>' +
+    '</div>' +
+
+    '<div class="cert-lista" id="certLista">' +
+    '<div class="cert-vazio" id="certVazio">Nenhum certificado cadastrado. Clique em "+ Adicionar" para começar.</div>' +
+    '</div>' +
+
+    '<div class="hub-continue" style="margin-top:32px">' +
+    '<p class="campo-desc" style="font-family:var(--ui);font-size:12.5px;color:var(--muted-dim)">' +
+    'O OWNews não armazena cópias de documentos, CPF, número de certificado ou foto.' +
+    ' Só metadados: nome, datas, instituição e observação.' +
+    ' <a href="/privacidade" style="color:var(--cyan-dim)">Política de privacidade</a></p>' +
+    '</div>' +
+
+    '<script>(function(){\n' +
+    '"use strict";\n' +
+    'var LS_CERTS="ownews_certificados";\n' +
+    'var LS_ESCALA="ownews_minha_escala";\n' +
+    'var LS_SESSAO="ownews_auth_sessao";\n' +
+    'var SUPA_URL="https://awyowuhwkqfyhwgdpepp.supabase.co";\n' +
+    'var SUPA_KEY="sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt";\n' +
+    'var MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];\n' +
+    'var editandoId=null;\n' +
+    'function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}\n' +
+    'function diasEntre(a,b){return Math.round((b-a)/86400000);}\n' +
+    'function fmtData(utc){var d=new Date(utc);return d.getUTCDate()+" "+MESES[d.getUTCMonth()]+" "+d.getUTCFullYear();}\n' +
+    'function fmtDataCurta(s){if(!s)return"";var p=s.split("-");return p[2]+"/"+p[1]+"/"+p[0];}\n' +
+    'function getSessao(){try{return JSON.parse(localStorage.getItem(LS_SESSAO)||"null");}catch(e){return null;}}\n' +
+    'function carregarCertsLocal(){try{var r=localStorage.getItem(LS_CERTS);return r?JSON.parse(r):[];}catch(e){return[];}}\n' +
+    'function salvarCertsLocal(certs){try{localStorage.setItem(LS_CERTS,JSON.stringify(certs));}catch(e){}}\n' +
+    'function mergeCerts(local,nuvem){\n' +
+    '  var map={};\n' +
+    '  local.concat(nuvem).forEach(function(c){\n' +
+    '    if(!map[c.id]||new Date(c.updated_at)>new Date(map[c.id].updated_at))map[c.id]=c;\n' +
+    '  });\n' +
+    '  return Object.values(map);\n' +
+    '}\n' +
+    'function carregarCertsVisiveis(){\n' +
+    '  var local=carregarCertsLocal();\n' +
+    '  var s=getSessao();\n' +
+    '  var nuvem=s&&s.user&&s.user.user_metadata&&Array.isArray(s.user.user_metadata.certificados)?s.user.user_metadata.certificados:[];\n' +
+    '  return mergeCerts(local,nuvem).filter(function(c){return !c._deleted;});\n' +
+    '}\n' +
+    'function statusCert(c,agora){\n' +
+    '  if(!c.validade)return{cls:"sem-data",txt:"Sem data de validade"};\n' +
+    '  var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
+    '  var dias=diasEntre(agora,v);\n' +
+    '  if(dias<0)return{cls:"vencido",txt:"Vencido"};\n' +
+    '  if(dias===0)return{cls:"vencido",txt:"Vence hoje"};\n' +
+    '  if(dias<=7)return{cls:"atencao",txt:"Vence em "+dias+" dias"};\n' +
+    '  if(dias<=30)return{cls:"atencao",txt:"Vence em "+dias+" dias"};\n' +
+    '  if(dias<=90)return{cls:"atencao",txt:"Atenção · "+dias+" dias"};\n' +
+    '  return{cls:"valido",txt:"Válido"};\n' +
+    '}\n' +
+    'function carregarEscalaCalc(){\n' +
+    '  try{\n' +
+    '    var raw=localStorage.getItem(LS_ESCALA);\n' +
+    '    var salvo=raw?JSON.parse(raw):null;\n' +
+    '    if(!salvo||!salvo.data){var s=getSessao();if(s&&s.user&&s.user.user_metadata&&s.user.user_metadata.escala_config)salvo=s.user.user_metadata.escala_config;}\n' +
+    '    if(!salvo||!salvo.data)return null;\n' +
+    '    var d=salvo.data;\n' +
+    '    var dEm=d.tipo==="14x14"||d.tipo==="14x21"||d.tipo==="14x28"?14:parseInt(d.diasEmbarcado,10);\n' +
+    '    var dFo=d.tipo==="14x14"?14:d.tipo==="14x21"?21:d.tipo==="14x28"?28:parseInt(d.diasFolga,10);\n' +
+    '    if(!dEm||!dFo||isNaN(dEm)||isNaN(dFo))return null;\n' +
+    '    var refUTC=new Date(d.dataRef).setUTCHours(12,0,0,0);\n' +
+    '    if(isNaN(refUTC))return null;\n' +
+    '    var anchor=d.tipoRef==="embarquei"?refUTC:refUTC-dEm*86400000;\n' +
+    '    return{anchor:anchor,ciclo:dEm+dFo,dEm:dEm};\n' +
+    '  }catch(e){return null;}\n' +
+    '}\n' +
+    'function insightEscala(c,escCalc){\n' +
+    '  if(!c.validade||!escCalc)return null;\n' +
+    '  var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
+    '  var fase=(Math.round((v-escCalc.anchor)/86400000)%escCalc.ciclo+escCalc.ciclo)%escCalc.ciclo;\n' +
+    '  return fase>=escCalc.dEm?"Vence durante sua folga.":"Vence enquanto você está embarcado.";\n' +
+    '}\n' +
+    'function sinc(certs){\n' +
+    '  var s=getSessao();\n' +
+    '  if(!s||!s.user||!s.access_token)return;\n' +
+    '  var metaAtual=Object.assign({},s.user.user_metadata||{});\n' +
+    '  metaAtual.certificados=certs;\n' +
+    '  fetch(SUPA_URL+"/auth/v1/user",{method:"PUT",\n' +
+    '    headers:{"Content-Type":"application/json","Authorization":"Bearer "+s.access_token,"apikey":SUPA_KEY},\n' +
+    '    body:JSON.stringify({data:metaAtual})}).then(function(r){return r.json().then(function(d){\n' +
+    '      if(r.ok){s.user=d;try{localStorage.setItem(LS_SESSAO,JSON.stringify(s));}catch(e){}}\n' +
+    '    });}).catch(function(){});\n' +
+    '}\n' +
+    'function renderLista(){\n' +
+    '  var certs=carregarCertsVisiveis();\n' +
+    '  var agora=new Date().setUTCHours(12,0,0,0);\n' +
+    '  var lista=document.getElementById("certLista");\n' +
+    '  var vazio=document.getElementById("certVazio");\n' +
+    '  if(!lista)return;\n' +
+    '  // Manter o vazio no DOM mas escondê-lo\n' +
+    '  if(vazio)vazio.style.display=certs.length===0?"block":"none";\n' +
+    '  // Remover cards antigos (manter vazio)\n' +
+    '  var filhos=Array.from(lista.children);\n' +
+    '  filhos.forEach(function(f){if(!f.id||f.id!=="certVazio")f.remove();});\n' +
+    '  if(certs.length===0)return;\n' +
+    '  var escCalc=carregarEscalaCalc();\n' +
+    '  // Ordenar por vencimento (mais próximo primeiro, sem data no final)\n' +
+    '  certs.sort(function(a,b){\n' +
+    '    var av=a.validade?new Date(a.validade).getTime():Infinity;\n' +
+    '    var bv=b.validade?new Date(b.validade).getTime():Infinity;\n' +
+    '    return av-bv;\n' +
+    '  });\n' +
+    '  var alertas=[];\n' +
+    '  certs.forEach(function(c){\n' +
+    '    var st=statusCert(c,agora);\n' +
+    '    var ins=insightEscala(c,escCalc);\n' +
+    '    var dias="";\n' +
+    '    if(c.validade){\n' +
+    '      var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
+    '      var d=diasEntre(agora,v);\n' +
+    '      if(d>=0)dias=" · "+d+" dias";\n' +
+    '      if((st.cls==="atencao"||st.cls==="vencido")&&d>=-30)alertas.push({nome:c.nome,d:d,data:c.validade});\n' +
+    '    }\n' +
+    '    var card=document.createElement("div");\n' +
+    '    card.className="cert-card";\n' +
+    '    card.dataset.id=c.id;\n' +
+    '    card.innerHTML=\n' +
+    '      "<div class=\\"cert-card-head\\">" +\n' +
+    '      "<span class=\\"cert-card-nome\\">"+escHtml(c.nome)+"</span>" +\n' +
+    '      "<span class=\\"cert-badge "+st.cls+"\\">"+st.txt+"</span>" +\n' +
+    '      "</div>" +\n' +
+    '      (c.validade?"<div class=\\"cert-card-validade\\">Válido até "+fmtDataCurta(c.validade)+dias+"</div>":"") +\n' +
+    '      (ins?"<div class=\\"cert-card-insight\\">"+escHtml(ins)+"</div>":"") +\n' +
+    '      "<div class=\\"cert-card-detalhe\\" id=\\"det_"+c.id+"\\">" +\n' +
+    '      (c.emissao?"<div class=\\"cert-detalhe-campo\\"><strong>Emissão:</strong> "+fmtDataCurta(c.emissao)+"</div>":"") +\n' +
+    '      (c.instituicao?"<div class=\\"cert-detalhe-campo\\"><strong>Instituição:</strong> "+escHtml(c.instituicao)+"</div>":"") +\n' +
+    '      (c.obs?"<div class=\\"cert-detalhe-campo\\"><strong>Obs:</strong> "+escHtml(c.obs)+"</div>":"") +\n' +
+    '      "<div class=\\"cert-acoes\\">" +\n' +
+    '      "<button type=\\"button\\" class=\\"cert-btn-editar\\" data-id=\\""+c.id+"\\">Editar</button>" +\n' +
+    '      "<button type=\\"button\\" class=\\"cert-btn-excluir\\" data-id=\\""+c.id+"\\">Excluir</button>" +\n' +
+    '      "</div></div>";\n' +
+    '    lista.appendChild(card);\n' +
+    '  });\n' +
+    '  // Alerta faixa\n' +
+    '  var faixa=document.getElementById("certAlertaFaixa");\n' +
+    '  var alertaTxt=document.getElementById("certAlertaTexto");\n' +
+    '  if(faixa&&alertaTxt&&alertas.length>0){\n' +
+    '    var primeiro=alertas[0];\n' +
+    '    var msg=primeiro.nome+(primeiro.d<0?" está vencido.":" vence em "+primeiro.d+" dias.");\n' +
+    '    if(escCalc&&primeiro.d>=0){\n' +
+    '      var v2=new Date(primeiro.data).setUTCHours(12,0,0,0);\n' +
+    '      var fase2=(Math.round((v2-escCalc.anchor)/86400000)%escCalc.ciclo+escCalc.ciclo)%escCalc.ciclo;\n' +
+    '      msg+=fase2>=escCalc.dEm?" Vence durante sua folga.":" Vence enquanto você está embarcado.";\n' +
+    '    }\n' +
+    '    alertaTxt.textContent=msg;\n' +
+    '    faixa.hidden=false;\n' +
+    '    if(window.ownewsEvento)window.ownewsEvento("certificado_alert_view");\n' +
+    '  }\n' +
+    '  // Login pill\n' +
+    '  var s=getSessao();\n' +
+    '  if(!s){var pill=document.getElementById("certLoginAviso");if(pill)pill.hidden=false;}\n' +
+    '}\n' +
+    'function escHtml(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}\n' +
+    'function abrirForm(cert){\n' +
+    '  var wrap=document.getElementById("certFormWrap");\n' +
+    '  var titulo=document.getElementById("certFormTitulo");\n' +
+    '  var fid=document.getElementById("certFormId");\n' +
+    '  var sel=document.getElementById("certFormNome");\n' +
+    '  var outro=document.getElementById("certFormNomeOutro");\n' +
+    '  var outroWrap=document.getElementById("certFormOutroWrap");\n' +
+    '  var val=document.getElementById("certFormValidade");\n' +
+    '  var em=document.getElementById("certFormEmissao");\n' +
+    '  var inst=document.getElementById("certFormInstituicao");\n' +
+    '  var obs=document.getElementById("certFormObs");\n' +
+    '  if(!wrap)return;\n' +
+    '  if(cert){\n' +
+    '    editandoId=cert.id;\n' +
+    '    if(titulo)titulo.textContent="Editar certificado";\n' +
+    '    if(fid)fid.value=cert.id;\n' +
+    '    // Preencher campos\n' +
+    '    var predefs=["CBSP","HUET","T-HUET","CIR","ASO","NR-10","NR-33","NR-35","NR-37","STCW-Basic","Passaporte","Outro"];\n' +
+    '    if(sel){sel.value=predefs.indexOf(cert.nome)>=0?cert.nome:"Outro";}\n' +
+    '    if(outro)outro.value=predefs.indexOf(cert.nome)<0?cert.nome:"";\n' +
+    '    if(outroWrap)outroWrap.hidden=predefs.indexOf(cert.nome)>=0;\n' +
+    '    if(val)val.value=cert.validade||"";\n' +
+    '    if(em)em.value=cert.emissao||"";\n' +
+    '    if(inst)inst.value=cert.instituicao||"";\n' +
+    '    if(obs)obs.value=cert.obs||"";\n' +
+    '  } else {\n' +
+    '    editandoId=null;\n' +
+    '    if(titulo)titulo.textContent="Novo certificado";\n' +
+    '    if(fid)fid.value="";\n' +
+    '    if(sel)sel.value="CBSP";\n' +
+    '    if(outro)outro.value="";\n' +
+    '    if(outroWrap)outroWrap.hidden=true;\n' +
+    '    if(val)val.value="";\n' +
+    '    if(em)em.value="";\n' +
+    '    if(inst)inst.value="";\n' +
+    '    if(obs)obs.value="";\n' +
+    '  }\n' +
+    '  wrap.classList.add("aberto");\n' +
+    '  wrap.scrollIntoView({behavior:"smooth",block:"nearest"});\n' +
+    '  if(!cert&&window.ownewsEvento)window.ownewsEvento("certificado_add_start");\n' +
+    '  if(cert&&window.ownewsEvento)window.ownewsEvento("certificado_edit");\n' +
+    '}\n' +
+    'function fecharForm(){\n' +
+    '  var wrap=document.getElementById("certFormWrap");\n' +
+    '  if(wrap)wrap.classList.remove("aberto");\n' +
+    '  editandoId=null;\n' +
+    '}\n' +
+    '// Toggle detalhe ao clicar no card\n' +
+    'document.addEventListener("click",function(e){\n' +
+    '  var btn=e.target.closest(".cert-btn-editar");\n' +
+    '  if(btn){e.stopPropagation();var certs=carregarCertsVisiveis();var c=certs.find(function(x){return x.id===btn.dataset.id;});if(c)abrirForm(c);return;}\n' +
+    '  var btnEx=e.target.closest(".cert-btn-excluir");\n' +
+    '  if(btnEx){e.stopPropagation();excluirCert(btnEx.dataset.id);return;}\n' +
+    '  var card=e.target.closest(".cert-card");\n' +
+    '  if(card){\n' +
+    '    var det=document.getElementById("det_"+card.dataset.id);\n' +
+    '    if(det)det.classList.toggle("aberto");\n' +
+    '  }\n' +
+    '});\n' +
+    'function excluirCert(id){\n' +
+    '  if(!confirm("Excluir este certificado?"))return;\n' +
+    '  var certs=carregarCertsLocal();\n' +
+    '  var s=getSessao();\n' +
+    '  var nuvem=s&&s.user&&s.user.user_metadata&&Array.isArray(s.user.user_metadata.certificados)?s.user.user_metadata.certificados:[];\n' +
+    '  var merged=mergeCerts(certs,nuvem);\n' +
+    '  var now=new Date().toISOString();\n' +
+    '  var idx=merged.findIndex(function(c){return c.id===id;});\n' +
+    '  if(idx>=0){merged[idx]._deleted=true;merged[idx].updated_at=now;}\n' +
+    '  salvarCertsLocal(merged);\n' +
+    '  sinc(merged);\n' +
+    '  renderLista();\n' +
+    '  if(window.ownewsEvento)window.ownewsEvento("certificado_delete");\n' +
+    '}\n' +
+    'var btnAdd=document.getElementById("certBtnAdicionar");\n' +
+    'if(btnAdd)btnAdd.addEventListener("click",function(){abrirForm(null);});\n' +
+    'var btnCanc=document.getElementById("certFormCancelar");\n' +
+    'if(btnCanc)btnCanc.addEventListener("click",fecharForm);\n' +
+    'var sel2=document.getElementById("certFormNome");\n' +
+    'if(sel2)sel2.addEventListener("change",function(){\n' +
+    '  var ow=document.getElementById("certFormOutroWrap");\n' +
+    '  if(ow)ow.hidden=this.value!=="Outro";\n' +
+    '});\n' +
+    'var form=document.getElementById("certForm");\n' +
+    'if(form)form.addEventListener("submit",function(e){\n' +
+    '  e.preventDefault();\n' +
+    '  var sel3=document.getElementById("certFormNome");\n' +
+    '  var outro2=document.getElementById("certFormNomeOutro");\n' +
+    '  var nome=sel3?sel3.value:"";\n' +
+    '  if(nome==="Outro"){nome=outro2?outro2.value.trim():"";}\n' +
+    '  if(!nome){var st2=document.getElementById("certFormStatus");if(st2){st2.textContent="Informe o nome do certificado.";st2.className="pesquisa-status pesquisa-status-erro";}return;}\n' +
+    '  var valEl=document.getElementById("certFormValidade");\n' +
+    '  var emEl=document.getElementById("certFormEmissao");\n' +
+    '  var instEl=document.getElementById("certFormInstituicao");\n' +
+    '  var obsEl=document.getElementById("certFormObs");\n' +
+    '  var now=new Date().toISOString();\n' +
+    '  var fidEl=document.getElementById("certFormId");\n' +
+    '  var isEdicao=!!(fidEl&&fidEl.value);\n' +
+    '  var cert={\n' +
+    '    id:isEdicao?fidEl.value:uid(),\n' +
+    '    nome:nome,\n' +
+    '    validade:valEl&&valEl.value?valEl.value:null,\n' +
+    '    emissao:emEl&&emEl.value?emEl.value:null,\n' +
+    '    instituicao:instEl&&instEl.value?instEl.value.trim():null,\n' +
+    '    obs:obsEl&&obsEl.value?obsEl.value.trim():null,\n' +
+    '    updated_at:now\n' +
+    '  };\n' +
+    '  var certs2=carregarCertsLocal();\n' +
+    '  var s2=getSessao();\n' +
+    '  var nuvem2=s2&&s2.user&&s2.user.user_metadata&&Array.isArray(s2.user.user_metadata.certificados)?s2.user.user_metadata.certificados:[];\n' +
+    '  var merged2=mergeCerts(certs2,nuvem2);\n' +
+    '  var idxE=merged2.findIndex(function(c){return c.id===cert.id;});\n' +
+    '  if(idxE>=0)merged2[idxE]=cert;\n' +
+    '  else merged2.push(cert);\n' +
+    '  salvarCertsLocal(merged2);\n' +
+    '  sinc(merged2);\n' +
+    '  fecharForm();\n' +
+    '  renderLista();\n' +
+    '  if(window.ownewsEvento)window.ownewsEvento(isEdicao?"certificado_edit":"certificado_add");\n' +
+    '});\n' +
+    'var salvarContaBtn=document.getElementById("certSalvarContaBtn");\n' +
+    'if(salvarContaBtn)salvarContaBtn.addEventListener("click",function(){\n' +
+    '  if(window.ownewsEvento)window.ownewsEvento("certificado_account_save_click");\n' +
+    '});\n' +
+    'renderLista();\n' +
+    'if(window.ownewsEvento){\n' +
+    '  window.ownewsEvento("certificados_view");\n' +
+    '}\n' +
+    '})();</script>';
+
+  return paginaChrome(
+    "Meus Certificados Offshore",
+    "Acompanhe validades de CBSP, HUET, ASO, NR-37 e outros certificados offshore. Alertas de vencimento cruzados com sua escala.",
+    conteudo,
+    "/meus-certificados"
+  );
+}
+
+/* ============================================================
+   renderCertificadosOffshore — /certificados-offshore
+   Página pública/SEO explicando a ferramenta.
+   ============================================================ */
+function renderCertificadosOffshore() {
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Certificados Offshore" }]) +
+    '<div class="hub-hero">' +
+    '<span class="eyebrow">Guia OWNews</span>' +
+    '<h1>Certificados Offshore</h1>' +
+    '<p class="hub-lead">Como organizar e acompanhar os documentos necessários para trabalhar offshore — sem prazo vencido de surpresa.</p>' +
+    '</div>' +
+    '<div class="agora-secao">' +
+    '<h2 class="secao-label">Por que acompanhar validades</h2>' +
+    '<p>Certificados vencidos impedem o embarque. Uma ASO fora do prazo ou um HUET expirado podem causar substituição de última hora — com custo para o trabalhador e para a empresa. Acompanhar proativamente evita isso.</p>' +
+    '<p>O ideal é renovar com folga, especialmente quem tem escala longa (28x28 ou 21x21): uma janela de folga pode não coincidir com a data de um curso disponível.</p>' +
+    '</div>' +
+    '<div class="agora-secao">' +
+    '<h2 class="secao-label">Documentos comuns no setor</h2>' +
+    '<ul class="hub-lista">' +
+    '<li><strong>CBSP</strong> — Certificado Básico de Segurança para Plataformas. Obrigatório para embarque em plataformas brasileiras.</li>' +
+    '<li><strong>HUET</strong> — Helicopter Underwater Escape Training. Exigido para transporte por helicóptero.</li>' +
+    '<li><strong>T-HUET</strong> — Versão com módulo de piscina aquecida.</li>' +
+    '<li><strong>CIR</strong> — Certificado Internacional de Radiotelefonia. Exigido para funções específicas.</li>' +
+    '<li><strong>ASO</strong> — Atestado de Saúde Ocupacional. Renovação periódica obrigatória.</li>' +
+    '<li><strong>NR-10, NR-33, NR-35, NR-37</strong> — Normas Regulamentadoras de segurança exigidas conforme a função.</li>' +
+    '<li><strong>Passaporte</strong> — Necessário para unidades em águas internacionais ou em navios de bandeira estrangeira.</li>' +
+    '<li><strong>STCW-Basic</strong> — Certificações STCW para profissionais em embarcações.</li>' +
+    '</ul>' +
+    '<p style="margin-top:12px;font-family:var(--ui);font-size:12.5px;color:var(--muted-dim)">Nota: exigências variam por empresa, contrato e unidade. Esta lista é informativa. O OWNews não publica prazos regulatórios sem fonte oficial.</p>' +
+    '</div>' +
+    '<div class="agora-secao">' +
+    '<h2 class="secao-label">Ferramenta gratuita</h2>' +
+    '<p>O OWNews oferece uma ferramenta gratuita para acompanhar validades — sem cadastro obrigatório, sem CPF, sem cópia de documento.</p>' +
+    cardGuia("/meus-certificados", "Meus Certificados", "Cadastre CBSP, HUET, ASO e outros. Alertas de vencimento cruzados com sua escala.") +
+    '</div>' +
+    '<div class="hub-continue">' +
+    '<h2 class="secao-label">Veja também</h2>' +
+    '<div class="guias-grid">' +
+    cardGuia("/guias/checklist-documentos", "Checklist de Documentos", "Lista interativa para conferir o que está em dia antes do embarque.") +
+    cardGuia("/cursos", "Cursos e Escolas", "Treinamentos comuns para quem trabalha offshore no Brasil.") +
+    cardGuia("/central-do-trabalhador", "Central do Trabalhador", "Escala, certificados, vagas e carreira em um só lugar.") +
+    '</div></div>';
+
+  return paginaChrome(
+    "Certificados Offshore — Como organizar e acompanhar validades",
+    "Guia sobre documentos e certificados para trabalho offshore: CBSP, HUET, ASO, NR-37 e mais. Ferramenta gratuita para acompanhar validades.",
+    conteudo,
+    "/certificados-offshore"
   );
 }
 
@@ -15907,7 +16591,23 @@ const CC_MAPA_EVENTOS = {
   cross_invite_created: { grupo: "Escalas Conectadas", rotulo: "Convites criados" },
   cross_invite_accepted: { grupo: "Escalas Conectadas", rotulo: "Convites aceitos" },
   cross_partner_loaded: { grupo: "Escalas Conectadas", rotulo: "Parceiros carregados" },
-  cross_disconnected: { grupo: "Escalas Conectadas", rotulo: "Desconexões" }
+  cross_disconnected: { grupo: "Escalas Conectadas", rotulo: "Desconexões" },
+  salarios_hub_view: { grupo: "Salários", rotulo: "Acessos ao hub" },
+  salario_funcao_view: { grupo: "Salários", rotulo: "Acessos a funções" },
+  salario_busca: { grupo: "Salários", rotulo: "Buscas" },
+  salario_contribuir_click: { grupo: "Salários", rotulo: "Cliques em contribuir" },
+  pesquisa_salarial_page_view: { grupo: "Pesquisa Salarial", rotulo: "Acessos ao formulário" },
+  pesquisa_salarial_start: { grupo: "Pesquisa Salarial", rotulo: "Inícios de preenchimento" },
+  pesquisa_salarial_submit: { grupo: "Pesquisa Salarial", rotulo: "Envios" },
+  central_trabalhador_view: { grupo: "Central do Trabalhador", rotulo: "Acessos" },
+  certificados_view: { grupo: "Central do Trabalhador", rotulo: "Acessos a certificados" },
+  certificado_add_start: { grupo: "Central do Trabalhador", rotulo: "Adições iniciadas" },
+  certificado_add: { grupo: "Central do Trabalhador", rotulo: "Certificados adicionados" },
+  certificado_edit: { grupo: "Central do Trabalhador", rotulo: "Certificados editados" },
+  certificado_delete: { grupo: "Central do Trabalhador", rotulo: "Certificados excluídos" },
+  certificado_account_save_click: { grupo: "Central do Trabalhador", rotulo: "Cliques em salvar na conta" },
+  certificado_alert_view: { grupo: "Central do Trabalhador", rotulo: "Alertas exibidos" },
+  certificado_escala_insight_view: { grupo: "Central do Trabalhador", rotulo: "Insights escala×validade" }
 };
 
 function ccAgruparEventos(eventos) {
@@ -17342,6 +18042,24 @@ export default {
 
     if (url.pathname === "/ferramentas") {
       return new Response(renderFerramentas(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
+    if (url.pathname === "/central-do-trabalhador") {
+      return new Response(renderCentralTrabalhador(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
+    if (url.pathname === "/meus-certificados") {
+      return new Response(renderMeusCertificados(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8" }
+      });
+    }
+
+    if (url.pathname === "/certificados-offshore") {
+      return new Response(renderCertificadosOffshore(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
     }
