@@ -1871,24 +1871,70 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 @media(max-width:600px){.sal-destaques{grid-template-columns:1fr}}
 
 /* ---- Central do Trabalhador / Meus Certificados ---- */
-.central-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
-.central-bloco{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:20px 20px 16px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;transition:border-color .18s}
-.central-bloco:hover{border-color:var(--cyan-dim)}
-.central-bloco-icon{font-size:22px;line-height:1}
-.central-bloco-titulo{font-family:var(--ui);font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-dim)}
-.central-bloco-valor{font-family:var(--ui);font-size:26px;font-weight:700;color:var(--white);line-height:1.1}
-.central-bloco-sub{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:2px}
-.central-bloco-cta{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan-dim);margin-top:auto;padding-top:8px}
-.central-alerta-strip{background:rgba(255,212,77,.09);border:1px solid rgba(255,212,77,.25);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-family:var(--ui);font-size:13px;color:var(--yellow);display:flex;gap:8px;align-items:flex-start}
-.central-alerta-strip span{flex:1}
-.central-login-pill{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.central-login-pill p{font-family:var(--ui);font-size:13px;color:var(--muted);margin:0;flex:1}
-.central-login-pill a{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim);text-decoration:none;white-space:nowrap}
-.central-login-pill a:hover{text-decoration:underline}
-.central-dashboard{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:18px 20px;margin-bottom:20px}
-.central-dashboard-nome{font-family:var(--ui);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-dim)}
-.central-dashboard-status{font-family:var(--ui);font-size:22px;font-weight:800;color:var(--white);margin:4px 0}
-.central-dashboard-detalhe{font-family:var(--ui);font-size:12.5px;color:var(--muted)}
+/* cw-header: cabeçalho pessoal compacto */
+.cw-header{margin-bottom:20px}
+.cw-header-nome{font-family:var(--ui);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-dim)}
+.cw-header-status{display:flex;align-items:center;gap:8px;margin:4px 0 2px}
+.cw-header-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cw-header-status-dot.embarcado{background:var(--cyan);box-shadow:0 0 6px rgba(18,168,238,.5)}
+.cw-header-status-dot.folga{background:var(--green);box-shadow:0 0 6px rgba(66,216,121,.4)}
+.cw-header-status-label{font-family:var(--ui);font-size:20px;font-weight:800;color:var(--white);line-height:1.1}
+.cw-header-detalhe{font-family:var(--ui);font-size:12.5px;color:var(--muted)}
+/* cw-alerta-strip */
+.cw-alerta-strip{background:rgba(255,212,77,.08);border:1px solid rgba(255,212,77,.22);border-radius:8px;padding:11px 14px;margin-bottom:16px;font-family:var(--ui);font-size:12.5px;color:var(--yellow);display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer;transition:border-color .18s}
+.cw-alerta-strip:hover{border-color:rgba(255,212,77,.5)}
+.cw-alerta-icon{font-size:15px;flex-shrink:0}
+.cw-alerta-texto{flex:1}
+.cw-alerta-cta{font-weight:700;flex-shrink:0;color:var(--yellow);font-size:11.5px}
+/* cw-cards-grid + cw-card */
+.cw-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+.cw-card{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;position:relative;transition:border-color .18s,background .18s;-webkit-tap-highlight-color:transparent}
+.cw-card:hover{border-color:var(--cyan-dim);background:var(--navy-700)}
+.cw-card:active{transform:scale(.985);transition:transform .08s}
+@media(prefers-reduced-motion:reduce){.cw-card{transition:none}.cw-card:active{transform:none}}
+.cw-card-accent{height:3px;background:var(--line-soft);transition:background .18s}
+.cw-card-accent--cyan{background:var(--cyan-dim)}
+.cw-card-accent--green{background:var(--green)}
+.cw-card-accent--yellow{background:var(--yellow)}
+.cw-card-inner{padding:16px 16px 14px;display:flex;flex-direction:column;flex:1;gap:0}
+.cw-card-top{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.cw-card-icon{font-size:18px;line-height:1;flex-shrink:0}
+.cw-card-eyebrow{font-family:var(--ui);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-dim)}
+.cw-card-main{font-family:var(--ui);font-size:22px;font-weight:800;color:var(--white);line-height:1.1;margin-bottom:4px}
+.cw-card-main--cyan{color:var(--cyan-dim)}
+.cw-card-main--green{color:var(--green)}
+.cw-card-main--yellow{color:var(--yellow)}
+.cw-card-main--red{color:#ff6b6b}
+.cw-card-sub{font-family:var(--ui);font-size:11.5px;color:var(--muted);line-height:1.4;margin-bottom:4px}
+.cw-card-detail{font-family:var(--ui);font-size:11px;color:var(--cyan-dim);margin-bottom:2px}
+.cw-card-footer{margin-top:auto;padding-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cw-card-cta{font-family:var(--ui);font-size:11.5px;font-weight:800;color:var(--cyan-dim);letter-spacing:.02em}
+.cw-card:hover .cw-card-cta{text-decoration:underline}
+.cw-badge{font-family:var(--ui);font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;letter-spacing:.04em;flex-shrink:0}
+.cw-badge--gratis{background:rgba(18,168,238,.12);color:var(--cyan-dim)}
+.cw-badge--embarcado{background:rgba(18,168,238,.12);color:var(--cyan-dim)}
+.cw-badge--folga{background:rgba(66,216,121,.12);color:var(--green)}
+.cw-badge--atencao{background:rgba(255,212,77,.12);color:var(--yellow)}
+.cw-badge--vencido{background:rgba(255,75,75,.12);color:#ff6b6b}
+/* cw-login-pill */
+.cw-login-pill{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:8px;padding:12px 16px;margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cw-login-pill p{font-family:var(--ui);font-size:12.5px;color:var(--muted);margin:0;flex:1}
+.cw-login-pill a{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan-dim);text-decoration:none;white-space:nowrap}
+.cw-login-pill a:hover{text-decoration:underline}
+/* Home CTA — Central do Trabalhador */
+.central-home-cta{display:flex;align-items:center;gap:14px;background:var(--navy-800);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;text-decoration:none;color:inherit;cursor:pointer;transition:border-color .18s,background .18s;-webkit-tap-highlight-color:transparent;margin-top:2px}
+.central-home-cta:hover{border-color:var(--cyan-dim);background:var(--navy-700)}
+.central-home-cta:active{transform:scale(.99);transition:transform .08s}
+@media(prefers-reduced-motion:reduce){.central-home-cta{transition:none}.central-home-cta:active{transform:none}}
+.chc-accent{width:3px;height:40px;background:var(--cyan-dim);border-radius:2px;flex-shrink:0;opacity:.7}
+.chc-icon{font-size:22px;flex-shrink:0}
+.chc-corpo{flex:1;min-width:0}
+.chc-title{font-family:var(--ui);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-dim);display:block}
+.chc-main{font-family:var(--ui);font-size:15px;font-weight:700;color:var(--white);display:block;margin-top:2px}
+.chc-sub{font-family:var(--ui);font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+.chc-cta{font-family:var(--ui);font-size:12px;font-weight:800;color:var(--cyan-dim);flex-shrink:0;letter-spacing:.02em}
+.central-home-cta:hover .chc-cta{text-decoration:underline}
+@media(max-width:400px){.chc-accent{display:none}}
 
 .cert-lista{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .cert-card{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .18s}
@@ -2128,6 +2174,67 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
       <a class="access-cta" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">SEGUIR ↗</a>
     </div>
   </nav>
+
+  <a class="central-home-cta" href="/central-do-trabalhador" id="centralHomeCta" onclick="if(window.ownewsEvento)window.ownewsEvento('central_home_click')">
+    <span class="chc-accent" aria-hidden="true"></span>
+    <span class="chc-icon" id="chcIcon" aria-hidden="true">🧑‍✈️</span>
+    <span class="chc-corpo">
+      <span class="chc-title" id="chcTitle">CENTRAL DO TRABALHADOR</span>
+      <span class="chc-main" id="chcMain">Sua área pessoal offshore</span>
+      <span class="chc-sub" id="chcSub">Escala · Certificados · Vagas · Carreira</span>
+    </span>
+    <span class="chc-cta" aria-hidden="true">ACESSAR →</span>
+  </a>
+  <script>(function(){
+  try{
+    var LS_ESCALA="ownews_minha_escala";
+    var LS_CERTS="ownews_certificados";
+    var LS_SESSAO="ownews_auth_sessao";
+    var MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    var s=null;try{s=JSON.parse(localStorage.getItem(LS_SESSAO)||"null");}catch(e){}
+    var meta=(s&&s.user&&s.user.user_metadata)||{};
+    var nome=meta.nome?meta.nome.split(" ")[0]:"";
+    var rawEsc=localStorage.getItem(LS_ESCALA);
+    var esc=rawEsc?JSON.parse(rawEsc):null;
+    if(!esc&&meta.escala_config&&meta.escala_config.data)esc=meta.escala_config;
+    var rawCerts=localStorage.getItem(LS_CERTS);
+    var certs=rawCerts?JSON.parse(rawCerts):[];
+    var agora=new Date().setUTCHours(12,0,0,0);
+    var main=document.getElementById("chcMain");
+    var sub=document.getElementById("chcSub");
+    var icon=document.getElementById("chcIcon");
+    if(esc&&esc.data){
+      var d=esc.data;
+      var dEm=d.tipo==="14x14"||d.tipo==="14x21"||d.tipo==="14x28"?14:parseInt(d.diasEmbarcado,10);
+      var dFo=d.tipo==="14x14"?14:d.tipo==="14x21"?21:d.tipo==="14x28"?28:parseInt(d.diasFolga,10);
+      if(dEm&&dFo&&!isNaN(dEm)&&!isNaN(dFo)){
+        var refUTC=new Date(d.dataRef).setUTCHours(12,0,0,0);
+        var anchor=d.tipoRef==="embarquei"?refUTC:refUTC-dEm*86400000;
+        var ciclo=dEm+dFo;
+        var fase=(Math.round((agora-anchor)/86400000)%ciclo+ciclo)%ciclo;
+        var embarcado=fase<dEm;
+        var diasRest=embarcado?dEm-fase:ciclo-fase;
+        var proxData=agora+diasRest*86400000;
+        var pd=new Date(proxData);
+        var pdStr=pd.getUTCDate()+" "+MESES[pd.getUTCMonth()]+".";
+        if(main)main.textContent=nome?"Olá, "+nome+" — "+(embarcado?"Embarcado":"Em folga"):(embarcado?"Você está embarcado":"Você está de folga");
+        if(sub)sub.textContent=(embarcado?"Desembarque em ":"Próximo embarque em ")+diasRest+" dias ("+pdStr+")";
+        if(icon)icon.textContent=embarcado?"⚓":"🏠";
+      }
+    } else if(certs.length>0){
+      var att=certs.filter(function(c){
+        if(!c.validade)return false;
+        var v=new Date(c.validade).setUTCHours(12,0,0,0);
+        return Math.round((v-agora)/86400000)<=90;
+      });
+      if(main&&nome)main.textContent="Olá, "+nome+" — sua área pessoal";
+      if(sub&&att.length>0)sub.textContent=att.length+" certificado"+(att.length===1?" vence":" vencem")+" em breve · Escala · Vagas";
+      else if(sub)sub.textContent="Escala · "+certs.length+" certificados · Vagas · Carreira";
+    } else if(nome&&main){
+      main.textContent="Olá, "+nome+" — sua área pessoal";
+    }
+  }catch(e){}
+  })();</script>
 
   <!-- Ajuste Visual Final da Home (2026-09-27): ordem do topo agora é
        Minha Escala → Atalhos → Giro 24h → Aeroportos → Mercado →
@@ -7932,69 +8039,95 @@ function renderMeuOwnews(){
    Funciona sem login; sincroniza com conta quando disponível.
    ============================================================ */
 function renderCentralTrabalhador() {
+  const nVagas = VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).length;
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central do Trabalhador Offshore" }]) +
-    '<div class="hub-hero">' +
-    '<span class="eyebrow">Área Pessoal · OWNews</span>' +
-    '<h1>Central do Trabalhador Offshore</h1>' +
-    '<p class="hub-lead">Sua vida offshore organizada em um só lugar — escala, certificados, vagas e carreira.</p>' +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central do Trabalhador" }]) +
+
+    /* Cabeçalho pessoal — preenchido via JS */
+    '<div class="cw-header">' +
+    '<div class="cw-header-nome" id="cwHeaderNome">CENTRAL DO TRABALHADOR</div>' +
+    '<div class="cw-header-status" id="cwHeaderStatus" hidden>' +
+    '<span class="cw-header-status-dot" id="cwHeaderDot"></span>' +
+    '<span class="cw-header-status-label" id="cwHeaderStatusLabel"></span>' +
     '</div>' +
-    '<div id="centralLoginPill" class="central-login-pill" hidden>' +
-    '<p>Seus dados estão salvos neste dispositivo. Entre para mantê-los disponíveis em qualquer aparelho.</p>' +
+    '<div class="cw-header-detalhe" id="cwHeaderDetalhe">Suas ferramentas offshore em um só lugar.</div>' +
+    '</div>' +
+
+    /* Alerta strip — oculta, aparece se há cert vencendo em ≤90 dias */
+    '<a class="cw-alerta-strip" href="/meus-certificados" id="cwAlertaStrip" hidden>' +
+    '<span class="cw-alerta-icon">⚠</span>' +
+    '<span class="cw-alerta-texto" id="cwAlertaTexto"></span>' +
+    '<span class="cw-alerta-cta">VER →</span>' +
+    '</a>' +
+
+    /* 4 cards em grid 2×2 */
+    '<div class="cw-cards-grid">' +
+
+    /* Card 1: Minha Escala */
+    '<a class="cw-card" href="/minha-escala" id="cwCardEscala">' +
+    '<div class="cw-card-accent" id="cwAccentEscala"></div>' +
+    '<div class="cw-card-inner">' +
+    '<div class="cw-card-top"><span class="cw-card-icon">📅</span><span class="cw-card-eyebrow">MINHA ESCALA</span></div>' +
+    '<div class="cw-card-main" id="cwEscalaMain">Configure sua escala</div>' +
+    '<div class="cw-card-sub" id="cwEscalaSub">embarques · folgas · calendário anual</div>' +
+    '<div class="cw-card-footer">' +
+    '<span class="cw-card-cta" id="cwEscalaCta">MONTAR MINHA ESCALA →</span>' +
+    '<span class="cw-badge cw-badge--gratis" id="cwEscalaGratis">GRÁTIS</span>' +
+    '</div></div></a>' +
+
+    /* Card 2: Meus Certificados */
+    '<a class="cw-card" href="/meus-certificados" id="cwCardCerts">' +
+    '<div class="cw-card-accent" id="cwAccentCerts"></div>' +
+    '<div class="cw-card-inner">' +
+    '<div class="cw-card-top"><span class="cw-card-icon">📋</span><span class="cw-card-eyebrow">MEUS CERTIFICADOS</span></div>' +
+    '<div class="cw-card-main" id="cwCertsMain">Nenhum cadastrado</div>' +
+    '<div class="cw-card-sub" id="cwCertsSub">Acompanhe validades de CBSP, HUET, ASO e outros</div>' +
+    '<div class="cw-card-detail" id="cwCertsDetail" hidden></div>' +
+    '<div class="cw-card-footer">' +
+    '<span class="cw-card-cta" id="cwCertsCta">+ ADICIONAR →</span>' +
+    '</div></div></a>' +
+
+    /* Card 3: Vagas Offshore */
+    '<a class="cw-card" href="/vagas">' +
+    '<div class="cw-card-accent cw-card-accent--green"></div>' +
+    '<div class="cw-card-inner">' +
+    '<div class="cw-card-top"><span class="cw-card-icon">💼</span><span class="cw-card-eyebrow">VAGAS OFFSHORE</span></div>' +
+    '<div class="cw-card-main cw-card-main--green">' + nVagas + '</div>' +
+    '<div class="cw-card-sub">oportunidades verificadas</div>' +
+    '<div class="cw-card-footer"><span class="cw-card-cta">VER VAGAS →</span></div>' +
+    '</div></a>' +
+
+    /* Card 4: Minha Carreira */
+    '<a class="cw-card" href="/carreiras" id="cwCardCarreira">' +
+    '<div class="cw-card-accent" id="cwAccentCarreira"></div>' +
+    '<div class="cw-card-inner">' +
+    '<div class="cw-card-top"><span class="cw-card-icon">🧭</span><span class="cw-card-eyebrow" id="cwCarreiraEyebrow">CARREIRA OFFSHORE</span></div>' +
+    '<div class="cw-card-main" id="cwCarreiraMain">Offshore</div>' +
+    '<div class="cw-card-sub" id="cwCarreiraSub">Perfil, requisitos e conteúdos da sua função</div>' +
+    '<div class="cw-card-footer"><span class="cw-card-cta" id="cwCarreiraCta">VER CARREIRAS →</span></div>' +
+    '</div></a>' +
+
+    '</div>' + /* /cw-cards-grid */
+
+    /* Login pill — aparece para não-logados com dados locais */
+    '<div class="cw-login-pill" id="cwLoginPill" hidden>' +
+    '<p>Seus dados estão salvos neste dispositivo. Entre para sincronizar em qualquer aparelho.</p>' +
     '<a href="/meu-ownews">Entrar gratuitamente →</a>' +
     '</div>' +
-    '<div id="centralDashboard" class="central-dashboard" hidden>' +
-    '<div class="central-dashboard-nome" id="centralSaudacao">Carregando...</div>' +
-    '<div class="central-dashboard-status" id="centralStatusEmbarque"></div>' +
-    '<div class="central-dashboard-detalhe" id="centralDetalheEmbarque"></div>' +
-    '</div>' +
-    '<div id="centralAlertaFaixa" class="central-alerta-strip" hidden>' +
-    '<span>⚠</span>' +
-    '<span id="centralAlertaTexto"></span>' +
-    '</div>' +
-    '<div class="central-grid">' +
-    '<a class="central-bloco" href="/minha-escala">' +
-    '<div class="central-bloco-icon">📅</div>' +
-    '<div class="central-bloco-titulo">Minha Escala</div>' +
-    '<div class="central-bloco-valor" id="centralEscalaValor">—</div>' +
-    '<div class="central-bloco-sub" id="centralEscalaSub"></div>' +
-    '<div class="central-bloco-cta">Abrir escala →</div>' +
-    '</a>' +
-    '<a class="central-bloco" href="/meus-certificados">' +
-    '<div class="central-bloco-icon">📋</div>' +
-    '<div class="central-bloco-titulo">Meus Certificados</div>' +
-    '<div class="central-bloco-valor" id="centralCertsValor">—</div>' +
-    '<div class="central-bloco-sub" id="centralCertsSub"></div>' +
-    '<div class="central-bloco-cta">Gerenciar →</div>' +
-    '</a>' +
-    '<a class="central-bloco" href="/vagas">' +
-    '<div class="central-bloco-icon">💼</div>' +
-    '<div class="central-bloco-titulo">Vagas</div>' +
-    '<div class="central-bloco-valor">' + VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).length + '</div>' +
-    '<div class="central-bloco-sub">oportunidades verificadas</div>' +
-    '<div class="central-bloco-cta">Ver vagas →</div>' +
-    '</a>' +
-    '<a class="central-bloco" href="/carreiras" id="centralCarreiraBloco">' +
-    '<div class="central-bloco-icon">🧭</div>' +
-    '<div class="central-bloco-titulo" id="centralCarreiraLabel">Minha Carreira</div>' +
-    '<div class="central-bloco-valor" id="centralCarreiraValor">Offshore</div>' +
-    '<div class="central-bloco-sub" id="centralCarreiraSub">Explore perfis de carreira</div>' +
-    '<div class="central-bloco-cta" id="centralCarreiraCta">Ver carreiras →</div>' +
-    '</a>' +
-    '</div>' +
+
     '<script>(function(){\n' +
+    '"use strict";\n' +
     'var LS_ESCALA="ownews_minha_escala";\n' +
     'var LS_CERTS="ownews_certificados";\n' +
     'var LS_SESSAO="ownews_auth_sessao";\n' +
     'var MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];\n' +
     'function diasEntre(a,b){return Math.round((b-a)/86400000);}\n' +
-    'function fmtData(utc){var d=new Date(utc);return d.getUTCDate()+" "+MESES[d.getUTCMonth()]+".";}\n' +
+    'function fmtDataCurta(utc){var d=new Date(utc);return d.getUTCDate()+" "+MESES[d.getUTCMonth()]+".";}\n' +
     'function getSessao(){try{return JSON.parse(localStorage.getItem(LS_SESSAO)||"null");}catch(e){return null;}}\n' +
     'function carregarEscala(){\n' +
     '  try{\n' +
     '    var raw=localStorage.getItem(LS_ESCALA);\n' +
     '    var salvo=raw?JSON.parse(raw):null;\n' +
-    '    // Tentar também de user_metadata se logado\n' +
     '    if(!salvo||!salvo.data){\n' +
     '      var s=getSessao();\n' +
     '      if(s&&s.user&&s.user.user_metadata&&s.user.user_metadata.escala_config&&s.user.user_metadata.escala_config.data)\n' +
@@ -8018,7 +8151,7 @@ function renderCentralTrabalhador() {
     '  var embarcado=fase<dEm;\n' +
     '  var diasRestantes=embarcado?dEm-fase:ciclo-fase;\n' +
     '  var prox=agora+diasRestantes*86400000;\n' +
-    '  return{embarcado:embarcado,diasRestantes:diasRestantes,proxData:prox,dEm:dEm,dFo:dFo,ciclo:ciclo,anchor:anchor};\n' +
+    '  return{embarcado:embarcado,diasRestantes:diasRestantes,proxData:prox,dEm:dEm,ciclo:ciclo,anchor:anchor};\n' +
     '}\n' +
     'function carregarCerts(){\n' +
     '  try{\n' +
@@ -8026,107 +8159,119 @@ function renderCentralTrabalhador() {
     '    var local=raw?JSON.parse(raw):[];\n' +
     '    var s=getSessao();\n' +
     '    var nuvem=s&&s.user&&s.user.user_metadata&&Array.isArray(s.user.user_metadata.certificados)?s.user.user_metadata.certificados:[];\n' +
-    '    return mergeCerts(local,nuvem);\n' +
-    '  }catch(e){return [];}\n' +
-    '}\n' +
-    'function mergeCerts(local,nuvem){\n' +
-    '  var map={};\n' +
-    '  local.concat(nuvem).forEach(function(c){\n' +
-    '    if(!map[c.id]||new Date(c.updated_at)>new Date(map[c.id].updated_at))map[c.id]=c;\n' +
-    '  });\n' +
-    '  return Object.values(map).filter(function(c){return !c._deleted;});\n' +
-    '}\n' +
-    'function statusCert(c,agora){\n' +
-    '  if(!c.validade)return"sem-data";\n' +
-    '  var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
-    '  var dias=diasEntre(agora,v);\n' +
-    '  if(dias<0)return"vencido";\n' +
-    '  if(dias<=90)return"atencao";\n' +
-    '  return"valido";\n' +
+    '    var map={};\n' +
+    '    local.concat(nuvem).forEach(function(c){if(!map[c.id]||new Date(c.updated_at)>new Date(map[c.id].updated_at))map[c.id]=c;});\n' +
+    '    return Object.values(map).filter(function(c){return !c._deleted;});\n' +
+    '  }catch(e){return[];}\n' +
     '}\n' +
     'function atualizarUI(){\n' +
     '  var agora=new Date().setUTCHours(12,0,0,0);\n' +
-    '  // Escala\n' +
+    '  var s=getSessao();\n' +
+    '  var meta=(s&&s.user&&s.user.user_metadata)||{};\n' +
+    '  // --- Cabeçalho pessoal ---\n' +
+    '  var nome=meta.nome?meta.nome.split(" ")[0]:""; \n' +
+    '  var nomeEl=document.getElementById("cwHeaderNome");\n' +
+    '  if(nomeEl&&nome)nomeEl.textContent="OLA, "+nome.toUpperCase();\n' +
+    '  var detalheEl=document.getElementById("cwHeaderDetalhe");\n' +
+    '  // --- Escala ---\n' +
     '  var esc=carregarEscala();\n' +
     '  var calc=esc?calcEscalaCentral(esc):null;\n' +
     '  if(calc){\n' +
-    '    var eValor=document.getElementById("centralEscalaValor");\n' +
-    '    var eSub=document.getElementById("centralEscalaSub");\n' +
-    '    if(eValor)eValor.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";\n' +
-    '    if(eValor)eValor.style.color=calc.embarcado?"var(--cyan-dim)":"var(--green)";\n' +
-    '    if(eSub)eSub.textContent=(calc.embarcado?"Desembarca em ":"Embarca em ")+fmtData(calc.proxData)+" ("+calc.diasRestantes+" dias)";\n' +
-    '    // Dashboard\n' +
-    '    var dash=document.getElementById("centralDashboard");\n' +
-    '    if(dash){dash.hidden=false;}\n' +
-    '    var s=getSessao();\n' +
-    '    var nome=s&&s.user&&s.user.user_metadata&&s.user.user_metadata.nome?s.user.user_metadata.nome:"Olá";\n' +
-    '    var saud=document.getElementById("centralSaudacao");\n' +
-    '    if(saud)saud.textContent=nome.toUpperCase();\n' +
-    '    var st=document.getElementById("centralStatusEmbarque");\n' +
-    '    if(st)st.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";\n' +
-    '    var dt=document.getElementById("centralDetalheEmbarque");\n' +
-    '    if(dt)dt.textContent=(calc.embarcado?"Desembarca: ":"Próximo embarque: ")+fmtData(calc.proxData)+" · "+calc.diasRestantes+" dias";\n' +
+    '    // Status header\n' +
+    '    var statusWrap=document.getElementById("cwHeaderStatus");\n' +
+    '    var dot=document.getElementById("cwHeaderDot");\n' +
+    '    var statusLbl=document.getElementById("cwHeaderStatusLabel");\n' +
+    '    if(statusWrap){statusWrap.hidden=false;}\n' +
+    '    if(dot)dot.className="cw-header-status-dot "+(calc.embarcado?"embarcado":"folga");\n' +
+    '    if(statusLbl)statusLbl.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";\n' +
+    '    var transStr=(calc.embarcado?"Desembarque em ":"Próximo embarque em ")+calc.diasRestantes+" dias · "+fmtDataCurta(calc.proxData);\n' +
+    '    if(detalheEl)detalheEl.textContent=transStr;\n' +
+    '    // Card escala\n' +
+    '    var escMain=document.getElementById("cwEscalaMain");\n' +
+    '    var escSub=document.getElementById("cwEscalaSub");\n' +
+    '    var escCta=document.getElementById("cwEscalaCta");\n' +
+    '    var escGratis=document.getElementById("cwEscalaGratis");\n' +
+    '    var accentEsc=document.getElementById("cwAccentEscala");\n' +
+    '    if(escMain){escMain.textContent=calc.embarcado?"EMBARCADO":"EM FOLGA";escMain.className="cw-card-main "+(calc.embarcado?"cw-card-main--cyan":"cw-card-main--green");}\n' +
+    '    if(escSub)escSub.textContent=transStr;\n' +
+    '    if(escCta)escCta.textContent="ABRIR MINHA ESCALA →";\n' +
+    '    if(escGratis)escGratis.hidden=true;\n' +
+    '    if(accentEsc)accentEsc.className="cw-card-accent "+(calc.embarcado?"cw-card-accent--cyan":"cw-card-accent--green");\n' +
     '  }\n' +
-    '  // Certificados\n' +
+    '  // --- Certificados ---\n' +
     '  var certs=carregarCerts();\n' +
-    '  var certValEl=document.getElementById("centralCertsValor");\n' +
-    '  var certSubEl=document.getElementById("centralCertsSub");\n' +
-    '  if(certs.length===0){\n' +
-    '    if(certValEl)certValEl.textContent="Nenhum";\n' +
-    '    if(certSubEl)certSubEl.textContent="Adicione seus certificados →";\n' +
-    '  } else {\n' +
-    '    var atencao=certs.filter(function(c){var st=statusCert(c,agora);return st==="atencao"||st==="vencido";});\n' +
-    '    if(certValEl)certValEl.textContent=certs.length;\n' +
-    '    if(certSubEl)certSubEl.textContent=atencao.length>0?atencao.length+" precisam de atenção":"todos em dia";\n' +
-    '    if(atencao.length>0&&certSubEl)certSubEl.style.color="var(--yellow)";\n' +
-    '    // Alerta do próximo vencimento\n' +
+    '  var certsMain=document.getElementById("cwCertsMain");\n' +
+    '  var certsSub=document.getElementById("cwCertsSub");\n' +
+    '  var certsDetail=document.getElementById("cwCertsDetail");\n' +
+    '  var certsCta=document.getElementById("cwCertsCta");\n' +
+    '  var accentCerts=document.getElementById("cwAccentCerts");\n' +
+    '  if(certs.length>0){\n' +
+    '    var atencaoList=[];\n' +
     '    var proxVenc=null;\n' +
     '    certs.forEach(function(c){\n' +
     '      if(!c.validade)return;\n' +
     '      var v=new Date(c.validade).setUTCHours(12,0,0,0);\n' +
     '      var dias=diasEntre(agora,v);\n' +
+    '      if(dias<0)atencaoList.push({nome:c.nome,dias:dias});\n' +
+    '      else if(dias<=90)atencaoList.push({nome:c.nome,dias:dias});\n' +
     '      if(dias>=0&&dias<=90&&(!proxVenc||dias<proxVenc.dias))proxVenc={nome:c.nome,dias:dias,data:v};\n' +
     '    });\n' +
+    '    var plural=certs.length===1?"certificado":"certificados";\n' +
+    '    if(certsMain)certsMain.textContent=certs.length+" "+plural;\n' +
+    '    if(atencaoList.length>0){\n' +
+    '      var nAtt=atencaoList.length;\n' +
+    '      if(certsSub){certsSub.textContent=nAtt===1?"1 precisa de atenção":nAtt+" precisam de atenção";certsSub.style.color="var(--yellow)";}\n' +
+    '      if(accentCerts)accentCerts.className="cw-card-accent cw-card-accent--yellow";\n' +
+    '      if(proxVenc&&certsDetail){\n' +
+    '        var dMsg=proxVenc.dias<0?"vencido":proxVenc.dias===0?"vence hoje":"vence em "+proxVenc.dias+" dias";\n' +
+    '        certsDetail.textContent=proxVenc.nome+" · "+dMsg;\n' +
+    '        certsDetail.hidden=false;\n' +
+    '        certsDetail.style.color=proxVenc.dias<=30?"var(--yellow)":"var(--cyan-dim)";\n' +
+    '      }\n' +
+    '    } else {\n' +
+    '      if(certsSub){certsSub.textContent="todos em dia";certsSub.style.color="var(--green)";}\n' +
+    '      if(accentCerts)accentCerts.className="cw-card-accent cw-card-accent--green";\n' +
+    '    }\n' +
+    '    if(certsCta)certsCta.textContent="GERENCIAR →";\n' +
+    '    // Alerta strip\n' +
     '    if(proxVenc){\n' +
-    '      var faixa=document.getElementById("centralAlertaFaixa");\n' +
-    '      var txt=document.getElementById("centralAlertaTexto");\n' +
-    '      if(faixa&&txt){\n' +
-    '        faixa.hidden=false;\n' +
-    '        var msgAlerta=proxVenc.nome+" vence em "+proxVenc.dias+" dias ("+fmtData(proxVenc.data)+")";\n' +
-    '        // Cruzar com escala se disponível\n' +
+    '      var strip=document.getElementById("cwAlertaStrip");\n' +
+    '      var stripTxt=document.getElementById("cwAlertaTexto");\n' +
+    '      if(strip&&stripTxt){\n' +
+    '        strip.hidden=false;\n' +
+    '        var dStr=proxVenc.dias<0?"vencido":proxVenc.dias===0?"vence hoje":"vence em "+proxVenc.dias+" dias";\n' +
+    '        var msg=proxVenc.nome+" — "+dStr;\n' +
     '        if(calc){\n' +
-    '          var vData=new Date(proxVenc.data);\n' +
-    '          var faseV=(Math.round((vData.setUTCHours(12,0,0,0)-calc.anchor)/86400000)%calc.ciclo+calc.ciclo)%calc.ciclo;\n' +
-    '          var naFolga=faseV>=calc.dEm;\n' +
-    '          if(naFolga)msgAlerta+=" — vence durante sua folga.";\n' +
-    '          else msgAlerta+=" — vence enquanto você está embarcado.";\n' +
+    '          var faseV=(Math.round((proxVenc.data-calc.anchor)/86400000)%calc.ciclo+calc.ciclo)%calc.ciclo;\n' +
+    '          msg+=" · "+(faseV>=calc.dEm?"Vence durante sua folga.":"Vence enquanto você está embarcado.");\n' +
     '          if(window.ownewsEvento)window.ownewsEvento("certificado_escala_insight_view");\n' +
     '        }\n' +
-    '        txt.textContent=msgAlerta;\n' +
+    '        stripTxt.textContent=msg;\n' +
     '        if(window.ownewsEvento)window.ownewsEvento("certificado_alert_view");\n' +
     '      }\n' +
     '    }\n' +
     '  }\n' +
-    '  // Login pill para usuários não logados com dados locais\n' +
-    '  var s2=getSessao();\n' +
-    '  if(!s2&&(esc||certs.length>0)){\n' +
-    '    var pill=document.getElementById("centralLoginPill");\n' +
-    '    if(pill)pill.hidden=false;\n' +
+    '  // --- Carreira ---\n' +
+    '  if(meta.funcao){\n' +
+    '    var fn=meta.funcao;\n' +
+    '    var fnNome=fn.replace(/-/g," ").replace(/\\b\\w/g,function(l){return l.toUpperCase();});\n' +
+    '    var cardCar=document.getElementById("cwCardCarreira");\n' +
+    '    var carEye=document.getElementById("cwCarreiraEyebrow");\n' +
+    '    var carMain=document.getElementById("cwCarreiraMain");\n' +
+    '    var carSub=document.getElementById("cwCarreiraSub");\n' +
+    '    var carCta=document.getElementById("cwCarreiraCta");\n' +
+    '    var accentCar=document.getElementById("cwAccentCarreira");\n' +
+    '    if(cardCar)cardCar.href="/carreiras/"+fn;\n' +
+    '    if(carEye)carEye.textContent="MINHA CARREIRA";\n' +
+    '    if(carMain)carMain.textContent=fnNome;\n' +
+    '    if(carSub)carSub.textContent="Ver perfil completo da função";\n' +
+    '    if(carCta)carCta.textContent="VER MINHA FUNÇÃO →";\n' +
+    '    if(accentCar)accentCar.className="cw-card-accent cw-card-accent--cyan";\n' +
     '  }\n' +
-    '  // Carreira\n' +
-    '  var s3=getSessao();\n' +
-    '  if(s3&&s3.user&&s3.user.user_metadata&&s3.user.user_metadata.funcao){\n' +
-    '    var fn=s3.user.user_metadata.funcao;\n' +
-    '    var blocoCarreira=document.getElementById("centralCarreiraBloco");\n' +
-    '    var carreiraLabel=document.getElementById("centralCarreiraLabel");\n' +
-    '    var carreiraValor=document.getElementById("centralCarreiraValor");\n' +
-    '    var carreiraSub=document.getElementById("centralCarreiraSub");\n' +
-    '    var carreiraCta=document.getElementById("centralCarreiraCta");\n' +
-    '    if(blocoCarreira)blocoCarreira.href="/carreiras/"+fn;\n' +
-    '    if(carreiraLabel)carreiraLabel.textContent="MINHA CARREIRA";\n' +
-    '    if(carreiraValor)carreiraValor.textContent=fn.replace(/-/g," ").replace(/\\b\\w/g,function(l){return l.toUpperCase();});\n' +
-    '    if(carreiraSub)carreiraSub.textContent="Ver perfil completo";\n' +
-    '    if(carreiraCta)carreiraCta.textContent="Ver minha função →";\n' +
+    '  // --- Login pill ---\n' +
+    '  if(!s&&(esc||certs.length>0)){\n' +
+    '    var pill=document.getElementById("cwLoginPill");\n' +
+    '    if(pill)pill.hidden=false;\n' +
     '  }\n' +
     '}\n' +
     'try{atualizarUI();}catch(e){}\n' +
@@ -16607,7 +16752,8 @@ const CC_MAPA_EVENTOS = {
   certificado_delete: { grupo: "Central do Trabalhador", rotulo: "Certificados excluídos" },
   certificado_account_save_click: { grupo: "Central do Trabalhador", rotulo: "Cliques em salvar na conta" },
   certificado_alert_view: { grupo: "Central do Trabalhador", rotulo: "Alertas exibidos" },
-  certificado_escala_insight_view: { grupo: "Central do Trabalhador", rotulo: "Insights escala×validade" }
+  certificado_escala_insight_view: { grupo: "Central do Trabalhador", rotulo: "Insights escala×validade" },
+  central_home_click: { grupo: "Central do Trabalhador", rotulo: "Cliques na Home" }
 };
 
 function ccAgruparEventos(eventos) {
