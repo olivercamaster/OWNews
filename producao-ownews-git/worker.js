@@ -16272,7 +16272,7 @@ function renderCCDashboard() {
     'html+=card("Visualizações",d.visualizacoes,d.comparacao?d.comparacao.visualizacoesAnterior:null);' +
     'html+=card("Compartilhamentos",d.compartilhamentos,null);' +
     'var me=d.ferramentas&&d.ferramentas["Minha Escala"]?d.ferramentas["Minha Escala"].total:0;' +
-    'html+=card("Minha Escala",me,null);' +
+    'html+=card("Ações ME",me,null);' +
     'html+=\'</div>\';' +
     // Second row: articles, vagas, cadastros proxy
     'html+=\'<div class="cc-grid cc-grid-3">\';' +
