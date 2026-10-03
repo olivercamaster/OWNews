@@ -6592,7 +6592,7 @@ function renderFuncoesIndex() {
     '<div class="hub-hero">' +
     '<span class="eyebrow">Referência OWNews</span>' +
     '<h1>Funções a Bordo</h1>' +
-    '<p class="hub-lead">O que cada profissional faz em uma plataforma ou embarcação offshore, organizado por área — Deck, Drilling, Subsea/ROV, Engine/Manutenção, Segurança, Marine e Catering.</p>' +
+    '<p class="hub-lead">O que cada profissional faz em uma plataforma ou embarcação offshore, organizado por área — Deck, Drilling, Subsea/ROV, Engine/Manutenção, Segurança e Marine.</p>' +
     '</div>' +
     grupos;
 
