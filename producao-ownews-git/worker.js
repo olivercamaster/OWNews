@@ -137,63 +137,120 @@ function classificarPaginaParaAds(caminho) {
    disciplina de fonte oficial → verificação → publicação. Nunca vaga
    inventada, nunca contador inflado.
    ========================================================================= */
-const VAGAS_RADAR_VERIFICADO_EM = "2026-09-20T10:25:00-03:00";
+const VAGAS_RADAR_VERIFICADO_EM = "2026-10-04T09:00:00-03:00";
 // fonte_oficial: true em todas — cada uma foi checada individualmente contra
-// o portal/ATS oficial da própria empresa (subdomínio Gupy de marca própria
-// ou o Workday oficial da Shell), nunca agregador/repost de terceiro. Ver
-// docs/JOBS-SOURCE-REGISTRY.md pro método de verificação (Etapa 3.3,
-// 2026-09-24) — badge "FONTE OFICIAL" só aparece quando este campo é true.
+// o portal/ATS oficial da própria empresa (subdomínio Gupy de marca própria,
+// SuccessFactors ou Workday oficial da Shell), nunca agregador/repost de
+// terceiro. Ver docs/JOBS-SOURCE-REGISTRY.md pro método de verificação.
+// closing_date: data real de encerramento da vaga no ATS — quando presente,
+// substitui a lógica de expiração baseada em verificado_em. Formato YYYY-MM-DD.
+// plataforma: 'gupy' | 'successfactors' | 'workday' | 'manual'
+// external_job_id: ID único da vaga no ATS da empresa (para dedup e links)
 const VAGAS_RADAR = [
-  { titulo: "Engenheiro(a) de Projetos Topside Sênior", empresa: "PRIO", local: "", pais: "Brasil", offshore_onshore: "NAO_INFORMADO", escala: null, resumo: "Vaga publicada no ATS oficial da PRIO para projetos topside. A página não informa escala ou modalidade offshore/onshore.", fonte_nome: "PRIO Careers (Gupy)", fonte_oficial: true, application_url: "https://prio.gupy.io/jobs/12081138" },
-  { titulo: "Bombeador Offshore", empresa: "Brava Energia", local: "", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null, resumo: "Vaga publicada no ATS oficial da Brava Energia para atuação como Bombeador Offshore.", fonte_nome: "Brava Energia Careers (Gupy)", fonte_oficial: true, application_url: "https://bravaenergia.gupy.io/jobs/12401067" },
-  { titulo: "MSO - Caldeireiro(a) Escalador(a) NI - OFFSHORE", empresa: "Ocyan", local: "", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null, resumo: "Vaga publicada no ATS oficial da Ocyan para função offshore de caldeireiro(a) escalador(a). Escala e local não publicados na página consultada.", fonte_nome: "Ocyan Careers (Gupy)", fonte_oficial: true, application_url: "https://ocyan.gupy.io/jobs/12394579" },
+  // === PRIO (Gupy) ===
+  { titulo: "Engenheiro(a) de Projetos Topside Sênior", empresa: "PRIO", local: "", pais: "Brasil", offshore_onshore: "NAO_INFORMADO", escala: null, resumo: "Vaga publicada no ATS oficial da PRIO para projetos topside. A página não informa escala ou modalidade offshore/onshore.", fonte_nome: "PRIO Careers (Gupy)", fonte_oficial: true, application_url: "https://prio.gupy.io/jobs/12081138", plataforma: "gupy", external_job_id: "12081138", closing_date: "2026-10-31", verificado_em: "2026-10-04T09:00:00-03:00" },
+  // === Brava Energia (Gupy) ===
+  { titulo: "Bombeador Offshore", empresa: "Brava Energia", local: "", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null, resumo: "Vaga publicada no ATS oficial da Brava Energia para atuação como Bombeador Offshore.", fonte_nome: "Brava Energia Careers (Gupy)", fonte_oficial: true, application_url: "https://bravaenergia.gupy.io/jobs/12401067", plataforma: "gupy", external_job_id: "12401067", closing_date: "2026-11-02", verificado_em: "2026-10-04T09:00:00-03:00" },
+  // === Ocyan (Gupy) ===
+  { titulo: "MSO - Caldeireiro(a) Escalador(a) NI - OFFSHORE", empresa: "Ocyan", local: "", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null, resumo: "Vaga publicada no ATS oficial da Ocyan para função offshore de caldeireiro(a) escalador(a). Escala e local não publicados na página consultada.", fonte_nome: "Ocyan Careers (Gupy)", fonte_oficial: true, application_url: "https://ocyan.gupy.io/jobs/12394579", plataforma: "gupy", external_job_id: "12394579", closing_date: "2026-12-01", verificado_em: "2026-10-04T09:00:00-03:00" },
+  // === Foresea (Gupy) ===
   {
     titulo: "Auxiliar de Plataforma | Plataformista - Banco de Talentos",
-    empresa: "Foresea",
-    local: "",
-    pais: "Brasil",
-    offshore_onshore: "NAO_INFORMADO",
-    escala: null,
+    empresa: "Foresea", local: "", pais: "Brasil", offshore_onshore: "NAO_INFORMADO", escala: null,
     resumo: "Cadastro publicado no ATS oficial da Foresea para a área de plataforma. A página não informa local, escala ou modalidade de trabalho.",
-    fonte_nome: "Foresea Careers (Gupy)",
-    fonte_oficial: true,
-    application_url: "https://foresea.gupy.io/jobs/10992150"
+    fonte_nome: "Foresea Careers (Gupy)", fonte_oficial: true,
+    application_url: "https://foresea.gupy.io/jobs/10992150",
+    plataforma: "gupy", external_job_id: "10992150", closing_date: "2026-12-31", verificado_em: "2026-10-04T09:00:00-03:00"
   },
+  // === Shell (Workday) ===
   {
     titulo: "Logistics Analyst – DP Vessel Operator",
-    empresa: "Shell",
-    local: "Rio de Janeiro (Ventura Office)",
-    pais: "Brasil",
-    offshore_onshore: "OFFSHORE",
-    escala: null,
+    empresa: "Shell", local: "Rio de Janeiro (Ventura Office)", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
     resumo: "A Shell busca profissional para atuar na gestão logística/comercial de embarcações com Posicionamento Dinâmico (DP) na operação brasileira.",
-    fonte_nome: "Shell Careers (Workday)",
-    fonte_oficial: true,
-    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/DP-Vessel-Commercial-Operator-Senior_R209155-1"
+    fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
+    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/DP-Vessel-Commercial-Operator-Senior_R209155-1",
+    plataforma: "workday", external_job_id: "R209155", verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Facilities Engineer",
-    empresa: "Shell",
-    local: "Rio de Janeiro (Ventura Office)",
-    pais: "Brasil",
-    offshore_onshore: "NAO_INFORMADO",
-    escala: null,
+    empresa: "Shell", local: "Rio de Janeiro (Ventura Office)", pais: "Brasil", offshore_onshore: "NAO_INFORMADO", escala: null,
     resumo: "A Shell busca engenheiro(a) de facilities para a operação no Rio de Janeiro. A vaga oficial não especifica se a atuação é embarcada.",
-    fonte_nome: "Shell Careers (Workday)",
-    fonte_oficial: true,
-    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Facilities-Engineer_R206179-1"
+    fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
+    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Facilities-Engineer_R206179-1",
+    plataforma: "workday", external_job_id: "R206179", verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Business Analyst",
-    empresa: "Shell",
-    local: "Rio de Janeiro (Ventura Office)",
-    pais: "Brasil",
-    offshore_onshore: "ONSHORE",
-    escala: null,
+    empresa: "Shell", local: "Rio de Janeiro (Ventura Office)", pais: "Brasil", offshore_onshore: "ONSHORE", escala: null,
     resumo: "A Shell busca analista de negócios para a operação no Rio de Janeiro — função administrativa, sem embarque.",
-    fonte_nome: "Shell Careers (Workday)",
-    fonte_oficial: true,
-    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Business-Analyst_R209644-1"
+    fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
+    application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Business-Analyst_R209644-1",
+    plataforma: "workday", external_job_id: "R209644", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  // === Subsea7 (SuccessFactors) — Radar 2.0, descobertas automaticamente 2026-10-04 ===
+  {
+    titulo: "Técnica(o) Survey Offshore",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Técnico(a) de Survey para apoiar projetos de construção submarina offshore da Subsea7, incluindo instalação de dutos/cabos e inspeção de ativos submarinos.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-Survey-Offshore/1361734955/",
+    plataforma: "successfactors", external_job_id: "1361734955", closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Surveyor Offshore",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Profissional de levantamento (survey) para atuação embarcada nas operações de construção submarina offshore da Subsea7.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-Surveyor-Offshore/1361733755/",
+    plataforma: "successfactors", external_job_id: "1361733755", closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Coordenadora(o) de Operações Offshore",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Profissional para coordenar operações offshore nas embarcações da Subsea7 no Brasil.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-Coordenadora%28o%29-de-Opera%C3%A7%C3%B5es-Offshore/1360090655/",
+    plataforma: "successfactors", external_job_id: "1360090655", closing_date: "2026-10-14", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Técnica(o) de Elétrica Offshore",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Técnico(a) de Elétrica para atuação embarcada nas operações offshore da Subsea7 no Brasil.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-de-El%C3%A9trica-Offshore/1368680155/",
+    plataforma: "successfactors", external_job_id: "1368680155", closing_date: "2026-12-07", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Técnica(o) de Mecânica Offshore",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Técnico(a) de Mecânica para atuação embarcada nas embarcações offshore da Subsea7 no Brasil.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-de-Mec%C3%A2nica-Offshore/1361968355/",
+    plataforma: "successfactors", external_job_id: "1361968355", closing_date: "2026-10-14", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Marinheira(o) de Convés",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Marinheiro(a) de convés para atuação embarcada nas operações offshore da Subsea7.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-Marinheira%28o%29-de-Conv%C3%A9s/1366277955/",
+    plataforma: "successfactors", external_job_id: "1366277955", closing_date: "2026-11-07", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Marinheira(o) de Máquinas",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Marinheiro(a) de máquinas para atuação embarcada nas operações offshore da Subsea7.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offline-Marinheira%28o%29-de-M%C3%A1quinas/1353616855/",
+    plataforma: "successfactors", external_job_id: "1353616855", closing_date: "2026-11-12", verificado_em: "2026-10-04T09:00:00-03:00"
+  },
+  {
+    titulo: "Técnica(o) de Pré-Comissionamento",
+    empresa: "Subsea7", local: "Offshore", pais: "Brasil", offshore_onshore: "OFFSHORE", escala: null,
+    resumo: "Técnico(a) de Pré-Comissionamento para atuação embarcada nas operações offshore da Subsea7.",
+    fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
+    application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-de-Pr%C3%A9-Comissionamento/1359683955/",
+    plataforma: "successfactors", external_job_id: "1359683955", closing_date: "2026-10-17", verificado_em: "2026-10-04T09:00:00-03:00"
   }
 ];
 
@@ -212,11 +269,16 @@ function vagaDiasDesdeVerificacao(v) {
   return (Date.now() - vagaDataVerificacao(v).getTime()) / 86400000;
 }
 function vagaPodeEstarDesatualizada(v) {
+  if (v.closing_date) return false; // data real conhecida — aviso de "desatualizado" não se aplica
   const dias = vagaDiasDesdeVerificacao(v);
   return dias > VAGA_DIAS_PARA_SUSPEITA && dias <= VAGA_DIAS_PARA_EXPIRAR;
 }
 function vagaPodeEstarExpirada(v) {
-  return vagaDiasDesdeVerificacao(v) > VAGA_DIAS_PARA_EXPIRAR || v.status === 'CLOSED';
+  if (v.status === 'CLOSED') return true;
+  if (v.closing_date) {
+    return new Date(v.closing_date + 'T23:59:59-03:00') < new Date();
+  }
+  return vagaDiasDesdeVerificacao(v) > VAGA_DIAS_PARA_EXPIRAR;
 }
 
 function vagasVerificadasTexto() {
@@ -228,6 +290,17 @@ function vagasVerificadasTexto() {
 function vagasVerificadasHoraCurta() {
   const dt = new Date(VAGAS_RADAR_VERIFICADO_EM);
   return dt.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+}
+
+function vagaVerificadaTexto(v) {
+  const dt = new Date((v && v.verificado_em) || VAGAS_RADAR_VERIFICADO_EM);
+  return dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function vagaEncerramentoTexto(v) {
+  if (!v.closing_date) return null;
+  const dt = new Date(v.closing_date + 'T12:00:00-03:00');
+  return dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric' });
 }
 
 // NOVO só por tempo limitado (2026-09-19 spec — "não deixar badge NOVA
@@ -257,6 +330,216 @@ function slugVaga(v) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 function vagaPorSlug(slug) { return VAGAS_RADAR.find(v => slugVaga(v) === slug); }
+
+/* ─── RADAR 2.0: Adapters + KV Cache ─────────────────────────────────────────
+   Radar de Vagas 2.0 (2026-10-04): descoberta automática de vagas offshore via
+   adapters por plataforma (SuccessFactors/Gupy). O KV armazena o resultado por
+   até 12h; a página /vagas lê do KV e aciona refresh assíncrono via waitUntil
+   quando os dados têm mais de 6h. O array VAGAS_RADAR estático continua como
+   fallback e como fonte para empresas sem adapter (Shell/Workday).
+   NÃO usa cron trigger (sem alteração no wrangler.jsonc).
+   NÃO cria KV namespace novo — usa PERGUNTE_IA_KV com prefixo "vagas:".     */
+
+const VAGAS_KV_TTL = 6 * 3600 * 1000; // 6h — age trigger para refresh
+const VAGAS_KV_KEY_CACHE = 'vagas:cache';
+const VAGAS_KV_KEY_META = 'vagas:meta';
+const VAGAS_KV_JOB_PREFIX = 'vagas:job:'; // vagas:job:{plataforma}:{id} → JSON
+const SF_SUBSEA7_BASE = 'https://careers.subsea7.com';
+const SF_UA = 'Mozilla/5.0 (compatible; OWNews-Radar/2.0; +https://ownews.com.br)';
+
+// Extrai job data do HTML de uma página SuccessFactors (careers.subsea7.com)
+function parseSFJobHtml(html, fullUrl) {
+  try {
+    const extTitle = (html.match(/Title:[^\n]*\n\s*([^\n<]+)/) || [])[1];
+    if (!extTitle) return null;
+    const titulo = extTitle.trim().replace(/^\xA0+/, '');
+    const closingMatch = html.match(/Job Closing Date:[\s\S]{0,200}?(\d{1,2} \w{3,9} \d{4})/);
+    const closing_raw = closingMatch ? closingMatch[1] : null;
+    let closing_date = null;
+    if (closing_raw) {
+      const d = new Date(closing_raw + ' UTC');
+      if (!isNaN(d)) closing_date = d.toISOString().slice(0, 10);
+    }
+    const idMatch = fullUrl.match(/\/(\d{7,12})\//);
+    const external_job_id = idMatch ? idMatch[1] : null;
+    const locationMatch = html.match(/Location:\s*[\s\S]{0,300}?>\s*([^<\n]+?)\s*</);
+    const local = locationMatch ? locationMatch[1].trim() : 'Offshore';
+    return {
+      titulo,
+      empresa: 'Subsea7',
+      local,
+      pais: 'Brasil',
+      offshore_onshore: local.toLowerCase().includes('offshore') || local === 'Offshore' ? 'OFFSHORE' : 'NAO_INFORMADO',
+      escala: null,
+      resumo: titulo + ' — vaga verificada diretamente no portal oficial da Subsea7.',
+      fonte_nome: 'Subsea7 Careers (SuccessFactors)',
+      fonte_oficial: true,
+      application_url: fullUrl,
+      plataforma: 'successfactors',
+      external_job_id,
+      closing_date,
+      verificado_em: new Date().toISOString(),
+      status: 'OPEN'
+    };
+  } catch { return null; }
+}
+
+// Adapter SuccessFactors: descobre vagas offshore brasileiras da Subsea7
+async function adapterSuccessFactors(env) {
+  const searchUrl = SF_SUBSEA7_BASE + '/search/results?q=offshore&locale=pt_BR';
+  const searchResp = await fetch(searchUrl, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
+  if (!searchResp.ok) throw new Error('SF search HTTP ' + searchResp.status);
+  const html = await searchResp.text();
+
+  // Extrai URLs de vagas do HTML (data-url attributes)
+  const jobPaths = [...html.matchAll(/data-url="(\/job\/[^"]+)"/g)].map(m => m[1]);
+
+  // Filtra vagas brasileiras offshore: URL contém palavras em português ou "Offshore"
+  const brPaths = jobPaths.filter(p =>
+    /Offshore|Niter[oó]|Rio-de-Janeiro/i.test(p)
+  ).slice(0, 20);
+
+  const jobs = [];
+  const now = new Date().toISOString();
+
+  for (const jobPath of brPaths) {
+    const idMatch = jobPath.match(/\/(\d{7,12})\//);
+    const jobId = idMatch ? idMatch[1] : null;
+    if (!jobId) continue;
+
+    const kvKey = VAGAS_KV_JOB_PREFIX + 'sf:' + jobId;
+    let jobData = null;
+    try { jobData = await env.PERGUNTE_IA_KV.get(kvKey, 'json'); } catch {}
+
+    if (!jobData) {
+      try {
+        const jobResp = await fetch(SF_SUBSEA7_BASE + jobPath, {
+          headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 }
+        });
+        if (jobResp.ok) {
+          const jobHtml = await jobResp.text();
+          jobData = parseSFJobHtml(jobHtml, SF_SUBSEA7_BASE + jobPath);
+          if (jobData) {
+            try { await env.PERGUNTE_IA_KV.put(kvKey, JSON.stringify(jobData), { expirationTtl: 43200 }); } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    if (jobData && jobData.titulo) jobs.push(jobData);
+  }
+
+  return { jobs, ok: true, source: 'successfactors_subsea7', count: jobs.length, fetched_at: now };
+}
+
+// Adapter Gupy: verifica status das vagas conhecidas nas empresas Gupy
+async function adapterGupy(env) {
+  const gupyVagas = [
+    { subdomain: 'prio', empresa: 'PRIO', jobId: '12081138', offshore_onshore: 'NAO_INFORMADO' },
+    { subdomain: 'bravaenergia', empresa: 'Brava Energia', jobId: '12401067', offshore_onshore: 'OFFSHORE' },
+    { subdomain: 'ocyan', empresa: 'Ocyan', jobId: '12394579', offshore_onshore: 'OFFSHORE' },
+    { subdomain: 'foresea', empresa: 'Foresea', jobId: '10992150', offshore_onshore: 'NAO_INFORMADO' },
+  ];
+
+  const jobs = [];
+  const now = new Date().toISOString();
+
+  for (const v of gupyVagas) {
+    try {
+      const resp = await fetch(`https://${v.subdomain}.gupy.io/jobs/${v.jobId}`, {
+        headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 }
+      });
+      if (!resp.ok) continue;
+      const html = await resp.text();
+      const ndMatch = html.match(/id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+      if (!ndMatch) continue;
+      const nd = JSON.parse(ndMatch[1]);
+      const job = nd.props?.pageProps?.job;
+      if (!job || job.status === 'closed') continue;
+
+      jobs.push({
+        titulo: job.name,
+        empresa: v.empresa,
+        local: job.addressCity || '',
+        pais: 'Brasil',
+        offshore_onshore: v.offshore_onshore,
+        escala: null,
+        resumo: `Vaga publicada no ATS oficial da ${v.empresa}.`,
+        fonte_nome: `${v.empresa} Careers (Gupy)`,
+        fonte_oficial: true,
+        application_url: `https://${v.subdomain}.gupy.io/jobs/${v.jobId}`,
+        plataforma: 'gupy',
+        external_job_id: v.jobId,
+        closing_date: job.expiresAt || null,
+        verificado_em: now,
+        status: 'OPEN'
+      });
+    } catch {}
+  }
+
+  return { jobs, ok: true, source: 'gupy', count: jobs.length, fetched_at: now };
+}
+
+// Atualiza o cache KV de vagas (chamado via ctx.waitUntil)
+async function refreshVagasRadar(env) {
+  if (!env || !env.PERGUNTE_IA_KV) return;
+  try {
+    const [sfResult, gupyResult] = await Promise.allSettled([
+      adapterSuccessFactors(env),
+      adapterGupy(env),
+    ]);
+
+    const sfOk = sfResult.status === 'fulfilled';
+    const gupyOk = gupyResult.status === 'fulfilled';
+    const sfJobs = sfOk ? sfResult.value.jobs : [];
+    const gupyJobs = gupyOk ? gupyResult.value.jobs : [];
+
+    // Merge: adapters first, then static VAGAS_RADAR para tudo que não foi descoberto
+    const discovered = [...sfJobs, ...gupyJobs];
+    const knownKeys = new Set(discovered.map(j => (j.plataforma || '') + ':' + (j.external_job_id || slugVaga(j))));
+
+    for (const staticJob of VAGAS_RADAR) {
+      const key = (staticJob.plataforma || 'manual') + ':' + (staticJob.external_job_id || slugVaga(staticJob));
+      if (!knownKeys.has(key)) {
+        discovered.push(staticJob);
+        knownKeys.add(key);
+      }
+    }
+
+    const cache = {
+      jobs: discovered,
+      updated_at: new Date().toISOString(),
+      sources: {
+        successfactors_subsea7: sfOk
+          ? { ok: true, count: sfResult.value.count, fetched_at: sfResult.value.fetched_at }
+          : { ok: false, error: String(sfResult.reason), fetched_at: new Date().toISOString() },
+        gupy: gupyOk
+          ? { ok: true, count: gupyResult.value.count, fetched_at: gupyResult.value.fetched_at }
+          : { ok: false, error: String(gupyResult.reason), fetched_at: new Date().toISOString() },
+      }
+    };
+
+    await env.PERGUNTE_IA_KV.put(VAGAS_KV_KEY_CACHE, JSON.stringify(cache), { expirationTtl: 86400 });
+  } catch {}
+}
+
+// Lê vagas do KV (com fallback pro array estático).
+// Se dados tiverem mais de VAGAS_KV_TTL, dispara refresh assíncrono.
+async function getVagasRadar(env, ctx) {
+  if (!env || !env.PERGUNTE_IA_KV) return VAGAS_RADAR;
+  try {
+    const cached = await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, 'json');
+    const age = cached ? Date.now() - new Date(cached.updated_at).getTime() : Infinity;
+    if (age > VAGAS_KV_TTL && ctx) {
+      ctx.waitUntil(refreshVagasRadar(env));
+    }
+    return (cached && Array.isArray(cached.jobs) && cached.jobs.length > 0) ? cached.jobs : VAGAS_RADAR;
+  } catch {
+    return VAGAS_RADAR;
+  }
+}
+
+/* ─── fim Radar 2.0 ─────────────────────────────────────────────────────── */
 
 // Home OWNews 2.0 (2026-09-27): ausência de dado não é conteúdo — quando a
 // modalidade não é conhecida, o chip simplesmente não aparece (nunca mais
@@ -7288,8 +7571,9 @@ const EMPRESAS_EM_AVALIACAO = [
   "TechnipFMC", "Saipem", "SLB", "Halliburton", "Baker Hughes"
 ];
 
-function renderVagaDetalhe(slug) {
-  const vaga = vagaPorSlug(slug);
+async function renderVagaDetalhe(slug, env, ctx) {
+  const todasVagas = await getVagasRadar(env, ctx);
+  const vaga = todasVagas.find(v => slugVaga(v) === slug);
   if (!vaga) return null;
   const url = '/vagas/' + slugVaga(vaga);
   const nomeTipo = rotuloTipoVaga(vaga);
@@ -7304,11 +7588,12 @@ function renderVagaDetalhe(slug) {
   // Relacionadas (Etapa 3.6): prioriza mesma empresa (critério mais forte de
   // relevância real com só 7 vagas no radar), completa com as demais vagas
   // ativas até 3 — nunca inclui encerrada/expirada, nunca duplica a própria.
-  const candidatasRelacionadas = VAGAS_RADAR.filter(v => slugVaga(v) !== slugVaga(vaga) && v.status !== 'CLOSED' && !vagaPodeEstarExpirada(v));
+  const candidatasRelacionadas = todasVagas.filter(v => slugVaga(v) !== slugVaga(vaga) && v.status !== 'CLOSED' && !vagaPodeEstarExpirada(v));
   const mesmaEmpresa = candidatasRelacionadas.filter(v => v.empresa === vaga.empresa);
   const outrasAtivas = candidatasRelacionadas.filter(v => v.empresa !== vaga.empresa);
   const relacionadas = mesmaEmpresa.concat(outrasAtivas).slice(0, 3);
   const funcaoLigada = funcaoRelacionadaVaga(vaga);
+  const encerramentoTexto = vagaEncerramentoTexto(vaga);
   const campos = [
     campoEstrutura('Empresa', escaparHTML(vaga.empresa)),
     campoEstrutura('Cargo', escaparHTML(vaga.titulo)),
@@ -7316,7 +7601,8 @@ function renderVagaDetalhe(slug) {
     vaga.offshore_onshore && vaga.offshore_onshore !== 'NAO_INFORMADO' ? campoEstrutura('Modalidade', badgeOffshoreOnshore(vaga.offshore_onshore)) : campoEstrutura('Modalidade', 'Não informado'),
     vaga.escala ? campoEstrutura('Escala', escaparHTML(vaga.escala)) : '',
     campoEstrutura('Tipo', nomeTipo),
-    campoEstrutura('Última verificação', vagasVerificadasTexto() + (levementeDesatualizada ? ' <span class="dado-contexto">(há mais de ' + VAGA_DIAS_PARA_SUSPEITA + ' dias — confirme a disponibilidade no canal oficial)</span>' : ''))
+    encerramentoTexto ? campoEstrutura('Encerramento', escaparHTML(encerramentoTexto)) : '',
+    campoEstrutura('Última verificação', vagaVerificadaTexto(vaga) + (levementeDesatualizada ? ' <span class="dado-contexto">(há mais de ' + VAGA_DIAS_PARA_SUSPEITA + ' dias — confirme a disponibilidade no canal oficial)</span>' : ''))
   ].filter(Boolean).join('');
   const conteudo =
     breadcrumb([{ nome: 'Home', href: '/' }, { nome: 'Vagas', href: '/vagas' }, { nome: vaga.titulo }]) +
@@ -7421,18 +7707,19 @@ function renderVagaDetalhe(slug) {
   return paginaChrome(vaga.titulo + ' — ' + vaga.empresa, descricao, conteudo, url, { tipo: 'website', imagemUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Saipem_7000.jpg?width=1200', eventoAbertura: 'vaga_aberta' });
 }
 
-function renderVagasIndex(){
+async function renderVagasIndex(env, ctx){
+  const todasVagas = await getVagasRadar(env, ctx);
   const listaEmpresas = EMPRESAS_EM_AVALIACAO.map((nome) =>
     '<span class="campo-pill">' + escaparHTML(nome) + '</span>'
   ).join('');
 
-  const total = VAGAS_ABERTAS_ESPECIFICAS.length;
   // Ordenação por recência (Etapa 9, 2026-09-25): usa a data efetiva de cada
   // vaga (verificado_em individual quando existir, senão a global) — hoje a
   // maioria empata na mesma data (sort estável preserva a ordem atual), mas
   // já funciona corretamente assim que vagas tiverem datas divergentes.
-  const vagasAtivas = VAGAS_RADAR.filter((v) => !vagaPodeEstarExpirada(v))
+  const vagasAtivas = todasVagas.filter((v) => !vagaPodeEstarExpirada(v))
     .sort((a, b) => vagaDataVerificacao(b) - vagaDataVerificacao(a));
+  const total = vagasAtivas.length;
   const totalOffshore = vagasAtivas.filter((v) => v.offshore_onshore === 'OFFSHORE').length;
   const cards = vagasAtivas.map(cardVaga).join('');
 
@@ -7530,7 +7817,7 @@ function renderVagasIndex(){
     '</div>' +
 
     '<div class="aviso-atualizacao" style="margin-top:8px">' +
-    '<strong>Este radar ainda está em expansão manual.</strong> Cada vaga acima foi verificada individualmente (fonte + link testados) em ' + vagasVerificadasTexto() + ' — a atualização automática contínua depende de uma peça de infraestrutura ainda pendente (banco de dados dedicado), documentada em <code>docs/JOBS-SOURCE-REGISTRY.md</code>. Nenhuma vaga fictícia entra aqui enquanto isso.' +
+    '<strong>Vagas verificadas diretamente na fonte oficial.</strong> Cada vaga foi encontrada no portal de carreiras ou ATS oficial da empresa — nunca em posts de terceiros ou grupos de WhatsApp. Atualização automática via Radar 2.0 (SuccessFactors + Gupy). Nenhuma vaga fictícia entra aqui.' +
     '</div>' +
 
     '<div class="area-group">' +
@@ -17700,6 +17987,7 @@ function renderCCDashboard() {
     '<button type="button" class="cc-tab-btn" data-tab="ferramentas">FERRAMENTAS</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="editorial">EDITORIAL</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="sistema">SISTEMA</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="vagas">VAGAS</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="seo">SEO</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="receita">RECEITA</button>' +
     '</div>' +
@@ -17710,6 +17998,7 @@ function renderCCDashboard() {
     '<div class="cc-painel" data-painel="ferramentas" id="ccPainelFerramentas"></div>' +
     '<div class="cc-painel" data-painel="editorial" id="ccPainelEditorial"><div class="cc-carregando">Carregando…</div></div>' +
     '<div class="cc-painel" data-painel="sistema" id="ccPainelSistema"><div class="cc-carregando">Carregando…</div></div>' +
+    '<div class="cc-painel" data-painel="vagas" id="ccPainelVagas"><div class="cc-carregando">Carregando…</div></div>' +
     '<div class="cc-painel" data-painel="seo" id="ccPainelSeo">' +
     '<div class="cc-pendente"><strong>SEO / Google Search Console — Conexão pendente.</strong><br><br>Para exibir impressões, cliques, CTR e posição média aqui, o OWNews precisa de autorização OAuth ou conta de serviço com leitura ao Search Console — ação do proprietário no Google Cloud.</div></div>' +
     '<div class="cc-painel" data-painel="receita" id="ccPainelReceita">' +
@@ -18140,7 +18429,40 @@ function renderCCDashboard() {
     '[].slice.call(document.querySelectorAll(".cc-painel")).forEach(function(p){p.classList.toggle("ativo",p.getAttribute("data-painel")===alvo);});' +
     'if(alvo==="sistema")carregarSistema();' +
     'if(alvo==="editorial")carregarEditorial();' +
+    'if(alvo==="vagas")carregarVagas();' +
     '});' +
+
+    'var cacheVagas=null;' +
+    'function renderVagasCC(d){' +
+    'var el=document.getElementById("ccPainelVagas");if(!el)return;' +
+    'var html=\'<div class="cc-secao"><h2>Radar de Vagas 2.0 — Cache</h2>\';' +
+    'if(d.cache){' +
+    'var ageMin=Math.round((d.cache.age_ms||0)/60000);' +
+    'html+=\'<p style="font-size:13px;color:var(--muted)">Cache KV ativo: <strong>\'+d.cache.count+\' vagas</strong> · salvo \'+new Date(d.cache.saved_at).toLocaleString("pt-BR")+\' (há \'+ageMin+\' min)</p>\';' +
+    '}else{html+=\'<p style="font-size:13px;color:var(--muted-dim)">Cache KV vazio — primeiro request a /vagas dispara o refresh automático.</p>\';}' +
+    'html+=\'<p style="font-size:12px;color:var(--muted-dim)">Estáticos no array: \'+d.static_count+\' vagas</p>\';' +
+    'if(d.meta&&d.meta.fontes){' +
+    'html+=\'<h2 style="margin-top:18px">Saúde das fontes</h2>\';' +
+    'Object.keys(d.meta.fontes).forEach(function(k){var f=d.meta.fontes[k];var ok=f.ok===true;html+=\'<div class="cc-fonte-linha"><span><span class="cc-fonte-dot \'+( ok?"ok":"erro")+\'"></span><span class="cc-fonte-nome">\'+esc(k)+\'</span></span></div>\';html+=\'<div style="padding:0 0 8px 16px;font-size:12px;color:var(--muted-dim)">\'+esc(f.detalhe||"")+\'</div>\';});' +
+    '}' +
+    'html+=\'<div style="margin-top:16px"><button id="ccVagasForceRefresh" class="cc-btn-pub" style="cursor:pointer">↻ Forçar refresh agora</button> <span id="ccVagasRefreshStatus" style="font-size:12px;color:var(--muted-dim)"></span></div>\';' +
+    'html+=\'</div>\';' +
+    'el.innerHTML=html;' +
+    'var btn=document.getElementById("ccVagasForceRefresh");var st=document.getElementById("ccVagasRefreshStatus");' +
+    'if(btn)btn.addEventListener("click",function(){btn.disabled=true;st.textContent="Atualizando…";' +
+    'fetch("/api/vagas/force-refresh",{method:"POST"}).then(function(r){return r.json();}).then(function(res){st.textContent=res.ok?"✓ "+res.count+" vagas em "+new Date(res.saved_at).toLocaleString("pt-BR"):"✗ "+esc(res.erro||"erro");btn.disabled=false;cacheVagas=null;}).catch(function(e){st.textContent="✗ "+e.message;btn.disabled=false;});' +
+    '});' +
+    '}' +
+    'function carregarVagas(){' +
+    'if(cacheVagas){renderVagasCC(cacheVagas);return;}' +
+    'document.getElementById("ccPainelVagas").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
+    'fetch("/api/vagas/radar-status").then(function(r){' +
+    'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
+    'return r.json();' +
+    '}).then(function(d){cacheVagas=d;renderVagasCC(d);}).catch(function(){' +
+    'document.getElementById("ccPainelVagas").innerHTML=\'<p class="cc-vazio">Não foi possível carregar status do radar agora.</p>\';' +
+    '});' +
+    '}' +
 
     'carregarDados(periodoAtual);' +
     'carregarSistema();' +
@@ -18253,6 +18575,39 @@ export default {
         } catch {}
       }
       return new Response(JSON.stringify(graficoData), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/vagas/radar-status" && request.method === "GET") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      let radarStatus = { cache: null, meta: null, static_count: VAGAS_RADAR.length };
+      try {
+        const cached = env.PERGUNTE_IA_KV ? await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, { type: "json" }) : null;
+        if (cached) {
+          const savedAt = cached.updated_at || cached.saved_at || null;
+          radarStatus.cache = { count: cached.jobs ? cached.jobs.length : 0, saved_at: savedAt, age_ms: savedAt ? Date.now() - new Date(savedAt).getTime() : null };
+          if (cached.sources) {
+            radarStatus.meta = { fontes: {} };
+            for (const [k, v] of Object.entries(cached.sources)) {
+              radarStatus.meta.fontes[k] = { ok: v.ok, detalhe: v.ok ? (v.count + ' vagas, ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.error || 'erro') };
+            }
+          }
+        }
+      } catch {}
+      return new Response(JSON.stringify(radarStatus), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/vagas/force-refresh" && request.method === "POST") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      try {
+        await refreshVagasRadar(env);
+        const cached = env.PERGUNTE_IA_KV ? await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, { type: "json" }) : null;
+        const savedAt = cached ? (cached.updated_at || cached.saved_at || null) : null;
+        return new Response(JSON.stringify({ ok: true, count: cached && cached.jobs ? cached.jobs.length : 0, saved_at: savedAt }), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, erro: String(err) }), { status: 500, headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+      }
     }
 
     if (url.pathname === "/") {
@@ -18386,13 +18741,13 @@ export default {
 
     if (url.pathname.startsWith("/vagas/")) {
       const slug = url.pathname.slice("/vagas/".length).replace(/\/$/, "");
-      const pagina = renderVagaDetalhe(slug);
+      const pagina = await renderVagaDetalhe(slug, env, ctx);
       if (!pagina) return pagina404();
       return new Response(pagina, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
     }
 
     if (url.pathname === "/vagas") {
-      return new Response(renderVagasIndex(), {
+      return new Response(await renderVagasIndex(env, ctx), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
     }
