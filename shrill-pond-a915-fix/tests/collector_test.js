@@ -716,6 +716,73 @@ test("exceção forçada via input tipo errado → SENSIVEL (fail-closed)", () =
   assertEq(r.motivo, "CLASSIFIER_ERROR");
 });
 
+// ── filtrarUrlsExistentes — lógica de query em lote ──────────────────────────
+
+// Inline da lógica pura de construção do filtro PostgREST in.()
+function _buildInFilter(urls) {
+  if (!urls || urls.length === 0) return null;
+  return "original_url=in.(" + urls.map(u => '"' + u + '"').join(",") + ")";
+}
+
+// Versão síncrona para testes — simula resultado do fetch Supabase
+function _filtrarUrlsSync(urls, existentesNaBase) {
+  if (!urls || urls.length === 0) return new Set();
+  return new Set(existentesNaBase.filter(u => urls.includes(u)));
+}
+
+console.log("\nfiltrarUrlsExistentes — lote de URLs");
+
+test("array vazio → sem query (null)", () => {
+  assertEq(_buildInFilter([]), null);
+});
+
+test("array vazio → Set vazio sem chamada externa", () => {
+  const resultado = _filtrarUrlsSync([], ["https://qualquer.com"]);
+  assert(resultado instanceof Set, "deve ser Set");
+  assertEq(resultado.size, 0);
+});
+
+test("query com 3 URLs inclui in.() e aspas duplas", () => {
+  const q = _buildInFilter([
+    "https://anp.gov.br/n1",
+    "https://anp.gov.br/n2",
+    "https://petrobras.com.br/n3"
+  ]);
+  assert(q.startsWith('original_url=in.('), "deve começar com in.(");
+  assert(q.includes('"https://anp.gov.br/n1"'), "URL 1 entre aspas duplas");
+  assert(q.includes('"https://anp.gov.br/n2"'), "URL 2 entre aspas duplas");
+  assert(q.includes('"https://petrobras.com.br/n3"'), "URL 3 entre aspas duplas");
+  assert(q.endsWith(")"), "deve fechar com )");
+});
+
+test("batch dedupe: identifica URLs existentes corretamente", () => {
+  const existentes = ["https://anp.gov.br/noticia-1", "https://anp.gov.br/noticia-3"];
+  const candidatas = [
+    "https://anp.gov.br/noticia-1",
+    "https://anp.gov.br/noticia-2",
+    "https://anp.gov.br/noticia-3",
+  ];
+  const resultado = _filtrarUrlsSync(candidatas, existentes);
+  assert(resultado.has("https://anp.gov.br/noticia-1"), "noticia-1 deve estar no Set");
+  assert(!resultado.has("https://anp.gov.br/noticia-2"), "noticia-2 NÃO deve estar no Set");
+  assert(resultado.has("https://anp.gov.br/noticia-3"), "noticia-3 deve estar no Set");
+  assertEq(resultado.size, 2);
+});
+
+test("batch dedupe: todas novas → Set vazio", () => {
+  const resultado = _filtrarUrlsSync(
+    ["https://anp.gov.br/nova-1", "https://anp.gov.br/nova-2"],
+    []
+  );
+  assertEq(resultado.size, 0);
+});
+
+test("batch dedupe: todas duplicatas → Set completo", () => {
+  const urls = ["https://a.com/1", "https://a.com/2"];
+  const resultado = _filtrarUrlsSync(urls, urls);
+  assertEq(resultado.size, 2);
+});
+
 // ── Resultado ──────────────────────────────────────────────────────────────────
 
 const total = passed + failed;

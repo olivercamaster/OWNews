@@ -993,7 +993,7 @@ async function coletarANP(env) {
   const brutos = extrairLinksANP(html);
   const noticias = brutos
     .filter(item => noticiaRelevante(item.title))
-    .slice(0, 10);
+    .slice(0, 5);
 
   return processarNoticiasComDedupe(env, "ANP", noticias, { brutos: brutos.length });
 }
@@ -2961,9 +2961,12 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
     noticias: []
   };
 
+  // Verifica todas as URLs em um único fetch para evitar N+1 subrequests.
+  const urlsExistentes = await filtrarUrlsExistentes(env, noticias.map(i => i.url));
+
   for (const item of noticias) {
     try {
-      const existe = await noticiaJaExiste(env, item.url);
+      const existe = urlsExistentes.has(item.url);
 
       // Correção 2026-09-17 (auditoria de frescor, causa raiz comprovada via
       // /run-novas-fontes ao vivo): duplicata reconfirmada NÃO re-baixa a
@@ -3891,6 +3894,25 @@ async function noticiaJaExiste(env, originalUrl) {
 
 
   return dados.length > 0;
+}
+
+// Verifica quais URLs de um lote já existem no Supabase usando uma única
+// consulta PostgREST in.() — substitui N chamadas noticiaJaExiste() por 1.
+// Retorna um Set com as URLs que já estão na base.
+async function filtrarUrlsExistentes(env, urls) {
+  if (!urls || urls.length === 0) return new Set();
+  const values = urls.map(u => '"' + u + '"').join(",");
+  const endpoint =
+    env.SUPABASE_URL + "/rest/v1/articles" +
+    "?select=original_url&original_url=in.(" + values + ")";
+  const resposta = await fetch(endpoint, {
+    headers: supabaseHeaders(env)
+  });
+  if (!resposta.ok) {
+    throw new Error("Erro Supabase ao verificar duplicatas em lote: " + resposta.status);
+  }
+  const dados = await resposta.json();
+  return new Set(dados.map(r => r.original_url));
 }
 
 async function inserirArtigo(env, artigo) {
