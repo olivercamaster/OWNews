@@ -1,103 +1,116 @@
-# OWNews — Notifications Architecture
+# OWNews — Central de Alertas 1.0
 
-**Status:** Design document. Não implementado (aguarda decisão de negócio).
-**Custo estimado:** Zero (Web Push é free; VAPID keys geradas localmente).
-
----
-
-## Tecnologia: Web Push + VAPID
-
-Web Push é suportado em Chrome (Android/Desktop), Firefox, Edge, Safari 16.4+. Não requer app nativo. Funciona como PWA installable.
-
-### Como funciona
-
-```
-1. Usuário instala PWA (ou apenas aceita notificações no browser)
-2. Browser registra ServiceWorker (/sw.js)
-3. SW solicita permissão de push: navigator.serviceWorker.ready
-       .then(reg => reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY }))
-4. Subscription (endpoint + keys) enviada para /api/push/subscribe
-5. Worker armazena subscription em KV (PERGUNTE_IA_KV ou novo namespace)
-6. Worker envia push via Web Push Protocol quando evento ocorre
-7. SW recebe 'push' event e exibe notificação
-```
+**Status:** Implementado (2026-10-04). Deploy pendente.
+**Custo adicional:** Zero. Usa PERGUNTE_IA_KV existente com prefixo `push:`.
 
 ---
 
-## Eventos → Notificações
+## Stack
 
-| Evento | Canal | Timing | Copy |
-|--------|-------|--------|------|
-| Cert vence em 30 dias | Web Push | 30 dias antes | "⚠ [Nome cert] vence em 30 dias. Renove antes de embarcar." |
-| Cert vence em 7 dias | Web Push | 7 dias antes | "🚨 [Nome cert] vence em 7 dias. Ação urgente." |
-| Embarque em 3 dias | Web Push | 3 dias antes | "⏱ Você embarca em 3 dias. Mala: X/Y preparados." |
-| Embarque amanhã | Web Push | 1 dia antes | "📦 Embarque amanhã! Verifique sua mala." |
-
----
-
-## API Contracts (a implementar)
-
-### POST /api/push/subscribe
-```json
-{
-  "subscription": { "endpoint": "...", "keys": { "p256dh": "...", "auth": "..." } },
-  "userId": "supabase-user-id ou null",
-  "deviceId": "uuid-gerado-no-cliente"
-}
-```
-Resposta: `{ "ok": true }`
-
-### POST /api/push/send (interno, triggered por cron)
-```json
-{
-  "event": "cert_vencendo_30d",
-  "userId": "...",
-  "data": { "certNome": "CBSP", "diasRestantes": 30 }
-}
-```
-
-### DELETE /api/push/unsubscribe
-```json
-{ "endpoint": "..." }
-```
+- **Web Push Protocol** (RFC 8291) — sem biblioteca externa, WebCrypto puro
+- **VAPID ES256** — autenticação JWT assinada com P-256 via WebCrypto
+- **Criptografia:** aes128gcm + HKDF-SHA256
+- **Storage:** PERGUNTE_IA_KV (prefix `push:`)
+- **Scheduler:** `ctx.waitUntil` em `/central-do-trabalhador` (sem cron triggers)
 
 ---
 
-## Storage
+## Tipos de alerta
 
-Subscriptions em Workers KV:
-- Key: `push:sub:{deviceId}` → JSON subscription
-- Key: `push:user:{userId}` → `[ deviceId, ... ]`
-- Key: `push:cert-alert:{userId}:{certId}:{diasRestantes}` → timestamp do último envio (dedup)
+| Tipo | Disparadores | Dedup |
+|------|-------------|-------|
+| Embarque | 3 dias, 1 dia, 0 dias | 8 dias por threshold |
+| Certificados | 30 dias, 7 dias, 1 dia, 0 dias | 8 dias por cert+threshold |
+| Checklist | Pendente no embarque (count only) | 8 dias |
 
 ---
 
 ## VAPID Keys
 
-Geradas uma vez com `web-push generate-vapid-keys` e armazenadas como Worker Secrets:
-- `VAPID_PUBLIC_KEY` (exposível ao cliente)
-- `VAPID_PRIVATE_KEY` (nunca expor)
-- `VAPID_SUBJECT` (`mailto:ownews@ownews.com.br`)
+- `VAPID_PUBLIC_KEY` — CF Worker Secret (exposta ao cliente via HTML/endpoint)
+- `VAPID_PRIVATE_KEY` — CF Worker Secret (**NUNCA no código, git, HTML, relatório**)
+- Subject: `mailto:ownews@ownews.com.br`
 
 ---
 
-## Cron Trigger
+## KV Key Structure (PERGUNTE_IA_KV)
 
-```toml
-# wrangler.toml
-[[triggers.crons]]
-cron = "0 9 * * *"  # 09:00 UTC diariamente
+| Key | Valor | TTL |
+|-----|-------|-----|
+| `push:sub:{deviceId}` | `{endpoint, keys, userId, device_id, created_at}` | 60 dias |
+| `push:user:{userId}` | `[deviceId, ...]` | 60 dias |
+| `push:prefs:{deviceId}` | `{embarque, checklist, certificados, checklist_pending, certs, escala, updated_at}` | 90 dias |
+| `push:dedup:{deviceId}:{key}` | `'1'` | 8 dias |
+| `push:sched:last_run` | timestamp ms | sem TTL |
+
+---
+
+## API Endpoints
+
+| Endpoint | Método | Auth | Descrição |
+|----------|--------|------|-----------|
+| `/api/push/vapid-public-key` | GET | — | Retorna a chave pública VAPID |
+| `/api/push/subscribe` | POST | — | Registra subscription + prefs + dados |
+| `/api/push/unsubscribe` | DELETE | — | Remove subscription e prefs |
+| `/api/push/preferences` | POST | — | Atualiza prefs + dados de cert/escala |
+| `/api/push/test` | POST | — | Envia push de teste ao deviceId |
+| `/api/push/stats` | GET | CC | Contagem e last_run (sem PII) |
+
+### POST /api/push/subscribe
+```json
+{
+  "subscription": { "endpoint": "...", "keys": { "p256dh": "...", "auth": "..." } },
+  "deviceId": "dev-xxx",
+  "userId": "supabase-uid-ou-null",
+  "prefs": { "embarque": true, "checklist": true, "certificados": true },
+  "certs": [{ "id": "...", "nome": "CBSP", "validade": "2027-03-15" }],
+  "escala": { "data": { "tipo": "14x14", "dataRef": "2026-01-01", ... } }
+}
 ```
 
-Handler verifica subscriptions ativas e envia notificações pendentes.
+### POST /api/push/preferences
+```json
+{
+  "deviceId": "dev-xxx",
+  "prefs": { "embarque": true, "checklist": false, "certificados": true },
+  "certs": [...],
+  "escala": {...}
+}
+```
 
 ---
 
-## Decisão de negócio necessária antes de implementar
+## Scheduler
 
-1. Criar novo KV namespace para subscriptions? (proposto: `PUSH_SUBSCRIPTIONS_KV`)
-2. Email VAPID subject?
-3. Copy final das notificações (PT-BR, voz OWNews)
-4. Opt-in explícito ou silencioso?
+Disparado via `ctx.waitUntil(maybeTriggerPushScheduler(env, ctx))` na rota `/central-do-trabalhador`.
 
-**NÃO implementar sem autorização** — envolve armazenar dados de usuário adicionais.
+- `PUSH_SCHED_TTL = 20h` — executa no máximo uma vez a cada 20 horas
+- Lista todos `push:sub:*` do KV e processa cada dispositivo
+- Deduplicação por `push:dedup:{deviceId}:{tag}` (TTL 8 dias)
+- Expiry handling: 404/410 do push endpoint → deleta a subscription
+
+---
+
+## Privacy
+
+- Checklist: apenas `checklist_pending` (contagem inteira) armazenado — texto dos itens nunca enviado ao servidor
+- Dados de cert/escala: sincronizados a cada visita a `/meus-alertas` (mesmos dados já em Supabase user_metadata)
+- Sem PII nos endpoints de observabilidade (CC)
+- deviceId gerado pelo cliente, sem vínculo obrigatório com userId
+
+---
+
+## Páginas
+
+- `/meus-alertas` — opt-in explícito, gerenciamento de tipos, teste
+- `/central-do-trabalhador` — pill ALERTAS com estado (ATIVO/CONFIGURAR/BLOQUEADO)
+- `/command-center` — aba PUSH com total de dispositivos e last_run
+
+---
+
+## Decisões de implementação
+
+- **Sem cron trigger** — wrangler.jsonc proibe `triggers.crons`; scheduler usa waitUntil lazy
+- **KV existente** — sem custo adicional de novo namespace
+- **Opt-in explícito** — `Notification.requestPermission()` NUNCA chamado automaticamente
+- **Sem biblioteca npm** — WebCrypto puro em worker.js (single-file)
