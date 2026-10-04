@@ -2286,6 +2286,7 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 .ck-texto{font-family:var(--ui);font-size:13.5px;color:var(--white);flex:1}
 .ck-item.checked .ck-texto{text-decoration:line-through;color:var(--muted)}
 .ck-btn-remover{font-size:14px;color:var(--muted-dim);background:none;border:none;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}
+.ck-btn-rec{font-size:11px;color:var(--cyan-dim);background:none;border:none;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;font-family:var(--ui)}
 .ck-btn-add{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim);background:none;border:1px solid rgba(18,168,238,.25);border-radius:7px;padding:10px 16px;cursor:pointer;margin-top:4px;width:100%;text-align:left;transition:border-color .15s;display:block}
 .ck-btn-add:hover{border-color:rgba(18,168,238,.5)}
 .ck-add-form{display:none;margin-top:10px;background:rgba(6,14,28,.5);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:14px}
@@ -2303,6 +2304,35 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
 .cw-ck-strip-title{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white)}
 .cw-ck-strip-sub{font-family:var(--ui);font-size:11px;color:var(--muted);margin-top:2px}
 .cw-ck-strip-btn{width:28px;height:28px;border-radius:4px;border:1px solid rgba(18,168,238,.22);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(18,168,238,.7);flex-shrink:0}
+/* checklist module — sempre visível na Central */
+.cw-ck-module{background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:7px;padding:14px 16px;margin-top:10px}
+.cw-ck-mod-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.cw-ck-mod-label{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-dim)}
+.cw-ck-mod-link{font-family:var(--ui);font-size:11px;font-weight:700;color:rgba(18,168,238,.7);text-decoration:none;letter-spacing:.03em}
+.cw-ck-mod-state{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;line-height:1.4}
+.cw-ck-mod-state .muted{color:var(--muted);font-weight:400}
+.cw-ck-mod-context{font-family:var(--ui);font-size:11px;color:var(--muted);margin-bottom:10px;min-height:14px}
+.cw-ck-mod-context.urgente{color:var(--cyan-dim)}
+.cw-ck-mod-context.critico{color:var(--yellow)}
+.cw-ck-mod-qaBtn{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan-dim);background:rgba(18,168,238,.06);border:1px solid rgba(18,168,238,.2);border-radius:6px;padding:8px 14px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;-webkit-tap-highlight-color:transparent}
+.cw-ck-mod-qaBtn:active{background:rgba(18,168,238,.12)}
+/* quick-add overlay */
+.cw-qa-overlay{position:fixed;inset:0;background:rgba(6,14,28,.7);z-index:9000;display:flex;align-items:flex-end;justify-content:center;-webkit-tap-highlight-color:transparent}
+.cw-qa-overlay[hidden]{display:none}
+.cw-qa-sheet{background:var(--navy-900);border:1px solid rgba(18,168,238,.15);border-radius:14px 14px 0 0;padding:20px 20px 28px;width:100%;max-width:520px;box-sizing:border-box}
+.cw-qa-lbl{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);display:block;margin-bottom:8px}
+.cw-qa-input{width:100%;box-sizing:border-box;background:var(--navy-950);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;color:var(--white);font-family:var(--ui);font-size:15px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.cw-qa-input:focus{border-color:rgba(18,168,238,.5)}
+.cw-qa-input::placeholder{color:var(--muted-dim)}
+.cw-qa-actions{display:flex;gap:10px;margin-top:12px}
+.cw-qa-cancel{flex:1;font-family:var(--ui);font-size:13px;color:var(--muted);background:none;border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;cursor:pointer}
+.cw-qa-submit{flex:2;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--navy-950);background:var(--cyan-dim);border:none;border-radius:7px;padding:10px;cursor:pointer}
+.cw-qa-submit:active{opacity:.85}
+/* cert alert — variante crítica (vence hoje / vencido) */
+.cw-alerta-strip.critico{background:rgba(255,75,75,.07);border-color:rgba(255,75,75,.25);color:var(--red)}
+.cw-alerta-strip.critico:hover{border-color:rgba(255,75,75,.5)}
+.cw-alerta-strip.critico .cw-alerta-cta{color:var(--red)}
+.cw-alerta-strip.critico .cw-alerta-icon{color:var(--red)}
 @media(max-width:600px){.central-grid{grid-template-columns:1fr}.cert-card-head{flex-wrap:wrap}}
 
 .busca-vazio{font-family:var(--ui);color:var(--muted-dim);text-align:center;padding:30px 0}
@@ -8445,17 +8475,27 @@ function renderCentralTrabalhador() {
 
     /* Alerta strip — oculta, aparece se há cert vencendo em ≤90 dias */
     '<a class="cw-alerta-strip" href="/meus-certificados" id="cwAlertaStrip" hidden>' +
-    '<span class="cw-alerta-icon">⚠</span>' +
+    '<span class="cw-alerta-icon" id="cwAlertaIcon">⚠</span>' +
     '<span class="cw-alerta-texto" id="cwAlertaTexto"></span>' +
-    '<span class="cw-alerta-cta">VER →</span>' +
+    '<span class="cw-alerta-cta" id="cwAlertaCta">VER →</span>' +
     '</a>' +
 
-    /* Checklist strip — oculta, aparece se embarque ≤ 7 dias */
-    '<a class="cw-ck-strip" href="/checklist-embarque" id="cwCkStrip" hidden>' +
-    '<div class="cw-ck-strip-accent"></div>' +
-    '<div class="cw-ck-strip-body"><div class="cw-ck-strip-title" id="cwCkStripTitle">MALA</div><div class="cw-ck-strip-sub" id="cwCkStripSub">Preparar para o embarque</div></div>' +
-    '<div class="cw-ck-strip-btn">→</div>' +
-    '</a>' +
+    /* Checklist module — sempre visível (Lista Viva da Folga) */
+    '<div class="cw-ck-module" id="cwCkModule">' +
+    '<div class="cw-ck-mod-top"><span class="cw-ck-mod-label">CHECKLIST DE EMBARQUE</span><a href="/checklist-embarque" class="cw-ck-mod-link" aria-label="Abrir checklist completo">VER TUDO →</a></div>' +
+    '<div class="cw-ck-mod-state" id="cwCkModState"><span class="muted">Vai lembrando. A gente guarda pra você.</span></div>' +
+    '<div class="cw-ck-mod-context" id="cwCkModContext"></div>' +
+    '<button type="button" class="cw-ck-mod-qaBtn" id="cwCkQaBtn" aria-label="Adicionar item ao checklist">+ Lembrei de algo</button>' +
+    '</div>' +
+    '<div class="cw-qa-overlay" id="cwQaOverlay" hidden role="dialog" aria-modal="true" aria-label="Adicionar item">' +
+    '<div class="cw-qa-sheet" id="cwQaSheet">' +
+    '<form id="cwQaForm" autocomplete="off">' +
+    '<label class="cw-qa-lbl" for="cwQaInput">Lembrei de algo...</label>' +
+    '<input class="cw-qa-input" id="cwQaInput" type="text" placeholder="Creatina, pasta de dente…" maxlength="60" aria-label="Item para adicionar \xe0 mala">' +
+    '<div class="cw-qa-actions">' +
+    '<button type="button" class="cw-qa-cancel" id="cwQaCancel">Cancelar</button>' +
+    '<button type="submit" class="cw-qa-submit">Adicionar</button>' +
+    '</div></form></div></div>' +
 
     /* 4 cards em grid 2×2 */
     '<div class="cw-cards-grid">' +
@@ -8629,7 +8669,7 @@ function renderCentralTrabalhador() {
     '      var dias=diasEntre(agora,v);\n' +
     '      if(dias<0)atencaoList.push({nome:c.nome,dias:dias});\n' +
     '      else if(dias<=90)atencaoList.push({nome:c.nome,dias:dias});\n' +
-    '      if(dias>=0&&dias<=90&&(!proxVenc||dias<proxVenc.dias))proxVenc={nome:c.nome,dias:dias,data:v};\n' +
+    '      if(dias<=90&&(!proxVenc||dias<proxVenc.dias))proxVenc={id:c.id,nome:c.nome,dias:dias,data:v};\n' +
     '    });\n' +
     '    var nPad=(certs.length<10?"0":"")+certs.length;\n' +
     '    var plural=certs.length===1?"certificado":"certificados";\n' +
@@ -8659,38 +8699,60 @@ function renderCentralTrabalhador() {
     '    if(proxVenc){\n' +
     '      var strip=document.getElementById("cwAlertaStrip");\n' +
     '      var stripTxt=document.getElementById("cwAlertaTexto");\n' +
+    '      var stripCta=document.getElementById("cwAlertaCta");\n' +
     '      if(strip&&stripTxt){\n' +
     '        strip.hidden=false;\n' +
-    '        var dStr=proxVenc.dias<0?"vencido há "+Math.abs(proxVenc.dias)+" dias":proxVenc.dias===0?"VENCE HOJE":"vence em "+proxVenc.dias+" dias";\n' +
-    '        var msg=proxVenc.nome+" — "+dStr;\n' +
+    '        var critico=proxVenc.dias<=0;\n' +
+    '        var dStr=proxVenc.dias<0?"vencido h\\u00e1 "+Math.abs(proxVenc.dias)+" dias":proxVenc.dias===0?"VENCE HOJE":"vence em "+proxVenc.dias+" dias";\n' +
+    '        var msg=proxVenc.nome+" \\u2014 "+dStr;\n' +
     '        if(calc){\n' +
     '          var faseV=(Math.round((proxVenc.data-calc.anchor)/86400000)%calc.ciclo+calc.ciclo)%calc.ciclo;\n' +
-    '          msg+=" · "+(faseV>=calc.dEm?"Vence durante sua folga.":"Vence enquanto você está embarcado.");\n' +
+    '          msg+=" \\u00b7 "+(faseV>=calc.dEm?"Vence durante sua folga.":"Vence enquanto voc\\u00ea est\\u00e1 embarcado.");\n' +
     '          if(window.ownewsEvento)window.ownewsEvento("certificado_escala_insight_view");\n' +
     '        }\n' +
     '        stripTxt.textContent=msg;\n' +
+    '        if(critico){\n' +
+    '          strip.classList.add("critico");\n' +
+    '          if(stripCta)stripCta.textContent="ATUALIZAR \\u2192";\n' +
+    '          if(proxVenc.id)strip.href="/meus-certificados?edit="+encodeURIComponent(proxVenc.id);\n' +
+    '        } else {\n' +
+    '          strip.classList.remove("critico");\n' +
+    '          if(stripCta)stripCta.textContent="VER \\u2192";\n' +
+    '        }\n' +
     '        if(window.ownewsEvento)window.ownewsEvento("certificado_alert_view");\n' +
     '      }\n' +
     '    }\n' +
     '  }\n' +
-    '  // --- Checklist strip ---\n' +
-    '  if(calc&&!calc.embarcado&&calc.diasRestantes<=7){\n' +
-    '    var ckStrip=document.getElementById("cwCkStrip");\n' +
-    '    var ckTitle=document.getElementById("cwCkStripTitle");\n' +
-    '    var ckSub=document.getElementById("cwCkStripSub");\n' +
-    '    if(ckStrip){\n' +
-    '      try{\n' +
-    '        var ckRaw=localStorage.getItem(LS_CHECKLIST);\n' +
-    '        var ckData=ckRaw?JSON.parse(ckRaw):null;\n' +
-    '        var ckTotal=ckData&&ckData.items?ckData.items.length:0;\n' +
-    '        var ckDone=ckData&&ckData.items?ckData.items.filter(function(i){return i.ok;}).length:0;\n' +
-    '        if(ckTitle)ckTitle.textContent="MALA \xb7 "+ckDone+"/"+ckTotal+" preparados";\n' +
-    '        var nd=calc.diasRestantes;\n' +
-    '        if(ckSub)ckSub.textContent=nd===0?"Embarque hoje — verifique sua mala":nd===1?"Embarque amanhã — "+(ckTotal-ckDone)+" itens pendentes":"Embarque em "+nd+" dias — "+(ckTotal-ckDone)+" itens pendentes";\n' +
-    '      }catch(e){if(ckSub)ckSub.textContent="Verificar antes do embarque";}\n' +
-    '      ckStrip.hidden=false;\n' +
+    '  // --- Checklist module (sempre vis\\u00edvel) ---\n' +
+    '  try{\n' +
+    '    var ckRaw=localStorage.getItem(LS_CHECKLIST);\n' +
+    '    var ckData=ckRaw?JSON.parse(ckRaw):null;\n' +
+    '    var ckItems=ckData&&Array.isArray(ckData.items)?ckData.items:[];\n' +
+    '    var ckTotal=ckItems.length;\n' +
+    '    var ckDone=ckItems.filter(function(i){return i.ok;}).length;\n' +
+    '    var stEl=document.getElementById("cwCkModState");\n' +
+    '    var ctxEl=document.getElementById("cwCkModContext");\n' +
+    '    if(stEl){\n' +
+    '      if(ckTotal===0){\n' +
+    '        stEl.innerHTML=\'<span class="muted">Vai lembrando. A gente guarda pra voc\\u00ea.</span>\';\n' +
+    '      } else {\n' +
+    '        stEl.textContent=ckDone+"/"+ckTotal+" preparados";\n' +
+    '      }\n' +
     '    }\n' +
-    '  }\n' +
+    '    if(ctxEl){\n' +
+    '      ctxEl.textContent="";\n' +
+    '      ctxEl.className="cw-ck-mod-context";\n' +
+    '      if(calc&&!calc.embarcado){\n' +
+    '        var nd=calc.diasRestantes;\n' +
+    '        if(nd===0){ctxEl.textContent="Embarque hoje";ctxEl.className="cw-ck-mod-context critico";}\n' +
+    '        else if(nd===1){ctxEl.textContent="Embarque amanh\\u00e3";ctxEl.className="cw-ck-mod-context critico";}\n' +
+    '        else if(nd<=7){ctxEl.textContent="Embarque em "+nd+" dias";ctxEl.className="cw-ck-mod-context urgente";}\n' +
+    '        else{ctxEl.textContent="Embarque em "+nd+" dias";}\n' +
+    '      } else if(!calc){\n' +
+    '        ctxEl.textContent="Configure sua escala para acompanhar automaticamente.";\n' +
+    '      }\n' +
+    '    }\n' +
+    '  }catch(e){}\n' +
     '  // --- Carreira ---\n' +
     '  if(meta.funcao){\n' +
     '    var fn=meta.funcao;\n' +
@@ -8720,6 +8782,51 @@ function renderCentralTrabalhador() {
     '}\n' +
     'try{atualizarUI();}catch(e){}\n' +
     'if(window.ownewsEvento)window.ownewsEvento("central_trabalhador_view");\n' +
+    // Quick-add bottom sheet
+    '(function(){\n' +
+    '  var LS_KEY="ownews_checklist_mala";\n' +
+    '  function loadCk(){try{var r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):{items:[],ciclo:null};}catch(e){return{items:[],ciclo:null};}}\n' +
+    '  function saveCk(d){try{localStorage.setItem(LS_KEY,JSON.stringify(d));}catch(e){}}\n' +
+    '  function atualizarContador(){\n' +
+    '    var d=loadCk();var items=d.items||[];\n' +
+    '    var total=items.length,done=items.filter(function(i){return i.ok;}).length;\n' +
+    '    var stEl=document.getElementById("cwCkModState");\n' +
+    '    var ctxEl=document.getElementById("cwCkModContext");\n' +
+    '    if(stEl){\n' +
+    '      if(total===0){stEl.innerHTML=\'<span class="muted">Vai lembrando. A gente guarda pra voc\\u00ea.</span>\';}\n' +
+    '      else{stEl.textContent=done+"/"+total+" preparados";}\n' +
+    '    }\n' +
+    '  }\n' +
+    '  var qaBtn=document.getElementById("cwCkQaBtn");\n' +
+    '  var overlay=document.getElementById("cwQaOverlay");\n' +
+    '  var form=document.getElementById("cwQaForm");\n' +
+    '  var inp=document.getElementById("cwQaInput");\n' +
+    '  var cancelBtn=document.getElementById("cwQaCancel");\n' +
+    '  function abrirQa(){\n' +
+    '    if(!overlay)return;\n' +
+    '    overlay.hidden=false;\n' +
+    '    if(inp){inp.value="";setTimeout(function(){inp.focus();},80);}\n' +
+    '    if(window.ownewsEvento)window.ownewsEvento("checklist_quick_add_open");\n' +
+    '  }\n' +
+    '  function fecharQa(){\n' +
+    '    if(overlay)overlay.hidden=true;\n' +
+    '    if(inp)inp.value="";\n' +
+    '  }\n' +
+    '  if(qaBtn)qaBtn.addEventListener("click",function(){abrirQa();});\n' +
+    '  if(cancelBtn)cancelBtn.addEventListener("click",function(){fecharQa();});\n' +
+    '  if(overlay)overlay.addEventListener("click",function(e){if(e.target===overlay)fecharQa();});\n' +
+    '  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&overlay&&!overlay.hidden)fecharQa();});\n' +
+    '  if(form)form.addEventListener("submit",function(e){\n' +
+    '    e.preventDefault();\n' +
+    '    if(!inp||!inp.value.trim())return;\n' +
+    '    var d=loadCk();\n' +
+    '    d.items.push({id:"ck-"+Date.now().toString(36),t:inp.value.trim(),cat:"P",ok:false,rec:true});\n' +
+    '    saveCk(d);\n' +
+    '    fecharQa();\n' +
+    '    atualizarContador();\n' +
+    '    if(window.ownewsEvento)window.ownewsEvento("checklist_item_added");\n' +
+    '  });\n' +
+    '})();\n' +
     '(function(){\n' +
     '  var r=document.getElementById("cwHeaderRelogio");\n' +
     '  if(!r)return;\n' +
@@ -9097,6 +9204,14 @@ function renderMeusCertificados() {
     '  if(window.ownewsEvento)window.ownewsEvento("certificado_account_save_click");\n' +
     '});\n' +
     'renderLista();\n' +
+    'try{\n' +
+    '  var _editParam=new URLSearchParams(location.search).get("edit");\n' +
+    '  if(_editParam){\n' +
+    '    var _cAll=carregarCertsVisiveis();\n' +
+    '    var _cEdit=_cAll.find(function(x){return x.id===_editParam;});\n' +
+    '    if(_cEdit)setTimeout(function(){abrirForm(_cEdit);},120);\n' +
+    '  }\n' +
+    '}catch(e){}\n' +
     'if(window.ownewsEvento){\n' +
     '  window.ownewsEvento("certificados_view");\n' +
     '}\n' +
@@ -9193,8 +9308,12 @@ function renderChecklistEmbarque() {
     '  var data=initData();\n' +
     '  var esc=calcNextEmbarque();\n' +
     '  if(esc&&esc.nextEmbarqueISO&&data.ciclo!==esc.nextEmbarqueISO){\n' +
-    '    data.items=data.items.map(function(i){return{id:i.id,t:i.t,cat:i.cat,ok:false};});\n' +
-    '    data.ciclo=esc.nextEmbarqueISO;saveData(data);\n' +
+    '    data.items=data.items\n' +
+    '      .filter(function(i){return i.rec!==false;})\n' +
+    '      .map(function(i){return{id:i.id,t:i.t,cat:i.cat,ok:false,rec:i.rec!==false};});\n' +
+    '    data.ciclo=esc.nextEmbarqueISO;\n' +
+    '    if(window.ownewsEvento)window.ownewsEvento("checklist_cycle_reset");\n' +
+    '    saveData(data);\n' +
     '  }\n' +
     '  var infoEl=document.getElementById("ckEmbarqueInfo");\n' +
     '  if(infoEl){\n' +
@@ -9215,11 +9334,18 @@ function renderChecklistEmbarque() {
     '    var sec=document.createElement("div");\n' +
     '    var h=document.createElement("div");h.className="ck-section-title";h.textContent=title;sec.appendChild(h);\n' +
     '    items.forEach(function(item){\n' +
+    '      var isRec=item.rec!==false;\n' +
     '      var div=document.createElement("div");div.className="ck-item"+(item.ok?" checked":"");div.dataset.id=item.id;\n' +
     '      var cb=document.createElement("div");cb.className="ck-checkbox";if(item.ok)cb.textContent="\\u2713";\n' +
     '      var txt=document.createElement("span");txt.className="ck-texto";txt.textContent=item.t;\n' +
-    '      var rm=document.createElement("button");rm.className="ck-btn-remover";rm.type="button";rm.title="Remover";rm.textContent="\\u00d7";rm.dataset.id=item.id;\n' +
-    '      div.appendChild(cb);div.appendChild(txt);div.appendChild(rm);sec.appendChild(div);\n' +
+    '      var recBtn=document.createElement("button");recBtn.className="ck-btn-rec";recBtn.type="button";\n' +
+    '      recBtn.title=isRec?"Manter nos pr\\u00f3ximos embarques (clique para usar s\\u00f3 neste)":"Somente este embarque (clique para manter sempre)";\n' +
+    '      recBtn.setAttribute("aria-label",recBtn.title);\n' +
+    '      recBtn.textContent=isRec?"\\u21bb":"1\\u00d7";\n' +
+    '      recBtn.dataset.id=item.id;recBtn.dataset.rec=isRec?"1":"0";\n' +
+    '      if(!isRec)recBtn.style.opacity="0.45";\n' +
+    '      var rm=document.createElement("button");rm.className="ck-btn-remover";rm.type="button";rm.title="Remover";rm.setAttribute("aria-label","Remover item");rm.textContent="\\u00d7";rm.dataset.id=item.id;\n' +
+    '      div.appendChild(cb);div.appendChild(txt);div.appendChild(recBtn);div.appendChild(rm);sec.appendChild(div);\n' +
     '    });\n' +
     '    listaEl.appendChild(sec);\n' +
     '  }\n' +
@@ -9230,15 +9356,17 @@ function renderChecklistEmbarque() {
     '  if(window.ownewsEvento)window.ownewsEvento("checklist_embarque_view");\n' +
     '}\n' +
     'document.addEventListener("click",function(e){\n' +
+    '  var recBtn=e.target.closest(".ck-btn-rec");\n' +
+    '  if(recBtn){e.stopPropagation();var d=loadData();if(!d)return;var ix=d.items.findIndex(function(i){return i.id===recBtn.dataset.id;});if(ix>=0){d.items[ix].rec=recBtn.dataset.rec!=="1";saveData(d);renderPage();}return;}\n' +
     '  var rm=e.target.closest(".ck-btn-remover");\n' +
-    '  if(rm){e.stopPropagation();var d=loadData();if(!d)return;d.items=d.items.filter(function(i){return i.id!==rm.dataset.id;});saveData(d);renderPage();return;}\n' +
+    '  if(rm){e.stopPropagation();var d=loadData();if(!d)return;d.items=d.items.filter(function(i){return i.id!==rm.dataset.id;});saveData(d);if(window.ownewsEvento)window.ownewsEvento("checklist_item_removed");renderPage();return;}\n' +
     '  var item=e.target.closest(".ck-item");\n' +
-    '  if(item){var id=item.dataset.id;var d=loadData();if(!d)return;var ix=d.items.findIndex(function(i){return i.id===id;});if(ix>=0){d.items[ix].ok=!d.items[ix].ok;saveData(d);renderPage();}return;}\n' +
-    '  if(e.target.id==="ckBtnAdd"){document.getElementById("ckAddForm").classList.toggle("aberto");return;}\n' +
-    '  if(e.target.id==="ckBtnReset"){if(!confirm("Resetar todos os itens?"))return;var d=loadData();if(d){d.items=d.items.map(function(i){return{id:i.id,t:i.t,cat:i.cat,ok:false};});d.ciclo=null;saveData(d);renderPage();}return;}\n' +
+    '  if(item&&!e.target.closest("button")){var id=item.dataset.id;var d=loadData();if(!d)return;var ix=d.items.findIndex(function(i){return i.id===id;});if(ix>=0){var novoOk=!d.items[ix].ok;d.items[ix].ok=novoOk;saveData(d);if(window.ownewsEvento&&novoOk)window.ownewsEvento("checklist_item_completed");renderPage();}return;}\n' +
+    '  if(e.target.id==="ckBtnAdd"){document.getElementById("ckAddForm").classList.toggle("aberto");if(document.getElementById("ckAddForm").classList.contains("aberto")){var ai=document.getElementById("ckAddInput");if(ai)setTimeout(function(){ai.focus();},60);}return;}\n' +
+    '  if(e.target.id==="ckBtnReset"){if(!confirm("Resetar todos os itens marcados?"))return;var d=loadData();if(d){d.items=d.items.filter(function(i){return i.rec!==false;}).map(function(i){return{id:i.id,t:i.t,cat:i.cat,ok:false,rec:i.rec!==false};});d.ciclo=null;saveData(d);renderPage();}return;}\n' +
     '});\n' +
     'var frm=document.getElementById("ckAddFormEl");\n' +
-    'if(frm)frm.addEventListener("submit",function(e){e.preventDefault();var inp=document.getElementById("ckAddInput");var cat=document.getElementById("ckAddCat");if(!inp||!inp.value.trim())return;var d=loadData()||{items:[],ciclo:null};d.items.push({id:"ck-"+Date.now().toString(36),t:inp.value.trim(),cat:cat?cat.value:"P",ok:false});saveData(d);inp.value="";document.getElementById("ckAddForm").classList.remove("aberto");renderPage();});\n' +
+    'if(frm)frm.addEventListener("submit",function(e){e.preventDefault();var inp=document.getElementById("ckAddInput");var cat=document.getElementById("ckAddCat");if(!inp||!inp.value.trim())return;var d=loadData()||{items:[],ciclo:null};d.items.push({id:"ck-"+Date.now().toString(36),t:inp.value.trim(),cat:cat?cat.value:"P",ok:false,rec:true});saveData(d);inp.value="";document.getElementById("ckAddForm").classList.remove("aberto");if(window.ownewsEvento)window.ownewsEvento("checklist_item_added");renderPage();});\n' +
     'renderPage();\n' +
     '})();</script>';
 
