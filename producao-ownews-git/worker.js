@@ -15639,15 +15639,21 @@ function renderMinhaEscala() {
     'return Date.UTC(ano,mesIdx0,primeiroDomingo+7);' +
     '}' +
     'function datasImportantesDoAno(ano){' +
-    'var pascoa=pascoaUTC(ano);var carnaval=pascoa-47*86400000;' +
+    'var pascoa=pascoaUTC(ano);var carnaval=pascoa-47*86400000;var sextaSanta=pascoa-2*86400000;' +
     'return [' +
     '{nome:"Ano-Novo",emoji:"🎆",data:Date.UTC(ano,0,1),tipo:"feriado"},' +
     '{nome:"Carnaval",emoji:"🎭",data:carnaval,tipo:"feriado"},' +
+    '{nome:"Sexta-feira Santa",emoji:"✝️",data:sextaSanta,tipo:"feriado"},' +
     '{nome:"Páscoa",emoji:"🐰",data:pascoa,tipo:"feriado"},' +
+    '{nome:"Tiradentes",emoji:"⚔️",data:Date.UTC(ano,3,21),tipo:"feriado"},' +
+    '{nome:"Dia do Trabalho",emoji:"⚒️",data:Date.UTC(ano,4,1),tipo:"feriado"},' +
     '{nome:"Dia das Mães",emoji:"💐",data:segundoDomingoUTC(ano,4),tipo:"comemorativa"},' +
     '{nome:"Dia dos Pais",emoji:"👔",data:segundoDomingoUTC(ano,7),tipo:"comemorativa"},' +
-    '{nome:"Dia das Crianças",emoji:"🎈",data:Date.UTC(ano,9,12),tipo:"feriado"},' +
     '{nome:"7 de Setembro",emoji:"🇧🇷",data:Date.UTC(ano,8,7),tipo:"feriado"},' +
+    '{nome:"Dia das Crianças",emoji:"🎈",data:Date.UTC(ano,9,12),tipo:"feriado"},' +
+    '{nome:"Finados",emoji:"🕯️",data:Date.UTC(ano,10,2),tipo:"feriado"},' +
+    '{nome:"Proclamação da República",emoji:"🏛️",data:Date.UTC(ano,10,15),tipo:"feriado"},' +
+    '{nome:"Consciência Negra",emoji:"✊",data:Date.UTC(ano,10,20),tipo:"feriado"},' +
     '{nome:"Natal",emoji:"🎄",data:Date.UTC(ano,11,25),tipo:"feriado"}' +
     '];' +
     '}' +

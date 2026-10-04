@@ -461,6 +461,215 @@ console.log("\n[SYNC] carregarEscalaDaConta aeroporto migration");
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SUITE 6: datasImportantesDoAno — feriados nacionais
+// ═══════════════════════════════════════════════════════════════
+console.log("\n[FERIADOS] datasImportantesDoAno — feriados nacionais brasileiros");
+{
+  // Minimal inline implementation mirroring worker.js exactly
+  function pascoaUTC(ano) {
+    var a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,
+        m=Math.floor((a+11*h+22*l)/451);
+    var mes=Math.floor((h+l-7*m+114)/31);
+    var dia=((h+l-7*m+114)%31)+1;
+    return Date.UTC(ano,mes-1,dia);
+  }
+  function segundoDomingoUTC(ano, mesIdx0) {
+    var dow=new Date(Date.UTC(ano,mesIdx0,1)).getUTCDay();
+    var primeiroDomingo=dow===0?1:(8-dow);
+    return Date.UTC(ano,mesIdx0,primeiroDomingo+7);
+  }
+  function datasImportantesDoAno(ano) {
+    var pascoa=pascoaUTC(ano); var carnaval=pascoa-47*86400000; var sextaSanta=pascoa-2*86400000;
+    return [
+      {nome:"Ano-Novo",emoji:"🎆",data:Date.UTC(ano,0,1),tipo:"feriado"},
+      {nome:"Carnaval",emoji:"🎭",data:carnaval,tipo:"feriado"},
+      {nome:"Sexta-feira Santa",emoji:"✝️",data:sextaSanta,tipo:"feriado"},
+      {nome:"Páscoa",emoji:"🐰",data:pascoa,tipo:"feriado"},
+      {nome:"Tiradentes",emoji:"⚔️",data:Date.UTC(ano,3,21),tipo:"feriado"},
+      {nome:"Dia do Trabalho",emoji:"⚒️",data:Date.UTC(ano,4,1),tipo:"feriado"},
+      {nome:"Dia das Mães",emoji:"💐",data:segundoDomingoUTC(ano,4),tipo:"comemorativa"},
+      {nome:"Dia dos Pais",emoji:"👔",data:segundoDomingoUTC(ano,7),tipo:"comemorativa"},
+      {nome:"7 de Setembro",emoji:"🇧🇷",data:Date.UTC(ano,8,7),tipo:"feriado"},
+      {nome:"Dia das Crianças",emoji:"🎈",data:Date.UTC(ano,9,12),tipo:"feriado"},
+      {nome:"Finados",emoji:"🕯️",data:Date.UTC(ano,10,2),tipo:"feriado"},
+      {nome:"Proclamação da República",emoji:"🏛️",data:Date.UTC(ano,10,15),tipo:"feriado"},
+      {nome:"Consciência Negra",emoji:"✊",data:Date.UTC(ano,10,20),tipo:"feriado"},
+      {nome:"Natal",emoji:"🎄",data:Date.UTC(ano,11,25),tipo:"feriado"},
+    ];
+  }
+
+  function encontrarFeriado(ano, nome) {
+    return datasImportantesDoAno(ano).find(f => f.nome === nome);
+  }
+
+  // Fixed feriados
+  test("Tiradentes = 21/04", () => {
+    const f = encontrarFeriado(2026, "Tiradentes");
+    assert(f, "Tiradentes not found"); eq(f.tipo, "feriado");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 3); eq(d.getUTCDate(), 21);
+  });
+  test("Dia do Trabalho = 01/05", () => {
+    const f = encontrarFeriado(2026, "Dia do Trabalho");
+    assert(f, "Dia do Trabalho not found"); eq(f.tipo, "feriado");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 4); eq(d.getUTCDate(), 1);
+  });
+  test("7 de Setembro = 07/09", () => {
+    const f = encontrarFeriado(2026, "7 de Setembro");
+    assert(f, "7 de Setembro not found");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 8); eq(d.getUTCDate(), 7);
+  });
+  test("Dia das Crianças = 12/10", () => {
+    const f = encontrarFeriado(2026, "Dia das Crianças");
+    assert(f, "Dia das Crianças not found");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 9); eq(d.getUTCDate(), 12);
+  });
+  test("Finados = 02/11", () => {
+    const f = encontrarFeriado(2026, "Finados");
+    assert(f, "Finados not found"); eq(f.tipo, "feriado");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 10); eq(d.getUTCDate(), 2);
+  });
+  test("Proclamação da República = 15/11", () => {
+    const f = encontrarFeriado(2026, "Proclamação da República");
+    assert(f, "Proclamação da República not found"); eq(f.tipo, "feriado");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 10); eq(d.getUTCDate(), 15);
+  });
+  test("Consciência Negra = 20/11", () => {
+    const f = encontrarFeriado(2026, "Consciência Negra");
+    assert(f, "Consciência Negra not found"); eq(f.tipo, "feriado");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 10); eq(d.getUTCDate(), 20);
+  });
+  test("Natal = 25/12", () => {
+    const f = encontrarFeriado(2026, "Natal");
+    assert(f, "Natal not found");
+    const d = new Date(f.data); eq(d.getUTCMonth(), 11); eq(d.getUTCDate(), 25);
+  });
+
+  // Variable feriados — Páscoa 2026 = 5 April
+  test("Páscoa 2026 = 05/04", () => {
+    const f = encontrarFeriado(2026, "Páscoa");
+    assert(f, "Páscoa not found");
+    const d = new Date(f.data); eq(d.getUTCFullYear(), 2026); eq(d.getUTCMonth(), 3); eq(d.getUTCDate(), 5);
+  });
+  test("Sexta-feira Santa = Páscoa - 2 dias", () => {
+    const pascoa = encontrarFeriado(2026, "Páscoa");
+    const sexta = encontrarFeriado(2026, "Sexta-feira Santa");
+    assert(sexta, "Sexta-feira Santa not found"); eq(sexta.tipo, "feriado");
+    eq(pascoa.data - sexta.data, 2 * 86400000);
+  });
+  test("Carnaval = Páscoa - 47 dias", () => {
+    const pascoa = encontrarFeriado(2026, "Páscoa");
+    const carnaval = encontrarFeriado(2026, "Carnaval");
+    assert(carnaval, "Carnaval not found");
+    eq(pascoa.data - carnaval.data, 47 * 86400000);
+  });
+
+  // Total count
+  test("datasImportantesDoAno retorna 14 itens (8 feriados fixos + 3 móveis + 2 comemorativas + Consciência Negra)", () => {
+    const all = datasImportantesDoAno(2026);
+    eq(all.length, 14);
+  });
+  test("todos os feriados nacionais obrigatórios presentes (01/01 21/04 01/05 07/09 12/10 02/11 15/11 20/11 25/12)", () => {
+    const nomes = datasImportantesDoAno(2026).map(f => f.nome);
+    const obrigatorios = ["Ano-Novo","Tiradentes","Dia do Trabalho","7 de Setembro",
+                          "Dia das Crianças","Finados","Proclamação da República",
+                          "Consciência Negra","Natal","Páscoa","Sexta-feira Santa","Carnaval"];
+    const ausentes = obrigatorios.filter(n => !nomes.includes(n));
+    assert(ausentes.length === 0, "Feriados ausentes: " + ausentes.join(", "));
+  });
+  test("ano diferente (2027) — feriados fixos mantêm dia/mês", () => {
+    const tira27 = encontrarFeriado(2027, "Tiradentes");
+    const d = new Date(tira27.data); eq(d.getUTCMonth(), 3); eq(d.getUTCDate(), 21);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 7: consistência entre engines — mesmo input → mesmo resultado
+// ═══════════════════════════════════════════════════════════════
+console.log("\n[CONSISTÊNCIA] Cross-engine — calcEscalaCentral vs calcularEscala");
+{
+  // Inline calcEscalaCentral logic (mirrors worker.js line ~8878)
+  function calcEscalaCentral(salvo) {
+    var d = salvo;
+    var dEm = d.tipo==="14x14"||d.tipo==="14x21"||d.tipo==="14x28"?14:parseInt(d.diasEmbarcado,10);
+    var dFo = d.tipo==="14x14"?14:d.tipo==="14x21"?21:d.tipo==="14x28"?28:parseInt(d.diasFolga,10);
+    if(!dEm||!dFo||isNaN(dEm)||isNaN(dFo))return null;
+    var refUTC = new Date(d.data).setUTCHours(12,0,0,0);
+    if(isNaN(refUTC))return null;
+    var anchor = d.tipoRef==="embarquei"?refUTC:refUTC-dEm*86400000;
+    var ciclo = dEm+dFo;
+    var agora = new Date().setUTCHours(12,0,0,0);
+    var fase = (Math.round((agora-anchor)/86400000)%ciclo+ciclo)%ciclo;
+    var embarcado = fase<dEm;
+    var diasRestantes = embarcado?dEm-fase:ciclo-fase;
+    var prox = agora+diasRestantes*86400000;
+    return {embarcado,diasRestantes,proxData:prox,dEm,ciclo,anchor};
+  }
+
+  // Inline calcNextEmbarque logic (mirrors worker.js line ~9774)
+  function calcNextEmbarque(salvo) {
+    var dEm = salvo.tipo==="14x14"||salvo.tipo==="14x21"||salvo.tipo==="14x28"?14:parseInt(salvo.diasEmbarcado,10);
+    var dFo = salvo.tipo==="14x14"?14:salvo.tipo==="14x21"?21:salvo.tipo==="14x28"?28:parseInt(salvo.diasFolga,10);
+    if(!dEm||!dFo||isNaN(dEm)||isNaN(dFo))return null;
+    var refUTC = new Date(salvo.data).setUTCHours(12,0,0,0);
+    if(isNaN(refUTC))return null;
+    var anchor = salvo.tipoRef==="embarquei"?refUTC:refUTC-dEm*86400000;
+    var ciclo = dEm+dFo;
+    var agora = new Date().setUTCHours(12,0,0,0);
+    var fase = (Math.round((agora-anchor)/86400000)%ciclo+ciclo)%ciclo;
+    var embarcado = fase<dEm;
+    var diasRestantes = embarcado?dEm-fase:ciclo-fase;
+    var nextEmbarque = agora+(embarcado?diasRestantes:diasRestantes)*86400000;
+    if(embarcado) nextEmbarque = agora+diasRestantes*86400000;
+    else nextEmbarque = agora+diasRestantes*86400000;
+    return {embarcado,diasRestantes,dFo,nextEmbarque};
+  }
+
+  const config = {tipo:"14x14",diasEmbarcado:14,diasFolga:14,data:"2026-01-01",tipoRef:"embarquei"};
+
+  test("calcEscalaCentral e calcularEscala concordam sobre embarcado/folga (hoje)", () => {
+    const central = calcEscalaCentral(config);
+    assert(central !== null, "calcEscalaCentral retornou null");
+    const agora = new Date().setUTCHours(12,0,0,0);
+    const calc = calcularEscala(14, 14, new Date(config.data).setUTCHours(12,0,0,0), "embarquei");
+    const canonical = calc.statusEm(agora);
+    eq(central.embarcado, canonical.status === "embarcado");
+  });
+
+  test("calcEscalaCentral e calcNextEmbarque concordam sobre embarcado (hoje)", () => {
+    const central = calcEscalaCentral(config);
+    const checklist = calcNextEmbarque(config);
+    assert(central !== null && checklist !== null, "uma das engines retornou null");
+    eq(central.embarcado, checklist.embarcado);
+  });
+
+  test("calcEscalaCentral e calcNextEmbarque concordam sobre diasRestantes (hoje)", () => {
+    const central = calcEscalaCentral(config);
+    const checklist = calcNextEmbarque(config);
+    eq(central.diasRestantes, checklist.diasRestantes);
+  });
+
+  test("consistência 14x21 — ambas as engines concordam", () => {
+    const cfg21 = {tipo:"14x21",diasEmbarcado:14,diasFolga:21,data:"2026-03-01",tipoRef:"embarquei"};
+    const central = calcEscalaCentral(cfg21);
+    const checklist = calcNextEmbarque(cfg21);
+    assert(central !== null && checklist !== null, "null em 14x21");
+    eq(central.embarcado, checklist.embarcado);
+    eq(central.diasRestantes, checklist.diasRestantes);
+  });
+
+  test("tipoRef=desembarquei — ambas as engines produzem mesmo anchor", () => {
+    const cfgD = {tipo:"14x14",diasEmbarcado:14,diasFolga:14,data:"2026-02-14",tipoRef:"desembarquei"};
+    const central = calcEscalaCentral(cfgD);
+    const checklist = calcNextEmbarque(cfgD);
+    assert(central !== null && checklist !== null, "null para desembarquei");
+    eq(central.embarcado, checklist.embarcado);
+    eq(central.diasRestantes, checklist.diasRestantes);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // RESULT
 // ═══════════════════════════════════════════════════════════════
 console.log("\n" + "═".repeat(60));

@@ -645,7 +645,7 @@ def _check_no_supabase_anon_in_html():
 
 def run_logic():
     suite("LOGIC — schedule engine & Cruzar (node)")
-    test("logic_test.js passes (39 deterministic tests)", lambda: _run_logic_tests())
+    test("logic_test.js passes (67 deterministic tests)", lambda: _run_logic_tests())
 
     suite("COLLECTOR LOGIC — METAR / dedupe / idioma / risco (node)")
     test("collector_test.js passes (63 deterministic tests)", lambda: _run_collector_tests())
