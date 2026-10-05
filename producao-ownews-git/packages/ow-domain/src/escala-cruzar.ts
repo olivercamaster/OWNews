@@ -1,19 +1,12 @@
 import type { EscalaConfig, EscalaSecundaria, JanelaJuntos } from './types';
-import { calcEscala } from './escala';
-
-function msParaISO(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function isoParaMs(iso: string): number {
-  return new Date(iso + 'T12:00:00Z').getTime();
-}
+import { calcEscala, hojeISO, isoParaMs, msParaISO } from './escala';
 
 // Busca janelas de folga em comum — idêntico ao OWNews worker.js linha 17238
+// `fromISO` é data LOCAL (hojeISO), nunca toISOString() — ver escala.ts.
 export function encontrarJanelasJuntos(
   configA: EscalaConfig,
   configB: EscalaConfig,
-  fromISO: string = new Date().toISOString().slice(0, 10),
+  fromISO: string = hojeISO(),
   maxDias = 180,
   maxJanelas = 5,
 ): JanelaJuntos[] {

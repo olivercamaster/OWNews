@@ -157,6 +157,8 @@ export interface Certificado {
   emissao?: string;
   instituicao?: string;
   obs?: string;
+  /** ISO datetime — mesmo campo do web; merge por id usa o mais recente. */
+  updated_at?: string;
   _deleted?: boolean;
 }
 

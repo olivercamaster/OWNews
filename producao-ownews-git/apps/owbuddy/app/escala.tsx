@@ -18,6 +18,7 @@ import {
   getAeroporto,
   datasImportantesDoAno,
   hojeISO,
+  msParaISO,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig,
@@ -265,7 +266,7 @@ export default function EscalaScreen() {
 
   // Feriados no mês visível
   const feriadosDoMes = datasImportantesDoAno(viewMes.ano).filter(f => {
-    const iso = new Date(f.data).toISOString().slice(0, 10);
+    const iso = msParaISO(f.data);
     return iso.slice(0, 7) === `${viewMes.ano}-${String(viewMes.mes).padStart(2, '0')}`;
   });
 
@@ -374,7 +375,7 @@ export default function EscalaScreen() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionCardTitle}>Feriados em {MESES[viewMes.mes - 1]}</Text>
             {feriadosDoMes.map((f, i) => {
-              const iso = new Date(f.data).toISOString().slice(0, 10);
+              const iso = msParaISO(f.data);
               return (
                 <View key={i} style={styles.listRow}>
                   <Ionicons name="flag-outline" size={14} color={colors.amber} />

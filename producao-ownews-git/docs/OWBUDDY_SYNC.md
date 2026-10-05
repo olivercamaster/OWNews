@@ -1,99 +1,63 @@
-# OWBuddy — Arquitetura de Sincronização
+# OWBuddy — Sincronização com a conta OW
 
-**Status:** Auditado. DDL pendente. Implementação local funcional.
-
----
-
-## Estado atual (2026-10-05)
-
-| Dado | Onde está | Sync status |
-|------|-----------|-------------|
-| Escala | localStorage (web) + AsyncStorage (app) | ❌ Não sincroniza |
-| Certificados | localStorage + Supabase user_metadata | ✅ Sincroniza (web) |
-| Checklist | localStorage apenas | ❌ Não sincroniza |
-| Viagem | localStorage + AsyncStorage | ❌ Não sincroniza |
-| Buddy prefs | localStorage + AsyncStorage | ❌ Não sincroniza |
-| Artigos salvos | localStorage + Supabase user_metadata | ✅ Sincroniza (web) |
+**Status (2026-10-05, checkpoint de arquitetura):** regras de reconciliação implementadas e testadas
+(`packages/ow-domain/src/sync-merge.ts`, `apps/owbuddy/src/sync.ts`); **nenhuma tela do app chama sync ainda**.
+Sem DDL. Regra-mãe e matrizes em `docs/OW_PLATAFORMA.md`.
 
 ---
 
-## Design alvo: Web ↔ App via Supabase
+## Estado real (lido do código)
+
+| Dado | Web | App | Chave em `user_metadata` | Sync hoje |
+|------|-----|-----|---------------------------|-----------|
+| Escala | `localStorage ownews_minha_escala` | AsyncStorage `ownews_minha_escala` (envelope v2) | `escala_config` (web grava; app preparado) | ✅ web ↔ conta · ⏳ app (código pronto, não ligado) |
+| Certificados | `ownews_certificados` | idem | `certificados` | ✅ web ↔ conta · ⏳ app |
+| Cruzar / datas pessoais | `ownews_cruzar_v2`, `…_datas_pessoais` | idem | `cruzar_config`, `datas_pessoais_config` | ✅ web · ❌ app (FUTURO) |
+| Checklist | `ownews_checklist_mala` | idem | `ownews_checklist_mala` (só app) | ❌ web · ⏳ app |
+| Viagem | `ownews_minha_viagem` | idem | `ownews_minha_viagem` sem campos sensíveis (só app) | ❌ web · ⏳ app |
+| Buddy prefs | `ownews_buddy_prefs` | idem | `ownews_buddy_prefs` (só app) | ❌ web · ⏳ app |
+| Artigos salvos | `ownews_noticias_salvas` | — | — | ✅ web (local) · ❌ app |
+
+> O erro da versão anterior deste documento ("Escala ❌ não sincroniza") está corrigido: o web sincroniza a escala
+> via `escala_config` desde o OW Hub (`salvarEscalaNoMeta`, painel de conflito `escalasSaoDiferentes`).
+
+---
+
+## Dialeto único (o app fala o do web)
 
 ```
-OWNews (web, localStorage)
-  ↕ (ao login / ao salvar)
-Supabase user_metadata
-  ↕ (ao login / ao sync)
-OWBuddy (app, AsyncStorage)
+escala_config  = { ...toWebEscalaConfig(cfg), salvo_em }   // tipo web: 14x14|14x21|14x28|personalizada, data:'YYYY-MM-DD'
+certificados   = [{ id, nome, validade, emissao, instituicao, obs, updated_at, _deleted }]
 ```
 
-**Política de merge:** `updated_at` mais recente vence.  
-Para arrays (certificados, checklist items): merge por `id`, com `updated_at` de cada item.
+Leitura (pull) aceita também as chaves legadas `ownews_minha_escala` ({data, updated_at}) e `ownews_certificados`.
+Escrita (push) grava `escala_config` **só** quando `podeGravarEscalaNaNuvem(local, nuvem)` — o carimbo local é
+pelo menos tão novo quanto `salvo_em` da nuvem. `ownews_minha_escala` continua sendo gravada por compatibilidade
+com builds antigos do app; deixa de ser gravada quando não houver mais builds < 0.1.5 em uso.
+
+## Política de conflito (única, sem improviso)
+
+| Dado | Regra |
+|------|-------|
+| Escala | carimbo mais novo vence (`salvo_em` / `updated_at`); empate → web; app nunca sobrescreve nuvem mais nova |
+| Certificados | merge por `id`; `updated_at` mais novo vence; `_deleted` é tombstone e propaga; sem carimbo nos dois → local vence |
+| Checklist | nuvem só entra se o dispositivo não tem checklist |
+| Buddy prefs | `updated_at` mais novo vence |
+| Viagem | só sobe sem `localizador`, `obs`, `assento`, `poltrona`; nunca desce por cima de viagem local |
+
+Testes: `apps/owbuddy/tests/sync-merge.test.mjs` (10 casos, roda contra o domínio real).
 
 ---
 
-## O que pode usar `user_metadata` agora (sem DDL)
+## Para ligar o sync no app (Missão S4 — Conta OW)
 
-Supabase `user_metadata` é um JSON livre — qualquer campo pode ser adicionado sem migration.
+1. Tela "Conta OW" opcional (nunca obrigatória): e-mail + senha (mesmo do OWNews) e OTP como alternativa.
+2. Ao logar: `pullFromServer()` → mostrar o que veio e de onde (`origem: 'web' | 'buddy'`), sem sobrescrever
+   silenciosamente nada mais novo.
+3. Ao salvar escala/certificado com sessão ativa: `pushToServer()` (debounce), falha silenciosa offline, fila
+   simples "pendente de envio".
+4. Sessão em `SecureStore` (adapter já existente em `src/supabase.ts`).
+5. Nenhum DDL. `user_trips` (histórico de viagens) continua apenas proposta — **não executar**.
 
-| Campo | Pode ir para user_metadata? | Notas |
-|-------|---------------------------|-------|
-| `escala_config` | ✅ Já vai (web) | Reutilizar |
-| `certificados` | ✅ Já vai (web) | Reutilizar |
-| `checklist_mala` | ✅ Pode ir | Adicionar ao PUT |
-| `minha_viagem` | ✅ Pode ir | **Não incluir**: localizador, obs, assento — campos sensíveis |
-| `buddy_prefs` | ✅ Pode ir | Exceto apelido (opcional — deixar para o usuário decidir) |
-
----
-
-## O que precisaria de tabela dedicada (DDL)
-
-> **NÃO executar sem autorização explícita.**
-
-```sql
--- Proposta: tabela para histórico de viagens
-CREATE TABLE user_trips (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  tipo        TEXT NOT NULL,
-  data        DATE NOT NULL,
-  hora        TEXT,
-  origem      TEXT,
-  destino     TEXT,
-  empresa     TEXT,
-  num_voo     TEXT,
-  updated_at  TIMESTAMPTZ DEFAULT NOW(),
-  -- Campos sensíveis NUNCA no banco: localizador, obs, assento
-  CONSTRAINT valid_tipo CHECK (tipo IN ('AVIAO','ONIBUS','CARRO','VAN','EMPRESA','OUTRO'))
-);
-```
-
-**Por que não user_metadata:** viagens históricas acumulariam, o JSON ficaria grande.  
-**Para v0.1:** viagem vai em user_metadata (apenas a viagem atual, sem histórico).
-
----
-
-## Implementação recomendada v0.1 (sem DDL)
-
-No app, ao fazer login:
-1. `GET /auth/v1/user` → pegar `user_metadata`
-2. Merge escala, certs, checklist, viagem, buddy_prefs por `updated_at`
-3. Salvar o mais recente em AsyncStorage
-4. Ao salvar qualquer dado localmente: `PUT /auth/v1/user` com `user_metadata` atualizado
-
-**Campos a excluir do sync:**
-- `localizador` (código de reserva)
-- `obs` (observações pessoais)  
-- `assento`/`poltrona`
-- `apelido` do Buddy (o usuário pode preferir não sincronizar)
-
----
-
-## Dependências para ativar sync no app
-
-1. Supabase JS SDK instalado no owbuddy (`@supabase/supabase-js`)
-2. `SUPABASE_URL` e `SUPABASE_ANON_KEY` em variáveis de ambiente (não no bundle — usar Expo Config)
-3. Auth flow: login por email/magic link (mesmo sistema do OWNews)
-4. Nenhum DDL necessário para v0.1
-
-**Bloqueio atual:** credencial Supabase não está configurada no app. Implementar em Missão 004.
+## Campos que NUNCA saem do dispositivo
+`localizador`, `obs`, `assento`, `poltrona` da viagem; `apelido` do Buddy só com opt-in.

@@ -37,13 +37,19 @@ const SCRIPT_VISITAS =
   'var KEY="ownews_sid";var sid=null;' +
   'try{sid=localStorage.getItem(KEY);}catch(e){}' +
   'if(!sid){try{sid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():("sid-"+Date.now()+"-"+Math.random().toString(36).slice(2));localStorage.setItem(KEY,sid);}catch(e){sid="sid-"+Date.now()+"-"+Math.random().toString(36).slice(2);}}' +
+  // Tráfego interno NÃO conta como visitante (docs/COMMAND_CENTER_METRICAS.md):
+  // navegador automatizado (Playwright/Selenium expõem navigator.webdriver) ou
+  // navegador que já abriu o Command Center (flag local "ownews_interno").
+  // Falha em qualquer checagem → conta normalmente (nunca exclui leitor real).
+  'var interno=false;try{interno=(navigator.webdriver===true)||(localStorage.getItem("ownews_interno")==="1");}catch(e){interno=false;}' +
   'try{var utm=null;try{utm=new URLSearchParams(location.search).get("utm_source");}catch(e){}' +
-  'fetch("/api/visita",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sid,path:location.pathname,ref:document.referrer||"",utm:utm||""})}).catch(function(){});}catch(e){}' +
+  'if(!interno){fetch("/api/visita",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sid,path:location.pathname,ref:document.referrer||"",utm:utm||""})}).catch(function(){});}}catch(e){}' +
   // Command Center: helper global único de eventos próprios — qualquer
   // página/script chama window.ownewsEvento("nome_do_evento") sem
   // duplicar a lógica de sessão/fetch em cada lugar (item "componente
   // único" também vale pra instrumentação, não só pro share).
   'window.ownewsEvento=function(nome){' +
+  'if(interno)return;' +
   'try{fetch("/api/evento",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:nome,sessionId:sid,path:location.pathname})}).catch(function(){});}catch(e){}' +
   '};' +
   'function render(dados){' +
@@ -69,7 +75,9 @@ function scriptRegistrarPageview(articleId) {
     'var KEY="ownews_sid";var sid=null;' +
     'try{sid=localStorage.getItem(KEY);}catch(e){}' +
     'if(!sid){try{sid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():("sid-"+Date.now()+"-"+Math.random().toString(36).slice(2));localStorage.setItem(KEY,sid);}catch(e){sid="sid-"+Date.now()+"-"+Math.random().toString(36).slice(2);}}' +
-    'fetch("/api/pageview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({articleId:' + idSeguro + ',sessionId:sid})}).catch(function(){});' +
+    // Mesma regra de tráfego interno do SCRIPT_VISITAS (ver comentário lá).
+    'var interno=false;try{interno=(navigator.webdriver===true)||(localStorage.getItem("ownews_interno")==="1");}catch(e){interno=false;}' +
+    'if(!interno){fetch("/api/pageview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({articleId:' + idSeguro + ',sessionId:sid})}).catch(function(){});}' +
     '}catch(e){}' +
     '})();</script>'
   );
@@ -18760,7 +18768,8 @@ async function ccColetarDados(periodo, env) {
 
   // Texto de resumo
   const p = periodo === "hoje" ? "hoje" : periodo === "7d" ? "nos últimos 7 dias" : periodo === "30d" ? "nos últimos 30 dias" : "no período completo";
-  const resumoTexto = `${resumo.visitantes.toLocaleString("pt-BR")} visitantes únicos e ${resumo.visualizacoes.toLocaleString("pt-BR")} visualizações ${p}.`;
+  // "visitantes" = identificadores de navegador (localStorage ownews_sid), não pessoas.
+  const resumoTexto = `${resumo.visitantes.toLocaleString("pt-BR")} navegadores únicos (visitantes) e ${resumo.visualizacoes.toLocaleString("pt-BR")} visualizações ${p}.`;
 
   return {
     periodo,
@@ -18813,7 +18822,7 @@ const CC_ESTILO =
   '.cc-card{min-width:0;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:14px}' +
   '.cc-card-label{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px;overflow-wrap:break-word}' +
   '.cc-card-valor{font-size:26px;font-weight:800;color:var(--white)}' +
-  '.cc-variacao{font-size:11.5px;font-weight:700;margin-top:4px}.cc-variacao.up{color:var(--green)}.cc-variacao.down{color:var(--red)}' +
+  '.cc-variacao{font-size:11.5px;font-weight:700;margin-top:4px}.cc-variacao.up{color:var(--green)}.cc-variacao.down{color:var(--red)}.cc-variacao.base{color:var(--muted-dim);font-weight:500}' +
   /* Resumo frase */ '.cc-resumo{background:var(--navy-900);border:1px solid var(--line-soft);border-left:3px solid var(--cyan-dim);border-radius:8px;padding:14px 16px;font-size:13.5px;color:var(--white);line-height:1.5;margin-bottom:18px}' +
   /* Chart */ '.cc-chart-wrap{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:12px;padding:16px;margin-bottom:18px}' +
   '.cc-chart-titulo{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}' +
@@ -19006,10 +19015,16 @@ function renderCCDashboard() {
     '</div>' +
 
     '<script>(function(){' +
+    // Quem abre o Command Center é tráfego interno: marca o navegador para
+    // que SCRIPT_VISITAS/pageview deixem de contá-lo daqui em diante.
+    // Não altera histórico; só evita contaminação futura (docs/COMMAND_CENTER_METRICAS.md).
+    'try{localStorage.setItem("ownews_interno","1");}catch(e){}' +
     'var periodoAtual="hoje";var cacheDados={};var cacheSistema=null;var cacheEditorial=null;var cacheGrafico={};var cacheRevisao=null;' +
     'function fmtNum(n){try{return(n||0).toLocaleString("pt-BR");}catch(e){return String(n||0);}}' +
     'function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}' +
-    'function fmtPct(v,ref){if(!ref||ref<=0)return"";var p=Math.round(((v-ref)/ref)*100);if(Math.abs(p)<3)return"";return\'<div class="cc-variacao \'+(p>0?"up":"down")+\'">\'+(p>0?"↑":"↓")+" "+Math.abs(p)+\'% vs anterior</div>\';}' +
+    // "vs anterior" só é significativo com base mínima (20): abaixo disso
+    // mostra a base em vez de um percentual inflado (ex.: +761% sobre 31).
+    'function fmtPct(v,ref){if(!ref||ref<=0)return"";if(ref<20)return\'<div class="cc-variacao base">base anterior \'+fmtNum(ref)+\' — variação não significativa</div>\';var p=Math.round(((v-ref)/ref)*100);if(Math.abs(p)<3)return"";return\'<div class="cc-variacao \'+(p>0?"up":"down")+\'">\'+(p>0?"↑":"↓")+" "+Math.abs(p)+\'% vs anterior (base \'+fmtNum(ref)+\')</div>\';}' +
     'function fmtHora(iso){if(!iso)return"—";try{return new Date(iso).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;}}' +
 
     // --- ALERTAS ---
@@ -19038,7 +19053,7 @@ function renderCCDashboard() {
     // Executive cards
     'html+=\'<div class="cc-grid">\';' +
     'function card(lbl,val,ant){return\'<div class="cc-card"><div class="cc-card-label">\'+esc(lbl)+\'</div><div class="cc-card-valor">\'+fmtNum(val)+\'</div>\'+fmtPct(val,ant)+\'</div>\';}' +
-    'html+=card("Visitantes",d.visitantes,d.comparacao?d.comparacao.visitantesAnterior:null);' +
+    'html+=card("Visitantes (navegadores únicos)",d.visitantes,d.comparacao?d.comparacao.visitantesAnterior:null);' +
     'html+=card("Visualizações",d.visualizacoes,d.comparacao?d.comparacao.visualizacoesAnterior:null);' +
     'html+=card("Compartilhamentos",d.compartilhamentos,null);' +
     'var me=d.ferramentas&&d.ferramentas["Minha Escala"]?d.ferramentas["Minha Escala"].total:0;' +

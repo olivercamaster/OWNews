@@ -47,6 +47,8 @@ export default function MeusCerts() {
       ...form,
       validade: form.validade ? parseDateBR(form.validade) : form.validade,
       emissao:  form.emissao  ? parseDateBR(form.emissao)  : form.emissao,
+      // Mesmo campo que o web grava — permite merge por id (mais recente vence) na sincronização
+      updated_at: new Date().toISOString(),
     };
     if (saveForm.id) {
       const updated = all.map(c => c.id === saveForm.id ? { ...c, ...saveForm } as Certificado : c);
@@ -68,7 +70,7 @@ export default function MeusCerts() {
         style: 'destructive',
         onPress: async () => {
           const all = await getCerts();
-          await setCerts(all.map(c => c.id === id ? { ...c, _deleted: true } : c));
+          await setCerts(all.map(c => c.id === id ? { ...c, _deleted: true, updated_at: new Date().toISOString() } : c));
           await load();
         },
       },

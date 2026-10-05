@@ -1,25 +1,30 @@
-import type { BuddyPrefs, Certificado, ChecklistData, EscalaConfig, Viagem } from '@owbuddy/domain';
-import { normalizeEscalaConfig } from '@owbuddy/domain';
-import { getBuddyPrefs, getCerts, getChecklist, getEscala, getViagem, setBuddyPrefs, setCerts, setChecklist, setEscala, setViagem } from './storage';
+/**
+ * Sincronização dispositivo ⇄ conta OW (Supabase user_metadata).
+ *
+ * AINDA NÃO é chamado por nenhuma tela (login no Buddy é opcional e não há
+ * fluxo de conta ativo). Está aqui para que, quando a conta única OW entrar no
+ * app, o Buddy fale o MESMO dialeto do OWNews web:
+ *
+ *   escala_config  ← fonte de verdade da Minha Escala (formato plano do web)
+ *   certificados   ← merge por id, mais recente vence, tombstones _deleted
+ *
+ * Regras (docs/OW_PLATAFORMA.md): nunca apagar dado do outro lado; nunca
+ * sobrescrever uma escala mais nova editada no web; chaves legadas
+ * `ownews_minha_escala` / `ownews_certificados` continuam sendo LIDAS.
+ */
+import type { BuddyPrefs, ChecklistData, Viagem } from '@owbuddy/domain';
+import {
+  carimboParaMs,
+  escalaConfigParaNuvem,
+  escolherEscalaDaNuvem,
+  mesclarCertificados,
+  podeGravarEscalaNaNuvem,
+} from '@owbuddy/domain';
+import { getBuddyPrefs, getCerts, getChecklist, getEscala, getViagem, setBuddyPrefs, setCerts, setChecklist, setEscala } from './storage';
 import { getUserMetadata, updateUserMetadata } from './auth';
-
-function toMs(v: number | string | undefined | null): number {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  if (typeof v === 'string') { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; }
-  return 0;
-}
 
 // Campos sensíveis que NUNCA saem do dispositivo
 const PRIVATE_VIAGEM_FIELDS: Array<keyof Viagem> = ['localizador', 'obs', 'assento', 'poltrona'];
-
-type SyncableData = {
-  escala?: EscalaConfig | null;
-  certificados?: Certificado[];
-  checklist_mala?: ChecklistData;
-  viagem?: Partial<Viagem> | null;
-  buddy_prefs?: BuddyPrefs;
-  updated_at?: number;
-};
 
 function stripPrivateViagemFields(v: Viagem | null | undefined): Partial<Viagem> | null {
   if (!v) return null;
@@ -30,43 +35,44 @@ function stripPrivateViagemFields(v: Viagem | null | undefined): Partial<Viagem>
   return safe;
 }
 
-// Pull from server → merge with local (server wins on newer updated_at)
+// Pull nuvem → local. Nunca destrutivo: só substitui quando a nuvem é mais nova
+// ou quando o dispositivo ainda não tem o dado.
 export async function pullFromServer(): Promise<void> {
   const meta = await getUserMetadata();
   if (!meta) return;
 
-  // Servidor guarda { data, updated_at } (updated_at pode ser number ou ISO string).
-  // Local guarda updated_at como ISO string — comparar sempre em ms.
-  const serverEscalaRaw = meta.ownews_minha_escala as { data?: unknown; updated_at?: number | string } | null;
-  const serverEscala = normalizeEscalaConfig(serverEscalaRaw);
-  if (serverEscala) {
-    const localEscala = await getEscala();
-    const localAt = toMs(localEscala?.updated_at);
-    const serverAt = toMs(serverEscalaRaw?.updated_at);
-    if (!localEscala || serverAt > localAt) {
-      await setEscala(serverEscala);
+  const nuvem = escolherEscalaDaNuvem(meta);
+  if (nuvem) {
+    const local = await getEscala();
+    if (!local || nuvem.at > carimboParaMs(local.updated_at)) {
+      await setEscala(nuvem.cfg);
     }
   }
 
-  const serverCerts = meta.ownews_certificados as Certificado[] | null;
-  if (Array.isArray(serverCerts)) {
-    await setCerts(serverCerts);
+  const localCerts = await getCerts();
+  const merged = mesclarCertificados(localCerts, meta.certificados, meta.ownews_certificados);
+  if (merged.length !== localCerts.length || merged.some((c, i) => c !== localCerts[i])) {
+    await setCerts(merged);
   }
 
-  const serverChecklist = meta.ownews_checklist_mala as ChecklistData | null;
-  if (serverChecklist) {
+  const serverChecklist = meta.ownews_checklist_mala as ChecklistData | null | undefined;
+  if (serverChecklist?.items && !(await getChecklist())) {
     await setChecklist(serverChecklist);
   }
 
-  const serverPrefs = meta.ownews_buddy_prefs as BuddyPrefs | null;
+  const serverPrefs = meta.ownews_buddy_prefs as BuddyPrefs | null | undefined;
   if (serverPrefs) {
-    await setBuddyPrefs(serverPrefs);
+    const localPrefs = await getBuddyPrefs(); // nunca null (devolve padrão sem updated_at)
+    if (carimboParaMs(serverPrefs.updated_at) > carimboParaMs(localPrefs.updated_at)) {
+      await setBuddyPrefs(serverPrefs);
+    }
   }
 }
 
-// Push local → server (merge: server fields not present locally are kept)
+// Push local → nuvem (PATCH: chaves ausentes aqui são mantidas pelo GoTrue)
 export async function pushToServer(): Promise<{ error: string | null }> {
-  const [escala, certs, checklist, viagem, prefs] = await Promise.all([
+  const [meta, escala, certs, checklist, viagem, prefs] = await Promise.all([
+    getUserMetadata(),
     getEscala(),
     getCerts(),
     getChecklist(),
@@ -74,22 +80,30 @@ export async function pushToServer(): Promise<{ error: string | null }> {
     getBuddyPrefs(),
   ]);
 
-  const safeViagem = stripPrivateViagemFields(viagem);
+  const agora = new Date().toISOString();
+  const patch: Record<string, unknown> = { updated_at: Date.now() };
 
-  const patch: Record<string, unknown> = {
-    updated_at: Date.now(),
-  };
-
-  if (escala) patch.ownews_minha_escala = { data: escala, updated_at: Date.now() };
-  if (certs.length > 0) patch.ownews_certificados = certs;
+  if (escala) {
+    // Legado Buddy (compatível com builds antigos) …
+    patch.ownews_minha_escala = { data: escala, updated_at: agora };
+    // … e o formato que o OWNews web lê — só quando não há escala mais nova na nuvem.
+    if (podeGravarEscalaNaNuvem(escala, escolherEscalaDaNuvem(meta))) {
+      patch.escala_config = escalaConfigParaNuvem(escala, escala.updated_at ?? agora);
+    }
+  }
+  if (certs.length > 0) {
+    // Mesma chave do web; inclui tombstones para a remoção propagar.
+    patch.certificados = mesclarCertificados(certs, meta?.certificados, meta?.ownews_certificados);
+  }
   if (checklist?.ciclo) patch.ownews_checklist_mala = checklist;
+  const safeViagem = stripPrivateViagemFields(viagem);
   if (safeViagem) patch.ownews_minha_viagem = safeViagem;
   if (prefs) patch.ownews_buddy_prefs = prefs;
 
   return updateUserMetadata(patch);
 }
 
-// Full sync: pull first (server wins on conflict), then push deltas
+// Full sync: pull first (nuvem mais nova vence), then push deltas
 export async function syncAll(): Promise<{ error: string | null }> {
   try {
     await pullFromServer();
