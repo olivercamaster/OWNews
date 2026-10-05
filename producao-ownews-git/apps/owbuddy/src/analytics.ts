@@ -24,7 +24,10 @@ type EventName =
   | 'news_opened'
   | 'vaga_opened'
   | 'aeroportos_web_opened'
-  | 'weather_city_selected';
+  | 'weather_city_selected'
+  | 'city_searched'
+  | 'ferramentas_opened'
+  | 'converter_used';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

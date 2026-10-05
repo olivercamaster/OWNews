@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,10 +25,11 @@ import {
 import type { EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
 import { colors, spacing, radius, typography, iconSize, surface } from '../../src/theme';
-import { formatDateBR, saudacao } from '../../src/format';
+import { saudacao } from '../../src/format';
 import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
 import { CITIES, type City } from '../../src/cities';
+import { searchCities } from '../../src/geocoding';
 import { analytics } from '../../src/analytics';
 
 
@@ -62,6 +66,10 @@ export default function TelaHoje() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<City[]>([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const online = useConnectivity();
   const prevOnline = useRef(online);
 
@@ -102,9 +110,34 @@ export default function TelaHoje() {
     setRefreshing(false);
   }, [load]);
 
+  // Debounced geocoding search
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (cityQuery.trim().length < 2) {
+      setCityResults([]);
+      return;
+    }
+    setCitySearching(true);
+    searchTimer.current = setTimeout(async () => {
+      analytics.track('city_searched', { query_length: cityQuery.trim().length });
+      const results = await searchCities(cityQuery);
+      setCityResults(results);
+      setCitySearching(false);
+    }, 350);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [cityQuery]);
+
+  const openCityPicker = () => {
+    setCityQuery('');
+    setCityResults([]);
+    setShowCityPicker(true);
+  };
+
   const selectCity = async (city: City) => {
     await setCityPref(city);
     setShowCityPicker(false);
+    setCityQuery('');
+    setCityResults([]);
     setState(s => s ? { ...s, city } : s);
     analytics.track('city_configured');
     const w = await getWeather(city);
@@ -171,7 +204,7 @@ export default function TelaHoje() {
         {/* ── City + Weather ── */}
         <TouchableOpacity
           style={styles.weatherCard}
-          onPress={() => setShowCityPicker(true)}
+          onPress={openCityPicker}
           activeOpacity={0.8}
         >
           {state.city && weather ? (
@@ -216,7 +249,7 @@ export default function TelaHoje() {
           />
           <CtaCard
             icon="checkbox-outline"
-            label="Lista Inteligente"
+            label="Meu Embarque"
             badge={checkCount && checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
             onPress={() => router.navigate('/mala')}
           />
@@ -274,26 +307,50 @@ export default function TelaHoje() {
         <Text style={styles.sectionLabel}>Informação offshore</Text>
         <View style={styles.offshoreGrid}>
           <OffshoreCard icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
-          <OffshoreCard icon="partly-sunny-outline" label="Meteorologia" onPress={() => router.push('/meteorologia')} />
           <OffshoreCard icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
           <OffshoreCard icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
+          <OffshoreCard icon="hammer-outline" label="Ferramentas" onPress={() => router.push('/ferramentas')} />
         </View>
       </ScrollView>
 
-      {/* ── City Picker Modal ── */}
+      {/* ── City Search Modal ── */}
       <Modal visible={showCityPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCityPicker(false)}>
         <View style={styles.modalRoot}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Sua cidade</Text>
+            <Text style={styles.modalTitle}>Buscar cidade</Text>
             <TouchableOpacity onPress={() => setShowCityPicker(false)} hitSlop={12}>
               <Ionicons name="close" size={24} color={colors.muted} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalSub}>Usamos para buscar o clima. Sem GPS.</Text>
-          <ScrollView>
-            {CITIES.map(c => (
+          <View style={styles.searchRow}>
+            <Ionicons name="search-outline" size={16} color={colors.mutedDim} />
+            <TextInput
+              style={styles.searchInput}
+              value={cityQuery}
+              onChangeText={setCityQuery}
+              placeholder="Digite o nome da cidade..."
+              placeholderTextColor={colors.mutedDim}
+              autoFocus
+              autoCorrect={false}
+            />
+            {citySearching && <ActivityIndicator size="small" color={colors.cyan} />}
+            {!citySearching && cityQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setCityQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={colors.mutedDim} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <FlatList
+            data={cityResults.length > 0 ? cityResults : CITIES}
+            keyExtractor={c => `${c.name}-${c.lat}-${c.lon}`}
+            ListHeaderComponent={cityResults.length === 0 && cityQuery.length < 2
+              ? <Text style={styles.modalSub}>Cidades frequentes — ou busque qualquer cidade</Text>
+              : cityResults.length === 0 && cityQuery.length >= 2 && !citySearching
+              ? <Text style={styles.modalSub}>Nenhuma cidade encontrada</Text>
+              : null
+            }
+            renderItem={({ item: c }) => (
               <TouchableOpacity
-                key={c.name}
                 style={[styles.cityRow, state.city?.name === c.name && styles.cityRowActive]}
                 onPress={() => selectCity(c)}
               >
@@ -303,8 +360,8 @@ export default function TelaHoje() {
                   <Ionicons name="checkmark" size={18} color={colors.cyan} />
                 )}
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            )}
+          />
         </View>
       </Modal>
     </>
@@ -505,7 +562,7 @@ const styles = StyleSheet.create({
   },
   offshoreLabel: { fontSize: 11, color: colors.muted, fontWeight: '500', textAlign: 'center' },
 
-  // City picker modal
+  // City search modal
   modalRoot: { flex: 1, backgroundColor: surface.header },
   modalHeader: {
     flexDirection: 'row',
@@ -516,7 +573,25 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
   },
   modalTitle: { ...typography.h2 },
-  modalSub: { ...typography.small, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  modalSub: { ...typography.small, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.mutedDim },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
+    backgroundColor: surface.card,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.white,
+  },
   cityRow: {
     flexDirection: 'row',
     alignItems: 'center',

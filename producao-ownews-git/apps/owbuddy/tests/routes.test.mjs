@@ -72,6 +72,11 @@ test('Screen: Aeroportos → /aeroportos (stack)', () => {
   assert.ok(existsSync(stackRoute('aeroportos')), 'aeroportos.tsx não encontrado');
 });
 
+// Missão 007 new screen
+test('Screen: Ferramentas → /ferramentas (stack)', () => {
+  assert.ok(existsSync(stackRoute('ferramentas')), 'ferramentas.tsx não encontrado');
+});
+
 // Root layout
 test('Root _layout.tsx exists', () => {
   assert.ok(existsSync(resolve(appDir, '_layout.tsx')), '_layout.tsx não encontrado');

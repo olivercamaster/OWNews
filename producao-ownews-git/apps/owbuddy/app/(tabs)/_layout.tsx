@@ -54,7 +54,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="mala"
         options={{
-          title: 'Lista',
+          title: 'Meu Embarque',
           tabBarIcon: ({ focused }) => <TabIcon name="checkbox" focused={focused} />,
         }}
       />

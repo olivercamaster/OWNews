@@ -58,6 +58,13 @@ export default function RootLayout() {
             headerStyle: { backgroundColor: colors.navy800 },
           }}
         />
+        <Stack.Screen
+          name="ferramentas"
+          options={{
+            title: 'Ferramentas Offshore',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
       </Stack>
     </>
   );
