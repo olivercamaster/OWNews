@@ -145,6 +145,22 @@ function classificarPaginaParaAds(caminho) {
    disciplina de fonte oficial → verificação → publicação. Nunca vaga
    inventada, nunca contador inflado.
    ========================================================================= */
+// S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
+const AEROPORTOS_COLLECTOR_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
+const AEROPORTOS_LISTA_SERVIDOR = [
+  { codigo:'SBJR', nome:'Jacarepaguá',       cidade:'Rio de Janeiro',        uf:'RJ' },
+  { codigo:'SBMI', nome:'Maricá',             cidade:'Maricá',                uf:'RJ' },
+  { codigo:'SBCB', nome:'Cabo Frio',          cidade:'Cabo Frio',             uf:'RJ' },
+  { codigo:'SBME', nome:'Macaé',              cidade:'Macaé',                 uf:'RJ' },
+  { codigo:'SBFS', nome:'Farol de São Tomé',  cidade:'Campos dos Goytacazes', uf:'RJ' },
+  { codigo:'SBVT', nome:'Vitória',            cidade:'Vitória',               uf:'ES' },
+  { codigo:'SBAR', nome:'Aracaju',            cidade:'Aracaju',               uf:'SE' },
+  { codigo:'SBSV', nome:'Salvador',           cidade:'Salvador',              uf:'BA' },
+  { codigo:'SBFZ', nome:'Fortaleza',          cidade:'Fortaleza',             uf:'CE' },
+  { codigo:'SBOI', nome:'Oiapoque',           cidade:'Oiapoque',              uf:'AP' },
+  { codigo:'SBMQ', nome:'Macapá',             cidade:'Macapá',                uf:'AP' },
+];
+
 const VAGAS_RADAR_VERIFICADO_EM = "2026-10-04T09:00:00-03:00";
 // fonte_oficial: true em todas — cada uma foi checada individualmente contra
 // o portal/ATS oficial da própria empresa (subdomínio Gupy de marca própria,
@@ -20763,6 +20779,48 @@ export default {
           "Cache-Control": "public, max-age=3600"
         }
       });
+    }
+    if (url.pathname === "/api/buddy/aeroportos" && request.method === "GET") {
+      // S3 (2026-10-05): proxy do collector com reshaping limpo para o app.
+      // Mesma fonte e mesmo frescor que o /aeroportos da web.
+      try {
+        const resp = await fetch(AEROPORTOS_COLLECTOR_URL, { cf: { cacheTtl: 60 } });
+        const raw = resp.ok ? await resp.json() : null;
+        const lista = Array.isArray(raw && raw.aeroportos) ? raw.aeroportos : [];
+        // Montar mapa codigo→{status, clima} a partir da resposta do collector
+        const mapa = {};
+        lista.forEach(item => {
+          const dados = Array.isArray(item.dados) ? item.dados : [];
+          if (dados[0]) mapa[dados[0]] = { status: dados[4] || null, clima: item.clima || {} };
+        });
+        const aeroportos = AEROPORTOS_LISTA_SERVIDOR.map(a => {
+          const info = mapa[a.codigo] || {};
+          const clima = info.clima || {};
+          return {
+            codigo: a.codigo,
+            nome: a.nome,
+            cidade: a.cidade,
+            uf: a.uf,
+            status: info.status || null,
+            temperatura: typeof clima.temperatura === 'number' ? clima.temperatura : null,
+            icone: clima.icone || null,
+            tempo: clima.tempo || null,
+            horarioUTC: clima.horarioUTC || null,
+          };
+        });
+        return new Response(JSON.stringify({ aeroportos, fetched_at: new Date().toISOString() }), {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=60"
+          }
+        });
+      } catch (errAero) {
+        return new Response(JSON.stringify({ aeroportos: [], fetched_at: new Date().toISOString(), erro: String(errAero) }), {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=UTF-8", "Access-Control-Allow-Origin": "*" }
+        });
+      }
     }
     // ──────────────────────────────────────────────────────────────────────
 
