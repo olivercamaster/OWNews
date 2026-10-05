@@ -92,21 +92,49 @@ O Buddy **continua nativo**: nada de WebView para "ganhar paridade". Paridade se
 Legenda: **JÁ COMPARTILHADO** · **NATIVO NO APP** · **CONSOME API OWNEWS** · **PRECISA PORTAR** ·
 **MANTER SOMENTE WEB** · **FUTURO** · **NÃO APLICÁVEL**
 
-| Recurso OWNews | Status no app | Observação |
-|---|---|---|
-| Notícias (home 48h, artigo) | CONSOME API OWNEWS | `/api/buddy/feed` (articles limit 20, cache 5 min). Leitura do artigo abre no OWNews (ok) |
-| Vagas (Radar 2.0) | CONSOME API OWNEWS — **divergente (D1)** | Corrigir endpoint; app não muda |
-| Minha Escala (motor, exceções, calendário, cruzar, datas pessoais, viagens de folga) | JÁ COMPARTILHADO (domínio) + NATIVO | Paridade provada por testes; v0.1.4 |
-| Conta OW (signup/login/perfil) | FUTURO (infra pronta, não ligada) | Mesmo Supabase; §5 |
-| Certificados | NATIVO + sync preparado | Mesma chave `certificados` do web |
-| Checklist de mala → Meu Embarque | NATIVO (checklist) / FUTURO (Meu Embarque completo) | D7 |
-| Aeroportos + OffVoos | PRECISA PORTAR (D4) | Consumir collector; termo TRANSFERIDO |
-| Meteorologia pessoal (cidade) | NATIVO NO APP | Open-Meteo; persistir cidade; não limitar a 20 |
-| Ferramentas offshore (conversores) | NATIVO NO APP | Falta: Velocidade (kn↔km/h, m/s↔km/h), Volume (L↔gal, m³↔L, m³↔bbl) |
-| Central de Alertas (Web Push VAPID) | NÃO APLICÁVEL (push web) / FUTURO (Expo push, custo zero) | Não gerar nova infra agora |
-| Radar Salarial, Carreiras, Mercado, Agenda, Empresas | MANTER SOMENTE WEB (por ora) | Links para o OWNews no app são aceitáveis; portar só quando houver uso |
-| Command Center | MANTER SOMENTE WEB | Nunca no app |
-| Pergunte à IA, AdSense, Instagram, Telegram | NÃO APLICÁVEL | — |
+Levantado da **tabela de rotas real** do `worker.js` (handlers a partir da L19400; redirects 301 marcados como tal —
+não são recursos, não portar).
+
+| Rota / recurso OWNews | Handler | Status no app | Observação |
+|---|---|---|---|
+| `/` Home (editorial 48h, Minha Escala, Atalhos, Giro 24h, Aeroportos, Mercado) | `renderHome` | CONSOME API OWNEWS (feed) + NATIVO (escala) | Home do app responde "o que importa agora"; não replicar a grade da home web |
+| `/noticia/:slug` artigo | `renderNoticia` | CONSOME API OWNEWS | app abre o artigo no OWNews; leitura nativa = FUTURO (só se houver demanda; exigiria HTML sanitizado na API) |
+| Giro 24h (bloco da home) | parte de `renderHome` | JÁ COMPARTILHADO via feed | mesma `articles`; o app já lista por recência |
+| `/offshore-agora` (`/agora` → 301) | `renderOffshoreAgora` | CONSOME API OWNEWS (parcial) | agrega feed + aeroportos + mercado; no app vira a Home, não uma tela |
+| `/api/mais-lidas` | handler | FUTURO | ordenação "mais lidas" no feed do app, aditiva |
+| `/buscar` | `renderBuscaGlobal` | FUTURO | busca local no cache do feed é suficiente no app |
+| `/minha-escala` (`/comparador-escalas` → 301) | `renderMinhaEscala` | JÁ COMPARTILHADO (domínio) + NATIVO | paridade provada |
+| `/checklist-embarque` | `renderChecklistEmbarque` | NATIVO (checklist) → Meu Embarque (S2) | D7 vocabulário |
+| `/meus-certificados` | `renderMeusCertificados` | NATIVO + sync preparado | chave `certificados` |
+| `/certificados-offshore` (guia) | `renderCertificadosOffshore` | MANTER SOMENTE WEB | conteúdo editorial |
+| `/central-do-trabalhador` | `renderCentralTrabalhador` | NATIVO (equivale ao app inteiro) | — |
+| `/meu-ownews` (OW Hub: conta, perfil, escala na conta) | `renderMeuOwnews` | FUTURO (S4 Conta OW) | mesmo Supabase; §5 |
+| `/meus-alertas` (Web Push) | `renderMeusAlertas` | NÃO APLICÁVEL (push web) / FUTURO (Expo push) | sem nova infra agora |
+| `/vagas`, `/vagas/:id` | `renderVagasIndex` (Radar 2.0 KV) | CONSOME API OWNEWS — **D1** | S1 |
+| `/api/vagas/radar-status`, `/force-refresh` | handlers | NÃO APLICÁVEL | operacional/CC |
+| `/carreiras`, `/carreiras/:slug`, `/funcoes`, `/funcoes/:slug` (taxonomia) | `renderCarreiras*`, `renderFuncoes*` | MANTER SOMENTE WEB (link no app) | FUTURO: expor `/api/buddy/funcoes` só se o app ganhar "minha função" |
+| `/carreiras/cadastre-seu-curriculo`, `/modelo-curriculo`, `/guias/curriculo-offshore` | renderers | MANTER SOMENTE WEB | formulário/conteúdo |
+| `/salarios`, `/salarios/:slug`, `/pesquisa-salarial`, `/api/pesquisa-salarial*` (`/dados` → 301) | Radar Salarial / `PesquisaSalarial` DO | MANTER SOMENTE WEB | FUTURO: responder pesquisa pelo app, mesma DO |
+| `/aeroportos`, `/horarios`, `/aviacao-offshore`, `/aviacao-offshore/aeronaves` | `renderAeroportos`, `renderHorarios`, `renderAviacaoOffshoreHub` | PRECISA PORTAR (só `/aeroportos` — D4) | `/horarios`, aeronaves = MANTER SOMENTE WEB |
+| `/mercado` | `renderMercado` (collector `/mercado`) | MANTER SOMENTE WEB (por ora) | FUTURO: card na Home via mesmo JSON |
+| `/agenda`, `/agenda/submeter`, `/api/agenda/submissao` | renderers | MANTER SOMENTE WEB | — |
+| `/empresas`, `/empresas/:slug` | `renderEmpresas*` | MANTER SOMENTE WEB | — |
+| `/radar`, `/radar/camadas/*`, `/radar/localizacoes` (Radar Offshore) | `renderRadarIndex` | MANTER SOMENTE WEB | mapa pesado; app FUTURO só se houver uso |
+| `/unidades` (Radar de Unidades) | `renderUnidades` | MANTER SOMENTE WEB | — |
+| `/explica`, `/explica/:slug`, `/guias/*`, `/glossario`, `/cursos`, `/comece-aqui` | renderers de conteúdo | MANTER SOMENTE WEB | links a partir do app são aceitáveis |
+| `/ferramentas`, `/conversor`, `/calculadora-embarque` | `renderFerramentas`, `renderConversor`, `renderCalculadoraEmbarque` | NATIVO NO APP | calculadora de embarque já é a Minha Escala; conversor: faltam velocidade/volume (S5) |
+| Modo Embarcado (CSS/pref web) | `ownews_embarcado` | NÃO APLICÁVEL | app já é "modo embarcado" por natureza (estado embarcado na Home) |
+| Compartilhamento (WhatsApp/Telegram/Facebook/copiar + evento) | script de artigo | NATIVO (Share API do RN) — FUTURO | emitir o mesmo evento `compartilhado_*` via API só se o CC for medir app |
+| `/pergunte-ao-ownews`, `/api/pergunte` (IA) | handler + AI binding | NÃO APLICÁVEL (custo) | — |
+| `/sobre`, `/contato`, `/privacidade`, `/termos-de-uso`, `/politica-editorial` | estáticos | MANTER SOMENTE WEB (links no app) | — |
+| `/command-center*`, `/api/cc/*` | CC | MANTER SOMENTE WEB | nunca no app |
+| `/sitemap*.xml`, `/robots.txt`, `/ads.txt`, `/manifest.webmanifest`, `/sw.js`, `/icons/*`, `/saude` | infra | NÃO APLICÁVEL | — |
+| Instagram, Telegram, AdSense, Editorial Engine | collector / infra | NÃO APLICÁVEL | — |
+
+Resumo: **3** recursos JÁ COMPARTILHADOS (feed, escala, Giro), **4** NATIVOS, **2** CONSUMINDO API com **1 divergente**
+(vagas), **1** PRECISA PORTAR (aeroportos), **~20** MANTER SOMENTE WEB, **5** FUTURO, restante NÃO APLICÁVEL.
+Nenhum código morto identificado nas rotas: os três redirects (`/agora`, `/dados`, `/comparador-escalas`) são
+legados de URL e devem ficar.
 
 ---
 
