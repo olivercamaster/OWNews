@@ -40,6 +40,8 @@ Cloudflare Worker (worker.js)
 | `ownews_certificados` | `[ { id, nome, validade, emissao, instituicao, obs } ]` |
 | `ownews_auth_sessao` | `{ access_token, user: { user_metadata: { nome, escala_config, certificados, funcao } } }` |
 | `ownews_checklist_mala` | `{ items: [ { id, t, cat, ok } ], ciclo: "YYYY-MM-DD" }` |
+| `ownews_minha_viagem` | `{ tipo, data, hora, empresa?, num_voo?, origem?, destino?, poltrona?, ponto?, obs?, updated_at }` |
+| `ownews_buddy_prefs` | `{ tom: "discreto"\|"buddy"\|"resenha", trat: "neutro"\|"parceiro"\|"parceira", apelido: string, updated_at }` |
 
 ---
 

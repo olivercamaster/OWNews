@@ -2490,7 +2490,7 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
       </div>
       <div class="nav-acoes-cluster">
         <a class="shop-btn" href="https://www.offshoreworks.com.br" target="_blank" rel="noopener"><span class="shop-loja">LOJA</span> <span class="shop-nome">Offshore<span class="shop-works">Works</span></span></a>
-        <a class="nav-meu-ownews" href="/meu-ownews">⭐ OW Hub</a>
+        <a class="nav-meu-ownews" href="/meu-ownews">⭐ OWBuddy</a>
         <span class="nav-idioma" id="navIdioma" title="EN e ES em preparação">🌐 PT</span>
       </div>
       <div class="nav-social">
@@ -2990,7 +2990,7 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Calculadora de Embarque', categoria: 'Ferramentas', url: '/calculadora-embarque' },
   { titulo: 'Guias OWNews', categoria: 'Guias', url: '/guias' },
   { titulo: 'Offshore Agora', categoria: 'Agora', url: '/offshore-agora' },
-  { titulo: 'OW Hub', categoria: 'OW Hub', url: '/meu-ownews' },
+  { titulo: 'OWBuddy', categoria: 'OWBuddy', url: '/meu-ownews' },
   /* Uma entrada por função a bordo + sinônimos/siglas/termos internacionais
      que uma pessoa pode digitar mas que não aparecem literalmente no nome
      exibido (campo "sinonimoDe" mostra pra qual função aponta). Espelha o
@@ -8397,18 +8397,46 @@ const MEU_OWNEWS_EMPRESAS_SEGUIVEIS = [
 
 function renderMeuOwnews(){
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "OW Hub" }]) +
+    '<style>' +
+    '.owb-hoje{margin:0 0 16px;display:flex;flex-direction:column;gap:8px}' +
+    '.owb-hoje-momento{font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--cyan-dim);text-transform:uppercase;margin-bottom:2px}' +
+    '.owb-hoje-msg{font-family:var(--ui);font-size:14px;color:var(--text-dim);line-height:1.5;background:rgba(18,168,238,.05);border-left:3px solid rgba(18,168,238,.3);padding:10px 13px;border-radius:0 6px 6px 0}' +
+    '.owb-hoje-cards{display:flex;flex-direction:column;gap:8px}' +
+    '.owb-hoje-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}' +
+    '.owb-hc-label{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--muted-dim);text-transform:uppercase;margin-bottom:3px}' +
+    '.owb-hc-val{font-family:var(--ui);font-size:13px;font-weight:600;color:var(--text)}' +
+    '.owb-hc-sub{font-family:var(--ui);font-size:11px;color:var(--muted);margin-top:1px}' +
+    '.owb-viagem-form{margin-top:0}' +
+    '.owb-tipo-fields{display:none}' +
+    '.owb-tipo-fields.ativo{display:contents}' +
+    '.owb-viagem-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:13px 16px}' +
+    '.owb-viagem-card-tipo{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--cyan-dim);text-transform:uppercase;margin-bottom:4px}' +
+    '.owb-viagem-card-data{font-family:var(--ui);font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px}' +
+    '.owb-viagem-card-rota{font-family:var(--ui);font-size:12.5px;color:var(--muted);margin-bottom:8px}' +
+    '.owb-viagem-card-actions{display:flex;gap:10px;margin-top:8px}' +
+    '.owb-btn-text{background:none;border:none;padding:0;font-family:var(--ui);font-size:12px;color:var(--cyan-dim);cursor:pointer;text-decoration:underline;text-underline-offset:2px}' +
+    '.owb-voice-preview{font-family:var(--ui);font-size:13px;color:var(--text-dim);background:rgba(255,255,255,.04);border-radius:6px;padding:10px 13px;margin-top:10px;border-left:3px solid rgba(255,255,255,.12);line-height:1.5;min-height:38px}' +
+    '.owb-voice-preview:empty::before{content:"Escolha um tom para ver um exemplo.";color:var(--muted-dim)}' +
+    '</style>' +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "OWBuddy" }]) +
     '<div class="hub-hero">' +
-    '<span class="eyebrow">⭐ Sua central offshore</span>' +
-    '<h1>OW Hub</h1>' +
-    '<p class="hub-lead">Seu aeroporto, suas empresas e sua escala — tudo salvo no seu aparelho. Crie uma conta (só email e senha) se quiser levar isso pra qualquer dispositivo.</p>' +
+    '<span class="eyebrow">Seu parceiro na vida offshore.</span>' +
+    '<h1>OWBuddy</h1>' +
+    '<p class="hub-lead">Sua escala, aeroporto, empresas e viagem — tudo salvo no seu aparelho. Crie uma conta se quiser sincronizar em qualquer dispositivo.</p>' +
+    '</div>' +
+
+    /* Tela Hoje — visível só quando escala está configurada */
+    '<div class="owb-hoje" id="owbHoje" hidden>' +
+    '<div class="owb-hoje-momento" id="owbHojeMomento"></div>' +
+    '<div class="owb-hoje-msg" id="owbHojeMsg" hidden></div>' +
+    '<div class="owb-hoje-cards" id="owbHojeCards"></div>' +
     '</div>' +
 
     '<div class="agora-secao" id="owAuthWrap">' +
     '<div id="owAuthLoggedOut">' +
     '<div class="cta-comunidade" style="text-align:left">' +
-    '<h3 style="font-family:var(--ui);font-size:16px;font-weight:800;margin-bottom:6px">Entre para sincronizar seu OW Hub</h3>' +
-    '<p style="margin-bottom:14px">Cadastro simples: só email e senha. Tudo mais é opcional — e o OW Hub continua funcionando sem conta.</p>' +
+    '<h3 style="font-family:var(--ui);font-size:16px;font-weight:800;margin-bottom:6px">Entre para sincronizar seu OWBuddy</h3>' +
+    '<p style="margin-bottom:14px">Cadastro simples: só email e senha. Tudo mais é opcional — e o OWBuddy continua funcionando sem conta.</p>' +
     '<form id="owFormLogin" class="form-pesquisa" style="margin:0">' +
     '<div class="campo-form"><label for="owLoginEmail">Email</label><input type="email" id="owLoginEmail" autocomplete="email" required></div>' +
     '<div class="campo-form"><label for="owLoginSenha">Senha</label><input type="password" id="owLoginSenha" autocomplete="current-password" required></div>' +
@@ -8438,7 +8466,7 @@ function renderMeuOwnews(){
     '<span class="escala-status-label" id="owContaEmail" style="font-size:17px;overflow-wrap:anywhere"></span>' +
     '<button type="button" class="escala-acao-btn" id="owBtnLogout">SAIR</button>' +
     '</div>' +
-    '<p class="escala-status-legenda">Sua conta OW Hub. Perfil e preferências abaixo são 100% opcionais e podem ser apagados quando quiser.</p>' +
+    '<p class="escala-status-legenda">Sua conta OWBuddy. Perfil e preferências abaixo são 100% opcionais e podem ser apagados quando quiser.</p>' +
     '</div>' +
     '<div class="agora-secao">' +
     '<h3>Perfil (opcional)</h3>' +
@@ -8484,6 +8512,57 @@ function renderMeuOwnews(){
     '<div class="agora-ops-strip" id="moAeroportoCard" style="margin-top:14px"></div>' +
     '</div>' +
 
+    /* Minha Viagem */
+    '<div class="agora-secao">' +
+    '<h3>🧳 Minha Viagem</h3>' +
+    '<div id="moViagemEstado">' +
+    '<p class="area-desc" style="margin-bottom:10px">Cadastre sua viagem até o embarque. Os dados ficam só neste dispositivo.</p>' +
+    '<button type="button" class="btn-enviar-pesquisa" id="owBtnAddViagem">+ Adicionar viagem</button>' +
+    '</div>' +
+    '<div id="moViagemCard" hidden></div>' +
+    '<div id="moViagemForm" hidden>' +
+    '<form id="owFormViagem" class="form-pesquisa owb-viagem-form" style="margin-top:10px">' +
+    '<div class="campo-form"><label for="owViagemTipo">Tipo de transporte</label>' +
+    '<select id="owViagemTipo">' +
+    '<option value="AVIAO">✈ Avião</option>' +
+    '<option value="ONIBUS">🚌 Ônibus</option>' +
+    '<option value="CARRO">🚗 Carro</option>' +
+    '<option value="VAN">🚐 Van / Translado</option>' +
+    '<option value="EMPRESA">🏢 Transporte da empresa</option>' +
+    '<option value="OUTRO">Outro</option>' +
+    '</select></div>' +
+    '<div class="campo-form"><label for="owViagemData">Data</label><input type="date" id="owViagemData" required></div>' +
+    '<div class="campo-form"><label for="owViagemHora">Hora (opcional)</label><input type="time" id="owViagemHora"></div>' +
+    '<div class="owb-tipo-fields" id="owbCamposAviao">' +
+    '<div class="campo-form"><label for="owViagemEmpresa">Companhia aérea</label><input type="text" id="owViagemEmpresa" placeholder="LATAM, Gol, Azul..."></div>' +
+    '<div class="campo-form"><label for="owViagemNumVoo">N° do voo</label><input type="text" id="owViagemNumVoo" placeholder="ex.: LA4021" maxlength="12"></div>' +
+    '<div class="campo-form"><label for="owViagemOrigem">Origem</label><input type="text" id="owViagemOrigem" placeholder="ex.: GRU, GIG..." maxlength="4"></div>' +
+    '<div class="campo-form"><label for="owViagemDestino">Destino</label><input type="text" id="owViagemDestino" placeholder="ex.: SDU, MAO..." maxlength="4"></div>' +
+    '<div class="campo-form"><label for="owViagemPoltrona">Assento (opcional)</label><input type="text" id="owViagemPoltrona" placeholder="ex.: 14A" maxlength="6"></div>' +
+    '</div>' +
+    '<div class="owb-tipo-fields" id="owbCamposOnibus">' +
+    '<div class="campo-form"><label for="owBusEmpresa">Empresa</label><input type="text" id="owBusEmpresa" placeholder="ex.: Cometa, Itapemirim..."></div>' +
+    '<div class="campo-form"><label for="owBusOrigem">Origem</label><input type="text" id="owBusOrigem"></div>' +
+    '<div class="campo-form"><label for="owBusDestino">Destino</label><input type="text" id="owBusDestino"></div>' +
+    '<div class="campo-form"><label for="owBusPoltrona">Poltrona (opcional)</label><input type="text" id="owBusPoltrona" maxlength="6"></div>' +
+    '</div>' +
+    '<div class="owb-tipo-fields" id="owbCamposCarro">' +
+    '<div class="campo-form"><label for="owCarroDestino">Destino</label><input type="text" id="owCarroDestino"></div>' +
+    '</div>' +
+    '<div class="owb-tipo-fields" id="owbCamposVan">' +
+    '<div class="campo-form"><label for="owVanPonto">Ponto de encontro</label><input type="text" id="owVanPonto"></div>' +
+    '<div class="campo-form"><label for="owVanDestino">Destino</label><input type="text" id="owVanDestino"></div>' +
+    '</div>' +
+    '<div class="campo-form"><label for="owViagemObs">Observação (opcional)</label><input type="text" id="owViagemObs" placeholder="Localizador, portão, contato..." maxlength="80"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:4px">' +
+    '<button type="submit" class="btn-enviar-pesquisa">SALVAR VIAGEM</button>' +
+    '<button type="button" class="btn-enviar-pesquisa" id="owBtnCancelViagem" style="background:rgba(255,255,255,.06)">Cancelar</button>' +
+    '</div>' +
+    '<div class="pesquisa-status" id="owViagemStatus"></div>' +
+    '</form>' +
+    '</div>' +
+    '</div>' +
+
     '<div class="agora-secao">' +
     '<h3>🏢 Minhas Empresas</h3>' +
     '<p class="area-desc">Marque as empresas que você quer acompanhar. Mostramos aqui quando uma notícia recente cita alguma delas.</p>' +
@@ -8500,6 +8579,31 @@ function renderMeuOwnews(){
     '<div class="role-list" id="moSalvasLista"></div>' +
     '</div>' +
 
+    /* Buddy Voice — preferências de personalidade */
+    '<div class="agora-secao">' +
+    '<h3>🤝 Buddy Voice</h3>' +
+    '<p class="area-desc">Como o Buddy conversa com você.</p>' +
+    '<div class="form-pesquisa">' +
+    '<div class="campo-form"><label for="owbTom">Tom</label>' +
+    '<select id="owbTom">' +
+    '<option value="discreto">Discreto — direto ao ponto</option>' +
+    '<option value="buddy">Buddy — mais próximo</option>' +
+    '<option value="resenha">Resenha — descontraído</option>' +
+    '</select></div>' +
+    '<div class="campo-form"><label for="owbTrat">Tratamento</label>' +
+    '<select id="owbTrat">' +
+    '<option value="neutro">Neutro</option>' +
+    '<option value="parceiro">Parceiro (Amigão, Brother)</option>' +
+    '<option value="parceira">Parceira (Amiga)</option>' +
+    '</select></div>' +
+    '<div class="campo-form"><label for="owbApelido">Como o Buddy pode te chamar? <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>' +
+    '<input type="text" id="owbApelido" placeholder="ex.: Oliver, Capitão..." maxlength="24"></div>' +
+    '</div>' +
+    '<button type="button" class="btn-enviar-pesquisa" id="owbBtnSalvar" style="margin-top:12px">SALVAR</button>' +
+    '<div class="pesquisa-status" id="owbVoiceStatus"></div>' +
+    '<div class="owb-voice-preview" id="owbPreview" aria-live="polite"></div>' +
+    '</div>' +
+
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/offshore-agora">Offshore Agora →</a>' +
@@ -8510,6 +8614,7 @@ function renderMeuOwnews(){
     '<script>' +
     '(function(){' +
     'var LS_AEROPORTO="ownews_meu_aeroporto";var LS_EMPRESAS="ownews_minhas_empresas";var LS_VISITA="ownews_ultima_visita_meu_ownews";var LS_ESCALA="ownews_minha_escala";' +
+    'var LS_VIAGEM="ownews_minha_viagem";var LS_BUDDY="ownews_buddy_prefs";' +
     'function esc(t){return String(t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}' +
 
     '/* -------- OW Hub — Conta (Fase 16-18, Missão Mestre Contínua, 2026-09-18) --------' +
@@ -8745,13 +8850,218 @@ function renderMeuOwnews(){
     '});' +
     '}' +
 
+    'function calcularMomento(escalaData){' +
+    '  if(!escalaData||!escalaData.tipo)return{tipo:"SEM_ESCALA"};' +
+    '  var hoje=new Date();hoje.setHours(0,0,0,0);' +
+    '  var TIPOS={"14x14":[14,14],"21x21":[21,21],"28x28":[28,28],"14x21":[14,21],"7x7":[7,7]};' +
+    '  var ciclo=TIPOS[escalaData.tipo]||[14,14];' +
+    '  var refRaw=escalaData.dataRef;' +
+    '  if(!refRaw)return{tipo:"SEM_ESCALA"};' +
+    '  var ref=new Date(refRaw+"T00:00:00");' +
+    '  var diffDias=Math.round((hoje-ref)/86400000);' +
+    '  var cicloTotal=ciclo[0]+ciclo[1];' +
+    '  var posNoCiclo=((diffDias%cicloTotal)+cicloTotal)%cicloTotal;' +
+    '  var embarcado=escalaData.tipoRef==="embarquei"?(posNoCiclo<ciclo[0]):(posNoCiclo>=ciclo[1]);' +
+    '  var diasEmbarque,diasDesembarque;' +
+    '  if(embarcado){' +
+    '    diasDesembarque=ciclo[0]-posNoCiclo;if(escalaData.tipoRef!=="embarquei")diasDesembarque=ciclo[1]-(posNoCiclo-ciclo[0]);' +
+    '    diasDesembarque=Math.max(0,diasDesembarque);' +
+    '    return{tipo:diasDesembarque<=2?"DESEMBARQUE_PROXIMO":"EMBARCADO",diasDesembarque:diasDesembarque};' +
+    '  }else{' +
+    '    diasEmbarque=cicloTotal-posNoCiclo;if(escalaData.tipoRef==="embarquei")diasEmbarque=ciclo[0]+(ciclo[1]-posNoCiclo);' +
+    '    diasEmbarque=Math.max(0,diasEmbarque);' +
+    '    var tipo=diasEmbarque===0?"VESPERA_EMBARQUE":diasEmbarque<=2?"EMBARQUE_PROXIMO":diasEmbarque<=5?"EMBARQUE_DISTANTE":"FOLGA";' +
+    '    return{tipo:tipo,diasEmbarque:diasEmbarque};' +
+    '  }' +
+    '}' +
+
+    'function atualizarTelaHoje(){' +
+    '  var hj=document.getElementById("owbHoje");' +
+    '  var mn=document.getElementById("owbHojeMomento");' +
+    '  var mg=document.getElementById("owbHojeMsg");' +
+    '  var cs=document.getElementById("owbHojeCards");' +
+    '  if(!hj)return;' +
+    '  try{' +
+    '    var rawE=localStorage.getItem(LS_ESCALA);' +
+    '    if(!rawE){hj.hidden=true;return;}' +
+    '    var escData=JSON.parse(rawE);' +
+    '    var ed=escData&&escData.data;' +
+    '    if(!ed||!ed.tipo){hj.hidden=true;return;}' +
+    '    var mom=calcularMomento(ed);' +
+    '    var prefs=getBuddyPrefs();' +
+    '    var labels={"SEM_ESCALA":"","FOLGA":"FOLGA","EMBARCADO":"EMBARCADO","EMBARQUE_DISTANTE":"EMBARQUE SE APROXIMA","EMBARQUE_PROXIMO":"EMBARQUE EM BREVE","VESPERA_EMBARQUE":"VÉSPERA DO EMBARQUE","DESEMBARQUE_PROXIMO":"DESEMBARQUE PRÓXIMO"};' +
+    '    mn.textContent=labels[mom.tipo]||"";' +
+    '    var mensagem=gerarMensagemMomento(mom,prefs);' +
+    '    if(mensagem){mg.textContent=mensagem;mg.hidden=false;}else{mg.hidden=true;}' +
+    '    var cards="";' +
+    '    if(mom.tipo!=="EMBARCADO"&&mom.diasEmbarque!=null){' +
+    '      cards+=\'<div class="owb-hoje-card"><div><div class="owb-hc-label">Próximo embarque</div>\' +' +
+    '             \'<div class="owb-hc-val">\'+mom.diasEmbarque+(mom.diasEmbarque===1?" dia":" dias")+\'</div></div></div>\';' +
+    '    }' +
+    '    if(mom.tipo==="EMBARCADO"||mom.tipo==="DESEMBARQUE_PROXIMO"){' +
+    '      cards+=\'<div class="owb-hoje-card"><div><div class="owb-hc-label">Desembarque em</div>\' +' +
+    '             \'<div class="owb-hc-val">\'+mom.diasDesembarque+(mom.diasDesembarque===1?" dia":" dias")+\'</div></div></div>\';' +
+    '    }' +
+    '    var viagemRaw=localStorage.getItem(LS_VIAGEM);' +
+    '    if(viagemRaw){var v=JSON.parse(viagemRaw);if(v&&v.data){' +
+    '      var vData=v.data;var vHora=v.hora||"";' +
+    '      cards+=\'<div class="owb-hoje-card"><div><div class="owb-hc-label">Minha viagem</div>\' +' +
+    '             \'<div class="owb-hc-val">\'+esc(vData)+(vHora?" · "+esc(vHora):"")+\'</div>\' +' +
+    '             (v.origem&&v.destino?\'<div class="owb-hc-sub">\'+esc(v.origem)+" → "+esc(v.destino)+\'</div>\':"") +' +
+    '             \'</div></div>\';' +
+    '    }}' +
+    '    cs.innerHTML=cards;' +
+    '    hj.hidden=false;' +
+    '  }catch(e){hj.hidden=true;}' +
+    '}' +
+
+    'function gerarMensagemMomento(mom,prefs){' +
+    '  var tom=prefs.tom||"discreto";' +
+    '  var trat=prefs.trat||"neutro";' +
+    '  var ap=prefs.apelido?""+prefs.apelido:"";' +
+    '  var voc={"discreto":{"neutro":"","parceiro":"Buddy,","parceira":"Buddy,"},' +
+    '           "buddy":{"neutro":"Hey!","parceiro":"Hey, Buddy!","parceira":"Hey, Buddy!"},' +
+    '           "resenha":{"neutro":"Então...","parceiro":"Amigão,","parceira":"Amiga,"}}[tom][trat];' +
+    '  if(ap)voc=(voc?voc+" ":"")+ap+",";' +
+    '  var pref=voc?voc+" ":"";' +
+    '  if(mom.tipo==="FOLGA"&&mom.diasEmbarque>5)return pref+"Aproveite a folga.";' +
+    '  if(mom.tipo==="EMBARQUE_DISTANTE")return pref+"Embarque em "+mom.diasEmbarque+" dias. Boa folga.";' +
+    '  if(mom.tipo==="EMBARQUE_PROXIMO")return pref+"Faltam "+mom.diasEmbarque+" dia"+(mom.diasEmbarque===1?"":"s")+" pro seu embarque. Bora preparar a mala?";' +
+    '  if(mom.tipo==="VESPERA_EMBARQUE")return pref+"Amanhã é dia de embarcar. Tudo certo com a mala e os documentos?";' +
+    '  if(mom.tipo==="EMBARCADO")return pref+"Você está embarcado. Desembarque em "+mom.diasDesembarque+" dia"+(mom.diasDesembarque===1?"":"s")+".";' +
+    '  if(mom.tipo==="DESEMBARQUE_PROXIMO")return pref+"Faltam "+mom.diasDesembarque+" dia"+(mom.diasDesembarque===1?"":"s")+" pro desembarque.";' +
+    '  return "";' +
+    '}' +
+
+    'function carregarViagem(){try{var r=localStorage.getItem(LS_VIAGEM);return r?JSON.parse(r):null;}catch(e){return null;}}' +
+    'function salvarViagemLS(v){try{localStorage.setItem(LS_VIAGEM,JSON.stringify(v));}catch(e){}}' +
+    'var TIPO_LABELS={"AVIAO":"Avião","ONIBUS":"Ônibus","CARRO":"Carro","VAN":"Van / Translado","EMPRESA":"Transporte da empresa","OUTRO":"Outro"};' +
+    'function renderViagemCard(v){' +
+    '  if(!v||!v.tipo)return "";' +
+    '  var rota="";' +
+    '  if(v.origem||v.destino)rota=(v.origem||"?")+(" → ")+(v.destino||"?");' +
+    '  else if(v.empresa)rota=v.empresa;' +
+    '  return \'<div class="owb-viagem-card">\' +' +
+    '    \'<div class="owb-viagem-card-tipo">\'+esc(TIPO_LABELS[v.tipo]||v.tipo)+\'</div>\' +' +
+    '    \'<div class="owb-viagem-card-data">\'+esc(v.data||"")+(v.hora?" · "+esc(v.hora):"")+\'</div>\' +' +
+    '    (rota?\'<div class="owb-viagem-card-rota">\'+esc(rota)+\'</div>\':"") +' +
+    '    (v.obs?\'<div style="font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:4px">\'+esc(v.obs)+\'</div>\':"") +' +
+    '    \'<div class="owb-viagem-card-actions">\' +' +
+    '    \'<button type="button" class="owb-btn-text" id="owBtnEditViagem">Editar</button>\' +' +
+    '    \'<button type="button" class="owb-btn-text" id="owBtnDelViagem" style="color:var(--muted)">Remover</button>\' +' +
+    '    \'</div></div>\';' +
+    '}' +
+    'function iniciarViagem(){' +
+    '  var v=carregarViagem();' +
+    '  var estado=document.getElementById("moViagemEstado");' +
+    '  var card=document.getElementById("moViagemCard");' +
+    '  var form=document.getElementById("moViagemForm");' +
+    '  if(!estado||!card||!form)return;' +
+    '  if(v&&v.tipo){' +
+    '    estado.hidden=true;card.innerHTML=renderViagemCard(v);card.hidden=false;form.hidden=true;' +
+    '    var btnEdit=document.getElementById("owBtnEditViagem");' +
+    '    var btnDel=document.getElementById("owBtnDelViagem");' +
+    '    if(btnEdit)btnEdit.onclick=function(){' +
+    '      preencherFormViagem(v);card.hidden=true;form.hidden=false;' +
+    '    };' +
+    '    if(btnDel)btnDel.onclick=function(){' +
+    '      if(confirm("Remover viagem?")){'  +
+    '        localStorage.removeItem(LS_VIAGEM);iniciarViagem();atualizarTelaHoje();' +
+    '      }' +
+    '    };' +
+    '  }else{estado.hidden=false;card.hidden=true;form.hidden=true;}' +
+    '}' +
+    'function preencherFormViagem(v){' +
+    '  function sv(id,val){var el=document.getElementById(id);if(el)el.value=val||"";}' +
+    '  sv("owViagemTipo",v.tipo);sv("owViagemData",v.data);sv("owViagemHora",v.hora);' +
+    '  sv("owViagemEmpresa",v.empresa);sv("owViagemNumVoo",v.num_voo);' +
+    '  sv("owViagemOrigem",v.origem||v.owBusOrigem||"");sv("owViagemDestino",v.destino||v.owBusDestino||v.owCarroDestino||"");' +
+    '  sv("owViagemPoltrona",v.poltrona);sv("owBusEmpresa",v.empresa);sv("owBusOrigem",v.origem);' +
+    '  sv("owBusDestino",v.destino);sv("owBusPoltrona",v.poltrona);sv("owCarroDestino",v.destino);' +
+    '  sv("owVanPonto",v.ponto);sv("owVanDestino",v.destino);sv("owViagemObs",v.obs);' +
+    '  atualizarCamposTipo();' +
+    '}' +
+    'function atualizarCamposTipo(){' +
+    '  var tipo=(document.getElementById("owViagemTipo")||{}).value||"AVIAO";' +
+    '  var map={"AVIAO":"owbCamposAviao","ONIBUS":"owbCamposOnibus","CARRO":"owbCamposCarro","VAN":"owbCamposVan","EMPRESA":"owbCamposVan"};' +
+    '  ["owbCamposAviao","owbCamposOnibus","owbCamposCarro","owbCamposVan"].forEach(function(id){' +
+    '    var el=document.getElementById(id);if(el)el.className="owb-tipo-fields"+(map[tipo]===id?" ativo":"");' +
+    '  });' +
+    '}' +
+    'function iniciarFormViagem(){' +
+    '  var btn=document.getElementById("owBtnAddViagem");' +
+    '  var cancel=document.getElementById("owBtnCancelViagem");' +
+    '  var form=document.getElementById("owFormViagem");' +
+    '  var tipoSel=document.getElementById("owViagemTipo");' +
+    '  if(tipoSel)tipoSel.onchange=atualizarCamposTipo;' +
+    '  if(btn)btn.onclick=function(){' +
+    '    document.getElementById("moViagemEstado").hidden=true;' +
+    '    document.getElementById("moViagemForm").hidden=false;' +
+    '    atualizarCamposTipo();' +
+    '  };' +
+    '  if(cancel)cancel.onclick=iniciarViagem;' +
+    '  if(form)form.onsubmit=function(e){' +
+    '    e.preventDefault();' +
+    '    function gv(id){var el=document.getElementById(id);return el?el.value.trim():"";}' +
+    '    var tipo=gv("owViagemTipo");' +
+    '    var v={tipo:tipo,data:gv("owViagemData"),hora:gv("owViagemHora"),obs:gv("owViagemObs"),updated_at:new Date().toISOString()};' +
+    '    if(tipo==="AVIAO"){v.empresa=gv("owViagemEmpresa");v.num_voo=gv("owViagemNumVoo");v.origem=gv("owViagemOrigem");v.destino=gv("owViagemDestino");v.poltrona=gv("owViagemPoltrona");}' +
+    '    if(tipo==="ONIBUS"){v.empresa=gv("owBusEmpresa");v.origem=gv("owBusOrigem");v.destino=gv("owBusDestino");v.poltrona=gv("owBusPoltrona");}' +
+    '    if(tipo==="CARRO"){v.destino=gv("owCarroDestino");}' +
+    '    if(tipo==="VAN"||tipo==="EMPRESA"){v.ponto=gv("owVanPonto");v.destino=gv("owVanDestino");}' +
+    '    salvarViagemLS(v);' +
+    '    iniciarViagem();atualizarTelaHoje();' +
+    '    if(window.ownewsEvento)window.ownewsEvento("trip_created");' +
+    '  };' +
+    '  atualizarCamposTipo();' +
+    '}' +
+
+    'function getBuddyPrefs(){try{return JSON.parse(localStorage.getItem(LS_BUDDY)||"null")||{tom:"discreto",trat:"neutro",apelido:""};}catch(e){return{tom:"discreto",trat:"neutro",apelido:""};}}' +
+    'var BUDDY_PREVIEW={' +
+    '  discreto:{neutro:"Seu embarque é daqui a 2 dias. Você tem 3 itens pendentes.",parceiro:"Buddy, embarque em 2 dias. 3 itens pendentes na mala.",parceira:"Buddy, embarque em 2 dias. 3 itens pendentes na mala."},' +
+    '  buddy:{neutro:"Hey! Faltam 2 dias pro seu embarque. Bora conferir a mala?",parceiro:"Hey, Buddy! Faltam 2 dias pro embarque. Tá de olho na mala?",parceira:"Hey, Buddy! Faltam 2 dias pro embarque. Tá de olho na mala?"},' +
+    '  resenha:{neutro:"Então... embarque em 2 dias. Ficaram 3 coisas na mala.",parceiro:"Amigão, tá chegando a hora. Ainda faltam 3 coisas na mala.",parceira:"Amiga, tá chegando a hora. Ainda faltam 3 coisas na mala."}' +
+    '};' +
+    'function atualizarPreviewVoice(){' +
+    '  var tom=(document.getElementById("owbTom")||{}).value||"discreto";' +
+    '  var trat=(document.getElementById("owbTrat")||{}).value||"neutro";' +
+    '  var ap=((document.getElementById("owbApelido")||{}).value||"").trim();' +
+    '  var prev=document.getElementById("owbPreview");if(!prev)return;' +
+    '  var msg=(BUDDY_PREVIEW[tom]||BUDDY_PREVIEW.discreto)[trat]||"";' +
+    '  if(ap){var VOC_TOM={"discreto":"","buddy":"Hey, ","resenha":{"neutro":"Então, ","parceiro":"Amigão, ","parceira":"Amiga, "}[trat]||""};msg=(VOC_TOM[tom]||"")+ap+", "+msg.replace(/^[A-Za-zÀ-ÿ]+[!,]? /,"");}' +
+    '  prev.textContent="\\""+msg+"\\"";' +
+    '}' +
+    'function iniciarBuddyVoice(){' +
+    '  var prefs=getBuddyPrefs();' +
+    '  function sv(id,val){var el=document.getElementById(id);if(el)el.value=val||"";}' +
+    '  sv("owbTom",prefs.tom);sv("owbTrat",prefs.trat);sv("owbApelido",prefs.apelido);' +
+    '  atualizarPreviewVoice();' +
+    '  ["owbTom","owbTrat","owbApelido"].forEach(function(id){' +
+    '    var el=document.getElementById(id);if(el)el.addEventListener("change",atualizarPreviewVoice);' +
+    '    if(el&&el.tagName==="INPUT")el.addEventListener("input",atualizarPreviewVoice);' +
+    '  });' +
+    '  var btn=document.getElementById("owbBtnSalvar");' +
+    '  var st=document.getElementById("owbVoiceStatus");' +
+    '  if(btn)btn.onclick=function(){' +
+    '    var p={tom:(document.getElementById("owbTom")||{}).value||"discreto",' +
+    '           trat:(document.getElementById("owbTrat")||{}).value||"neutro",' +
+    '           apelido:((document.getElementById("owbApelido")||{}).value||"").trim(),' +
+    '           updated_at:new Date().toISOString()};' +
+    '    try{localStorage.setItem(LS_BUDDY,JSON.stringify(p));}catch(e){}' +
+    '    if(st){st.textContent="Preferências salvas.";st.className="pesquisa-status ok";setTimeout(function(){st.textContent="";st.className="pesquisa-status";},2500);}' +
+    '    atualizarTelaHoje();' +
+    '    if(window.ownewsEvento)window.ownewsEvento("buddy_voice_changed");' +
+    '  };' +
+    '}' +
+
     'carregarNovidades();carregarEscala();carregarAeroporto();atualizarNovidadesEmpresas();renderSalvas();' +
+    'iniciarFormViagem();iniciarViagem();iniciarBuddyVoice();atualizarTelaHoje();' +
     '})();' +
     '</script>';
 
   return paginaChrome(
-    "OW Hub",
-    "Sua central offshore no OWNews — aeroporto favorito, empresas seguidas, escala, novidades desde sua última visita e conta opcional para sincronizar tudo.",
+    "OWBuddy",
+    "OWBuddy — seu parceiro na vida offshore. Escala, viagem, certificados e alertas em um só lugar. EM BREVE como aplicativo.",
     conteudo,
     "/meu-ownews"
   );
@@ -8765,6 +9075,14 @@ function renderMeuOwnews(){
 function renderCentralTrabalhador() {
   const nVagas = VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).length;
   const conteudo =
+    '<style>' +
+    '.owb-teaser{display:block;text-decoration:none;color:inherit;background:linear-gradient(135deg,rgba(18,168,238,.07) 0%,rgba(18,168,238,.03) 100%);border:1px solid rgba(18,168,238,.18);border-radius:8px;padding:13px 16px;margin:16px 0;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}' +
+    '.owb-teaser:hover{border-color:rgba(18,168,238,.35);background:linear-gradient(135deg,rgba(18,168,238,.11) 0%,rgba(18,168,238,.06) 100%)}' +
+    '.owb-teaser-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}' +
+    '.owb-name{font-family:var(--ui);font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--cyan)}' +
+    '.owb-badge{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.06em;background:rgba(18,168,238,.15);color:var(--cyan-dim);border:1px solid rgba(18,168,238,.25);border-radius:3px;padding:1px 6px}' +
+    '.owb-sub{font-family:var(--ui);font-size:12.5px;color:var(--muted);margin:0;line-height:1.45}' +
+    '</style>' +
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central do Trabalhador" }]) +
 
     /* Cabeçalho pessoal — preenchido via JS */
@@ -8852,6 +9170,15 @@ function renderCentralTrabalhador() {
     '</div></a>' +
 
     '</div>' + /* /cw-cards-grid */
+
+    /* OWBuddy pre-launch strip */
+    '<a class="owb-teaser" href="/meu-ownews">' +
+    '<div class="owb-teaser-row">' +
+    '<span class="owb-name">OWBuddy</span>' +
+    '<span class="owb-badge">EM BREVE</span>' +
+    '</div>' +
+    '<p class="owb-sub">Viagem, alertas e escala integrados — seu parceiro na vida offshore.</p>' +
+    '</a>' +
 
     /* Login pill — aparece para não-logados com dados locais */
     '<div class="cw-login-pill" id="cwLoginPill" hidden>' +

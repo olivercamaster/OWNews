@@ -1,6 +1,6 @@
 # OWBuddy — Product Specification
 
-**Status:** Nome de trabalho provisório. NÃO embedar em infra/branding público.
+**Status:** Marca pública ativa (2026-10-05). OW Hub renomeado para OWBuddy em todos os pontos públicos. App nativo EM BREVE.
 **Definição:** Camada de produto "app-like" sobre o OWNews, sem app nativo.
 
 ---
@@ -41,23 +41,30 @@ O trabalhador offshore tem ferramentas fragmentadas: escala em papel/planilha, c
 
 ## Roadmap de produto (priorizados)
 
-### P0 (já implementado 2026-10-04)
+### P0 (implementado)
 - [x] Cert CSS fix em paginaChrome
 - [x] Estados VÁLIDO / PRÓXIMO / VENCE HOJE / VENCIDO com "Atualizar →"
 - [x] Checklist de Embarque com ciclo automático
 - [x] Central checklist strip (embarque ≤7 dias)
 - [x] PWA: manifest com icons, SW básico, shortcuts
+- [x] OW Hub → OWBuddy: renomeação pública completa (2026-10-05)
+- [x] OWBuddy pre-launch strip na Central do Trabalhador
+- [x] Tela Hoje no /meu-ownews (motor contextual)
+- [x] Minha Viagem: localStorage + UI completa (AVIAO/ONIBUS/CARRO/VAN/EMPRESA/OUTRO)
+- [x] Buddy Voice: preferências de tom/tratamento/apelido + live preview
+- [x] Motor contextual: FOLGA/EMBARQUE_PROXIMO/EMBARCADO/DESEMBARQUE_PROXIMO/etc.
 
 ### P1 (próxima iteração)
 - [ ] Notificações Web Push (VAPID) para vencimento de cert
-- [ ] Notificações Web Push para lembrete de embarque
+- [ ] Notificações Web Push para lembrete de embarque (usando Buddy Voice)
 - [ ] Checklist: categorias customizáveis
 - [ ] Cert: upload de imagem (R2)
+- [ ] Minha Viagem → sincronizar em Supabase user_metadata (mesma pattern de escala/certs)
 
 ### P2 (após validação P1)
 - [ ] Modo offline melhorado (cache de notícias recentes)
 - [ ] Share de escala com parceiro (já tem: `/cross`)
-- [ ] OWBuddy nome público (se validado pelo time)
+- [ ] App nativo Android/iOS (PWA upgrade path)
 
 ---
 
