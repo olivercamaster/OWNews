@@ -1,6 +1,6 @@
 # OWBuddy — Product Specification
 
-**Status:** Marca pública ativa (2026-10-05). OW Hub renomeado para OWBuddy em todos os pontos públicos. App nativo EM BREVE.
+**Status:** App v0.1.0 criado (2026-10-05). Marca ativa. Build web validado. Android/iOS via EAS Build.
 **Definição:** Camada de produto "app-like" sobre o OWNews, sem app nativo.
 
 ---
@@ -61,10 +61,32 @@ O trabalhador offshore tem ferramentas fragmentadas: escala em papel/planilha, c
 - [ ] Cert: upload de imagem (R2)
 - [ ] Minha Viagem → sincronizar em Supabase user_metadata (mesma pattern de escala/certs)
 
+### P0 (implementado — Missão 003)
+- [x] App React Native + Expo v0.1.0 criado
+- [x] Core compartilhado: `packages/ow-domain` (escala, buddy-voice, certs, viagem, checklist)
+- [x] Buddy Voice 2.0: compositor que nunca concatena apelido + vocativo
+- [x] Tela Hoje: motor contextual, mensagem, cards, viagem, mala, certs alertas
+- [x] Minha Mala: lista, toggle, add, reset por ciclo
+- [x] Minha Viagem: 6 tipos, localizador implementado, campos por tipo
+- [x] Certificados: CRUD, status VÁLIDO/ATENÇÃO/VENCE HOJE/VENCIDO
+- [x] Escala config: todos os tipos preset + custom
+- [x] Buddy Config: tom, tratamento, apelido, preview ao vivo
+- [x] Build web gerado (dist/ 1.2MB, 797 módulos)
+- [x] 32/32 testes do ow-domain passando
+- [x] TypeScript: zero erros
+- [x] Docs: OWBUDDY_ARCHITECTURE.md, OWBUDDY_SYNC.md, OWBUDDY_VOICE.md, OWBUDDY_STORE_RELEASE.md
+
+### P1 (próxima iteração)
+- [ ] Auth Supabase no app (login por magic link)
+- [ ] Sync via user_metadata (escala, certs, checklist, viagem, buddy prefs)
+- [ ] Notificações Web Push com Buddy Voice
+- [ ] EAS Build: APK Android de desenvolvimento
+- [ ] Logo/ícone definitivo
+
 ### P2 (após validação P1)
 - [ ] Modo offline melhorado (cache de notícias recentes)
 - [ ] Share de escala com parceiro (já tem: `/cross`)
-- [ ] App nativo Android/iOS (PWA upgrade path)
+- [ ] Publicação Google Play + App Store
 
 ---
 

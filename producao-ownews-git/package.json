@@ -1,0 +1,8 @@
+{
+  "name": "ownews-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
+}
