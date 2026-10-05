@@ -132,6 +132,12 @@ export default function BuddyConfig() {
         >
           <Text style={styles.saveBtnText}>{saved ? 'Salvo ✓' : 'Salvar preferências'}</Text>
         </TouchableOpacity>
+
+        {/* Version */}
+        <View style={styles.aboutBox}>
+          <Text style={styles.aboutApp}>OWBuddy</Text>
+          <Text style={styles.aboutVersion}>Versão 0.1.1 · Build 3</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -205,4 +211,7 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center' },
   saveBtnDone: { backgroundColor: colors.green },
   saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
+  aboutBox: { alignItems: 'center', marginTop: spacing.xl, paddingBottom: spacing.sm },
+  aboutApp: { fontSize: 13, fontWeight: '700', color: colors.mutedDim },
+  aboutVersion: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
 });

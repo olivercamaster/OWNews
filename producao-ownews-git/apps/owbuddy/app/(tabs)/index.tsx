@@ -126,6 +126,7 @@ export default function TelaHoje() {
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
   const greeting = saudacao();
   const nome = prefs.apelido?.trim();
+  const greetingLabel = nome ? `${greeting}, ${nome}` : `${greeting}, Buddy!`;
 
   return (
     <>
@@ -145,9 +146,7 @@ export default function TelaHoje() {
         {/* ── Greeting ── */}
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
-            <Text style={styles.greetingText}>
-              {greeting}{nome ? `, ${nome}` : ''}
-            </Text>
+            <Text style={styles.greetingText}>{greetingLabel}</Text>
             {momento.tipo !== 'SEM_ESCALA' && (
               <View style={[styles.momentoChip, { borderColor: accentColor }]}>
                 <Text style={[styles.momentoChipText, { color: accentColor }]}>
@@ -221,20 +220,20 @@ export default function TelaHoje() {
             icon="checkbox-outline"
             label="Lista Inteligente"
             badge={checkCount && checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
-            onPress={() => router.push('/mala')}
+            onPress={() => router.navigate('/mala')}
           />
           <CtaCard
             icon="airplane-outline"
             label="Minha Viagem"
             accent={viagemBreve ? colors.amber : undefined}
-            onPress={() => router.push('/viagem')}
+            onPress={() => router.navigate('/viagem')}
           />
           <CtaCard
             icon="document-text-outline"
             label="Certificados"
             badge={critCerts.length > 0 ? String(critCerts.length) : undefined}
             badgeColor={colors.red}
-            onPress={() => router.push('/certs')}
+            onPress={() => router.navigate('/certs')}
           />
         </View>
 
@@ -249,7 +248,7 @@ export default function TelaHoje() {
 
         {/* ── Alerta certificados ── */}
         {critCerts.length > 0 && (
-          <TouchableOpacity style={[styles.alertCard, styles.alertCardWarn]} onPress={() => router.push('/certs')}>
+          <TouchableOpacity style={[styles.alertCard, styles.alertCardWarn]} onPress={() => router.navigate('/certs')}>
             <Ionicons name="warning-outline" size={18} color={colors.amber} />
             <Text style={[styles.alertText, { color: colors.amber }]}>
               {critCerts.length === 1
@@ -262,7 +261,7 @@ export default function TelaHoje() {
 
         {/* ── Alerta viagem iminente ── */}
         {viagem && viagemBreve && (
-          <TouchableOpacity style={[styles.alertCard, styles.alertCardViagem]} onPress={() => router.push('/viagem')}>
+          <TouchableOpacity style={[styles.alertCard, styles.alertCardViagem]} onPress={() => router.navigate('/viagem')}>
             <Ionicons name="airplane" size={16} color={colors.amber} />
             <Text style={[styles.alertText, { color: colors.amber }]}>
               Viagem{' '}
@@ -278,6 +277,7 @@ export default function TelaHoje() {
         <View style={styles.offshoreGrid}>
           <OffshoreCard icon="newspaper-outline" label="Notícias" onPress={() => Linking.openURL(OWNEWS_URL)} />
           <OffshoreCard icon="partly-sunny-outline" label="Meteorologia" onPress={() => setShowCityPicker(true)} />
+          <OffshoreCard icon="airplane-outline" label="Aeroportos" onPress={() => Linking.openURL(`${OWNEWS_URL}/aeroportos`)} />
           <OffshoreCard icon="briefcase-outline" label="Vagas" onPress={() => Linking.openURL(`${OWNEWS_URL}/vagas`)} />
           <OffshoreCard icon="trending-up-outline" label="Salários" onPress={() => Linking.openURL(`${OWNEWS_URL}/salarios`)} />
         </View>
@@ -493,18 +493,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    justifyContent: 'flex-start',
   },
   offshoreCard: {
-    width: '47.5%',
+    width: '31%',
     backgroundColor: surface.card,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
+    paddingVertical: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.line,
   },
-  offshoreLabel: { fontSize: 12, color: colors.muted, fontWeight: '500' },
+  offshoreLabel: { fontSize: 11, color: colors.muted, fontWeight: '500', textAlign: 'center' },
 
   // City picker modal
   modalRoot: { flex: 1, backgroundColor: surface.header },
