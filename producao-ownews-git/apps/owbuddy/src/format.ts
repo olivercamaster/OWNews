@@ -8,10 +8,10 @@ export function formatDateBR(isoDate: string | null | undefined): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-/** DD/MM/YYYY → YYYY-MM-DD (returns original if not parseable) */
-export function parseDateBR(brDate: string): string {
+/** DD/MM/YYYY → YYYY-MM-DD, or null if pattern doesn't match */
+export function parseDateBR(brDate: string): string | null {
   const m = brDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return brDate;
+  if (!m) return null;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 

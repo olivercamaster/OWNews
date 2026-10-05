@@ -52,7 +52,7 @@ export default function MinhaViagem() {
       return;
     }
     // form.data is in BR format (DD/MM/YYYY) — convert to ISO for storage
-    const isoData = parseDateBR(form.data);
+    const isoData = parseDateBR(form.data) ?? form.data;
     const v: Viagem = { ...(form as Viagem), tipo: form.tipo as ViagemTipo, data: isoData };
     await setViagem(v);
     setViagemState(v);

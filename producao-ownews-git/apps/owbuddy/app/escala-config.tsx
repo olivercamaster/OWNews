@@ -65,11 +65,12 @@ export default function EscalaConfigScreen() {
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
+    const isoDataRef = parseDateBR(form.dataRef);
+    if (!isoDataRef) return;
     const existing = await getEscala();
     const isoConfig: EscalaConfig = {
       ...form,
-      dataRef: parseDateBR(form.dataRef) ?? form.dataRef ?? '',
-      // preserve excecoes from existing config
+      dataRef: isoDataRef,
       excecoes: existing?.excecoes ?? [],
     } as EscalaConfig;
     await setEscala(isoConfig);

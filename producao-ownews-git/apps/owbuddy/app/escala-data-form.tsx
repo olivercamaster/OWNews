@@ -30,7 +30,7 @@ export default function EscalaDataForm() {
     if (!nome.trim()) { setErro('Informe um nome para a data.'); return; }
     const startISO = parseDateBR(startDate);
     if (!startISO) { setErro('Data inicial inválida. Use DD/MM/AAAA.'); return; }
-    const endISO = endDate ? parseDateBR(endDate) : undefined;
+    const endISO: string | undefined = endDate ? (parseDateBR(endDate) ?? undefined) : undefined;
     if (endDate && !endISO) { setErro('Data final inválida. Use DD/MM/AAAA.'); return; }
 
     const datas = await getDatasPessoais();
