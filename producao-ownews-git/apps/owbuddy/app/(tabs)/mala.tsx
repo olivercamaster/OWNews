@@ -24,7 +24,8 @@ import {
 } from '@owbuddy/domain';
 import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain';
 import { getEscala, getChecklist, setChecklist } from '../../src/storage';
-import { colors, spacing, radius, typography, surface } from '../../src/theme';
+import { colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
+import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 
@@ -110,7 +111,7 @@ export default function MeuEmbarque() {
     ]);
   };
 
-  if (!data || !resumo) return <View style={styles.root} />;
+  if (!data || !resumo) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const counts = contarPendentes(data);
   const pct = counts.total > 0 ? Math.round((counts.feitos / counts.total) * 100) : 0;
@@ -119,7 +120,7 @@ export default function MeuEmbarque() {
   const sections = buildSections(data);
 
   return (
-    <View style={styles.root}>
+    <OWBackground>
       <SectionList
         sections={sections}
         keyExtractor={item => item.id}
@@ -207,7 +208,7 @@ export default function MeuEmbarque() {
         }
         contentContainerStyle={styles.listContent}
       />
-    </View>
+    </OWBackground>
   );
 }
 
@@ -236,15 +237,15 @@ function MalaItem({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.navy950 },
+  root: { flex: 1, backgroundColor: 'transparent' },
   listContent: { paddingBottom: 100 },
 
   embarqueCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: surface.card, borderRadius: radius.md,
+    backgroundColor: maritime.glassElevated, borderRadius: radius.md,
     marginHorizontal: spacing.md, marginTop: spacing.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderWidth: 1, borderColor: colors.line,
+    borderWidth: 1, borderColor: maritime.glassBorder,
   },
   embarqueLeft: { flex: 1 },
   embarqueLabel: { ...typography.micro, color: colors.cyanDim },
@@ -254,10 +255,10 @@ const styles = StyleSheet.create({
 
   semEscalaCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: surface.card, borderRadius: radius.md,
+    backgroundColor: maritime.glass, borderRadius: radius.md,
     marginHorizontal: spacing.md, marginTop: spacing.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderWidth: 1, borderColor: colors.line,
+    borderWidth: 1, borderColor: maritime.glassBorder,
   },
   semEscalaText: { flex: 1, fontSize: 13, color: colors.muted },
 
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 15, fontWeight: '700' },
 
   progressBg: {
-    height: 3, backgroundColor: colors.line,
+    height: 3, backgroundColor: 'rgba(22, 68, 94, 0.4)',
     marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: 2, overflow: 'hidden',
   },
   progressFill: { height: 3, borderRadius: 2 },
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
   },
   sectionSep: { height: 4 },
 
-  separator: { height: 1, backgroundColor: colors.lineSoft, marginLeft: spacing.md + 22 + spacing.sm },
+  separator: { height: 1, backgroundColor: 'rgba(22, 68, 94, 0.3)', marginLeft: spacing.md + 22 + spacing.sm },
 
   itemRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 13,
@@ -309,13 +310,14 @@ const styles = StyleSheet.create({
 
   addRow: {
     flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm,
-    gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.line,
+    gap: spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(22, 68, 94, 0.4)',
     marginTop: spacing.sm,
   },
   addInput: {
-    flex: 1, backgroundColor: colors.navy800, borderRadius: radius.sm,
+    flex: 1, backgroundColor: maritime.glass, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 10,
     color: colors.white, fontSize: 15,
+    borderWidth: 1, borderColor: maritime.glassBorder,
   },
   addBtn: {
     width: 44, height: 44, backgroundColor: colors.cyan,

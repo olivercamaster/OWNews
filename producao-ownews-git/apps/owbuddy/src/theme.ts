@@ -107,3 +107,24 @@ export const screen = {
   cardPad: 14,
   listItemHeight: 72,
 } as const;
+
+// ─── Maritime visual identity (Design System 2.0) ────────────────────────────
+// Glassmorphism cards over the premium navy gradient background.
+// Never add opacity tokens inside StyleSheet.create() — keep them here.
+export const maritime = {
+  // Background gradient stops (top → bottom)
+  bgGradient: ['#061c2b', '#07223a', '#0a2c40', '#061c2b'] as string[],
+  bgLocations: [0, 0.3, 0.7, 1] as number[],
+
+  // Glass cards — navy with controlled transparency
+  glass:        'rgba(10, 44, 64, 0.72)',
+  glassElevated:'rgba(14, 52, 80, 0.82)',
+  glassBorder:  'rgba(22, 68, 94, 0.55)',
+  glassActive:  'rgba(18, 168, 238, 0.18)',
+  glassBorderActive: 'rgba(18, 168, 238, 0.40)',
+
+  // Watermark opacity — mascot behind content
+  watermarkOpacity: 0.055,
+  // Nautical decoration opacity
+  nauticalOpacity: 0.045,
+} as const;

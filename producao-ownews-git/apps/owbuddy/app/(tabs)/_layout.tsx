@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, iconSize } from '../../src/theme';
+import { colors, maritime, radius } from '../../src/theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -9,7 +9,7 @@ function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
   return (
     <Ionicons
       name={focused ? name : (`${name}-outline` as IoniconsName)}
-      size={iconSize.tab}
+      size={24}
       color={focused ? colors.cyan : colors.mutedDim}
     />
   );
@@ -17,8 +17,7 @@ function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  // Respect Android navigation bar + iPhone home indicator
-  const tabBarHeight = 56 + insets.bottom;
+  const bottomSafe = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
@@ -26,36 +25,55 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.cyan,
         tabBarInactiveTintColor: colors.mutedDim,
         tabBarStyle: {
-          backgroundColor: colors.navy900,
-          borderTopColor: colors.line,
-          borderTopWidth: 1,
-          height: tabBarHeight,
-          paddingBottom: insets.bottom + 4,
-          paddingTop: 6,
+          // Floating glass bar
+          position: 'absolute',
+          backgroundColor: 'rgba(6, 28, 43, 0.94)',
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: maritime.glassBorder,
+          marginHorizontal: 16,
+          marginBottom: bottomSafe + 8,
+          borderRadius: radius.xl,
+          height: 62,
+          paddingBottom: 10,
+          paddingTop: 8,
+          paddingHorizontal: 8,
+          // Elevation (Android)
+          elevation: 16,
+          // Shadow (iOS)
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
-          marginBottom: 0,
+          letterSpacing: 0.2,
         },
-        headerStyle: { backgroundColor: colors.navy900 },
+        // Stack header style — gradient background (no LinearGradient in header, use solid)
+        headerStyle: { backgroundColor: '#08283a' },
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: '700' },
         headerShadowVisible: false,
+        // Use Platform-specific blur on iOS if desired — keep simple for now
+        tabBarBackground: undefined,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Hoje',
+          headerShown: false,
+          title: 'Início',
           tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="mala"
         options={{
-          title: 'Meu Embarque',
+          title: 'Embarque',
           tabBarIcon: ({ focused }) => <TabIcon name="checkbox" focused={focused} />,
+          headerStyle: { backgroundColor: '#07223a' },
         }}
       />
       <Tabs.Screen
@@ -63,6 +81,7 @@ export default function TabLayout() {
         options={{
           title: 'Viagem',
           tabBarIcon: ({ focused }) => <TabIcon name="airplane" focused={focused} />,
+          headerStyle: { backgroundColor: '#07223a' },
         }}
       />
       <Tabs.Screen
@@ -70,6 +89,7 @@ export default function TabLayout() {
         options={{
           title: 'Docs',
           tabBarIcon: ({ focused }) => <TabIcon name="document-text" focused={focused} />,
+          headerStyle: { backgroundColor: '#07223a' },
         }}
       />
     </Tabs>

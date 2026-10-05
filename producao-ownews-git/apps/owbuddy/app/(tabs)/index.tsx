@@ -28,7 +28,8 @@ import {
 import type { EscalaConfig, EscalaResumo, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
 import type { AeroportoEscala } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
-import { colors, spacing, radius, typography, iconSize, surface } from '../../src/theme';
+import { colors, maritime, spacing, radius, typography, iconSize, surface } from '../../src/theme';
+import { OWBackground } from '../../src/components/OWBackground';
 import { saudacao, formatDateBR } from '../../src/format';
 import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
@@ -141,7 +142,7 @@ export default function TelaHoje() {
     setWeather(w);
   };
 
-  if (!state) return <View style={styles.root} />;
+  if (!state) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const { escala, prefs, viagem, checklist, certs } = state;
   const momento = calcularMomento(escala);
@@ -159,7 +160,7 @@ export default function TelaHoje() {
   const greetingLabel = nome ? `${greeting}, ${nome}` : `${greeting}, Buddy!`;
 
   return (
-    <>
+    <OWBackground>
       <ScrollView
         style={styles.root}
         contentContainerStyle={styles.content}
@@ -307,7 +308,7 @@ export default function TelaHoje() {
       </ScrollView>
 
       {/* ── City Search Modal ── */}
-      <Modal visible={showCityPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCityPicker(false)}>
+      <Modal visible={showCityPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCityPicker(false)} style={{ zIndex: 999 }}>
         <View style={styles.modalRoot}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Buscar cidade</Text>
@@ -357,7 +358,7 @@ export default function TelaHoje() {
           />
         </View>
       </Modal>
-    </>
+    </OWBackground>
   );
 }
 
@@ -496,7 +497,7 @@ function OffshoreCard({ icon, label, onPress }: { icon: React.ComponentProps<typ
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, paddingBottom: spacing.xxl + spacing.lg },
 
   // Offline
@@ -536,7 +537,7 @@ const styles = StyleSheet.create({
 
   // Weather
   weatherCard: {
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
   },
   weatherLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
   weatherCity: { fontSize: 13, color: colors.muted, fontWeight: '500' },
@@ -559,12 +560,14 @@ const styles = StyleSheet.create({
 
   // Buddy message
   msgBubble: {
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glassElevated,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderLeftWidth: 2,
     borderLeftColor: colors.cyan,
+    borderWidth: 1,
+    borderColor: maritime.glassBorder,
   },
   msgText: { ...typography.body, lineHeight: 22 },
 
@@ -591,11 +594,11 @@ const styles = StyleSheet.create({
   },
   ctaCard: {
     width: '47.5%',
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
     gap: spacing.sm,
   },
   ctaIconWrap: { position: 'relative', width: iconSize.card, height: iconSize.card },
@@ -615,8 +618,8 @@ const styles = StyleSheet.create({
 
   // Escala status card (3 estados)
   escalaCard: {
-    backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.line, gap: spacing.sm,
+    backgroundColor: maritime.glassElevated, borderRadius: radius.md, padding: spacing.md,
+    marginBottom: spacing.md, borderWidth: 1, borderColor: maritime.glassBorder, gap: spacing.sm,
   },
   escalaCardEmbarcado: { borderColor: colors.green + '55' },
   escalaCardFolga: { borderColor: colors.amber + '44' },
@@ -628,7 +631,7 @@ const styles = StyleSheet.create({
   escalaCountdown: { fontSize: 24, fontWeight: '700', color: colors.green },
   escalaUnit: { fontSize: 10, color: colors.mutedDim },
   escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
-  escalaProgress: { height: 4, backgroundColor: colors.navy900, borderRadius: 2, overflow: 'hidden' },
+  escalaProgress: { height: 4, backgroundColor: 'rgba(6, 28, 43, 0.6)', borderRadius: 2, overflow: 'hidden' },
   escalaFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
   escalaChecklistRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
   escalaChecklistText: { flex: 1, fontSize: 12, color: colors.muted },
@@ -638,13 +641,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
   },
   alertCardWarn: { borderColor: colors.amber + '44' },
   alertCardViagem: { borderColor: colors.amber + '44' },
@@ -659,14 +662,14 @@ const styles = StyleSheet.create({
   },
   offshoreCard: {
     width: '47.5%',
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderRadius: radius.md,
     padding: spacing.sm,
     paddingVertical: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
   },
   offshoreLabel: { fontSize: 11, color: colors.muted, fontWeight: '500', textAlign: 'center' },
 
