@@ -27,7 +27,10 @@ type EventName =
   | 'weather_city_selected'
   | 'city_searched'
   | 'ferramentas_opened'
-  | 'converter_used';
+  | 'converter_used'
+  | 'conta_login_senha'
+  | 'conta_login_otp'
+  | 'conta_logout';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

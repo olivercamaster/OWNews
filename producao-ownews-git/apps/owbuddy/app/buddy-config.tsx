@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +18,9 @@ import type { BuddyPrefs, BuddyTom, BuddyTrat } from '@owbuddy/domain';
 import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { analytics } from '../src/analytics';
+import { getSession, signInWithPassword, signInWithEmail, signOut, onAuthStateChange } from '../src/auth';
+import { syncAll } from '../src/sync';
+import type { Session } from '@supabase/supabase-js';
 
 // UI labels — mapped from internal domain values, backwards-compatible
 const ESTILOS: { value: BuddyTom; label: string; desc: string }[] = [
@@ -34,6 +38,65 @@ const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
 export default function BuddyConfig() {
   const [prefs, setPrefs] = useState<BuddyPrefs>(DEFAULT_BUDDY_PREFS);
   const [saved, setSaved] = useState(false);
+
+  // ── Conta OW ──────────────────────────────────────────────────────────────
+  const [session, setSession] = useState<Session | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
+  const [loginErro, setLoginErro] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [linkEnviado, setLinkEnviado] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+
+  useEffect(() => {
+    getSession().then(setSession);
+    const sub = onAuthStateChange(s => setSession(s));
+    return () => { sub.then(s => s.unsubscribe()); };
+  }, []);
+
+  const handleLogin = async () => {
+    setLoginErro(null);
+    if (!loginEmail.trim()) { setLoginErro('Informe o e-mail.'); return; }
+    if (!loginSenha.trim()) { setLoginErro('Informe a senha.'); return; }
+    setLoginLoading(true);
+    const { error } = await signInWithPassword(loginEmail.trim(), loginSenha);
+    setLoginLoading(false);
+    if (error) { setLoginErro('E-mail ou senha incorretos.'); return; }
+    analytics.track('conta_login_senha');
+    setSyncMsg('Sincronizando dados…');
+    setSyncLoading(true);
+    const sync = await syncAll();
+    setSyncLoading(false);
+    setSyncMsg(sync.error ? 'Login feito. Sync falhou: ' + sync.error : 'Dados sincronizados.');
+  };
+
+  const handleLinkMagico = async () => {
+    setLoginErro(null);
+    if (!loginEmail.trim()) { setLoginErro('Informe o e-mail para receber o link.'); return; }
+    setLoginLoading(true);
+    const { error } = await signInWithEmail(loginEmail.trim());
+    setLoginLoading(false);
+    if (error) { setLoginErro(error); return; }
+    analytics.track('conta_login_otp');
+    setLinkEnviado(true);
+  };
+
+  const handleSync = async () => {
+    setSyncMsg(null);
+    setSyncLoading(true);
+    const { error } = await syncAll();
+    setSyncLoading(false);
+    setSyncMsg(error ? 'Sync falhou: ' + error : 'Dados sincronizados com a conta OW.');
+  };
+
+  const handleSair = async () => {
+    await signOut();
+    setSession(null);
+    setSyncMsg(null);
+    analytics.track('conta_logout');
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   useFocusEffect(useCallback(() => {
     getBuddyPrefs().then(setPrefs);
@@ -133,6 +196,98 @@ export default function BuddyConfig() {
           <Text style={styles.saveBtnText}>{saved ? 'Salvo ✓' : 'Salvar preferências'}</Text>
         </TouchableOpacity>
 
+        {/* ── Conta OW ── */}
+        <Text style={styles.sectionTitle}>Conta OW</Text>
+        {session ? (
+          <View style={styles.contaCard}>
+            <View style={styles.contaRow}>
+              <Ionicons name="person-circle-outline" size={22} color={colors.cyan} />
+              <Text style={styles.contaEmail} numberOfLines={1}>{session.user.email}</Text>
+            </View>
+            {syncMsg ? (
+              <Text style={[styles.syncMsg, syncLoading && styles.syncMsgLoading]}>{syncMsg}</Text>
+            ) : null}
+            <View style={styles.contaAcoes}>
+              <TouchableOpacity
+                style={styles.syncBtn}
+                onPress={handleSync}
+                disabled={syncLoading}
+                accessibilityLabel="Sincronizar dados com a conta OW"
+              >
+                {syncLoading
+                  ? <ActivityIndicator size="small" color={colors.cyan} />
+                  : <><Ionicons name="sync-outline" size={15} color={colors.cyan} /><Text style={styles.syncBtnText}>Sincronizar</Text></>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sairBtn}
+                onPress={handleSair}
+                accessibilityLabel="Sair da conta OW"
+              >
+                <Text style={styles.sairBtnText}>Sair</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.contaCard}>
+            {linkEnviado ? (
+              <View style={styles.linkEnviadoBox}>
+                <Ionicons name="mail-outline" size={22} color={colors.cyan} />
+                <Text style={styles.linkEnviadoText}>
+                  Link de acesso enviado para {loginEmail}. Verifique seu e-mail.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.contaDesc}>
+                  Sincronize sua escala, certificados e preferências com a sua conta OWNews em outros dispositivos.
+                </Text>
+                <TextInput
+                  style={styles.loginInput}
+                  value={loginEmail}
+                  onChangeText={v => { setLoginEmail(v); setLoginErro(null); }}
+                  placeholder="E-mail"
+                  placeholderTextColor={colors.mutedDim}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={styles.loginInput}
+                  value={loginSenha}
+                  onChangeText={v => { setLoginSenha(v); setLoginErro(null); }}
+                  placeholder="Senha"
+                  placeholderTextColor={colors.mutedDim}
+                  secureTextEntry
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                {loginErro ? <Text style={styles.loginErro}>{loginErro}</Text> : null}
+                <TouchableOpacity
+                  style={styles.loginBtn}
+                  onPress={handleLogin}
+                  disabled={loginLoading}
+                  accessibilityLabel="Entrar na conta OW"
+                >
+                  {loginLoading
+                    ? <ActivityIndicator size="small" color={colors.navy950} />
+                    : <Text style={styles.loginBtnText}>Entrar</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.otpBtn}
+                  onPress={handleLinkMagico}
+                  disabled={loginLoading}
+                  accessibilityLabel="Receber link de acesso por e-mail"
+                >
+                  <Text style={styles.otpBtnText}>Entrar via link mágico</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Version */}
         <View style={styles.aboutBox}>
           <Text style={styles.aboutApp}>OWBuddy</Text>
@@ -214,4 +369,54 @@ const styles = StyleSheet.create({
   aboutBox: { alignItems: 'center', marginTop: spacing.xl, paddingBottom: spacing.sm },
   aboutApp: { fontSize: 13, fontWeight: '700', color: colors.mutedDim },
   aboutVersion: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
+
+  contaCard: {
+    backgroundColor: surface.elevated,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  contaDesc: { ...typography.small, color: colors.muted, lineHeight: 20 },
+  contaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  contaEmail: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.white },
+  contaAcoes: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  syncBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderWidth: 1, borderColor: colors.cyan, borderRadius: radius.sm, padding: 10,
+  },
+  syncBtnText: { ...typography.small, color: colors.cyan, fontWeight: '600' },
+  sairBtn: {
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line,
+  },
+  sairBtnText: { ...typography.small, color: colors.muted },
+  syncMsg: { ...typography.small, color: colors.cyan },
+  syncMsgLoading: { color: colors.mutedDim },
+
+  loginInput: {
+    backgroundColor: surface.card,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    paddingHorizontal: 12,
+    color: colors.white,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  loginErro: { ...typography.small, color: colors.red, marginTop: -spacing.xs },
+  loginBtn: {
+    backgroundColor: colors.cyan,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  loginBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 15 },
+  otpBtn: { alignItems: 'center', paddingVertical: spacing.xs },
+  otpBtnText: { ...typography.small, color: colors.cyanDim },
+
+  linkEnviadoBox: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  linkEnviadoText: { flex: 1, ...typography.small, color: colors.muted, lineHeight: 20 },
 });

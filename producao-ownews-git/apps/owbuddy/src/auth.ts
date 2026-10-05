@@ -17,6 +17,14 @@ export async function getUser(): Promise<User | null> {
   return data.user ?? null;
 }
 
+export async function signInWithPassword(
+  email: string,
+  password: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  return { error: error?.message ?? null };
+}
+
 export async function signInWithEmail(email: string): Promise<{ error: string | null }> {
   const { error } = await supabase.auth.signInWithOtp({
     email,
