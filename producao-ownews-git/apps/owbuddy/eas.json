@@ -35,12 +35,6 @@
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "olivercamaster@gmail.com",
-        "ascAppId": "",
-        "appleTeamId": ""
-      }
-    }
+    "production": {}
   }
 }
