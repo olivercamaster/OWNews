@@ -611,6 +611,48 @@ if (url.pathname === "/teste-materia") {
       }
     }
 
+    // S6 (2026-10-05): métricas agregadas de usuários OWBuddy — acesso interno via CC
+    if (url.pathname === "/buddy-usuarios" && request.method === "GET") {
+      if (request.headers.get('X-OWNews-Internal') !== '1') {
+        return Response.json({ erro: 'Não autorizado' }, { status: 403 });
+      }
+      try {
+        if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+          return Response.json({ erro: 'SUPABASE_SERVICE_ROLE_KEY não configurada' }, { status: 500 });
+        }
+        // Admin API retorna todos os usuários com paginação
+        const resp = await fetch(
+          `${env.SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1000`,
+          { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` } }
+        );
+        if (!resp.ok) {
+          return Response.json({ erro: `Auth admin HTTP ${resp.status}` }, { status: 500 });
+        }
+        const { users = [] } = await resp.json();
+        // Métricas agregadas — nunca expor dados individuais
+        let comEscala = 0, comCerts = 0, comChecklist = 0, comPrefs = 0, comBuddy = 0;
+        for (const u of users) {
+          const m = u.raw_user_meta_data || {};
+          if (m.escala_config || m.ownews_minha_escala) comEscala++;
+          if (Array.isArray(m.certificados) && m.certificados.length > 0) comCerts++;
+          if (m.ownews_checklist_mala?.ciclo) comChecklist++;
+          if (m.ownews_buddy_prefs) comPrefs++;
+          if (m.escala_config || m.ownews_minha_escala || m.ownews_buddy_prefs) comBuddy++;
+        }
+        return Response.json({
+          total: users.length,
+          com_escala: comEscala,
+          com_certs: comCerts,
+          com_checklist: comChecklist,
+          com_prefs: comPrefs,
+          com_buddy: comBuddy,
+          gerado_em: new Date().toISOString(),
+        });
+      } catch (e) {
+        return Response.json({ erro: String(e.message).slice(0, 120) }, { status: 500 });
+      }
+    }
+
     if (url.pathname === "/run-novas-fontes") {
       return executarTeste(() => executarAtualizacaoNovasFontes(env));
     }

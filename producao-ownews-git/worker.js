@@ -18699,6 +18699,22 @@ async function ccAplicarAcaoRevisao(env, id, acao) {
   }
 }
 
+async function ccColetarBuddyUsuarios(env) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const resp = await fetch(`${SHRILL_POND_URL}/buddy-usuarios`, {
+      headers: { 'X-OWNews-Internal': '1' },
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (!resp.ok) return { erro: `HTTP ${resp.status}` };
+    return await resp.json();
+  } catch (e) {
+    return { erro: String(e.message).slice(0, 80) };
+  }
+}
+
 async function ccColetarDados(periodo, env) {
   let resumo = { visitantes: 0, visualizacoes: 0, recorrentes: null, novos: null, eventos: [], topPaths: [], origens: [], dispositivos: [], comparacao: null, topNoticias: [], janelaIncompleta: false, dadosDesde: null, janelaRealHorasConteudo: 192 };
   if (env.PAGEVIEWS) {
@@ -19014,6 +19030,7 @@ function renderCCDashboard() {
     '<button type="button" class="cc-tab-btn" data-tab="seo">SEO</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="receita">RECEITA</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="push">PUSH</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="owbuddy">OWBUDDY</button>' +
     '</div>' +
 
     '<div class="cc-painel ativo" data-painel="geral" id="ccPainelGeral"><div class="cc-carregando">Carregando…</div></div>' +
@@ -19028,6 +19045,7 @@ function renderCCDashboard() {
     '<div class="cc-painel" data-painel="receita" id="ccPainelReceita">' +
     '<div class="cc-pendente"><strong>Receita — AdSense aguardando conexão/aprovação.</strong><br><br>A verificação do AdSense já está no &lt;head&gt; do site. Quando aprovado e conectado, esta aba mostrará receita do dia/mês, RPM, Page RPM, impressões e páginas de maior receita.</div></div>' +
     '<div class="cc-painel" data-painel="push" id="ccPainelPush"><div class="cc-carregando">Carregando…</div></div>' +
+    '<div class="cc-painel" data-painel="owbuddy" id="ccPainelOWBuddy"><div class="cc-carregando">Carregando…</div></div>' +
     '</div>' +
 
     '<script>(function(){' +
@@ -19462,6 +19480,7 @@ function renderCCDashboard() {
     'if(alvo==="editorial")carregarEditorial();' +
     'if(alvo==="vagas")carregarVagas();' +
     'if(alvo==="push")carregarPush();' +
+    'if(alvo==="owbuddy")carregarOWBuddy();' +
     '});' +
 
     'var cacheVagas=null;' +
@@ -19518,6 +19537,37 @@ function renderCCDashboard() {
     'return r.json();' +
     '}).then(function(d){cachePush=d;renderPushCC(d);}).catch(function(){' +
     'document.getElementById("ccPainelPush").innerHTML=\'<p class="cc-vazio">Não foi possível carregar estatísticas de push.</p>\';' +
+    '});' +
+    '}' +
+
+    'var cacheOWBuddy=null;' +
+    'function renderOWBuddy(d){' +
+    'var el=document.getElementById("ccPainelOWBuddy");if(!el)return;' +
+    'if(d.erro){el.innerHTML=\'<p class="cc-vazio">Erro ao carregar: \'+esc(d.erro)+\'</p>\';return;}' +
+    'var html=\'<div class="cc-secao"><h2>OWBuddy — Usuários</h2>\';' +
+    'html+=\'<p style="font-size:12px;color:var(--muted-dim);margin-bottom:12px">Métricas agregadas via user_metadata. Nenhum dado individual é exposto.</p>\';' +
+    'html+=\'<div class="cc-grid">\';' +
+    'html+=\'<div class="cc-card"><div class="cc-card-label">Contas OW</div><div class="cc-card-valor">\'+fmtNum(d.total||0)+\'</div></div>\';' +
+    'html+=\'<div class="cc-card"><div class="cc-card-label">Com dados Buddy</div><div class="cc-card-valor">\'+fmtNum(d.com_buddy||0)+\'</div></div>\';' +
+    'html+=\'</div>\';' +
+    'html+=\'<div class="cc-secao" style="margin-top:12px"><h2>Funcionalidades usadas</h2>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Escala configurada</span><span class="cc-linha-valor">\'+fmtNum(d.com_escala||0)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Certificados</span><span class="cc-linha-valor">\'+fmtNum(d.com_certs||0)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Checklist</span><span class="cc-linha-valor">\'+fmtNum(d.com_checklist||0)+\'</span></div>\';' +
+    'html+=\'<div class="cc-linha"><span class="cc-linha-nome">Prefs Buddy</span><span class="cc-linha-valor">\'+fmtNum(d.com_prefs||0)+\'</span></div>\';' +
+    'html+=\'</div>\';' +
+    'if(d.gerado_em)html+=\'<p style="font-size:11px;color:var(--muted-dim);margin-top:8px">Gerado em \'+fmtHora(d.gerado_em)+\'</p>\';' +
+    'html+=\'</div>\';' +
+    'el.innerHTML=html;' +
+    '}' +
+    'function carregarOWBuddy(){' +
+    'if(cacheOWBuddy){renderOWBuddy(cacheOWBuddy);return;}' +
+    'document.getElementById("ccPainelOWBuddy").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
+    'fetch("/api/buddy/cc-usuarios").then(function(r){' +
+    'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
+    'return r.json();' +
+    '}).then(function(d){cacheOWBuddy=d;renderOWBuddy(d);}).catch(function(){' +
+    'document.getElementById("ccPainelOWBuddy").innerHTML=\'<p class="cc-vazio">Não foi possível carregar métricas OWBuddy.</p>\';' +
     '});' +
     '}' +
 
@@ -19600,6 +19650,13 @@ export default {
       }
       const editorial = await ccColetarEditorial(env);
       return new Response(JSON.stringify(editorial), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/api/buddy/cc-usuarios" && request.method === "GET") {
+      if (!(await ccAutenticado(request, env))) {
+        return new Response(JSON.stringify({ erro: "não autenticado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      }
+      const buddyUsuarios = await ccColetarBuddyUsuarios(env);
+      return new Response(JSON.stringify(buddyUsuarios), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
     }
     if (url.pathname === "/api/cc/revisao" && request.method === "GET") {
       if (!(await ccAutenticado(request, env))) {
