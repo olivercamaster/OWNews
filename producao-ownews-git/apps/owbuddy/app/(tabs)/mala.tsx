@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  FlatList,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +18,9 @@ import {
   resumoEscala,
   sincronizarChecklistComCiclo,
   getAeroporto,
+  LABEL_CAT,
+  ICON_CAT,
+  ORDEM_CATS,
 } from '@owbuddy/domain';
 import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain';
 import { getEscala, getChecklist, setChecklist } from '../../src/storage';
@@ -32,6 +35,31 @@ function labelEmbarque(dias: number): string {
   return `Faltam ${dias} dias`;
 }
 
+type Section = {
+  cat: string;
+  label: string;
+  icon: string;
+  data: ChecklistItem[];
+};
+
+function buildSections(data: ChecklistData): Section[] {
+  // Agrupar por categoria canônica, na ordem definida
+  const map = new Map<string, ChecklistItem[]>(ORDEM_CATS.map(c => [c, []]));
+  for (const item of data.items) {
+    const cat = item.cat ?? 'personalizados';
+    const bucket = map.get(cat) ?? map.get('personalizados')!;
+    bucket.push(item);
+  }
+  return ORDEM_CATS
+    .map(cat => ({
+      cat,
+      label: LABEL_CAT[cat] ?? cat,
+      icon: ICON_CAT[cat] ?? 'list-outline',
+      data: map.get(cat) ?? [],
+    }))
+    .filter(s => s.data.length > 0);
+}
+
 export default function MeuEmbarque() {
   const [data, setData] = useState<ChecklistData | null>(null);
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
@@ -43,9 +71,7 @@ export default function MeuEmbarque() {
     const r = resumoEscala(escala);
     setResumo(r);
     setAeroportoNome(escala?.aeroporto ? (getAeroporto(escala.aeroporto)?.nome ?? escala.aeroporto) : null);
-
-    // Chave ownews_checklist_mala: itens nunca são perdidos; ao virar o ciclo
-    // (novo embarque) só o `ok` volta para false (paridade OWNews web).
+    // sincronizarChecklistComCiclo já aplica normalizarChecklistCats internamente
     const sync = sincronizarChecklistComCiclo(checklist, r.proximoEmbarqueISO);
     if (sync.alterado) {
       await setChecklist(sync.data);
@@ -69,7 +95,7 @@ export default function MeuEmbarque() {
   const add = async () => {
     const text = novoItem.trim();
     if (!text || !data) return;
-    await persist(addItem(data, text));
+    await persist(addItem(data, text)); // vai para 'personalizados'
     setNovoItem('');
   };
 
@@ -90,84 +116,97 @@ export default function MeuEmbarque() {
   const pct = counts.total > 0 ? Math.round((counts.feitos / counts.total) * 100) : 0;
   const tudo = counts.pendentes === 0;
   const temEscala = resumo.estado !== 'SEM_ESCALA';
+  const sections = buildSections(data);
 
   return (
     <View style={styles.root}>
-      {/* ── Próximo embarque (vem da escala) ── */}
-      {temEscala && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null ? (
-        <TouchableOpacity style={styles.embarqueCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
-          <View style={styles.embarqueLeft}>
-            <Text style={styles.embarqueLabel}>
-              {resumo.estado === 'EMBARCADO' ? 'PRÓXIMO EMBARQUE (APÓS A FOLGA)' : 'PRÓXIMO EMBARQUE'}
-            </Text>
-            <Text style={styles.embarqueData}>{formatDateBR(resumo.proximoEmbarqueISO)}</Text>
-            <Text style={styles.embarqueSub}>
-              {labelEmbarque(resumo.diasParaEmbarque)}
-              {' · '}
-              {counts.feitos}/{counts.total} {counts.feitos === 1 ? 'item pronto' : 'itens prontos'}
-            </Text>
-            {aeroportoNome ? <Text style={styles.embarqueAero}>{aeroportoNome}</Text> : null}
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={styles.semEscalaCard} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
-          <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
-          <Text style={styles.semEscalaText}>Configure sua escala para ver a data do próximo embarque</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
-        </TouchableOpacity>
-      )}
-
-      {/* ── Contador ── */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.counterBig}>
-            {counts.feitos}
-            <Text style={{ color: colors.mutedDim, fontSize: 28 }}> / {counts.total}</Text>
-          </Text>
-          <Text style={styles.counterSub}>
-            {tudo ? 'Tudo preparado' : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
-          </Text>
-        </View>
-        <View style={[styles.progressCircle, { borderColor: tudo ? colors.green : colors.cyan }]}>
-          <Text style={[styles.progressPct, { color: tudo ? colors.green : colors.cyan }]}>{pct}%</Text>
-        </View>
-      </View>
-
-      {/* ── Barra ── */}
-      <View style={styles.progressBg}>
-        <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: tudo ? colors.green : colors.cyan }]} />
-      </View>
-
-      <Text style={styles.buddyMsg}>Vai lembrando. Eu guardo pra você.</Text>
-
-      {/* ── Lista ── */}
-      <FlatList
-        data={data.items}
+      <SectionList
+        sections={sections}
         keyExtractor={item => item.id}
-        style={styles.list}
+        stickySectionHeadersEnabled={false}
+        ListHeaderComponent={
+          <>
+            {/* ── Próximo embarque ── */}
+            {temEscala && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null ? (
+              <TouchableOpacity style={styles.embarqueCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
+                <View style={styles.embarqueLeft}>
+                  <Text style={styles.embarqueLabel}>
+                    {resumo.estado === 'EMBARCADO' ? 'PRÓXIMO EMBARQUE (APÓS A FOLGA)' : 'PRÓXIMO EMBARQUE'}
+                  </Text>
+                  <Text style={styles.embarqueData}>{formatDateBR(resumo.proximoEmbarqueISO)}</Text>
+                  <Text style={styles.embarqueSub}>
+                    {labelEmbarque(resumo.diasParaEmbarque)}
+                    {' · '}
+                    {counts.feitos}/{counts.total} {counts.feitos === 1 ? 'item pronto' : 'itens prontos'}
+                  </Text>
+                  {aeroportoNome ? <Text style={styles.embarqueAero}>{aeroportoNome}</Text> : null}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.semEscalaCard} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
+                <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
+                <Text style={styles.semEscalaText}>Configure sua escala para ver a data do próximo embarque</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+              </TouchableOpacity>
+            )}
+
+            {/* ── Contador ── */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.counterBig}>
+                  {counts.feitos}
+                  <Text style={{ color: colors.mutedDim, fontSize: 28 }}> / {counts.total}</Text>
+                </Text>
+                <Text style={styles.counterSub}>
+                  {tudo ? 'Tudo preparado' : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
+                </Text>
+              </View>
+              <View style={[styles.progressCircle, { borderColor: tudo ? colors.green : colors.cyan }]}>
+                <Text style={[styles.progressPct, { color: tudo ? colors.green : colors.cyan }]}>{pct}%</Text>
+              </View>
+            </View>
+
+            {/* ── Barra ── */}
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: tudo ? colors.green : colors.cyan }]} />
+            </View>
+
+            <Text style={styles.buddyMsg}>Vai lembrando. Eu guardo pra você.</Text>
+          </>
+        }
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            {/* @ts-ignore — icon name comes from domain ICON_CAT; valid Ionicons names */}
+            <Ionicons name={section.icon} size={13} color={colors.cyanDim} />
+            <Text style={styles.sectionHeaderText}>{section.label}</Text>
+          </View>
+        )}
         renderItem={({ item }) => (
           <MalaItem item={item} onToggle={toggle} onRemove={remove} />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        SectionSeparatorComponent={() => <View style={styles.sectionSep} />}
+        ListFooterComponent={
+          /* ── Adicionar ── */
+          <View style={styles.addRow}>
+            <TextInput
+              style={styles.addInput}
+              value={novoItem}
+              onChangeText={setNovoItem}
+              placeholder="Adicionar item personalizado..."
+              placeholderTextColor={colors.mutedDim}
+              returnKeyType="done"
+              onSubmitEditing={add}
+              maxLength={60}
+            />
+            <TouchableOpacity style={styles.addBtn} onPress={add} disabled={!novoItem.trim()}>
+              <Ionicons name="add" size={26} color={colors.navy950} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
+            </TouchableOpacity>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
       />
-
-      {/* ── Adicionar ── */}
-      <View style={styles.addRow}>
-        <TextInput
-          style={styles.addInput}
-          value={novoItem}
-          onChangeText={setNovoItem}
-          placeholder="Adicionar item..."
-          placeholderTextColor={colors.mutedDim}
-          returnKeyType="done"
-          onSubmitEditing={add}
-          maxLength={60}
-        />
-        <TouchableOpacity style={styles.addBtn} onPress={add} disabled={!novoItem.trim()}>
-          <Ionicons name="add" size={26} color={colors.navy950} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -192,13 +231,13 @@ function MalaItem({
         {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
       </View>
       <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
-      <Text style={styles.itemCat}>{item.cat}</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.navy950 },
+  listContent: { paddingBottom: 100 },
 
   embarqueCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
@@ -222,28 +261,64 @@ const styles = StyleSheet.create({
   },
   semEscalaText: { flex: 1, fontSize: 13, color: colors.muted },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm,
+  },
   counterBig: { fontSize: 36, fontWeight: '700', color: colors.white },
   counterSub: { ...typography.small, marginTop: 2 },
-  progressCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  progressCircle: {
+    width: 60, height: 60, borderRadius: 30, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
   progressPct: { fontSize: 15, fontWeight: '700' },
 
-  progressBg: { height: 3, backgroundColor: colors.line, marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: 2, overflow: 'hidden' },
+  progressBg: {
+    height: 3, backgroundColor: colors.line,
+    marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: 2, overflow: 'hidden',
+  },
   progressFill: { height: 3, borderRadius: 2 },
 
-  buddyMsg: { ...typography.small, fontStyle: 'italic', color: colors.mutedDim, textAlign: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  buddyMsg: {
+    ...typography.small, fontStyle: 'italic', color: colors.mutedDim,
+    textAlign: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.sm,
+  },
 
-  list: { flex: 1, paddingHorizontal: spacing.md },
-  separator: { height: 1, backgroundColor: colors.lineSoft },
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 6,
+  },
+  sectionHeaderText: {
+    ...typography.label, color: colors.cyanDim, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  sectionSep: { height: 4 },
 
-  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: spacing.sm },
-  checkbox: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  separator: { height: 1, backgroundColor: colors.lineSoft, marginLeft: spacing.md + 22 + spacing.sm },
+
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 13,
+    paddingHorizontal: spacing.md, gap: spacing.sm,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 5, borderWidth: 2,
+    borderColor: colors.line, alignItems: 'center', justifyContent: 'center',
+  },
   checkboxDone: { backgroundColor: colors.green, borderColor: colors.green },
   itemText: { flex: 1, ...typography.body },
   itemTextDone: { color: colors.mutedDim, textDecorationLine: 'line-through' },
-  itemCat: { ...typography.micro, fontSize: 9 },
 
-  addRow: { flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.line },
-  addInput: { flex: 1, backgroundColor: colors.navy800, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 10, color: colors.white, fontSize: 15 },
-  addBtn: { width: 44, height: 44, backgroundColor: colors.cyan, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  addRow: {
+    flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm,
+    gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.line,
+    marginTop: spacing.sm,
+  },
+  addInput: {
+    flex: 1, backgroundColor: colors.navy800, borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm, paddingVertical: 10,
+    color: colors.white, fontSize: 15,
+  },
+  addBtn: {
+    width: 44, height: 44, backgroundColor: colors.cyan,
+    borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
+  },
 });

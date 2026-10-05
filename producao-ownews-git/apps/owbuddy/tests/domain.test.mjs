@@ -211,9 +211,19 @@ test('virada de ciclo: itens preservados, ok resetado, rec:false removido', () =
 });
 
 test('mesmo ciclo ou sem escala: nada muda (sem churn)', () => {
-  const data = { ciclo: '2026-10-29', items: [{ id: 'a', t: 'A', cat: 'x', ok: true }] };
-  assert.equal(D.sincronizarChecklistComCiclo(data, '2026-10-29').alterado, false);
-  const semEscala = D.sincronizarChecklistComCiclo(data, null);
+  // Cat 'x' é desconhecida → migra para 'personalizados', alterado=true (correto)
+  const dataLegada = { ciclo: '2026-10-29', items: [{ id: 'a', t: 'A', cat: 'x', ok: true }] };
+  const r1 = D.sincronizarChecklistComCiclo(dataLegada, '2026-10-29');
+  assert.equal(r1.alterado, true, 'cat legada deve gerar migração na primeira carga');
+  assert.equal(r1.data.items[0].cat, 'personalizados', 'cat x normalizada para personalizados');
+  assert.equal(r1.data.items[0].ok, true, 'ok preservado na migração');
+
+  // Depois da migração: cat canônica, mesmo ciclo → alterado=false (sem churn)
+  const dataCanonica = { ciclo: '2026-10-29', items: [{ id: 'a', t: 'A', cat: 'personalizados', ok: true }] };
+  assert.equal(D.sincronizarChecklistComCiclo(dataCanonica, '2026-10-29').alterado, false);
+
+  // Sem escala (nextEmbarqueISO null) → sem reset, ok preservado
+  const semEscala = D.sincronizarChecklistComCiclo(dataCanonica, null);
   assert.equal(semEscala.alterado, false);
   assert.equal(semEscala.data.items[0].ok, true);
 });
@@ -225,4 +235,58 @@ test('viagemEHoje/viagemEAmanha usam dia local', () => {
   assert.equal(D.viagemEHoje({ tipo: 'AVIAO', data: '2026-10-05' }, now), true);
   assert.equal(D.viagemEAmanha({ tipo: 'AVIAO', data: '2026-10-06' }, now), true);
   assert.equal(D.viagemEHoje({ tipo: 'AVIAO', data: '2026-10-06' }, now), false);
+});
+
+// ─── S2: vocabulário canônico de checklist ────────────────────────────────
+
+test('normalizarCat: categorias canônicas passam sem mudança', () => {
+  for (const cat of D.ORDEM_CATS) {
+    assert.equal(D.normalizarCat(cat), cat, `${cat} deve passar sem mudança`);
+  }
+});
+
+test('normalizarCat: legados mapeiam para canônicos', () => {
+  assert.equal(D.normalizarCat('saude'), 'medicamentos');
+  assert.equal(D.normalizarCat('extras'), 'personalizados');
+  assert.equal(D.normalizarCat('custom'), 'personalizados');
+  assert.equal(D.normalizarCat('E'), 'higiene');
+  assert.equal(D.normalizarCat('P'), 'personalizados');
+  assert.equal(D.normalizarCat('desconhecido_xyz'), 'personalizados');
+  assert.equal(D.normalizarCat(undefined), 'personalizados');
+});
+
+test('normalizarChecklistCats: migra legados, preserva itens e ok', () => {
+  const data = {
+    ciclo: '2026-11-01',
+    items: [
+      { id: 'a', t: 'A', cat: 'saude', ok: true },
+      { id: 'b', t: 'B', cat: 'higiene', ok: false },
+      { id: 'c', t: 'C', cat: 'E', ok: true },
+    ],
+  };
+  const { data: migrada, migrado } = D.normalizarChecklistCats(data);
+  assert.equal(migrado, true);
+  assert.equal(migrada.items[0].cat, 'medicamentos');
+  assert.equal(migrada.items[1].cat, 'higiene'); // já canônica
+  assert.equal(migrada.items[2].cat, 'higiene');
+  assert.equal(migrada.items[0].ok, true); // ok preservado
+  assert.equal(migrada.ciclo, '2026-11-01'); // ciclo preservado
+});
+
+test('normalizarChecklistCats: sem migração quando já canônica (idempotente)', () => {
+  const data = {
+    ciclo: '2026-11-01',
+    items: [{ id: 'a', t: 'A', cat: 'documentos', ok: false }],
+  };
+  const { migrado } = D.normalizarChecklistCats(data);
+  assert.equal(migrado, false);
+});
+
+test('ITENS_PADRAO usa apenas cats canônicas e inclui documentos', () => {
+  const canonicas = new Set(D.ORDEM_CATS);
+  for (const item of D.ITENS_PADRAO) {
+    assert.ok(canonicas.has(item.cat), `item ${item.id}: cat ${item.cat} deve ser canônica`);
+  }
+  const docItems = D.ITENS_PADRAO.filter(i => i.cat === 'documentos');
+  assert.ok(docItems.length >= 1, 'deve haver ao menos 1 item de documentos no padrão');
 });
