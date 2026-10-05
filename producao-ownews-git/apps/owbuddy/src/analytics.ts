@@ -20,7 +20,11 @@ type EventName =
   | 'sync_completed'
   | 'sync_failed'
   | 'weather_fetched'
-  | 'weather_cache_hit';
+  | 'weather_cache_hit'
+  | 'news_opened'
+  | 'vaga_opened'
+  | 'aeroportos_web_opened'
+  | 'weather_city_selected';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

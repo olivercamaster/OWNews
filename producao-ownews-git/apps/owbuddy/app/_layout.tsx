@@ -30,6 +30,34 @@ export default function RootLayout() {
             headerStyle: { backgroundColor: colors.navy800 },
           }}
         />
+        <Stack.Screen
+          name="noticias"
+          options={{
+            title: 'Notícias Offshore',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="vagas"
+          options={{
+            title: 'Vagas Verificadas',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="meteorologia"
+          options={{
+            title: 'Meteorologia',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="aeroportos"
+          options={{
+            title: 'Aeroportos',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
       </Stack>
     </>
   );

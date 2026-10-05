@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Linking,
   Modal,
   RefreshControl,
   ScrollView,
@@ -29,7 +28,6 @@ import { useConnectivity } from '../../src/connectivity';
 import { CITIES, type City } from '../../src/cities';
 import { analytics } from '../../src/analytics';
 
-const OWNEWS_URL = 'https://ownews.com.br';
 
 const MOMENTO_CHIP: Record<string, string> = {
   FOLGA:               'De folga',
@@ -275,11 +273,10 @@ export default function TelaHoje() {
         {/* ── Informação offshore ── */}
         <Text style={styles.sectionLabel}>Informação offshore</Text>
         <View style={styles.offshoreGrid}>
-          <OffshoreCard icon="newspaper-outline" label="Notícias" onPress={() => Linking.openURL(OWNEWS_URL)} />
-          <OffshoreCard icon="partly-sunny-outline" label="Meteorologia" onPress={() => setShowCityPicker(true)} />
-          <OffshoreCard icon="airplane-outline" label="Aeroportos" onPress={() => Linking.openURL(`${OWNEWS_URL}/aeroportos`)} />
-          <OffshoreCard icon="briefcase-outline" label="Vagas" onPress={() => Linking.openURL(`${OWNEWS_URL}/vagas`)} />
-          <OffshoreCard icon="trending-up-outline" label="Salários" onPress={() => Linking.openURL(`${OWNEWS_URL}/salarios`)} />
+          <OffshoreCard icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
+          <OffshoreCard icon="partly-sunny-outline" label="Meteorologia" onPress={() => router.push('/meteorologia')} />
+          <OffshoreCard icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
+          <OffshoreCard icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
         </View>
       </ScrollView>
 
@@ -496,7 +493,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   offshoreCard: {
-    width: '31%',
+    width: '47.5%',
     backgroundColor: surface.card,
     borderRadius: radius.md,
     padding: spacing.sm,

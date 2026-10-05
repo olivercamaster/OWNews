@@ -82,3 +82,28 @@ export const iconSize = {
 export const touchTarget = {
   min: 44,  // WCAG / Apple HIG minimum
 } as const;
+
+// ─── Elevation (shadow tokens) ───────────────────────────────────────────────
+export const elevation = {
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modal: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+} as const;
+
+// ─── Screen-level layout tokens ──────────────────────────────────────────────
+export const screen = {
+  sectionGap: 20,
+  cardPad: 14,
+  listItemHeight: 72,
+} as const;

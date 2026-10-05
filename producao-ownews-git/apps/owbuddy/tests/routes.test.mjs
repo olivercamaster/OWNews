@@ -58,6 +58,20 @@ test('Tab: Docs (certs) exists', () => {
   assert.ok(existsSync(tabRoute('certs')), 'certs.tsx não encontrado');
 });
 
+// Missão 006 native screens
+test('Screen: Notícias → /noticias (stack)', () => {
+  assert.ok(existsSync(stackRoute('noticias')), 'noticias.tsx não encontrado');
+});
+test('Screen: Vagas → /vagas (stack)', () => {
+  assert.ok(existsSync(stackRoute('vagas')), 'vagas.tsx não encontrado');
+});
+test('Screen: Meteorologia → /meteorologia (stack)', () => {
+  assert.ok(existsSync(stackRoute('meteorologia')), 'meteorologia.tsx não encontrado');
+});
+test('Screen: Aeroportos → /aeroportos (stack)', () => {
+  assert.ok(existsSync(stackRoute('aeroportos')), 'aeroportos.tsx não encontrado');
+});
+
 // Root layout
 test('Root _layout.tsx exists', () => {
   assert.ok(existsSync(resolve(appDir, '_layout.tsx')), '_layout.tsx não encontrado');

@@ -20694,6 +20694,50 @@ export default {
       }
     }
 
+    // ── OWBuddy read-only JSON API ─────────────────────────────────────────
+    if (url.pathname === "/api/buddy/feed" && request.method === "GET") {
+      try {
+        const sbUrl = 'https://awyowuhwkqfyhwgdpepp.supabase.co';
+        const sbKey = 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt';
+        const feedUrl = sbUrl + '/rest/v1/articles?select=id,title,summary,image_url,original_url,published_at,editorial_score&status=eq.published&order=published_at.desc&limit=20';
+        const sbResp = await fetch(feedUrl, { headers: { apikey: sbKey } });
+        const articles = sbResp.ok ? await sbResp.json() : [];
+        return new Response(JSON.stringify({ articles, updated_at: new Date().toISOString() }), {
+          headers: {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=300"
+          }
+        });
+      } catch (errFeed) {
+        return new Response(JSON.stringify({ ok: false, erro: String(errFeed) }), {
+          status: 500,
+          headers: { "Content-Type": "application/json; charset=UTF-8", "Access-Control-Allow-Origin": "*" }
+        });
+      }
+    }
+
+    if (url.pathname === "/api/buddy/vagas" && request.method === "GET") {
+      const vagas = VAGAS_ABERTAS_ESPECIFICAS.map(v => ({
+        id: slugVaga(v),
+        titulo: v.titulo,
+        empresa: v.empresa,
+        local: v.local || null,
+        offshore_onshore: v.offshore_onshore || null,
+        resumo: v.resumo,
+        application_url: v.application_url || null,
+        verificado_em: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM
+      }));
+      return new Response(JSON.stringify({ vagas, updated_at: VAGAS_RADAR_VERIFICADO_EM }), {
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600"
+        }
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     return pagina404();
   }
 };
