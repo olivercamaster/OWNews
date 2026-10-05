@@ -29,10 +29,15 @@ export function calcEscala(config: EscalaConfig, today: Date = new Date()): Esca
       dEm,
       dFo,
       ciclo,
+      diaDoBloco: fase < dEm ? fase + 1 : fase - dEm + 1,
     };
   } catch {
     return null;
   }
+}
+
+export function calcEscalaParaDia(config: EscalaConfig, isoDate: string): EscalaCalc | null {
+  return calcEscala(config, new Date(isoDate + 'T12:00:00Z'));
 }
 
 export function calcularMomento(config: EscalaConfig | null | undefined, today: Date = new Date()): Momento {

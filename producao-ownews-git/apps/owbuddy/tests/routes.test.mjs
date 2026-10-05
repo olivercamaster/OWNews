@@ -77,6 +77,26 @@ test('Screen: Ferramentas → /ferramentas (stack)', () => {
   assert.ok(existsSync(stackRoute('ferramentas')), 'ferramentas.tsx não encontrado');
 });
 
+// Missão 007 Adendo — Minha Escala
+test('Screen: Escala hub → /escala (stack)', () => {
+  assert.ok(existsSync(stackRoute('escala')), 'escala.tsx não encontrado');
+});
+test('Screen: Exceção form → /escala-excecao-form (stack modal)', () => {
+  assert.ok(existsSync(stackRoute('escala-excecao-form')), 'escala-excecao-form.tsx não encontrado');
+});
+test('Screen: Data especial form → /escala-data-form (stack modal)', () => {
+  assert.ok(existsSync(stackRoute('escala-data-form')), 'escala-data-form.tsx não encontrado');
+});
+test('Screen: Viagem form → /escala-viagem-form (stack modal)', () => {
+  assert.ok(existsSync(stackRoute('escala-viagem-form')), 'escala-viagem-form.tsx não encontrado');
+});
+test('Screen: Cruzar escalas → /escala-cruzar (stack)', () => {
+  assert.ok(existsSync(stackRoute('escala-cruzar')), 'escala-cruzar.tsx não encontrado');
+});
+test('Screen: Escala secundária form → /escala-secundaria-form (stack modal)', () => {
+  assert.ok(existsSync(stackRoute('escala-secundaria-form')), 'escala-secundaria-form.tsx não encontrado');
+});
+
 // Root layout
 test('Root _layout.tsx exists', () => {
   assert.ok(existsSync(resolve(appDir, '_layout.tsx')), '_layout.tsx não encontrado');

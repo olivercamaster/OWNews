@@ -65,6 +65,52 @@ export default function RootLayout() {
             headerStyle: { backgroundColor: colors.navy800 },
           }}
         />
+        <Stack.Screen
+          name="escala"
+          options={{
+            title: 'Minha Escala',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="escala-excecao-form"
+          options={{
+            title: 'Adicionar Dobra / Férias',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="escala-data-form"
+          options={{
+            title: 'Data Especial',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="escala-viagem-form"
+          options={{
+            title: 'Viagem na Folga',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="escala-cruzar"
+          options={{
+            title: 'Cruzar Escalas',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="escala-secundaria-form"
+          options={{
+            title: 'Nova Escala Secundária',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
       </Stack>
     </>
   );

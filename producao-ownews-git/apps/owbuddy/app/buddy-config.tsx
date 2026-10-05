@@ -136,7 +136,7 @@ export default function BuddyConfig() {
         {/* Version */}
         <View style={styles.aboutBox}>
           <Text style={styles.aboutApp}>OWBuddy</Text>
-          <Text style={styles.aboutVersion}>Versão 0.1.3 · Build 5</Text>
+          <Text style={styles.aboutVersion}>Versão 0.1.4 · Build 6</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -16,11 +16,13 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   calcularMomento,
+  calcEscala,
   gerarMensagemMomento,
   contarPendentes,
   viagemEAmanha,
   viagemEHoje,
   calcCertStatus,
+  getAeroporto,
 } from '@owbuddy/domain';
 import type { EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
@@ -148,6 +150,8 @@ export default function TelaHoje() {
 
   const { escala, prefs, viagem, checklist, certs } = state;
   const momento = calcularMomento(escala);
+  const calc = escala ? calcEscala(escala) : null;
+  const aeroporto = escala?.aeroporto ? getAeroporto(escala.aeroporto) : undefined;
   const msg = gerarMensagemMomento(momento, prefs);
   const accentColor = MOMENTO_COLOR[momento.tipo] ?? colors.mutedDim;
   const checkCount = checklist ? contarPendentes(checklist) : null;
@@ -236,6 +240,43 @@ export default function TelaHoje() {
           </View>
         ) : null}
 
+        {/* ── Escala status card ── */}
+        {calc && (
+          <TouchableOpacity style={styles.escalaCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
+            {calc.embarcado ? (
+              <>
+                <View style={styles.escalaRow}>
+                  <View>
+                    <Text style={styles.escalaLabel}>EMBARCADO</Text>
+                    <Text style={styles.escalaValue}>Dia {calc.diaDoBloco} de {calc.dEm}</Text>
+                  </View>
+                  <View style={styles.escalaRight}>
+                    <Text style={styles.escalaCountdown}>{calc.diasRestantes}</Text>
+                    <Text style={styles.escalaUnit}>dias p/ desembarque</Text>
+                  </View>
+                </View>
+                <View style={styles.escalaProgress}>
+                  <View style={[styles.escalaFill, { width: `${Math.round((calc.diaDoBloco / calc.dEm) * 100)}%` }]} />
+                </View>
+                {aeroporto && <Text style={styles.escalaBadge}>{aeroporto.code} · {aeroporto.nome}</Text>}
+              </>
+            ) : (
+              <View style={styles.escalaRow}>
+                <View>
+                  <Text style={styles.escalaLabel}>PRÓXIMO EMBARQUE</Text>
+                  <Text style={styles.escalaValue}>Em {calc.diasRestantes} {calc.diasRestantes === 1 ? 'dia' : 'dias'}</Text>
+                </View>
+                {aeroporto && (
+                  <View style={styles.escalaRight}>
+                    <Text style={[styles.escalaCountdown, { fontSize: 14, color: colors.cyanDim }]}>{aeroporto.code}</Text>
+                    <Text style={styles.escalaUnit}>{aeroporto.nome}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* ── Como te ajudo, Buddy? ── */}
         <Text style={styles.sectionTitle}>Como te ajudo, Buddy?</Text>
 
@@ -245,7 +286,7 @@ export default function TelaHoje() {
             icon="calendar-outline"
             label="Minha Escala"
             accent={escala ? colors.cyan : colors.mutedDim}
-            onPress={() => router.push('/escala-config')}
+            onPress={() => router.push(escala ? '/escala' : '/escala-config')}
           />
           <CtaCard
             icon="checkbox-outline"
@@ -524,6 +565,21 @@ const styles = StyleSheet.create({
   },
   ctaBadgeText: { fontSize: 9, fontWeight: '700', color: colors.navy950 },
   ctaLabel: { fontSize: 13, fontWeight: '600', color: colors.white },
+
+  // Escala status card
+  escalaCard: {
+    backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
+    marginBottom: spacing.md, borderWidth: 1, borderColor: '#1a5c30', gap: spacing.sm,
+  },
+  escalaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  escalaLabel: { fontSize: 10, fontWeight: '700', color: '#4caf50' + 'aa', letterSpacing: 0.8 },
+  escalaValue: { fontSize: 16, fontWeight: '700', color: colors.white, marginTop: 2 },
+  escalaRight: { alignItems: 'flex-end' },
+  escalaCountdown: { fontSize: 24, fontWeight: '700', color: '#4caf50' },
+  escalaUnit: { fontSize: 10, color: colors.mutedDim },
+  escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
+  escalaProgress: { height: 4, backgroundColor: colors.navy800, borderRadius: 2, overflow: 'hidden' },
+  escalaFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 2 },
 
   // Alert cards
   alertCard: {

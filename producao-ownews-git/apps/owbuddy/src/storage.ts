@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { EscalaConfig, Certificado, ChecklistData, Viagem, BuddyPrefs } from '@owbuddy/domain';
+import type { EscalaConfig, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria } from '@owbuddy/domain';
 import type { City } from './cities';
 
-// Storage keys — must match OWNews localStorage keys for future Supabase sync
+// Storage keys — alinhados com OWNews localStorage keys para futura sync Supabase
 const KEYS = {
-  ESCALA:    'ownews_minha_escala',
-  CERTS:     'ownews_certificados',
-  CHECKLIST: 'ownews_checklist_mala',
-  VIAGEM:    'ownews_minha_viagem',
-  BUDDY:     'ownews_buddy_prefs',
-  CITY:      'owbuddy_city_pref',
+  ESCALA:           'ownews_minha_escala',
+  CERTS:            'ownews_certificados',
+  CHECKLIST:        'ownews_checklist_mala',
+  VIAGEM:           'ownews_minha_viagem',
+  BUDDY:            'ownews_buddy_prefs',
+  CITY:             'owbuddy_city_pref',
+  DATAS_PESSOAIS:   'ownews_minha_escala_datas_pessoais',
+  VIAGENS_FOLGA:    'owbuddy_viagens_folga',
+  ESCALAS_CRUZAR:  'ownews_cruzar_v2',
 } as const;
 
 async function get<T>(key: string): Promise<T | null> {
@@ -91,4 +94,31 @@ export async function getCityPref(): Promise<City | null> {
 
 export async function setCityPref(city: City): Promise<void> {
   await set(KEYS.CITY, city);
+}
+
+// Datas pessoais (aniversários, compromissos, etc.)
+export async function getDatasPessoais(): Promise<DataPessoal[]> {
+  return (await get<DataPessoal[]>(KEYS.DATAS_PESSOAIS)) ?? [];
+}
+
+export async function setDatasPessoais(datas: DataPessoal[]): Promise<void> {
+  await set(KEYS.DATAS_PESSOAIS, datas);
+}
+
+// Viagens na folga
+export async function getViagensFolga(): Promise<ViagemFolga[]> {
+  return (await get<ViagemFolga[]>(KEYS.VIAGENS_FOLGA)) ?? [];
+}
+
+export async function setViagensFolga(viagens: ViagemFolga[]): Promise<void> {
+  await set(KEYS.VIAGENS_FOLGA, viagens);
+}
+
+// Escalas secundárias para cruzar
+export async function getEscalasCruzar(): Promise<EscalaSecundaria[]> {
+  return (await get<EscalaSecundaria[]>(KEYS.ESCALAS_CRUZAR)) ?? [];
+}
+
+export async function setEscalasCruzar(escalas: EscalaSecundaria[]): Promise<void> {
+  await set(KEYS.ESCALAS_CRUZAR, escalas);
 }
