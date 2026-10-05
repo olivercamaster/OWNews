@@ -20733,7 +20733,17 @@ export default {
     }
 
     if (url.pathname === "/api/buddy/vagas" && request.method === "GET") {
-      const vagas = VAGAS_ABERTAS_ESPECIFICAS.map(v => ({
+      // S1 (2026-10-05): usa getVagasRadar() — fonte dinâmica (KV Radar 2.0, fallback estático).
+      // Aplica os mesmos filtros do /vagas web: sem banco de talentos, sem expiradas.
+      const todosJobs = await getVagasRadar(env, ctx);
+      const jobsFiltrados = todosJobs.filter(v => !vagaEhBancoTalentos(v) && !vagaPodeEstarExpirada(v));
+      const updatedAt = jobsFiltrados.length > 0
+        ? jobsFiltrados.reduce((max, v) => {
+            const t = v.verificado_em || VAGAS_RADAR_VERIFICADO_EM;
+            return t > max ? t : max;
+          }, VAGAS_RADAR_VERIFICADO_EM)
+        : VAGAS_RADAR_VERIFICADO_EM;
+      const vagas = jobsFiltrados.map(v => ({
         id: slugVaga(v),
         titulo: v.titulo,
         empresa: v.empresa,
@@ -20741,9 +20751,12 @@ export default {
         offshore_onshore: v.offshore_onshore || null,
         resumo: v.resumo,
         application_url: v.application_url || null,
-        verificado_em: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM
+        verificado_em: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM,
+        // Campos extras (additive — apps antigos ignoram; futuros podem usar)
+        escala: v.escala || null,
+        closing_date: v.closing_date || null
       }));
-      return new Response(JSON.stringify({ vagas, updated_at: VAGAS_RADAR_VERIFICADO_EM }), {
+      return new Response(JSON.stringify({ vagas, updated_at: updatedAt }), {
         headers: {
           "Content-Type": "application/json; charset=UTF-8",
           "Access-Control-Allow-Origin": "*",
