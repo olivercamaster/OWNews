@@ -16,18 +16,20 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   calcularMomento,
-  calcEscala,
+  resumoEscala,
   gerarMensagemMomento,
   contarPendentes,
   viagemEAmanha,
   viagemEHoje,
   calcCertStatus,
   getAeroporto,
+  MOMENTO_LABEL,
 } from '@owbuddy/domain';
-import type { EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
+import type { EscalaConfig, EscalaResumo, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
+import type { AeroportoEscala } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
 import { colors, spacing, radius, typography, iconSize, surface } from '../../src/theme';
-import { saudacao } from '../../src/format';
+import { saudacao, formatDateBR } from '../../src/format';
 import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
 import { CITIES, type City } from '../../src/cities';
@@ -35,14 +37,7 @@ import { searchCities } from '../../src/geocoding';
 import { analytics } from '../../src/analytics';
 
 
-const MOMENTO_CHIP: Record<string, string> = {
-  FOLGA:               'De folga',
-  EMBARQUE_DISTANTE:   'Embarque se aproxima',
-  EMBARQUE_PROXIMO:    'Embarque em breve',
-  VESPERA_EMBARQUE:    'Véspera do embarque',
-  EMBARCADO:           'Embarcado',
-  DESEMBARQUE_PROXIMO: 'Desembarque próximo',
-};
+const MOMENTO_CHIP = MOMENTO_LABEL;
 
 const MOMENTO_COLOR: Record<string, string> = {
   FOLGA:               colors.cyanDim,
@@ -150,7 +145,7 @@ export default function TelaHoje() {
 
   const { escala, prefs, viagem, checklist, certs } = state;
   const momento = calcularMomento(escala);
-  const calc = escala ? calcEscala(escala) : null;
+  const resumo = resumoEscala(escala);
   const aeroporto = escala?.aeroporto ? getAeroporto(escala.aeroporto) : undefined;
   const msg = gerarMensagemMomento(momento, prefs);
   const accentColor = MOMENTO_COLOR[momento.tipo] ?? colors.mutedDim;
@@ -240,42 +235,8 @@ export default function TelaHoje() {
           </View>
         ) : null}
 
-        {/* ── Escala status card ── */}
-        {calc && (
-          <TouchableOpacity style={styles.escalaCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
-            {calc.embarcado ? (
-              <>
-                <View style={styles.escalaRow}>
-                  <View>
-                    <Text style={styles.escalaLabel}>EMBARCADO</Text>
-                    <Text style={styles.escalaValue}>Dia {calc.diaDoBloco} de {calc.dEm}</Text>
-                  </View>
-                  <View style={styles.escalaRight}>
-                    <Text style={styles.escalaCountdown}>{calc.diasRestantes}</Text>
-                    <Text style={styles.escalaUnit}>dias p/ desembarque</Text>
-                  </View>
-                </View>
-                <View style={styles.escalaProgress}>
-                  <View style={[styles.escalaFill, { width: `${Math.round((calc.diaDoBloco / calc.dEm) * 100)}%` }]} />
-                </View>
-                {aeroporto && <Text style={styles.escalaBadge}>{aeroporto.code} · {aeroporto.nome}</Text>}
-              </>
-            ) : (
-              <View style={styles.escalaRow}>
-                <View>
-                  <Text style={styles.escalaLabel}>PRÓXIMO EMBARQUE</Text>
-                  <Text style={styles.escalaValue}>Em {calc.diasRestantes} {calc.diasRestantes === 1 ? 'dia' : 'dias'}</Text>
-                </View>
-                {aeroporto && (
-                  <View style={styles.escalaRight}>
-                    <Text style={[styles.escalaCountdown, { fontSize: 14, color: colors.cyanDim }]}>{aeroporto.code}</Text>
-                    <Text style={styles.escalaUnit}>{aeroporto.nome}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
+        {/* ── Escala: 3 estados (SEM_ESCALA / DE_FOLGA / EMBARCADO) ── */}
+        <HomeEscalaCard resumo={resumo} aeroporto={aeroporto} checklist={checkCount} />
 
         {/* ── Como te ajudo, Buddy? ── */}
         <Text style={styles.sectionTitle}>Como te ajudo, Buddy?</Text>
@@ -308,15 +269,6 @@ export default function TelaHoje() {
             onPress={() => router.navigate('/certs')}
           />
         </View>
-
-        {/* ── Alerta escala não configurada ── */}
-        {momento.tipo === 'SEM_ESCALA' && (
-          <TouchableOpacity style={styles.alertCard} onPress={() => router.push('/escala-config')}>
-            <Ionicons name="information-circle-outline" size={18} color={colors.cyanDim} />
-            <Text style={styles.alertText}>Configure sua escala para ver seu momento offshore</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
-          </TouchableOpacity>
-        )}
 
         {/* ── Alerta certificados ── */}
         {critCerts.length > 0 && (
@@ -406,6 +358,101 @@ export default function TelaHoje() {
         </View>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Cartão de escala da Home. Três estados explícitos, todos vindos de
+ * resumoEscala() — nenhuma aritmética de datas aqui.
+ *  SEM_ESCALA → convite para configurar
+ *  DE_FOLGA   → countdown + data do embarque + aeroporto + checklist pronto
+ *  EMBARCADO  → dia X de Y + progresso + data/countdown do desembarque
+ */
+function HomeEscalaCard({
+  resumo,
+  aeroporto,
+  checklist,
+}: {
+  resumo: EscalaResumo;
+  aeroporto?: AeroportoEscala;
+  checklist: { total: number; feitos: number; pendentes: number } | null;
+}) {
+  if (resumo.estado === 'SEM_ESCALA' || !resumo.calc) {
+    return (
+      <TouchableOpacity style={styles.alertCard} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
+        <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+        <Text style={styles.alertText}>Configure sua escala para ver seu momento offshore</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+      </TouchableOpacity>
+    );
+  }
+
+  const { calc } = resumo;
+
+  if (resumo.estado === 'EMBARCADO') {
+    const dias = resumo.diasParaDesembarque ?? calc.diasRestantes;
+    return (
+      <TouchableOpacity style={[styles.escalaCard, styles.escalaCardEmbarcado]} onPress={() => router.push('/escala')} activeOpacity={0.85}>
+        <View style={styles.escalaRow}>
+          <View>
+            <Text style={[styles.escalaLabel, { color: colors.green }]}>EMBARCADO</Text>
+            <Text style={styles.escalaValue}>Dia {calc.diaDoBloco} de {calc.dEm}</Text>
+            {resumo.proximoDesembarqueISO && (
+              <Text style={styles.escalaSub}>desembarca {formatDateBR(resumo.proximoDesembarqueISO)}</Text>
+            )}
+          </View>
+          <View style={styles.escalaRight}>
+            <Text style={[styles.escalaCountdown, { color: colors.green }]}>{dias}</Text>
+            <Text style={styles.escalaUnit}>{dias === 1 ? 'dia p/ desembarque' : 'dias p/ desembarque'}</Text>
+          </View>
+        </View>
+        <View style={styles.escalaProgress}>
+          <View style={[styles.escalaFill, { width: `${Math.round(resumo.progresso * 100)}%` as `${number}%`, backgroundColor: colors.green }]} />
+        </View>
+        {aeroporto && <Text style={styles.escalaBadge}>{aeroporto.code} · {aeroporto.nome}</Text>}
+      </TouchableOpacity>
+    );
+  }
+
+  // DE_FOLGA
+  const dias = resumo.diasParaEmbarque ?? calc.diasRestantes;
+  const countdown = dias <= 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : `Em ${dias} dias`;
+  return (
+    <TouchableOpacity style={[styles.escalaCard, styles.escalaCardFolga]} onPress={() => router.push('/escala')} activeOpacity={0.85}>
+      <View style={styles.escalaRow}>
+        <View>
+          <Text style={[styles.escalaLabel, { color: colors.amber }]}>PRÓXIMO EMBARQUE</Text>
+          <Text style={styles.escalaValue}>{countdown}</Text>
+          {resumo.proximoEmbarqueISO && (
+            <Text style={styles.escalaSub}>
+              {formatDateBR(resumo.proximoEmbarqueISO)} · folga dia {calc.diaDoBloco} de {calc.dFo}
+            </Text>
+          )}
+        </View>
+        {aeroporto && (
+          <View style={styles.escalaRight}>
+            <Text style={[styles.escalaCountdown, { fontSize: 14, color: colors.cyanDim }]}>{aeroporto.code}</Text>
+            <Text style={styles.escalaUnit}>{aeroporto.nome}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.escalaProgress}>
+        <View style={[styles.escalaFill, { width: `${Math.round(resumo.progresso * 100)}%` as `${number}%`, backgroundColor: colors.amber }]} />
+      </View>
+      {checklist && (
+        <TouchableOpacity style={styles.escalaChecklistRow} onPress={() => router.navigate('/mala')} hitSlop={6}>
+          <Ionicons
+            name={checklist.pendentes === 0 ? 'checkmark-circle' : 'checkbox-outline'}
+            size={14}
+            color={checklist.pendentes === 0 ? colors.green : colors.cyanDim}
+          />
+          <Text style={styles.escalaChecklistText}>
+            Meu Embarque · {checklist.feitos}/{checklist.total} {checklist.feitos === 1 ? 'item pronto' : 'itens prontos'}
+          </Text>
+          <Ionicons name="chevron-forward" size={12} color={colors.mutedDim} />
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -566,20 +613,25 @@ const styles = StyleSheet.create({
   ctaBadgeText: { fontSize: 9, fontWeight: '700', color: colors.navy950 },
   ctaLabel: { fontSize: 13, fontWeight: '600', color: colors.white },
 
-  // Escala status card
+  // Escala status card (3 estados)
   escalaCard: {
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: '#1a5c30', gap: spacing.sm,
+    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.line, gap: spacing.sm,
   },
+  escalaCardEmbarcado: { borderColor: colors.green + '55' },
+  escalaCardFolga: { borderColor: colors.amber + '44' },
   escalaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  escalaLabel: { fontSize: 10, fontWeight: '700', color: '#4caf50' + 'aa', letterSpacing: 0.8 },
+  escalaLabel: { fontSize: 10, fontWeight: '700', color: colors.mutedDim, letterSpacing: 0.8 },
   escalaValue: { fontSize: 16, fontWeight: '700', color: colors.white, marginTop: 2 },
+  escalaSub: { fontSize: 12, color: colors.mutedDim, marginTop: 2 },
   escalaRight: { alignItems: 'flex-end' },
-  escalaCountdown: { fontSize: 24, fontWeight: '700', color: '#4caf50' },
+  escalaCountdown: { fontSize: 24, fontWeight: '700', color: colors.green },
   escalaUnit: { fontSize: 10, color: colors.mutedDim },
   escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
-  escalaProgress: { height: 4, backgroundColor: colors.navy800, borderRadius: 2, overflow: 'hidden' },
-  escalaFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 2 },
+  escalaProgress: { height: 4, backgroundColor: colors.navy900, borderRadius: 2, overflow: 'hidden' },
+  escalaFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
+  escalaChecklistRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
+  escalaChecklistText: { flex: 1, fontSize: 12, color: colors.muted },
 
   // Alert cards
   alertCard: {

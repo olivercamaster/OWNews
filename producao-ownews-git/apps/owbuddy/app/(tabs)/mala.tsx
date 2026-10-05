@@ -8,55 +8,68 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  criarChecklistPadrao,
   contarPendentes,
   toggleItem,
   addItem,
   removeItem,
-  calcularMomento,
-  proximaDataEmbarque,
+  resumoEscala,
+  sincronizarChecklistComCiclo,
+  getAeroporto,
 } from '@owbuddy/domain';
-import type { ChecklistData, ChecklistItem } from '@owbuddy/domain';
+import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain';
 import { getEscala, getChecklist, setChecklist } from '../../src/storage';
-import { colors, spacing, radius, typography } from '../../src/theme';
+import { colors, spacing, radius, typography, surface } from '../../src/theme';
+import { formatDateBR } from '../../src/format';
+import { analytics } from '../../src/analytics';
 
-export default function MinhaMala() {
+/** "Embarque hoje" / "Embarque amanhã" / "Faltam N dias" — mesma régua do OWNews /meu-embarque. */
+function labelEmbarque(dias: number): string {
+  if (dias <= 0) return 'Embarque hoje';
+  if (dias === 1) return 'Embarque amanhã';
+  return `Faltam ${dias} dias`;
+}
+
+export default function MeuEmbarque() {
   const [data, setData] = useState<ChecklistData | null>(null);
+  const [resumo, setResumo] = useState<EscalaResumo | null>(null);
+  const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
 
   const load = useCallback(async () => {
     const [escala, checklist] = await Promise.all([getEscala(), getChecklist()]);
-    const proxEmb = escala ? proximaDataEmbarque(escala) : null;
-    const cicloISO = proxEmb ? proxEmb.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const r = resumoEscala(escala);
+    setResumo(r);
+    setAeroportoNome(escala?.aeroporto ? (getAeroporto(escala.aeroporto)?.nome ?? escala.aeroporto) : null);
 
-    if (!checklist || checklist.ciclo !== cicloISO) {
-      const novo = checklist
-        ? { ...checklist, ciclo: cicloISO }
-        : criarChecklistPadrao(cicloISO);
-      await setChecklist(novo);
-      setData(novo);
-    } else {
-      setData(checklist);
+    // Chave ownews_checklist_mala: itens nunca são perdidos; ao virar o ciclo
+    // (novo embarque) só o `ok` volta para false (paridade OWNews web).
+    const sync = sincronizarChecklistComCiclo(checklist, r.proximoEmbarqueISO);
+    if (sync.alterado) {
+      await setChecklist(sync.data);
+      if (sync.resetado) analytics.track('checklist_reset');
     }
+    setData(sync.data);
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    analytics.screen('meu_embarque');
+    load();
+  }, [load]));
 
-  const toggle = async (id: string) => {
-    if (!data) return;
-    const updated = toggleItem(data, id);
+  const persist = async (updated: ChecklistData) => {
     setData(updated);
     await setChecklist(updated);
   };
 
+  const toggle = (id: string) => { if (data) persist(toggleItem(data, id)); };
+
   const add = async () => {
     const text = novoItem.trim();
     if (!text || !data) return;
-    const updated = addItem(data, text);
-    setData(updated);
-    await setChecklist(updated);
+    await persist(addItem(data, text));
     setNovoItem('');
   };
 
@@ -66,25 +79,46 @@ export default function MinhaMala() {
       {
         text: 'Remover',
         style: 'destructive',
-        onPress: async () => {
-          if (!data) return;
-          const updated = removeItem(data, id);
-          setData(updated);
-          await setChecklist(updated);
-        },
+        onPress: () => { if (data) persist(removeItem(data, id)); },
       },
     ]);
   };
 
-  if (!data) return <View style={styles.root} />;
+  if (!data || !resumo) return <View style={styles.root} />;
 
   const counts = contarPendentes(data);
   const pct = counts.total > 0 ? Math.round((counts.feitos / counts.total) * 100) : 0;
   const tudo = counts.pendentes === 0;
+  const temEscala = resumo.estado !== 'SEM_ESCALA';
 
   return (
     <View style={styles.root}>
-      {/* Counter header */}
+      {/* ── Próximo embarque (vem da escala) ── */}
+      {temEscala && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null ? (
+        <TouchableOpacity style={styles.embarqueCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
+          <View style={styles.embarqueLeft}>
+            <Text style={styles.embarqueLabel}>
+              {resumo.estado === 'EMBARCADO' ? 'PRÓXIMO EMBARQUE (APÓS A FOLGA)' : 'PRÓXIMO EMBARQUE'}
+            </Text>
+            <Text style={styles.embarqueData}>{formatDateBR(resumo.proximoEmbarqueISO)}</Text>
+            <Text style={styles.embarqueSub}>
+              {labelEmbarque(resumo.diasParaEmbarque)}
+              {' · '}
+              {counts.feitos}/{counts.total} {counts.feitos === 1 ? 'item pronto' : 'itens prontos'}
+            </Text>
+            {aeroportoNome ? <Text style={styles.embarqueAero}>{aeroportoNome}</Text> : null}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={styles.semEscalaCard} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
+          <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
+          <Text style={styles.semEscalaText}>Configure sua escala para ver a data do próximo embarque</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+        </TouchableOpacity>
+      )}
+
+      {/* ── Contador ── */}
       <View style={styles.header}>
         <View>
           <Text style={styles.counterBig}>
@@ -92,7 +126,7 @@ export default function MinhaMala() {
             <Text style={{ color: colors.mutedDim, fontSize: 28 }}> / {counts.total}</Text>
           </Text>
           <Text style={styles.counterSub}>
-            {tudo ? 'Tudo preparado ✓' : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
+            {tudo ? 'Tudo preparado' : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
           </Text>
         </View>
         <View style={[styles.progressCircle, { borderColor: tudo ? colors.green : colors.cyan }]}>
@@ -100,15 +134,14 @@ export default function MinhaMala() {
         </View>
       </View>
 
-      {/* Progress bar */}
+      {/* ── Barra ── */}
       <View style={styles.progressBg}>
-        <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: tudo ? colors.green : colors.cyan }]} />
+        <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: tudo ? colors.green : colors.cyan }]} />
       </View>
 
-      {/* Buddy message */}
       <Text style={styles.buddyMsg}>Vai lembrando. Eu guardo pra você.</Text>
 
-      {/* List */}
+      {/* ── Lista ── */}
       <FlatList
         data={data.items}
         keyExtractor={item => item.id}
@@ -119,7 +152,7 @@ export default function MinhaMala() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      {/* Add item */}
+      {/* ── Adicionar ── */}
       <View style={styles.addRow}>
         <TextInput
           style={styles.addInput}
@@ -132,7 +165,7 @@ export default function MinhaMala() {
           maxLength={60}
         />
         <TouchableOpacity style={styles.addBtn} onPress={add} disabled={!novoItem.trim()}>
-          <Text style={[styles.addBtnText, !novoItem.trim() && { opacity: 0.4 }]}>+</Text>
+          <Ionicons name="add" size={26} color={colors.navy950} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
         </TouchableOpacity>
       </View>
     </View>
@@ -156,7 +189,7 @@ function MalaItem({
       delayLongPress={500}
     >
       <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
-        {item.ok && <Text style={styles.checkmark}>✓</Text>}
+        {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
       </View>
       <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
       <Text style={styles.itemCat}>{item.cat}</Text>
@@ -166,6 +199,28 @@ function MalaItem({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.navy950 },
+
+  embarqueCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: surface.card, borderRadius: radius.md,
+    marginHorizontal: spacing.md, marginTop: spacing.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  embarqueLeft: { flex: 1 },
+  embarqueLabel: { ...typography.micro, color: colors.cyanDim },
+  embarqueData: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 2 },
+  embarqueSub: { ...typography.small, marginTop: 2 },
+  embarqueAero: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
+
+  semEscalaCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: surface.card, borderRadius: radius.md,
+    marginHorizontal: spacing.md, marginTop: spacing.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  semEscalaText: { flex: 1, fontSize: 13, color: colors.muted },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm },
   counterBig: { fontSize: 36, fontWeight: '700', color: colors.white },
@@ -184,7 +239,6 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: spacing.sm },
   checkbox: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: colors.green, borderColor: colors.green },
-  checkmark: { fontSize: 13, color: colors.navy950, fontWeight: '700' },
   itemText: { flex: 1, ...typography.body },
   itemTextDone: { color: colors.mutedDim, textDecorationLine: 'line-through' },
   itemCat: { ...typography.micro, fontSize: 9 },
@@ -192,5 +246,4 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.line },
   addInput: { flex: 1, backgroundColor: colors.navy800, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 10, color: colors.white, fontSize: 15 },
   addBtn: { width: 44, height: 44, backgroundColor: colors.cyan, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  addBtnText: { fontSize: 24, fontWeight: '300', color: colors.navy950 },
 });

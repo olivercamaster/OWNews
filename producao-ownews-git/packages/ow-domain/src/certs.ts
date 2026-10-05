@@ -1,4 +1,4 @@
-import { Certificado, CertCalc, CertStatus } from './types';
+import type { Certificado, CertCalc, CertStatus } from './types';
 
 export function calcCertStatus(cert: Certificado, today: Date = new Date()): CertCalc {
   if (!cert.validade) {

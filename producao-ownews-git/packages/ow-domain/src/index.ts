@@ -2,6 +2,7 @@ export * from './types';
 export * from './escala';
 export * from './escala-calendario';
 export * from './escala-cruzar';
+export * from './escala-codec';
 export * from './buddy-voice';
 export * from './certs';
 export * from './viagem';

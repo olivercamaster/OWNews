@@ -1,4 +1,4 @@
-import { BuddyPrefs, BuddyTom, BuddyTrat, BuddyEventoKey, BuddyTemplateCtx, Momento } from './types';
+import type { BuddyPrefs, BuddyTom, BuddyTrat, BuddyEventoKey, BuddyTemplateCtx, Momento } from './types';
 
 function daySeed(): number {
   const d = new Date();

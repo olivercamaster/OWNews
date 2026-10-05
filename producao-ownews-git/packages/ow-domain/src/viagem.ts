@@ -1,4 +1,5 @@
-import { Viagem, ViagemTipo } from './types';
+import type { Viagem, ViagemTipo } from './types';
+import { hojeISO, somarDiasISO } from './escala';
 
 export const TIPO_LABELS: Record<ViagemTipo, string> = {
   AVIAO:   'Avião',
@@ -34,13 +35,10 @@ export function getViagemResumo(v: Viagem): string {
 
 export function viagemEAmanha(v: Viagem, today: Date = new Date()): boolean {
   if (!v.data) return false;
-  const amanha = new Date(today);
-  amanha.setDate(amanha.getDate() + 1);
-  const amanhaISO = amanha.toISOString().slice(0, 10);
-  return v.data === amanhaISO;
+  return v.data === somarDiasISO(hojeISO(today), 1);
 }
 
 export function viagemEHoje(v: Viagem, today: Date = new Date()): boolean {
   if (!v.data) return false;
-  return v.data === today.toISOString().slice(0, 10);
+  return v.data === hojeISO(today);
 }

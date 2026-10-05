@@ -10,19 +10,13 @@ import {
   View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { ESCALA_TIPOS } from '@owbuddy/domain';
 import type { EscalaSecundaria, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { maskDateBR, parseDateBR } from '../src/format';
 
-const TIPOS: { value: EscalaTipo; label: string }[] = [
-  { value: '14x14', label: '14 × 14' },
-  { value: '14x21', label: '14 × 21' },
-  { value: '28x28', label: '28 × 28' },
-  { value: '21x21', label: '21 × 21' },
-  { value: '7x7',   label: '7 × 7' },
-  { value: 'custom', label: 'Personalizada' },
-];
+const TIPOS = ESCALA_TIPOS;
 
 function gerarId(): string {
   return `sec_${Date.now()}`;

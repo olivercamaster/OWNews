@@ -1,5 +1,5 @@
 import type { EscalaConfig, Excecao, DataPessoal, ViagemFolga, DayInfo, DayKind, FeriadoBR } from './types';
-import { calcEscala } from './escala';
+import { calcEscala, hojeISO } from './escala';
 
 // Algoritmo de Gauss/Meeus — idêntico ao OWNews worker.js linha 15980
 export function pascoaUTC(ano: number): number {
@@ -64,24 +64,32 @@ function msParaISO(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-function isoParaMs(iso: string): number {
-  return new Date(iso + 'T12:00:00Z').getTime();
-}
-
+/**
+ * Dobra/férias são APENAS visuais (paridade OWNews web): mudam a cor do dia,
+ * mas o ciclo base (embarcado/folga, diaDoBloco, marcadores de transição)
+ * continua vindo de calcEscala sem nenhum deslocamento.
+ */
 function kindParaDia(
   config: EscalaConfig,
   excecoes: Excecao[],
   iso: string,
-): { kind: DayKind; diaDoBloco: number } {
+): { kind: DayKind; diaDoBloco: number; isEmbarque: boolean; isDesembarque: boolean } {
   const date = new Date(iso + 'T12:00:00Z');
   const base = calcEscala(config, date);
-  if (!base) return { kind: 'SEM_ESCALA', diaDoBloco: 0 };
+  if (!base) return { kind: 'SEM_ESCALA', diaDoBloco: 0, isEmbarque: false, isDesembarque: false };
   const exc = excecoes.find(e => iso >= e.ini && iso <= e.fim);
   let kind: DayKind;
   if (exc?.tipo === 'dobra') kind = 'DOBRA';
   else if (exc?.tipo === 'ferias') kind = 'FERIAS';
   else kind = base.embarcado ? 'EMBARCADO' : 'FOLGA';
-  return { kind, diaDoBloco: base.diaDoBloco };
+  // web: if(st.diaDoBloco===1) classes += status==="embarcado" ? " embarque" : " desembarque"
+  const primeiroDia = base.diaDoBloco === 1;
+  return {
+    kind,
+    diaDoBloco: base.diaDoBloco,
+    isEmbarque: primeiroDia && base.embarcado,
+    isDesembarque: primeiroDia && !base.embarcado,
+  };
 }
 
 export function infoParaDia(
@@ -92,18 +100,7 @@ export function infoParaDia(
   iso: string,
   todayISO: string,
 ): DayInfo {
-  const { kind, diaDoBloco } = kindParaDia(config, excecoes, iso);
-
-  // Transition markers: compare with yesterday
-  const yesterdayISO = msParaISO(isoParaMs(iso) - 86400000);
-  const { kind: ykind } = kindParaDia(config, excecoes, yesterdayISO);
-
-  const isEmbarque =
-    (kind === 'EMBARCADO' || kind === 'DOBRA') &&
-    (ykind === 'FOLGA' || ykind === 'FERIAS' || ykind === 'SEM_ESCALA');
-  const isDesembarque =
-    (kind === 'FOLGA' || kind === 'FERIAS') &&
-    (ykind === 'EMBARCADO' || ykind === 'DOBRA');
+  const { kind, diaDoBloco, isEmbarque, isDesembarque } = kindParaDia(config, excecoes, iso);
 
   // Feriado para este dia
   const ano = parseInt(iso.slice(0, 4));
@@ -130,8 +127,8 @@ export function gerarMesDias(
   viagensFolga: ViagemFolga[],
   ano: number,
   mes: number,  // 1–12
+  todayISO: string = hojeISO(),
 ): DayInfo[] {
-  const todayISO = new Date().toISOString().slice(0, 10);
   const diasNoMes = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
   const result: DayInfo[] = [];
   for (let d = 1; d <= diasNoMes; d++) {

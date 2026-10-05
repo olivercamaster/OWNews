@@ -13,10 +13,11 @@ import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  calcEscala,
+  resumoEscala,
   gerarMesDias,
   getAeroporto,
   datasImportantesDoAno,
+  hojeISO,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig,
@@ -96,7 +97,7 @@ function CalendarMonth({ config, excecoes, datasPessoais, viagensFolga, ano, mes
   mes: number;
   onDayPress: (day: DayInfo) => void;
 }) {
-  const dias = gerarMesDias(config, excecoes, datasPessoais, viagensFolga, ano, mes);
+  const dias = gerarMesDias(config, excecoes, datasPessoais, viagensFolga, ano, mes, hojeISO());
   const firstDow = new Date(Date.UTC(ano, mes - 1, 1)).getUTCDay();
   const cells: (DayInfo | null)[] = [...Array(firstDow).fill(null), ...dias];
   while (cells.length % 7 !== 0) cells.push(null);
@@ -212,21 +213,11 @@ export default function EscalaScreen() {
   }, []));
 
   const excecoes = config?.excecoes ?? [];
-  const calc = config ? calcEscala(config) : null;
+  const resumo = resumoEscala(config);
+  const calc = resumo.calc;
   const aeroporto = config?.aeroporto ? getAeroporto(config.aeroporto) : undefined;
-  const hoje = new Date().toISOString().slice(0, 10);
-
-  // Next real embark/disembark dates
-  const proximoEmbarqueISO = (() => {
-    if (!config || !calc || calc.embarcado) return null;
-    const ms = new Date(hoje + 'T12:00:00Z').getTime() + calc.diasRestantes * 86400000;
-    return new Date(ms).toISOString().slice(0, 10);
-  })();
-  const proximoDesembarqueISO = (() => {
-    if (!config || !calc || !calc.embarcado) return null;
-    const ms = new Date(hoje + 'T12:00:00Z').getTime() + calc.diasRestantes * 86400000;
-    return new Date(ms).toISOString().slice(0, 10);
-  })();
+  const hoje = resumo.hojeISO;
+  const { proximoEmbarqueISO, proximoDesembarqueISO } = resumo;
 
   const navMes = (delta: number) => {
     setViewMes(vm => {
@@ -270,7 +261,7 @@ export default function EscalaScreen() {
     );
   }
 
-  const progressPct = calc ? calc.diaDoBloco / (calc.embarcado ? calc.dEm : calc.dFo) : 0;
+  const progressPct = resumo.progresso;
 
   // Feriados no mês visível
   const feriadosDoMes = datasImportantesDoAno(viewMes.ano).filter(f => {

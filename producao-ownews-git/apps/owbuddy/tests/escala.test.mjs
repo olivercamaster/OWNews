@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 // Espelha exatamente as funções de packages/ow-domain/src/escala.ts e escala-calendario.ts
 
 const TIPOS_PRESET = {
-  '14x14': [14, 14], '14x21': [14, 21], '28x28': [28, 28], '21x21': [21, 21], '7x7': [7, 7],
+  '14x14': [14, 14], '14x21': [14, 21], '14x28': [14, 28], '28x28': [28, 28], '21x21': [21, 21], '7x7': [7, 7],
 };
 
 function calcEscala(config, today = new Date()) {

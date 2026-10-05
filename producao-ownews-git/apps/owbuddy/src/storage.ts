@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EscalaConfig, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria } from '@owbuddy/domain';
+import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope } from '@owbuddy/domain';
 import type { City } from './cities';
 
-// Storage keys — alinhados com OWNews localStorage keys para futura sync Supabase
-const KEYS = {
+// Storage keys — alinhados com OWNews localStorage keys para futura sync Supabase.
+// NUNCA renomear: dados de usuários já instalados dependem destes nomes.
+export const KEYS = {
   ESCALA:           'ownews_minha_escala',
   CERTS:            'ownews_certificados',
   CHECKLIST:        'ownews_checklist_mala',
@@ -36,14 +38,21 @@ async function remove(key: string): Promise<void> {
   } catch {}
 }
 
-// Escala — stored as { data: EscalaConfig }
+// Escala — envelope versionado { v: 2, data: EscalaConfig, updated_at }.
+// Leitura tolerante: aceita v1 ({ data }), o formato plano do OWNews web e
+// EscalaConfig cru (ver packages/ow-domain/src/escala-codec.ts). Um valor
+// ilegível vira "sem escala" mas NÃO é apagado.
 export async function getEscala(): Promise<EscalaConfig | null> {
-  const raw = await get<{ data: EscalaConfig }>(KEYS.ESCALA);
-  return raw?.data ?? null;
+  const raw = await get<unknown>(KEYS.ESCALA);
+  return normalizeEscalaConfig(raw);
 }
 
 export async function setEscala(cfg: EscalaConfig): Promise<void> {
-  await set(KEYS.ESCALA, { data: { ...cfg, updated_at: new Date().toISOString() } });
+  await set(KEYS.ESCALA, toEscalaEnvelope(cfg));
+}
+
+export async function deleteEscala(): Promise<void> {
+  await remove(KEYS.ESCALA);
 }
 
 // Certificados
@@ -114,9 +123,10 @@ export async function setViagensFolga(viagens: ViagemFolga[]): Promise<void> {
   await set(KEYS.VIAGENS_FOLGA, viagens);
 }
 
-// Escalas secundárias para cruzar
+// Escalas secundárias para cruzar — aceita também o formato do OWNews web
+// ({ diasEmb, diasFolga, refUTC, ... }) via codec.
 export async function getEscalasCruzar(): Promise<EscalaSecundaria[]> {
-  return (await get<EscalaSecundaria[]>(KEYS.ESCALAS_CRUZAR)) ?? [];
+  return normalizeEscalasSecundarias(await get<unknown>(KEYS.ESCALAS_CRUZAR));
 }
 
 export async function setEscalasCruzar(escalas: EscalaSecundaria[]): Promise<void> {

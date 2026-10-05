@@ -1,6 +1,13 @@
 import type { BuddyPrefs, Certificado, ChecklistData, EscalaConfig, Viagem } from '@owbuddy/domain';
+import { normalizeEscalaConfig } from '@owbuddy/domain';
 import { getBuddyPrefs, getCerts, getChecklist, getEscala, getViagem, setBuddyPrefs, setCerts, setChecklist, setEscala, setViagem } from './storage';
 import { getUserMetadata, updateUserMetadata } from './auth';
+
+function toMs(v: number | string | undefined | null): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; }
+  return 0;
+}
 
 // Campos sensíveis que NUNCA saem do dispositivo
 const PRIVATE_VIAGEM_FIELDS: Array<keyof Viagem> = ['localizador', 'obs', 'assento', 'poltrona'];
@@ -28,15 +35,16 @@ export async function pullFromServer(): Promise<void> {
   const meta = await getUserMetadata();
   if (!meta) return;
 
-  const serverUpdatedAt = (meta.updated_at as number) ?? 0;
-  const localUpdatedAt = Date.now(); // will compare per-field
-
-  const serverEscala = meta.ownews_minha_escala as { data: EscalaConfig; updated_at: number } | null;
-  if (serverEscala?.data) {
+  // Servidor guarda { data, updated_at } (updated_at pode ser number ou ISO string).
+  // Local guarda updated_at como ISO string — comparar sempre em ms.
+  const serverEscalaRaw = meta.ownews_minha_escala as { data?: unknown; updated_at?: number | string } | null;
+  const serverEscala = normalizeEscalaConfig(serverEscalaRaw);
+  if (serverEscala) {
     const localEscala = await getEscala();
-    const localAt = (localEscala as unknown as { updated_at?: number })?.updated_at ?? 0;
-    if ((serverEscala.updated_at ?? 0) > localAt) {
-      await setEscala(serverEscala.data);
+    const localAt = toMs(localEscala?.updated_at);
+    const serverAt = toMs(serverEscalaRaw?.updated_at);
+    if (!localEscala || serverAt > localAt) {
+      await setEscala(serverEscala);
     }
   }
 

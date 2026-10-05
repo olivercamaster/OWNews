@@ -12,21 +12,12 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { calcularMomento, AEROPORTOS_ESCALA } from '@owbuddy/domain';
-import type { EscalaConfig, EscalaTipo, TipoRef } from '@owbuddy/domain';
+import { calcularMomento, descreverMomento, AEROPORTOS_ESCALA, ESCALA_TIPOS } from '@owbuddy/domain';
+import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { formatDateBR, maskDateBR, parseDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
-
-const TIPOS_PRESET: { value: EscalaTipo; label: string }[] = [
-  { value: '14x14', label: '14 × 14' },
-  { value: '14x21', label: '14 × 21' },
-  { value: '28x28', label: '28 × 28' },
-  { value: '21x21', label: '21 × 21' },
-  { value: '7x7',   label: '7 × 7' },
-  { value: 'custom', label: 'Personalizada' },
-];
 
 export default function EscalaConfigScreen() {
   const [form, setForm] = useState<Partial<EscalaConfig>>({ tipo: '14x14', tipoRef: 'embarquei' });
@@ -47,18 +38,7 @@ export default function EscalaConfigScreen() {
     if (updated.tipo && isoDataRef && updated.tipoRef) {
       try {
         const m = calcularMomento({ ...updated, dataRef: isoDataRef } as EscalaConfig);
-        const labels: Record<string, string> = {
-          SEM_ESCALA: '', FOLGA: 'De folga', EMBARCADO: 'Embarcado',
-          EMBARQUE_DISTANTE: 'Embarque se aproxima', EMBARQUE_PROXIMO: 'Embarque em breve',
-          VESPERA_EMBARQUE: 'Véspera do embarque', DESEMBARQUE_PROXIMO: 'Desembarque próximo',
-        };
-        const label = labels[m.tipo] ?? '';
-        const dias = m.diasEmbarque != null
-          ? ` · ${m.diasEmbarque}d pro embarque`
-          : m.diasDesembarque != null
-          ? ` · ${m.diasDesembarque}d pro desembarque`
-          : '';
-        setPreview(label ? `${label}${dias}` : '');
+        setPreview(descreverMomento(m));
       } catch { setPreview(''); }
     }
   };
@@ -71,8 +51,13 @@ export default function EscalaConfigScreen() {
     const isoConfig: EscalaConfig = {
       ...form,
       dataRef: isoDataRef,
+      // Exceções (dobras/férias) são editadas no hub — preservar sempre
       excecoes: existing?.excecoes ?? [],
     } as EscalaConfig;
+    if (isoConfig.tipo !== 'custom') {
+      delete isoConfig.diasEmbarcado;
+      delete isoConfig.diasFolga;
+    }
     await setEscala(isoConfig);
     analytics.track('scale_configured', { tipo: form.tipo });
     // Go to main escala view if it exists in stack, otherwise back
@@ -93,7 +78,7 @@ export default function EscalaConfigScreen() {
 
         <Text style={styles.sectionLabel}>Ciclo de trabalho</Text>
         <View style={styles.tipoGrid}>
-          {TIPOS_PRESET.map(t => (
+          {ESCALA_TIPOS.map(t => (
             <TouchableOpacity
               key={t.value}
               style={[styles.tipoChip, tipo === t.value && styles.tipoChipActive]}

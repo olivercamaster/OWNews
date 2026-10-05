@@ -9,7 +9,7 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { encontrarJanelasJuntos, secundariaParaConfig } from '@owbuddy/domain';
+import { encontrarJanelasJuntos, secundariaParaConfig, hojeISO } from '@owbuddy/domain';
 import type { EscalaSecundaria, JanelaJuntos } from '@owbuddy/domain';
 import { getEscala, getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
@@ -34,7 +34,7 @@ export default function EscalaCruzarScreen() {
     setEscalas(secs);
 
     if (!config) { setJanelas([]); return; }
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeISO();
     const resultados = secs.map(sec => ({
       nome: sec.nome,
       janelas: encontrarJanelasJuntos(config, secundariaParaConfig(sec), hoje, 180, 3),
