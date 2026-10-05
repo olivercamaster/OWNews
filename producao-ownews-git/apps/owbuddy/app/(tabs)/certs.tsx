@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { calcCertStatus } from '@owbuddy/domain';
 import type { Certificado, CertCalc } from '@owbuddy/domain';
 import { getCerts, setCerts } from '../../src/storage';
@@ -131,7 +132,7 @@ function CertCard({ cert, calc, onEdit, onDelete }: { cert: Certificado; calc: C
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyIcon}>📋</Text>
+      <Ionicons name="document-text-outline" size={48} color={colors.mutedDim} style={{ marginBottom: spacing.md }} />
       <Text style={styles.emptyTitle}>Sem certificados</Text>
       <Text style={styles.emptySub}>Adicione seus certificados offshore para receber alertas de vencimento.</Text>
       <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   certValidade: { ...typography.micro, marginTop: 4 },
   certAlert: { fontSize: 12, fontWeight: '600', marginTop: spacing.sm },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, paddingTop: spacing.xxl },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+
   emptyTitle: { ...typography.h2, marginBottom: spacing.sm },
   emptySub: { ...typography.small, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
   addBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { TIPO_LABELS, TIPO_ICONS, getViagemRota } from '@owbuddy/domain';
 import type { Viagem, ViagemTipo } from '@owbuddy/domain';
 import { getViagem, setViagem, deleteViagem } from '../../src/storage';
@@ -86,7 +87,7 @@ export default function MinhaViagem() {
   if (!viagem) return (
     <View style={styles.root}>
       <View style={styles.empty}>
-        <Text style={styles.emptyIcon}>Sem viagem</Text>
+        <Ionicons name="airplane-outline" size={48} color={colors.mutedDim} style={{ marginBottom: spacing.md }} />
         <Text style={styles.emptyTitle}>Sem viagem cadastrada</Text>
         <Text style={styles.emptySub}>Registre sua viagem de embarque aqui. Fica só aqui, não vai a lugar nenhum.</Text>
         <TouchableOpacity style={styles.addBtn} onPress={startNew}>
@@ -129,7 +130,10 @@ export default function MinhaViagem() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.privNote}>🔒 Dados armazenados apenas neste dispositivo</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: spacing.lg }}>
+        <Ionicons name="lock-closed-outline" size={12} color={colors.mutedDim} />
+        <Text style={styles.privNote}>Dados armazenados apenas neste dispositivo</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -216,7 +220,10 @@ function ViagemForm({
 
         <Field label="Observação (privada)" placeholder="..." value={form.obs ?? ''} onChange={v => onChange({ ...form, obs: v })} multiline />
 
-        <Text style={formStyles.privNote}>🔒 Localizador e observações ficam apenas neste dispositivo</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginVertical: spacing.md }}>
+          <Ionicons name="lock-closed-outline" size={12} color={colors.mutedDim} />
+          <Text style={formStyles.privNote}>Localizador e observações ficam apenas neste dispositivo</Text>
+        </View>
 
         <View style={formStyles.btnRow}>
           <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
@@ -264,7 +271,7 @@ const formStyles = StyleSheet.create({
   fieldWrap: { marginBottom: spacing.sm },
   fieldLabel: { ...typography.small, marginBottom: 4 },
   input: { backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line },
-  privNote: { ...typography.small, color: colors.mutedDim, textAlign: 'center', marginVertical: spacing.md },
+  privNote: { ...typography.small, color: colors.mutedDim, textAlign: 'center' },
   btnRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   cancelBtn: { flex: 1, padding: spacing.md, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
   cancelText: { color: colors.muted, fontWeight: '600' },
@@ -276,7 +283,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.navy950 },
   content: { padding: spacing.md },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+
   emptyTitle: { ...typography.h2, marginBottom: spacing.sm },
   emptySub: { ...typography.small, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
   addBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
@@ -290,5 +297,5 @@ const styles = StyleSheet.create({
   editBtnText: { color: colors.white, fontWeight: '600' },
   delBtn: { flex: 1, backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.red + '55' },
   delBtnText: { color: colors.red, fontWeight: '600' },
-  privNote: { ...typography.small, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.lg },
+  privNote: { ...typography.small, color: colors.mutedDim, textAlign: 'center' },
 });

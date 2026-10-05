@@ -115,7 +115,7 @@ export default function EscalaConfig() {
               onPress={() => update({ tipoRef: t })}
             >
               <Text style={[styles.tratText, form.tipoRef === t && styles.tratTextActive]}>
-                {t === 'embarquei' ? '⚓ Embarquei' : '🏠 Desembarquei'}
+                {t === 'embarquei' ? 'Embarquei' : 'Desembarquei'}
               </Text>
             </TouchableOpacity>
           ))}
