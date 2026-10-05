@@ -16,6 +16,8 @@ import { calcCertStatus } from '@owbuddy/domain';
 import type { Certificado, CertCalc } from '@owbuddy/domain';
 import { getCerts, setCerts } from '../../src/storage';
 import { colors, spacing, radius, typography } from '../../src/theme';
+import { formatDateBR, maskDateBR, parseDateBR } from '../../src/format';
+import { analytics } from '../../src/analytics';
 
 const STATUS_COLOR: Record<string, string> = {
   valido:      colors.green,
@@ -39,12 +41,19 @@ export default function MeusCerts() {
   const save = async () => {
     if (!form?.nome) { Alert.alert('Atenção', 'Nome do certificado é obrigatório.'); return; }
     const all = await getCerts();
-    if (form.id) {
-      const updated = all.map(c => c.id === form.id ? { ...c, ...form } as Certificado : c);
+    // Convert BR dates to ISO before storing
+    const saveForm = {
+      ...form,
+      validade: form.validade ? parseDateBR(form.validade) : form.validade,
+      emissao:  form.emissao  ? parseDateBR(form.emissao)  : form.emissao,
+    };
+    if (saveForm.id) {
+      const updated = all.map(c => c.id === saveForm.id ? { ...c, ...saveForm } as Certificado : c);
       await setCerts(updated);
     } else {
-      const novo: Certificado = { ...form, id: Date.now().toString(), nome: form.nome } as Certificado;
+      const novo: Certificado = { ...saveForm, id: Date.now().toString(), nome: saveForm.nome } as Certificado;
       await setCerts([...all, novo]);
+      analytics.track('certificate_created');
     }
     setForm(null);
     await load();
@@ -67,7 +76,7 @@ export default function MeusCerts() {
 
   if (form !== null) return (
     <CertForm
-      form={form}
+      form={form.id ? { ...form, validade: formatDateBR(form.validade) || form.validade, emissao: formatDateBR(form.emissao) || form.emissao } : form}
       onChange={setForm}
       onSave={save}
       onCancel={() => setForm(null)}
@@ -113,7 +122,7 @@ function CertCard({ cert, calc, onEdit, onDelete }: { cert: Certificado; calc: C
         </View>
       </View>
       {cert.instituicao ? <Text style={styles.certSub}>{cert.instituicao}</Text> : null}
-      {cert.validade ? <Text style={styles.certValidade}>Validade: {cert.validade}</Text> : null}
+      {cert.validade ? <Text style={styles.certValidade}>Validade: {formatDateBR(cert.validade) || cert.validade}</Text> : null}
       {calc.critico && <Text style={[styles.certAlert, { color: accentColor }]}>Renove antes de embarcar →</Text>}
     </TouchableOpacity>
   );
@@ -139,8 +148,8 @@ function CertForm({ form, onChange, onSave, onCancel }: { form: Partial<Certific
         <Text style={fStyles.sectionLabel}>Certificado</Text>
         <Field label="Nome *" value={form.nome ?? ''} onChange={v => onChange({ ...form, nome: v })} placeholder="OPITO BOSIET, HUET, H2S..." />
         <Field label="Instituição" value={form.instituicao ?? ''} onChange={v => onChange({ ...form, instituicao: v })} placeholder="SENAI, PETROBRAS..." />
-        <Field label="Data de validade" value={form.validade ?? ''} onChange={v => onChange({ ...form, validade: v })} placeholder="AAAA-MM-DD" keyboardType="numeric" />
-        <Field label="Data de emissão" value={form.emissao ?? ''} onChange={v => onChange({ ...form, emissao: v })} placeholder="AAAA-MM-DD" keyboardType="numeric" />
+        <Field label="Data de validade" value={maskDateBR(form.validade ?? '')} onChange={v => onChange({ ...form, validade: maskDateBR(v) })} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+        <Field label="Data de emissão" value={maskDateBR(form.emissao ?? '')} onChange={v => onChange({ ...form, emissao: maskDateBR(v) })} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
         <View style={fStyles.btnRow}>
           <TouchableOpacity style={fStyles.cancelBtn} onPress={onCancel}><Text style={fStyles.cancelText}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity style={fStyles.saveBtn} onPress={onSave}><Text style={fStyles.saveText}>Salvar</Text></TouchableOpacity>
@@ -150,11 +159,11 @@ function CertForm({ form, onChange, onSave, onCancel }: { form: Partial<Certific
   );
 }
 
-function Field({ label, value, onChange, placeholder, keyboardType }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; keyboardType?: any }) {
+function Field({ label, value, onChange, placeholder, keyboardType, maxLength }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; keyboardType?: any; maxLength?: number }) {
   return (
     <View style={fStyles.fieldWrap}>
       <Text style={fStyles.label}>{label}</Text>
-      <TextInput style={fStyles.input} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.mutedDim} keyboardType={keyboardType} />
+      <TextInput style={fStyles.input} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.mutedDim} keyboardType={keyboardType} maxLength={maxLength} />
     </View>
   );
 }

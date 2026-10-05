@@ -11,21 +11,24 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { getPreviewMensagem, DEFAULT_BUDDY_PREFS } from '@owbuddy/domain';
 import type { BuddyPrefs, BuddyTom, BuddyTrat } from '@owbuddy/domain';
 import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
-import { colors, spacing, radius, typography } from '../src/theme';
+import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { analytics } from '../src/analytics';
 
-const TOMS: { value: BuddyTom; label: string; desc: string }[] = [
-  { value: 'discreto', label: 'Discreto', desc: 'Direto ao ponto.' },
-  { value: 'buddy',    label: 'Buddy',    desc: 'Próximo e animado.' },
-  { value: 'resenha',  label: 'Resenha',  desc: 'Descontraído, gíria leve.' },
+// UI labels — mapped from internal domain values, backwards-compatible
+const ESTILOS: { value: BuddyTom; label: string; desc: string }[] = [
+  { value: 'discreto', label: 'Direto',    desc: 'Objetivo e sem muita conversa.' },
+  { value: 'buddy',    label: 'Parceiro',  desc: 'Próximo, natural e amigável.' },
+  { value: 'resenha',  label: 'Resenha',   desc: 'Mais descontraído, com resenha leve.' },
 ];
 
-const TRATS: { value: BuddyTrat; label: string }[] = [
-  { value: 'neutro',   label: 'Neutro' },
-  { value: 'parceiro', label: 'Parceiro' },
-  { value: 'parceira', label: 'Parceira' },
+const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
+  { value: 'neutro',   label: 'Sem vocativo', sub: 'sem "parceiro" ou "parceira"' },
+  { value: 'parceiro', label: 'Parceiro',      sub: 'vocativo masculino' },
+  { value: 'parceira', label: 'Parceira',      sub: 'vocativo feminino' },
 ];
 
 export default function BuddyConfig() {
@@ -44,6 +47,7 @@ export default function BuddyConfig() {
 
   const save = async () => {
     await setBuddyPrefs(prefs);
+    analytics.track('buddy_prefs_saved');
     setSaved(true);
     setTimeout(() => router.back(), 600);
   };
@@ -53,62 +57,78 @@ export default function BuddyConfig() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+
         {/* Preview */}
         <View style={styles.previewCard}>
-          <Text style={styles.previewLabel}>Prévia</Text>
+          <Text style={styles.previewLabel}>Prévia da mensagem</Text>
           <Text style={styles.previewMsg}>{preview || 'Configure abaixo para ver a prévia.'}</Text>
         </View>
 
-        {/* Tom */}
-        <Text style={styles.sectionLabel}>Tom</Text>
+        {/* Estilo */}
+        <Text style={styles.sectionTitle}>Como você quer que o Buddy fale com você?</Text>
         <View style={styles.options}>
-          {TOMS.map(t => (
+          {ESTILOS.map(t => (
             <TouchableOpacity
               key={t.value}
               style={[styles.optionCard, prefs.tom === t.value && styles.optionCardActive]}
               onPress={() => update({ tom: t.value })}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: prefs.tom === t.value }}
             >
-              <Text style={[styles.optionTitle, prefs.tom === t.value && styles.optionTitleActive]}>{t.label}</Text>
+              <View style={styles.optionRow}>
+                <Text style={[styles.optionTitle, prefs.tom === t.value && styles.optionTitleActive]}>
+                  {t.label}
+                </Text>
+                {prefs.tom === t.value && <Ionicons name="checkmark-circle" size={18} color={colors.cyan} />}
+              </View>
               <Text style={styles.optionDesc}>{t.desc}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Tratamento */}
-        <Text style={styles.sectionLabel}>Tratamento</Text>
+        <Text style={styles.sectionTitle}>Como o Buddy pode falar com você?</Text>
+        <Text style={styles.sectionNote}>Você escolhe — o Buddy nunca infere gênero.</Text>
         <View style={styles.tratRow}>
           {TRATS.map(t => (
             <TouchableOpacity
               key={t.value}
               style={[styles.tratChip, prefs.trat === t.value && styles.tratChipActive]}
               onPress={() => update({ trat: t.value })}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: prefs.trat === t.value }}
             >
-              <Text style={[styles.tratText, prefs.trat === t.value && styles.tratTextActive]}>{t.label}</Text>
+              <Text style={[styles.tratLabel, prefs.trat === t.value && styles.tratLabelActive]}>
+                {t.label}
+              </Text>
+              <Text style={styles.tratSub}>{t.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.tratNote}>
-          Neutro: sem marcação de gênero. Parceiro/Parceira: vocativos amigáveis.
-          {'\n'}Você escolhe — o Buddy não infere gênero.
-        </Text>
 
         {/* Apelido */}
-        <Text style={styles.sectionLabel}>Apelido (opcional)</Text>
+        <Text style={styles.sectionTitle}>Como posso te chamar? (opcional)</Text>
         <TextInput
           style={styles.apelidoInput}
           value={prefs.apelido}
           onChangeText={v => update({ apelido: v })}
-          placeholder="Como posso te chamar?"
+          placeholder="Seu apelido ou nome"
           placeholderTextColor={colors.mutedDim}
           maxLength={24}
           returnKeyType="done"
+          accessibilityLabel="Apelido para o Buddy usar"
         />
-        <Text style={styles.apelidoNote}>Armazenado apenas neste dispositivo. Não vai a analytics.</Text>
+        <View style={styles.privNote}>
+          <Ionicons name="lock-closed-outline" size={12} color={colors.mutedDim} />
+          <Text style={styles.privText}>Guardado só neste dispositivo. Não vai a analytics.</Text>
+        </View>
 
         {/* Save */}
         <TouchableOpacity
           style={[styles.saveBtn, saved && styles.saveBtnDone]}
           onPress={save}
+          accessibilityRole="button"
+          accessibilityLabel="Salvar preferências"
         >
           <Text style={styles.saveBtnText}>{saved ? 'Salvo ✓' : 'Salvar preferências'}</Text>
         </TouchableOpacity>
@@ -118,31 +138,69 @@ export default function BuddyConfig() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.navy800 },
+  root: { flex: 1, backgroundColor: surface.header },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
 
-  previewCard: { backgroundColor: colors.navy700, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, borderLeftWidth: 2, borderLeftColor: colors.cyan },
+  previewCard: {
+    backgroundColor: surface.elevated,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.cyan,
+  },
   previewLabel: { ...typography.micro, marginBottom: spacing.xs },
   previewMsg: { ...typography.body, fontStyle: 'italic', lineHeight: 22 },
 
-  sectionLabel: { ...typography.label, marginBottom: spacing.sm, marginTop: spacing.md },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.white,
+    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  sectionNote: { ...typography.small, color: colors.mutedDim, marginBottom: spacing.sm, marginTop: -spacing.xs },
 
   options: { gap: spacing.sm },
-  optionCard: { backgroundColor: colors.navy700, borderRadius: radius.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.line },
-  optionCardActive: { borderColor: colors.cyan, backgroundColor: colors.navy700 },
-  optionTitle: { ...typography.h3, marginBottom: 2 },
+  optionCard: {
+    backgroundColor: surface.elevated,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  optionCardActive: { borderColor: colors.cyan },
+  optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  optionTitle: { ...typography.h3 },
   optionTitleActive: { color: colors.cyan },
   optionDesc: { ...typography.small },
 
-  tratRow: { flexDirection: 'row', gap: spacing.sm },
-  tratChip: { flex: 1, padding: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center', backgroundColor: colors.navy700 },
-  tratChipActive: { borderColor: colors.cyan, backgroundColor: colors.navy700 },
-  tratText: { fontSize: 14, color: colors.muted, fontWeight: '500' },
-  tratTextActive: { color: colors.cyan },
-  tratNote: { ...typography.small, color: colors.mutedDim, marginTop: spacing.sm, lineHeight: 18 },
+  tratRow: { gap: spacing.sm },
+  tratChip: {
+    padding: spacing.md,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: surface.elevated,
+  },
+  tratChipActive: { borderColor: colors.cyan },
+  tratLabel: { fontSize: 14, color: colors.muted, fontWeight: '600', marginBottom: 2 },
+  tratLabelActive: { color: colors.cyan },
+  tratSub: { ...typography.small, color: colors.mutedDim },
 
-  apelidoInput: { backgroundColor: colors.navy700, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 16, borderWidth: 1, borderColor: colors.line, marginBottom: spacing.xs },
-  apelidoNote: { ...typography.small, color: colors.mutedDim, marginBottom: spacing.xl },
+  apelidoInput: {
+    backgroundColor: surface.elevated,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    paddingHorizontal: 12,
+    color: colors.white,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: spacing.xs,
+  },
+  privNote: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.xl },
+  privText: { ...typography.small, color: colors.mutedDim },
 
   saveBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center' },
   saveBtnDone: { backgroundColor: colors.green },

@@ -15,6 +15,8 @@ import { TIPO_LABELS, TIPO_ICONS, getViagemRota } from '@owbuddy/domain';
 import type { Viagem, ViagemTipo } from '@owbuddy/domain';
 import { getViagem, setViagem, deleteViagem } from '../../src/storage';
 import { colors, spacing, radius, typography } from '../../src/theme';
+import { formatDateBR, maskDateBR, parseDateBR } from '../../src/format';
+import { analytics } from '../../src/analytics';
 
 const TIPOS: ViagemTipo[] = ['AVIAO', 'ONIBUS', 'CARRO', 'VAN', 'EMPRESA', 'OUTRO'];
 
@@ -36,7 +38,11 @@ export default function MinhaViagem() {
   };
 
   const startEdit = () => {
-    if (viagem) { setForm(viagem); setEditing(true); }
+    if (viagem) {
+      // Convert ISO date to BR format for display in the form
+      setForm({ ...viagem, data: formatDateBR(viagem.data) || viagem.data });
+      setEditing(true);
+    }
   };
 
   const save = async () => {
@@ -44,10 +50,13 @@ export default function MinhaViagem() {
       Alert.alert('Atenção', 'Data e tipo são obrigatórios.');
       return;
     }
-    const v: Viagem = { ...(form as Viagem), tipo: form.tipo as ViagemTipo };
+    // form.data is in BR format (DD/MM/YYYY) — convert to ISO for storage
+    const isoData = parseDateBR(form.data);
+    const v: Viagem = { ...(form as Viagem), tipo: form.tipo as ViagemTipo, data: isoData };
     await setViagem(v);
     setViagemState(v);
     setEditing(false);
+    analytics.track('trip_created', { tipo: form.tipo });
   };
 
   const del = () => {
@@ -77,7 +86,7 @@ export default function MinhaViagem() {
   if (!viagem) return (
     <View style={styles.root}>
       <View style={styles.empty}>
-        <Text style={styles.emptyIcon}>✈️</Text>
+        <Text style={styles.emptyIcon}>Sem viagem</Text>
         <Text style={styles.emptyTitle}>Sem viagem cadastrada</Text>
         <Text style={styles.emptySub}>Registre sua viagem de embarque aqui. Fica só aqui, não vai a lugar nenhum.</Text>
         <TouchableOpacity style={styles.addBtn} onPress={startNew}>
@@ -96,7 +105,7 @@ export default function MinhaViagem() {
           {TIPO_ICONS[viagem.tipo]} {TIPO_LABELS[viagem.tipo] ?? viagem.tipo}
         </Text>
         <Text style={styles.cardData}>
-          {viagem.data}{viagem.hora ? `  ·  ${viagem.hora}` : ''}
+          {formatDateBR(viagem.data)}{viagem.hora ? `  ·  ${viagem.hora}` : ''}
         </Text>
         {rota ? <Text style={styles.cardRota}>{rota}</Text> : null}
         {viagem.num_voo ? <FieldRow label="Voo" value={viagem.num_voo} /> : null}
@@ -172,8 +181,8 @@ function ViagemForm({
           ))}
         </View>
 
-        {/* Data / hora */}
-        <Field label="Data *" placeholder="AAAA-MM-DD" value={form.data ?? ''} onChange={v => onChange({ ...form, data: v })} keyboardType="numeric" />
+        {/* Data em formato brasileiro — form.data stays BR (DD/MM/AAAA) until save() converts to ISO */}
+        <Field label="Data *" placeholder="DD/MM/AAAA" value={maskDateBR(form.data ?? '')} onChange={v => onChange({ ...form, data: maskDateBR(v) })} keyboardType="numeric" maxLength={10} />
         <Field label="Hora" placeholder="HH:MM" value={form.hora ?? ''} onChange={v => onChange({ ...form, hora: v })} keyboardType="numeric" />
 
         {/* Avião */}
@@ -222,9 +231,9 @@ function ViagemForm({
   );
 }
 
-function Field({ label, placeholder, value, onChange, keyboardType, multiline, autoCapitalize }: {
+function Field({ label, placeholder, value, onChange, keyboardType, multiline, autoCapitalize, maxLength }: {
   label: string; placeholder?: string; value: string; onChange: (v: string) => void;
-  keyboardType?: any; multiline?: boolean; autoCapitalize?: any;
+  keyboardType?: any; multiline?: boolean; autoCapitalize?: any; maxLength?: number;
 }) {
   return (
     <View style={formStyles.fieldWrap}>
@@ -238,6 +247,7 @@ function Field({ label, placeholder, value, onChange, keyboardType, multiline, a
         keyboardType={keyboardType}
         multiline={multiline}
         autoCapitalize={autoCapitalize}
+        maxLength={maxLength}
       />
     </View>
   );

@@ -1,22 +1,43 @@
 import { Tabs } from 'expo-router';
-import { colors } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, iconSize } from '../../src/theme';
 
-const TAB_BAR_STYLE = {
-  backgroundColor: colors.navy900,
-  borderTopColor: colors.line,
-  borderTopWidth: 1,
-  paddingTop: 4,
-  height: 58,
-};
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
+  return (
+    <Ionicons
+      name={focused ? name : (`${name}-outline` as IoniconsName)}
+      size={iconSize.tab}
+      color={focused ? colors.cyan : colors.mutedDim}
+    />
+  );
+}
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  // Respect Android navigation bar + iPhone home indicator
+  const tabBarHeight = 56 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.cyan,
         tabBarInactiveTintColor: colors.mutedDim,
-        tabBarStyle: TAB_BAR_STYLE,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 4 },
+        tabBarStyle: {
+          backgroundColor: colors.navy900,
+          borderTopColor: colors.line,
+          borderTopWidth: 1,
+          height: tabBarHeight,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginBottom: 0,
+        },
         headerStyle: { backgroundColor: colors.navy900 },
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: '700' },
@@ -27,35 +48,30 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Hoje',
-          tabBarIcon: ({ color }) => <TabIcon glyph="⚓" color={color as string} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="mala"
         options={{
-          title: 'Mala',
-          tabBarIcon: ({ color }) => <TabIcon glyph="🧳" color={color as string} />,
+          title: 'Lista',
+          tabBarIcon: ({ focused }) => <TabIcon name="checkbox" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="viagem"
         options={{
           title: 'Viagem',
-          tabBarIcon: ({ color }) => <TabIcon glyph="✈️" color={color as string} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="airplane" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="certs"
         options={{
           title: 'Docs',
-          tabBarIcon: ({ color }) => <TabIcon glyph="📋" color={color as string} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="document-text" focused={focused} />,
         }}
       />
     </Tabs>
   );
-}
-
-function TabIcon({ glyph, color }: { glyph: string; color: string }) {
-  const { Text } = require('react-native');
-  return <Text style={{ fontSize: 20, color }}>{glyph}</Text>;
 }

@@ -15,6 +15,8 @@ import { calcularMomento } from '@owbuddy/domain';
 import type { EscalaConfig, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, spacing, radius, typography } from '../src/theme';
+import { formatDateBR, maskDateBR, parseDateBR } from '../src/format';
+import { analytics } from '../src/analytics';
 
 const TIPOS_PRESET: { value: EscalaTipo; label: string }[] = [
   { value: '14x14', label: '14 × 14' },
@@ -31,16 +33,21 @@ export default function EscalaConfig() {
 
   useFocusEffect(useCallback(() => {
     getEscala().then(cfg => {
-      if (cfg) setForm(cfg);
+      if (cfg) {
+        // Convert ISO date to BR format for display
+        setForm({ ...cfg, dataRef: formatDateBR(cfg.dataRef) || cfg.dataRef });
+      }
     });
   }, []));
 
   const update = (partial: Partial<EscalaConfig>) => {
     const updated = { ...form, ...partial };
     setForm(updated);
-    if (updated.tipo && updated.dataRef && updated.tipoRef) {
+    // For preview calculation, temporarily convert BR date to ISO
+    const isoDataRef = updated.dataRef ? parseDateBR(updated.dataRef) : undefined;
+    if (updated.tipo && isoDataRef && updated.tipoRef) {
       try {
-        const m = calcularMomento(updated as EscalaConfig);
+        const m = calcularMomento({ ...updated, dataRef: isoDataRef } as EscalaConfig);
         const labels: Record<string, string> = {
           SEM_ESCALA: '', FOLGA: 'De folga', EMBARCADO: 'Embarcado',
           EMBARQUE_DISTANTE: 'Embarque se aproxima', EMBARQUE_PROXIMO: 'Embarque em breve',
@@ -59,7 +66,10 @@ export default function EscalaConfig() {
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
-    await setEscala(form as EscalaConfig);
+    // Convert BR date to ISO for storage
+    const isoConfig = { ...form, dataRef: parseDateBR(form.dataRef) } as EscalaConfig;
+    await setEscala(isoConfig);
+    analytics.track('scale_configured', { tipo: form.tipo });
     router.back();
   };
 
@@ -94,7 +104,7 @@ export default function EscalaConfig() {
         </>)}
 
         <Text style={styles.sectionLabel}>Data de referência</Text>
-        <Field label="Data (AAAA-MM-DD)" value={form.dataRef ?? ''} onChange={v => update({ dataRef: v })} keyboardType="numeric" placeholder="2026-10-05" />
+        <Field label="Data de referência (DD/MM/AAAA)" value={maskDateBR(form.dataRef ?? '')} onChange={v => update({ dataRef: maskDateBR(v) })} keyboardType="numeric" placeholder="05/10/2026" maxLength={10} />
 
         <Text style={styles.sectionLabel}>Nesta data eu estava...</Text>
         <View style={styles.tratRow}>
@@ -129,11 +139,11 @@ export default function EscalaConfig() {
   );
 }
 
-function Field({ label, value, onChange, keyboardType, placeholder }: { label: string; value: string; onChange: (v: string) => void; keyboardType?: any; placeholder?: string }) {
+function Field({ label, value, onChange, keyboardType, placeholder, maxLength }: { label: string; value: string; onChange: (v: string) => void; keyboardType?: any; placeholder?: string; maxLength?: number }) {
   return (
     <View style={fStyles.wrap}>
       <Text style={fStyles.label}>{label}</Text>
-      <TextInput style={fStyles.input} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.mutedDim} keyboardType={keyboardType} />
+      <TextInput style={fStyles.input} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.mutedDim} keyboardType={keyboardType} maxLength={maxLength} />
     </View>
   );
 }

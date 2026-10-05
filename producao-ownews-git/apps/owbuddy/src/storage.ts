@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EscalaConfig, Certificado, ChecklistData, Viagem, BuddyPrefs } from '@owbuddy/domain';
+import type { City } from './cities';
 
 // Storage keys — must match OWNews localStorage keys for future Supabase sync
 const KEYS = {
@@ -8,6 +9,7 @@ const KEYS = {
   CHECKLIST: 'ownews_checklist_mala',
   VIAGEM:    'ownews_minha_viagem',
   BUDDY:     'ownews_buddy_prefs',
+  CITY:      'owbuddy_city_pref',
 } as const;
 
 async function get<T>(key: string): Promise<T | null> {
@@ -80,4 +82,13 @@ export async function getBuddyPrefs(): Promise<BuddyPrefs> {
 
 export async function setBuddyPrefs(prefs: BuddyPrefs): Promise<void> {
   await set(KEYS.BUDDY, { ...prefs, updated_at: new Date().toISOString() });
+}
+
+// City preference (no GPS required)
+export async function getCityPref(): Promise<City | null> {
+  return get<City>(KEYS.CITY);
+}
+
+export async function setCityPref(city: City): Promise<void> {
+  await set(KEYS.CITY, city);
 }

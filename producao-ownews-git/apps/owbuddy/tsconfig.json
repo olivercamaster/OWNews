@@ -7,7 +7,9 @@
     "paths": {
       "@owbuddy/domain": ["../../packages/ow-domain/src/index.ts"],
       "@owbuddy/domain/*": ["../../packages/ow-domain/src/*"],
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@expo/vector-icons": ["../../node_modules/@expo/vector-icons"],
+      "@expo/vector-icons/*": ["../../node_modules/@expo/vector-icons/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"]
