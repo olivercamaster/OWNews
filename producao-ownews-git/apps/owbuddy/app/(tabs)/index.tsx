@@ -187,11 +187,6 @@ export default function TelaHoje() {
               <View style={[styles.momentoChip, { borderColor: accentColor }]}>
                 <Text style={[styles.momentoChipText, { color: accentColor }]}>
                   {MOMENTO_CHIP[momento.tipo]}
-                  {momento.diasEmbarque != null
-                    ? ` · ${momento.diasEmbarque}d para embarque`
-                    : momento.diasDesembarque != null
-                    ? ` · ${momento.diasDesembarque}d para desembarque`
-                    : ''}
                 </Text>
               </View>
             )}
@@ -242,7 +237,7 @@ export default function TelaHoje() {
         ) : null}
 
         {/* ── Escala: 3 estados (SEM_ESCALA / DE_FOLGA / EMBARCADO) ── */}
-        <HomeEscalaCard resumo={resumo} aeroporto={aeroporto} checklist={checkCount} />
+        <HomeEscalaCard resumo={resumo} aeroporto={aeroporto} />
 
         {/* ── Ações principais (list rows — não card soup) ── */}
         <Text style={styles.sectionLabel}>Meu painel</Text>
@@ -380,11 +375,9 @@ export default function TelaHoje() {
 function HomeEscalaCard({
   resumo,
   aeroporto,
-  checklist,
 }: {
   resumo: EscalaResumo;
   aeroporto?: AeroportoEscala;
-  checklist: { total: number; feitos: number; pendentes: number } | null;
 }) {
   if (resumo.estado === 'SEM_ESCALA' || !resumo.calc) {
     return (
@@ -448,19 +441,6 @@ function HomeEscalaCard({
       <View style={styles.escalaProgress}>
         <View style={[styles.escalaFill, { width: `${Math.round(resumo.progresso * 100)}%` as `${number}%`, backgroundColor: colors.amber }]} />
       </View>
-      {checklist && (
-        <TouchableOpacity style={styles.escalaChecklistRow} onPress={() => router.navigate('/mala')} hitSlop={6}>
-          <Ionicons
-            name={checklist.pendentes === 0 ? 'checkmark-circle' : 'checkbox-outline'}
-            size={14}
-            color={checklist.pendentes === 0 ? colors.green : colors.cyanDim}
-          />
-          <Text style={styles.escalaChecklistText}>
-            Meu Embarque · {checklist.feitos}/{checklist.total} {checklist.feitos === 1 ? 'item pronto' : 'itens prontos'}
-          </Text>
-          <Ionicons name="chevron-forward" size={12} color={colors.mutedDim} />
-        </TouchableOpacity>
-      )}
     </TouchableOpacity>
   );
 }
@@ -685,8 +665,6 @@ const styles = StyleSheet.create({
   escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
   escalaProgress: { height: 4, backgroundColor: 'rgba(6, 28, 43, 0.6)', borderRadius: 2, overflow: 'hidden' },
   escalaFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
-  escalaChecklistRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
-  escalaChecklistText: { flex: 1, fontSize: 12, color: colors.muted },
 
   // Alert cards
   alertCard: {

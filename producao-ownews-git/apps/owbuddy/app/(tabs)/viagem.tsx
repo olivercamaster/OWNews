@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { TIPO_LABELS, TIPO_ICONS, getViagemRota } from '@owbuddy/domain';
 import type { Viagem, ViagemTipo } from '@owbuddy/domain';
 import { getViagem, setViagem, deleteViagem } from '../../src/storage';
-import { colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
 import { OWCard } from '../../src/components/OWCard';
 import { OWEmptyState } from '../../src/components/OWEmptyState';
@@ -222,10 +223,11 @@ function ViagemForm({
 }) {
   const tipo = form.tipo ?? 'AVIAO';
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const insets = useSafeAreaInsets();
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: 120 }]}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
 
         {/* Tipo */}
         <Text style={formStyles.sectionLabel}>Tipo de transporte</Text>

@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { calcCertStatus } from '@owbuddy/domain';
 import type { Certificado, CertCalc } from '@owbuddy/domain';
 import { getCerts, setCerts } from '../../src/storage';
-import { colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR, maskDateBR, parseDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
@@ -32,6 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default function MeusCerts() {
   const [certs, setCertsState] = useState<Certificado[]>([]);
   const [form, setForm] = useState<Partial<Certificado> | null>(null);
+  const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
     const c = await getCerts();
@@ -79,12 +81,14 @@ export default function MeusCerts() {
   };
 
   if (form !== null) return (
-    <CertForm
-      form={form.id ? { ...form, validade: formatDateBR(form.validade) || form.validade, emissao: formatDateBR(form.emissao) || form.emissao } : form}
-      onChange={setForm}
-      onSave={save}
-      onCancel={() => setForm(null)}
-    />
+    <OWBackground>
+      <CertForm
+        form={form.id ? { ...form, validade: formatDateBR(form.validade) || form.validade, emissao: formatDateBR(form.emissao) || form.emissao } : form}
+        onChange={setForm}
+        onSave={save}
+        onCancel={() => setForm(null)}
+      />
+    </OWBackground>
   );
 
   return (
@@ -93,7 +97,7 @@ export default function MeusCerts() {
       <FlatList
         data={certs}
         keyExtractor={c => c.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottomNavSpace(insets.bottom) }]}
         ListEmptyComponent={<EmptyState onAdd={() => setForm({})} />}
         renderItem={({ item }) => {
           const calc = calcCertStatus(item);
@@ -108,7 +112,7 @@ export default function MeusCerts() {
         }}
       />
       {certs.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={() => setForm({})}>
+        <TouchableOpacity style={[styles.fab, { bottom: bottomNavSpace(insets.bottom) - spacing.lg }]} onPress={() => setForm({})}>
           <Text style={styles.fabText}>+</Text>
         </TouchableOpacity>
       )}
@@ -204,6 +208,6 @@ const styles = StyleSheet.create({
   emptySub: { ...typography.small, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
   addBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   addBtnText: { color: colors.navy950, fontWeight: '700' },
-  fab: { position: 'absolute', bottom: spacing.xl, right: spacing.md, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center', elevation: 4 },
+  fab: { position: 'absolute', bottom: 80, right: spacing.md, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center', elevation: 4 },
   fabText: { fontSize: 28, fontWeight: '300', color: colors.navy950 },
 });

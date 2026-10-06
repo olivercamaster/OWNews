@@ -24,7 +24,8 @@ import {
 } from '@owbuddy/domain';
 import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain';
 import { getEscala, getChecklist, setChecklist } from '../../src/storage';
-import { colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
@@ -66,6 +67,7 @@ export default function MeuEmbarque() {
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
+  const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
     const [escala, checklist] = await Promise.all([getEscala(), getChecklist()]);
@@ -125,6 +127,7 @@ export default function MeuEmbarque() {
         sections={sections}
         keyExtractor={item => item.id}
         stickySectionHeadersEnabled={false}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottomNavSpace(insets.bottom) }]}
         ListHeaderComponent={
           <>
             {/* ── Próximo embarque ── */}
@@ -206,7 +209,6 @@ export default function MeuEmbarque() {
             </TouchableOpacity>
           </View>
         }
-        contentContainerStyle={styles.listContent}
       />
     </OWBackground>
   );
@@ -238,7 +240,7 @@ function MalaItem({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
-  listContent: { paddingBottom: 100 },
+  listContent: {},
 
   embarqueCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
