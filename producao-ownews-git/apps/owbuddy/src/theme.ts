@@ -147,11 +147,16 @@ export const maritime = {
   // Carta náutica ultra-suave: SÓ textura (curvas batimétricas orgânicas), nunca
   // grade, cruzamentos ou retas atravessando cards. ~3% percebido.
   bathymetryColor:   '#5fc4ee',
-  bathymetryOpacity: 0.035,
+  bathymetryOpacity: 0.030,
 
-  // Marca-d'água OWBuddy: tom sobre tom (tint), grande, quase subliminar (~2–3%).
-  watermarkTint:    '#7fd0f0',
-  watermarkOpacity: 0.028,
+  // Sonar náutico (círculos concêntricos) — complementar ao mascote, ainda mais discreto.
+  nauticalTint:    '#5aafc5',
+  nauticalOpacity: 0.016,
+
+  // Mascote OWBuddy "A" chevron — watermark principal, tom sobre tom.
+  // Grande, parcialmente cortado nas laterais. "Quando percebe, fica bonito."
+  watermarkTint:    '#62b5d2',
+  watermarkOpacity: 0.068,
 } as const;
 
 /** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */
