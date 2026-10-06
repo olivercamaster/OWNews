@@ -127,7 +127,7 @@ export default function MeuEmbarque() {
         sections={sections}
         keyExtractor={item => item.id}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={[styles.listContent, { paddingBottom: bottomNavSpace(insets.bottom) }]}
+        contentContainerStyle={[styles.listContent, { paddingTop: insets.top + spacing.md, paddingBottom: bottomNavSpace(insets.bottom) }]}
         ListHeaderComponent={
           <>
             {/* ── Próximo embarque ── */}

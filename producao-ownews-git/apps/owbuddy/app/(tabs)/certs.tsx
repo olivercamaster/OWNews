@@ -97,7 +97,7 @@ export default function MeusCerts() {
       <FlatList
         data={certs}
         keyExtractor={c => c.id}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomNavSpace(insets.bottom) }]}
+        contentContainerStyle={[styles.list, { paddingTop: insets.top + spacing.md, paddingBottom: bottomNavSpace(insets.bottom) }]}
         ListEmptyComponent={<EmptyState onAdd={() => setForm({})} />}
         renderItem={({ item }) => {
           const calc = calcCertStatus(item);

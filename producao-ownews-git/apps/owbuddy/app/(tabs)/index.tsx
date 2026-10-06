@@ -145,7 +145,10 @@ export default function TelaHoje() {
 
   // Reserva no fim do scroll para a nav flutuante nunca cobrir o último card (Android + iOS).
   const insets = useSafeAreaInsets();
-  const contentStyle = [styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }];
+  const contentStyle = [styles.content, {
+    paddingTop: insets.top + spacing.md,
+    paddingBottom: bottomNavSpace(insets.bottom),
+  }];
 
   if (!state) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
