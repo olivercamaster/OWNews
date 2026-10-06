@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { EscalaConfig, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria } from '@owbuddy/domain';
+import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria } from '@owbuddy/domain';
 import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope } from '@owbuddy/domain';
 import type { City } from './cities';
 
@@ -47,8 +47,15 @@ export async function getEscala(): Promise<EscalaConfig | null> {
   return normalizeEscalaConfig(raw);
 }
 
-export async function setEscala(cfg: EscalaConfig): Promise<void> {
-  await set(KEYS.ESCALA, toEscalaEnvelope(cfg));
+// Toda gravação vinda das telas é uma edição DESTE aparelho (origem 'dispositivo',
+// carimbo = agora). Só o sync grava com origem 'conta' e preserva o carimbo da nuvem —
+// assim a cópia local nunca "parece mais nova" do que realmente é.
+export async function setEscala(
+  cfg: EscalaConfig,
+  meta?: { origem?: EscalaOrigem; updatedAt?: string },
+): Promise<void> {
+  const origem = meta?.origem ?? 'dispositivo';
+  await set(KEYS.ESCALA, toEscalaEnvelope({ ...cfg, origem }, meta?.updatedAt));
 }
 
 export async function deleteEscala(): Promise<void> {

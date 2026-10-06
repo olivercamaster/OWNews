@@ -14,10 +14,12 @@
  */
 import type { BuddyPrefs, ChecklistData, Viagem } from '@owbuddy/domain';
 import {
+  carimboParaISO,
   carimboParaMs,
   escalaConfigParaNuvem,
   escolherEscalaDaNuvem,
   mesclarCertificados,
+  nuvemDeveSubstituirLocal,
   podeGravarEscalaNaNuvem,
 } from '@owbuddy/domain';
 import { getBuddyPrefs, getCerts, getChecklist, getEscala, getViagem, setBuddyPrefs, setCerts, setChecklist, setEscala } from './storage';
@@ -44,8 +46,12 @@ export async function pullFromServer(): Promise<void> {
   const nuvem = escolherEscalaDaNuvem(meta);
   if (nuvem) {
     const local = await getEscala();
-    if (!local || nuvem.at > carimboParaMs(local.updated_at)) {
-      await setEscala(nuvem.cfg);
+    // Regra pura do domínio (nuvemDeveSubstituirLocal): a conta só substitui a
+    // escala deste aparelho quando é ESTRITAMENTE mais nova. A cópia gravada
+    // carrega o carimbo da NUVEM (não "agora") e origem 'conta' — auditável na
+    // tela Minha Escala e nunca inflada para parecer uma edição recente.
+    if (nuvemDeveSubstituirLocal(local, nuvem)) {
+      await setEscala(nuvem.cfg, { origem: 'conta', updatedAt: carimboParaISO(nuvem.at) });
     }
   }
 
@@ -84,8 +90,10 @@ export async function pushToServer(): Promise<{ error: string | null }> {
   const patch: Record<string, unknown> = { updated_at: Date.now() };
 
   if (escala) {
-    // Legado Buddy (compatível com builds antigos) …
-    patch.ownews_minha_escala = { data: escala, updated_at: agora };
+    // Legado Buddy (compatível com builds antigos) — carimbo REAL da edição, não o
+    // instante do push: senão cada sync "renova" uma escala antiga e ela passa a
+    // vencer de uma edição mais recente feita em outro lugar.
+    patch.ownews_minha_escala = { data: escala, updated_at: escala.updated_at ?? agora };
     // … e o formato que o OWNews web lê — só quando não há escala mais nova na nuvem.
     if (podeGravarEscalaNaNuvem(escala, escolherEscalaDaNuvem(meta))) {
       patch.escala_config = escalaConfigParaNuvem(escala, escala.updated_at ?? agora);

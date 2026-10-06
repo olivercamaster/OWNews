@@ -71,7 +71,11 @@ export interface EscalaConfig {
   aeroporto?: string;   // ICAO code — e.g. 'SBME'
   excecoes?: Excecao[];
   updated_at?: string;  // ISO datetime, preenchido pelo storage
+  /** De onde veio a cópia local: editada neste aparelho ou puxada da conta OW. Auditoria. */
+  origem?: EscalaOrigem;
 }
+
+export type EscalaOrigem = 'dispositivo' | 'conta';
 
 /** Estado macro da escala — base dos 3 estados da Home e do Meu Embarque. */
 export type EscalaEstado = 'SEM_ESCALA' | 'DE_FOLGA' | 'EMBARCADO';

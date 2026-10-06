@@ -25,16 +25,18 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.cyan,
         tabBarInactiveTintColor: colors.mutedDim,
         tabBarStyle: {
-          // Floating glass bar
+          // Nav flutuante — quase opaca (contraste garantido), borda fina luminosa.
+          // As telas reservam `bottomNavSpace(insets.bottom)` no fim do scroll para
+          // que ela nunca cubra conteúdo (Android + iOS).
           position: 'absolute',
-          backgroundColor: 'rgba(6, 28, 43, 0.94)',
+          backgroundColor: maritime.navBg,
           borderTopWidth: 0,
           borderWidth: 1,
-          borderColor: maritime.glassBorder,
+          borderColor: maritime.navBorder,
           marginHorizontal: 16,
-          marginBottom: bottomSafe + 8,
+          marginBottom: bottomSafe + maritime.navMarginBottom,
           borderRadius: radius.xl,
-          height: 62,
+          height: maritime.navHeight,
           paddingBottom: 10,
           paddingTop: 8,
           paddingHorizontal: 8,

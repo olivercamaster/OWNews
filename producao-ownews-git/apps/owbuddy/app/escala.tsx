@@ -19,6 +19,7 @@ import {
   datasImportantesDoAno,
   hojeISO,
   msParaISO,
+  ESCALA_TIPOS,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig,
@@ -327,6 +328,15 @@ export default function EscalaScreen() {
           )}
         </View>
 
+        {/* ── Auditoria da config base (fonte de verdade de TODA a matemática acima) ── */}
+        <Text style={styles.auditLine} numberOfLines={2}>
+          Base: {ESCALA_TIPOS.find(t => t.value === config.tipo)?.label ?? config.tipo}
+          {config.tipo === 'custom' && config.diasEmbarcado && config.diasFolga ? ` (${config.diasEmbarcado}×${config.diasFolga})` : ''}
+          {' · '}{config.tipoRef === 'desembarquei' ? 'desembarquei' : 'embarquei'} em {formatDateBR(config.dataRef)}
+          {config.origem === 'conta' ? ' · da conta OW' : config.origem === 'dispositivo' ? ' · deste aparelho' : ''}
+          {config.updated_at ? ` · ${formatDateBR(config.updated_at)}` : ''}
+        </Text>
+
         {/* ── Action row ── */}
         <View style={styles.actionRow}>
           <ActionBtn icon="settings-outline"      label="Config"  onPress={() => router.push('/escala-config')} />
@@ -528,6 +538,7 @@ const styles = StyleSheet.create({
   heroBadge: { fontSize: 12, color: colors.cyanDim, fontWeight: '600' },
   progressBar: { height: 6, backgroundColor: colors.navy800, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 3 },
+  auditLine: { fontSize: 11, color: colors.mutedDim, marginTop: -spacing.sm, marginBottom: spacing.md, paddingHorizontal: 2 },
 
   // Actions
   actionRow: {

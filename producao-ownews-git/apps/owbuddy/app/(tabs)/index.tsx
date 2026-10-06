@@ -28,7 +28,8 @@ import {
 import type { EscalaConfig, EscalaResumo, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
 import type { AeroportoEscala } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
-import { colors, maritime, spacing, radius, typography, iconSize, surface } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, iconSize, surface } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
 import { saudacao, formatDateBR } from '../../src/format';
 import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
@@ -142,6 +143,10 @@ export default function TelaHoje() {
     setWeather(w);
   };
 
+  // Reserva no fim do scroll para a nav flutuante nunca cobrir o último card (Android + iOS).
+  const insets = useSafeAreaInsets();
+  const contentStyle = [styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }];
+
   if (!state) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const { escala, prefs, viagem, checklist, certs } = state;
@@ -163,7 +168,7 @@ export default function TelaHoje() {
     <OWBackground>
       <ScrollView
         style={styles.root}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={contentStyle}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.cyan} />}
       >
         {/* ── Offline banner ── */}
@@ -498,6 +503,7 @@ function OffshoreCard({ icon, label, onPress }: { icon: React.ComponentProps<typ
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
+  // paddingBottom real é calculado em runtime (bottomNavSpace) — este é só o fallback.
   content: { padding: spacing.md, paddingBottom: spacing.xxl + spacing.lg },
 
   // Offline
@@ -568,6 +574,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.cyan,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
+    ...maritime.cardShadow,
   },
   msgText: { ...typography.body, lineHeight: 22 },
 
@@ -620,6 +627,7 @@ const styles = StyleSheet.create({
   escalaCard: {
     backgroundColor: maritime.glassElevated, borderRadius: radius.md, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, borderColor: maritime.glassBorder, gap: spacing.sm,
+    ...maritime.cardShadow,
   },
   escalaCardEmbarcado: { borderColor: colors.green + '55' },
   escalaCardFolga: { borderColor: colors.amber + '44' },

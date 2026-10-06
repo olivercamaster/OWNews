@@ -93,6 +93,7 @@ function normalizarPlano(raw: Record<string, unknown>): EscalaConfig | null {
   const excecoes = normalizarExcecoes(raw.excecoes);
   if (excecoes.length) cfg.excecoes = excecoes;
   if (typeof raw.updated_at === 'string') cfg.updated_at = raw.updated_at;
+  if (raw.origem === 'dispositivo' || raw.origem === 'conta') cfg.origem = raw.origem;
   return cfg;
 }
 

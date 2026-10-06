@@ -16,12 +16,13 @@ import { calcularMomento, descreverMomento, AEROPORTOS_ESCALA, ESCALA_TIPOS } fr
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
-import { formatDateBR, maskDateBR, parseDateBR } from '../src/format';
+import { formatDateBR, isValidDateBR, maskDateBR, parseDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
 
 export default function EscalaConfigScreen() {
   const [form, setForm] = useState<Partial<EscalaConfig>>({ tipo: '14x14', tipoRef: 'embarquei' });
   const [preview, setPreview] = useState('');
+  const [erro, setErro] = useState('');
 
   useFocusEffect(useCallback(() => {
     getEscala().then(cfg => {
@@ -34,6 +35,7 @@ export default function EscalaConfigScreen() {
   const update = (partial: Partial<EscalaConfig>) => {
     const updated = { ...form, ...partial };
     setForm(updated);
+    setErro('');
     const isoDataRef = updated.dataRef ? parseDateBR(updated.dataRef) : undefined;
     if (updated.tipo && isoDataRef && updated.tipoRef) {
       try {
@@ -45,11 +47,14 @@ export default function EscalaConfigScreen() {
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
-    const isoDataRef = parseDateBR(form.dataRef);
-    if (!isoDataRef) return;
+    // Nunca falhar em silêncio: a escala antiga continuaria valendo sem o usuário saber.
+    const isoDataRef = isValidDateBR(form.dataRef) ? parseDateBR(form.dataRef) : null;
+    if (!isoDataRef) { setErro('Data inválida. Use DD/MM/AAAA (ex: 12/10/2026).'); return; }
     const existing = await getEscala();
+    // Só os campos editáveis entram — carimbo/origem são do storage (edição deste aparelho = agora).
+    const { updated_at: _u, origem: _o, ...editavel } = form;
     const isoConfig: EscalaConfig = {
-      ...form,
+      ...editavel,
       dataRef: isoDataRef,
       // Exceções (dobras/férias) são editadas no hub — preservar sempre
       excecoes: existing?.excecoes ?? [],
@@ -141,6 +146,8 @@ export default function EscalaConfigScreen() {
           </Text>
         </View>
 
+        {erro ? <Text style={styles.erroText}>{erro}</Text> : null}
+
         <TouchableOpacity
           style={[styles.saveBtn, (!form.tipo || !form.dataRef || !form.tipoRef) && styles.saveBtnDisabled]}
           onPress={save}
@@ -229,5 +236,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.4 },
+  erroText: { ...typography.small, color: colors.red, marginBottom: spacing.sm },
   saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
 });

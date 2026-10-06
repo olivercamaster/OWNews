@@ -112,19 +112,49 @@ export const screen = {
 // Glassmorphism cards over the premium navy gradient background.
 // Never add opacity tokens inside StyleSheet.create() — keep them here.
 export const maritime = {
-  // Background gradient stops (top → bottom)
-  bgGradient: ['#061c2b', '#07223a', '#0a2c40', '#061c2b'] as string[],
-  bgLocations: [0, 0.3, 0.7, 1] as number[],
+  // Gradiente premium (topo → base): navy profundo → petróleo/naval → navy profundo.
+  // Variação de luminosidade real, não um bloco azul chapado.
+  bgGradient: ['#04121d', '#06243a', '#083247', '#06273c', '#041622'] as string[],
+  bgLocations: [0, 0.28, 0.55, 0.80, 1] as number[],
+  // Brilho diagonal (luz vinda do canto superior esquerdo) e sombra de profundidade na base.
+  // Ambos são LinearGradient — zero blur, zero custo de GPU relevante.
+  glowGradient:  ['rgba(32, 150, 200, 0.16)', 'rgba(32, 150, 200, 0.05)', 'rgba(32, 150, 200, 0)'] as string[],
+  glowLocations: [0, 0.45, 0.85] as number[],
+  depthGradient: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.22)'] as string[],
 
-  // Glass cards — navy with controlled transparency
-  glass:        'rgba(10, 44, 64, 0.72)',
-  glassElevated:'rgba(14, 52, 80, 0.82)',
-  glassBorder:  'rgba(22, 68, 94, 0.55)',
+  // Cards — LEITURA > EFEITO GLASS. Superfície quase opaca, um tom mais clara que o
+  // fundo (lê como camada acima), borda fina luminosa, sem blur.
+  glass:        'rgba(16, 58, 84, 0.92)',
+  glassElevated:'rgba(20, 68, 98, 0.95)',
+  glassBorder:  'rgba(120, 200, 240, 0.14)',
   glassActive:  'rgba(18, 168, 238, 0.18)',
   glassBorderActive: 'rgba(18, 168, 238, 0.40)',
+  // Elevação discreta para os cards principais (escala, mensagem do Buddy)
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
+  },
 
-  // Watermark opacity — mascot behind content
-  watermarkOpacity: 0.055,
-  // Nautical decoration opacity
-  nauticalOpacity: 0.045,
+  // Nav flutuante — contraste garantido sobre qualquer trecho do gradiente
+  navBg:           'rgba(4, 18, 30, 0.97)',
+  navBorder:       'rgba(120, 200, 240, 0.16)',
+  navHeight:       62,
+  navMarginBottom: 8,
+
+  // Carta náutica ultra-suave: SÓ textura (curvas batimétricas orgânicas), nunca
+  // grade, cruzamentos ou retas atravessando cards. ~3% percebido.
+  bathymetryColor:   '#5fc4ee',
+  bathymetryOpacity: 0.035,
+
+  // Marca-d'água OWBuddy: tom sobre tom (tint), grande, quase subliminar (~2–3%).
+  watermarkTint:    '#7fd0f0',
+  watermarkOpacity: 0.028,
 } as const;
+
+/** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */
+export function bottomNavSpace(bottomInset: number): number {
+  return maritime.navHeight + maritime.navMarginBottom + Math.max(bottomInset, 8) + spacing.lg;
+}

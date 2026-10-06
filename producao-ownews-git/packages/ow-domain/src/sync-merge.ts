@@ -52,6 +52,31 @@ export function escolherEscalaDaNuvem(meta: Record<string, unknown> | null | und
   return candidatos.reduce((a, b) => (b.at > a.at ? b : a));
 }
 
+/** ms → ISO datetime; 0/inválido → undefined (sem carimbo). */
+export function carimboParaISO(ms: number): string | undefined {
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : undefined;
+}
+
+/**
+ * A escala da nuvem deve SUBSTITUIR a cópia local?
+ *
+ *  - sem escala local            → sim (primeiro login)
+ *  - local sem carimbo           → NÃO (princípio: sem carimbo comparável, local vence;
+ *                                   uma escala configurada neste aparelho nunca é
+ *                                   silenciosamente trocada por uma cópia antiga da conta)
+ *  - ambos carimbados            → só se a nuvem for ESTRITAMENTE mais nova
+ *
+ * Regra pura — é ela (e não a tela) que decide quem é a fonte de verdade da
+ * Minha Escala, Home, Meu Embarque e calendário após um sync.
+ */
+export function nuvemDeveSubstituirLocal(local: EscalaConfig | null | undefined, nuvem: EscalaNuvem | null | undefined): boolean {
+  if (!nuvem) return false;
+  if (!local) return true;
+  const localAt = carimboParaMs(local.updated_at);
+  if (localAt <= 0) return false;
+  return nuvem.at > localAt;
+}
+
 /** Payload que o web lê em `user_metadata.escala_config`. */
 export function escalaConfigParaNuvem(cfg: EscalaConfig, salvoEm: string = new Date().toISOString()): Record<string, unknown> {
   return { ...toWebEscalaConfig(cfg), salvo_em: salvoEm };
