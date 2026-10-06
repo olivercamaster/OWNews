@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria } from '@owbuddy/domain';
+import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria, EventoPessoal } from '@owbuddy/domain';
 import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope } from '@owbuddy/domain';
 import type { City } from './cities';
 
@@ -14,6 +14,7 @@ export const KEYS = {
   CITY:             'owbuddy_city_pref',
   DATAS_PESSOAIS:   'ownews_minha_escala_datas_pessoais',
   VIAGENS_FOLGA:    'owbuddy_viagens_folga',
+  EVENTOS_PESSOAIS: 'owbuddy_eventos_pessoais',
   ESCALAS_CRUZAR:  'ownews_cruzar_v2',
 } as const;
 
@@ -121,13 +122,39 @@ export async function setDatasPessoais(datas: DataPessoal[]): Promise<void> {
   await set(KEYS.DATAS_PESSOAIS, datas);
 }
 
-// Viagens na folga
+// Viagens na folga (mantido para compatibilidade com sync OWNews web)
 export async function getViagensFolga(): Promise<ViagemFolga[]> {
   return (await get<ViagemFolga[]>(KEYS.VIAGENS_FOLGA)) ?? [];
 }
 
 export async function setViagensFolga(viagens: ViagemFolga[]): Promise<void> {
   await set(KEYS.VIAGENS_FOLGA, viagens);
+}
+
+// Eventos pessoais unificados (VIAGEM, CURSO, DATA_ESPECIAL, COMPROMISSO, OUTRO).
+// Na primeira leitura, migra automaticamente datas pessoais + viagens folga do formato legado.
+export async function getEventosPessoais(): Promise<EventoPessoal[]> {
+  const stored = await get<EventoPessoal[]>(KEYS.EVENTOS_PESSOAIS);
+  if (stored !== null) return stored.filter(e => !e._deleted);
+
+  // Migração única: converte dados legados em EventoPessoal
+  const [datas, viagens] = await Promise.all([
+    get<DataPessoal[]>(KEYS.DATAS_PESSOAIS),
+    get<ViagemFolga[]>(KEYS.VIAGENS_FOLGA),
+  ]);
+  const migrated: EventoPessoal[] = [];
+  for (const d of datas ?? []) {
+    migrated.push({ id: d.id, tipo: 'DATA_ESPECIAL', nome: d.nome, data_ini: d.start_date, data_fim: d.end_date });
+  }
+  for (const v of viagens ?? []) {
+    migrated.push({ id: v.id, tipo: 'VIAGEM', nome: v.destino, data_ini: v.data_ini, data_fim: v.data_fim, destino: v.destino, obs: v.obs });
+  }
+  await set(KEYS.EVENTOS_PESSOAIS, migrated);
+  return migrated.filter(e => !e._deleted);
+}
+
+export async function setEventosPessoais(eventos: EventoPessoal[]): Promise<void> {
+  await set(KEYS.EVENTOS_PESSOAIS, eventos);
 }
 
 // Escalas secundárias para cruzar — aceita também o formato do OWNews web

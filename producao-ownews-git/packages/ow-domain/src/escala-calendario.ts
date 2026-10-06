@@ -1,4 +1,4 @@
-import type { EscalaConfig, Excecao, DataPessoal, ViagemFolga, DayInfo, DayKind, FeriadoBR } from './types';
+import type { EscalaConfig, Excecao, EventoPessoal, DayInfo, DayKind, FeriadoBR } from './types';
 import { calcEscala, hojeISO } from './escala';
 
 // Algoritmo de Gauss/Meeus — idêntico ao OWNews worker.js linha 15980
@@ -95,14 +95,12 @@ function kindParaDia(
 export function infoParaDia(
   config: EscalaConfig,
   excecoes: Excecao[],
-  datasPessoais: DataPessoal[],
-  viagensFolga: ViagemFolga[],
+  eventosPessoais: EventoPessoal[],
   iso: string,
   todayISO: string,
 ): DayInfo {
   const { kind, diaDoBloco, isEmbarque, isDesembarque } = kindParaDia(config, excecoes, iso);
 
-  // Feriado para este dia
   const ano = parseInt(iso.slice(0, 4));
   const feriado = datasImportantesDoAno(ano).find(f => msParaISO(f.data) === iso);
 
@@ -114,8 +112,9 @@ export function infoParaDia(
     diaDoBloco,
     feriado,
     excecao: excecoes.find(e => iso >= e.ini && iso <= e.fim),
-    datasPessoais: datasPessoais.filter(d => iso >= d.start_date && iso <= (d.end_date ?? d.start_date)),
-    viagensFolga: viagensFolga.filter(v => iso >= v.data_ini && iso <= v.data_fim),
+    eventosPessoais: eventosPessoais.filter(
+      e => !e._deleted && iso >= e.data_ini && iso <= (e.data_fim ?? e.data_ini),
+    ),
     isHoje: iso === todayISO,
   };
 }
@@ -123,8 +122,7 @@ export function infoParaDia(
 export function gerarMesDias(
   config: EscalaConfig,
   excecoes: Excecao[],
-  datasPessoais: DataPessoal[],
-  viagensFolga: ViagemFolga[],
+  eventosPessoais: EventoPessoal[],
   ano: number,
   mes: number,  // 1–12
   todayISO: string = hojeISO(),
@@ -133,7 +131,7 @@ export function gerarMesDias(
   const result: DayInfo[] = [];
   for (let d = 1; d <= diasNoMes; d++) {
     const iso = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    result.push(infoParaDia(config, excecoes, datasPessoais, viagensFolga, iso, todayISO));
+    result.push(infoParaDia(config, excecoes, eventosPessoais, iso, todayISO));
   }
   return result;
 }

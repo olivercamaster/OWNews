@@ -24,6 +24,24 @@ export interface ViagemFolga {
   obs?: string;
 }
 
+export type EventoTipo = 'VIAGEM' | 'CURSO' | 'DATA_ESPECIAL' | 'COMPROMISSO' | 'OUTRO';
+
+export interface EventoPessoal {
+  id: string;
+  tipo: EventoTipo;
+  nome: string;
+  data_ini: string;   // YYYY-MM-DD
+  data_fim?: string;  // YYYY-MM-DD
+  hora_ini?: string;  // HH:mm
+  hora_fim?: string;  // HH:mm
+  local?: string;
+  instituicao?: string;
+  destino?: string;
+  obs?: string;
+  updated_at?: string;
+  _deleted?: boolean;
+}
+
 export interface EscalaSecundaria {
   id: string;
   nome: string;
@@ -51,8 +69,7 @@ export interface DayInfo {
   diaDoBloco: number;
   feriado?: FeriadoBR;
   excecao?: Excecao;
-  datasPessoais: DataPessoal[];
-  viagensFolga: ViagemFolga[];
+  eventosPessoais: EventoPessoal[];
   isHoje: boolean;
 }
 

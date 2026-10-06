@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   Modal,
   Pressable,
@@ -24,18 +25,16 @@ import {
 import type {
   EscalaConfig,
   Excecao,
-  DataPessoal,
-  ViagemFolga,
+  EventoPessoal,
+  EventoTipo,
   DayInfo,
   DayKind,
 } from '@owbuddy/domain';
 import {
   getEscala,
   setEscala,
-  getDatasPessoais,
-  setDatasPessoais,
-  getViagensFolga,
-  setViagensFolga,
+  getEventosPessoais,
+  setEventosPessoais,
 } from '../src/storage';
 import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
 import { OWBackground } from '../src/components/OWBackground';
@@ -55,6 +54,14 @@ const KIND_STYLE: Record<DayKind, { bg: string; text: string; border?: string }>
   SEM_ESCALA: { bg: 'transparent', text: colors.mutedDim },
 };
 
+const TIPO_META: Record<EventoTipo, { icon: IoniconsName; color: string; label: string }> = {
+  VIAGEM:       { icon: 'airplane-outline',                   color: colors.cyan,     label: 'Viagem'       },
+  CURSO:        { icon: 'school-outline',                     color: colors.amber,    label: 'Curso'        },
+  DATA_ESPECIAL:{ icon: 'star-outline',                       color: '#ce93d8',       label: 'Data Especial'},
+  COMPROMISSO:  { icon: 'calendar-outline',                   color: colors.orange,   label: 'Compromisso'  },
+  OUTRO:        { icon: 'ellipsis-horizontal-circle-outline', color: colors.mutedDim, label: 'Outro'        },
+};
+
 const { width: SCREEN_W } = Dimensions.get('window');
 const CELL_SIZE = Math.floor((SCREEN_W - spacing.md * 2 - 6) / 7);
 
@@ -64,11 +71,23 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return result;
 }
 
+// Ícones únicos por tipo de evento presentes no dia (sem repetição)
+function EventDots({ eventos }: { eventos: EventoPessoal[] }) {
+  const tipos = [...new Set(eventos.map(e => e.tipo))];
+  if (tipos.length === 0) return null;
+  return (
+    <View style={styles.iconRow}>
+      {tipos.slice(0, 3).map(t => {
+        const m = TIPO_META[t];
+        return <Ionicons key={t} name={m.icon} size={7} color={m.color} />;
+      })}
+    </View>
+  );
+}
+
 function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
-  const hasMarkers = !!(day.feriado || day.datasPessoais.length || day.viagensFolga.length);
-  // Embarque = bright emerald (distingue dos demais dias embarcados); Desembarque = âmbar
   const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
   return (
     <TouchableOpacity
@@ -77,20 +96,14 @@ function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
         { backgroundColor: s.bg, borderColor: s.border ?? 'transparent', width: CELL_SIZE, height: CELL_SIZE },
       ]}
       onPress={onPress}
-      activeOpacity={hasMarkers || day.kind !== 'SEM_ESCALA' ? 0.7 : 1}
+      activeOpacity={0.7}
     >
-      {/* Micro-label de transição — posição absoluta no topo, não desloca o número */}
       {day.isEmbarque && (
-        <View style={styles.transitionTag}>
-          <Text style={styles.embarqueTagText}>↓EMB</Text>
-        </View>
+        <View style={styles.transitionTag}><Text style={styles.embarqueTagText}>↓EMB</Text></View>
       )}
       {day.isDesembarque && (
-        <View style={styles.transitionTag}>
-          <Text style={styles.desembarqueTagText}>↑DSM</Text>
-        </View>
+        <View style={styles.transitionTag}><Text style={styles.desembarqueTagText}>↑DSM</Text></View>
       )}
-      {/* Número do dia — HOJE recebe anel branco neutro (estado de navegação, não evento) */}
       {day.isHoje ? (
         <View style={styles.hojeRing}>
           <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
@@ -98,26 +111,27 @@ function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
       ) : (
         <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
       )}
-      <View style={styles.dotRow}>
-        {day.feriado?.tipo === 'feriado' && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
+      <View style={styles.iconRow}>
+        {day.feriado?.tipo === 'feriado'     && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
         {day.feriado?.tipo === 'comemorativa' && <View style={[styles.dot, { backgroundColor: colors.mutedDim }]} />}
-        {day.datasPessoais.length > 0 && <View style={[styles.dot, { backgroundColor: '#ce93d8' }]} />}
-        {day.viagensFolga.length > 0 && <View style={[styles.dot, { backgroundColor: colors.cyan }]} />}
+        {[...new Set(day.eventosPessoais.map(e => e.tipo))].slice(0, 3).map(t => {
+          const m = TIPO_META[t];
+          return <Ionicons key={t} name={m.icon} size={7} color={m.color} />;
+        })}
       </View>
     </TouchableOpacity>
   );
 }
 
-function CalendarMonth({ config, excecoes, datasPessoais, viagensFolga, ano, mes, onDayPress }: {
+function CalendarMonth({ config, excecoes, eventosPessoais, ano, mes, onDayPress }: {
   config: EscalaConfig;
   excecoes: Excecao[];
-  datasPessoais: DataPessoal[];
-  viagensFolga: ViagemFolga[];
+  eventosPessoais: EventoPessoal[];
   ano: number;
   mes: number;
   onDayPress: (day: DayInfo) => void;
 }) {
-  const dias = gerarMesDias(config, excecoes, datasPessoais, viagensFolga, ano, mes, hojeISO());
+  const dias = gerarMesDias(config, excecoes, eventosPessoais, ano, mes, hojeISO());
   const firstDow = new Date(Date.UTC(ano, mes - 1, 1)).getUTCDay();
   const cells: (DayInfo | null)[] = [...Array(firstDow).fill(null), ...dias];
   while (cells.length % 7 !== 0) cells.push(null);
@@ -144,73 +158,124 @@ function CalendarMonth({ config, excecoes, datasPessoais, viagensFolga, ano, mes
   );
 }
 
-function DayDetailModal({ day, onClose }: { day: DayInfo | null; onClose: () => void }) {
+// Bottom sheet deslizante — sem dependências nativas
+function DayBottomSheet({
+  day,
+  onClose,
+  onAddEvento,
+  onEditEvento,
+  onDeleteEvento,
+}: {
+  day: DayInfo | null;
+  onClose: () => void;
+  onAddEvento: (iso: string) => void;
+  onEditEvento: (ev: EventoPessoal) => void;
+  onDeleteEvento: (id: string) => void;
+}) {
+  const translateY = useRef(new Animated.Value(400)).current;
+
+  const open = useCallback(() => {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+  }, [translateY]);
+
+  const close = useCallback(() => {
+    Animated.timing(translateY, { toValue: 400, duration: 220, useNativeDriver: true }).start(onClose);
+  }, [translateY, onClose]);
+
+  useFocusEffect(useCallback(() => { if (day) open(); }, [day, open]));
+
   if (!day) return null;
+
   const kindLabel: Record<DayKind, string> = {
-    EMBARCADO:  'Embarcado',
-    FOLGA:      'De folga',
-    DOBRA:      'Dobra',
-    FERIAS:     'Férias',
-    SEM_ESCALA: '—',
+    EMBARCADO: 'Embarcado', FOLGA: 'De folga', DOBRA: 'Dobra', FERIAS: 'Férias', SEM_ESCALA: '—',
   };
   const kindColor: Record<DayKind, string> = {
-    EMBARCADO:  '#4caf50',
-    FOLGA:      colors.muted,
-    DOBRA:      '#ffc107',
-    FERIAS:     '#7986cb',
-    SEM_ESCALA: colors.mutedDim,
+    EMBARCADO: '#4caf50', FOLGA: colors.muted, DOBRA: '#ffc107', FERIAS: '#7986cb', SEM_ESCALA: colors.mutedDim,
   };
   const [d, m, y] = [day.iso.slice(8), day.iso.slice(5, 7), day.iso.slice(0, 4)];
+
   return (
-    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.detailCard} onPress={() => {}}>
-          <View style={styles.detailHeader}>
-            <Text style={styles.detailDate}>{d}/{m}/{y}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Ionicons name="close" size={20} color={colors.muted} />
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.detailKindRow, { borderColor: kindColor[day.kind] + '44' }]}>
-            <View style={[styles.detailKindDot, { backgroundColor: kindColor[day.kind] }]} />
-            <Text style={[styles.detailKindText, { color: kindColor[day.kind] }]}>
-              {kindLabel[day.kind]}
-              {day.kind !== 'SEM_ESCALA' ? ` · dia ${day.diaDoBloco}` : ''}
-            </Text>
-          </View>
-          {day.isEmbarque && (
-            <View style={styles.detailRow}>
-              <Ionicons name="airplane" size={14} color={colors.green} />
-              <Text style={[styles.detailRowText, { color: colors.green }]}>Dia de embarque</Text>
+    <Modal transparent animationType="none" visible onRequestClose={close}>
+      <Pressable style={styles.sheetOverlay} onPress={close}>
+        <Animated.View style={[styles.sheetContainer, { transform: [{ translateY }] }]}>
+          <Pressable onPress={() => {}}>
+            {/* Handle */}
+            <View style={styles.sheetHandle} />
+
+            {/* Data + status */}
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetDate}>{d}/{m}/{y}</Text>
+                <View style={[styles.kindPill, { borderColor: kindColor[day.kind] + '55' }]}>
+                  <View style={[styles.kindDot, { backgroundColor: kindColor[day.kind] }]} />
+                  <Text style={[styles.kindText, { color: kindColor[day.kind] }]}>
+                    {kindLabel[day.kind]}{day.kind !== 'SEM_ESCALA' ? ` · dia ${day.diaDoBloco}` : ''}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.addEventoBtn}
+                onPress={() => { close(); setTimeout(() => onAddEvento(day.iso), 240); }}
+              >
+                <Ionicons name="add" size={16} color={colors.navy950} />
+                <Text style={styles.addEventoBtnText}>Evento</Text>
+              </TouchableOpacity>
             </View>
-          )}
-          {day.isDesembarque && (
-            <View style={styles.detailRow}>
-              <Ionicons name="airplane" size={14} color={colors.amber} style={{ transform: [{ rotate: '180deg' }] }} />
-              <Text style={[styles.detailRowText, { color: colors.amber }]}>Dia de desembarque</Text>
-            </View>
-          )}
-          {day.feriado && (
-            <View style={styles.detailRow}>
-              <Ionicons name="flag-outline" size={14} color={colors.amber} />
-              <Text style={styles.detailRowText}>{day.feriado.nome}</Text>
-              <Text style={styles.detailRowSub}>{day.feriado.tipo === 'comemorativa' ? 'comemorativa' : 'feriado'}</Text>
-            </View>
-          )}
-          {day.datasPessoais.map(dp => (
-            <View key={dp.id} style={styles.detailRow}>
-              <Ionicons name="star-outline" size={14} color="#ce93d8" />
-              <Text style={styles.detailRowText}>{dp.nome}</Text>
-            </View>
-          ))}
-          {day.viagensFolga.map(v => (
-            <View key={v.id} style={styles.detailRow}>
-              <Ionicons name="briefcase-outline" size={14} color={colors.cyan} />
-              <Text style={styles.detailRowText}>{v.destino}</Text>
-              {v.obs ? <Text style={styles.detailRowSub}>{v.obs}</Text> : null}
-            </View>
-          ))}
-        </Pressable>
+
+            {/* Transições */}
+            {day.isEmbarque && (
+              <View style={styles.sheetRow}>
+                <Ionicons name="airplane" size={14} color={colors.green} />
+                <Text style={[styles.sheetRowText, { color: colors.green }]}>Dia de embarque</Text>
+              </View>
+            )}
+            {day.isDesembarque && (
+              <View style={styles.sheetRow}>
+                <Ionicons name="airplane" size={14} color={colors.amber} style={{ transform: [{ rotate: '180deg' }] }} />
+                <Text style={[styles.sheetRowText, { color: colors.amber }]}>Dia de desembarque</Text>
+              </View>
+            )}
+
+            {/* Feriado */}
+            {day.feriado && (
+              <View style={styles.sheetRow}>
+                <Ionicons name="flag-outline" size={14} color={colors.orange} />
+                <Text style={styles.sheetRowText}>{day.feriado.nome}</Text>
+                <Text style={styles.sheetRowSub}>{day.feriado.tipo === 'comemorativa' ? 'comemorativa' : 'feriado'}</Text>
+              </View>
+            )}
+
+            {/* Eventos pessoais */}
+            {day.eventosPessoais.map(ev => {
+              const m = TIPO_META[ev.tipo];
+              return (
+                <View key={ev.id} style={styles.sheetRow}>
+                  <Ionicons name={m.icon} size={14} color={m.color} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sheetRowText}>{ev.nome}</Text>
+                    {ev.hora_ini && (
+                      <Text style={styles.sheetRowSub}>{ev.hora_ini}{ev.hora_fim ? ` → ${ev.hora_fim}` : ''}</Text>
+                    )}
+                    {ev.obs && <Text style={styles.sheetRowSub}>{ev.obs}</Text>}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => { close(); setTimeout(() => onEditEvento(ev), 240); }}
+                    hitSlop={10}
+                  >
+                    <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => onDeleteEvento(ev.id)} hitSlop={10} style={{ marginLeft: 6 }}>
+                    <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            {day.eventosPessoais.length === 0 && day.kind === 'SEM_ESCALA' && !day.feriado && (
+              <Text style={styles.sheetEmpty}>Nenhum evento neste dia.</Text>
+            )}
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -218,25 +283,25 @@ function DayDetailModal({ day, onClose }: { day: DayInfo | null; onClose: () => 
 
 export default function EscalaScreen() {
   const [config, setConfig] = useState<EscalaConfig | null>(null);
-  const [datasPessoais, setDPState] = useState<DataPessoal[]>([]);
-  const [viagensFolga, setVFState] = useState<ViagemFolga[]>([]);
+  const [eventosPessoais, setEPState] = useState<EventoPessoal[]>([]);
   const [viewMes, setViewMes] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
 
+  const load = useCallback(async () => {
+    const [cfg, ep] = await Promise.all([getEscala(), getEventosPessoais()]);
+    setConfig(cfg);
+    setEPState(ep);
+  }, []);
+
   useFocusEffect(useCallback(() => {
     analytics.screen('escala');
-    Promise.all([getEscala(), getDatasPessoais(), getViagensFolga()]).then(([cfg, dp, vf]) => {
-      setConfig(cfg);
-      setDPState(dp);
-      setVFState(vf);
-    });
-  }, []));
+    load();
+  }, [load]));
 
   const excecoes = config?.excecoes ?? [];
   const resumo = resumoEscala(config);
   const calc = resumo.calc;
   const aeroporto = config?.aeroporto ? getAeroporto(config.aeroporto) : undefined;
-  const hoje = resumo.hojeISO;
   const { proximoEmbarqueISO, proximoDesembarqueISO } = resumo;
 
   const navMes = (delta: number) => {
@@ -256,16 +321,19 @@ export default function EscalaScreen() {
     setConfig(updated);
   };
 
-  const removeDataPessoal = async (id: string) => {
-    const updated = datasPessoais.filter(d => d.id !== id);
-    await setDatasPessoais(updated);
-    setDPState(updated);
-  };
-
-  const removeViagemFolga = async (id: string) => {
-    const updated = viagensFolga.filter(v => v.id !== id);
-    await setViagensFolga(updated);
-    setVFState(updated);
+  const deleteEvento = async (id: string) => {
+    const all = await getEventosPessoais();
+    const updated = all.map(e => e.id === id ? { ...e, _deleted: true, updated_at: new Date().toISOString() } : e);
+    await setEventosPessoais(updated);
+    const fresh = updated.filter(e => !e._deleted);
+    setEPState(fresh);
+    // Atualiza o dia selecionado se o evento era dele
+    if (selectedDay) {
+      setSelectedDay(prev => prev ? {
+        ...prev,
+        eventosPessoais: prev.eventosPessoais.filter(e => e.id !== id),
+      } : null);
+    }
   };
 
   if (!config) {
@@ -283,7 +351,6 @@ export default function EscalaScreen() {
 
   const progressPct = resumo.progresso;
 
-  // Feriados no mês visível
   const feriadosDoMes = datasImportantesDoAno(viewMes.ano).filter(f => {
     const iso = msParaISO(f.data);
     return iso.slice(0, 7) === `${viewMes.ano}-${String(viewMes.mes).padStart(2, '0')}`;
@@ -346,7 +413,6 @@ export default function EscalaScreen() {
           )}
         </View>
 
-        {/* ── Auditoria da config base (fonte de verdade de TODA a matemática acima) ── */}
         <Text style={styles.auditLine} numberOfLines={2}>
           Base: {ESCALA_TIPOS.find(t => t.value === config.tipo)?.label ?? config.tipo}
           {config.tipo === 'custom' && config.diasEmbarcado && config.diasFolga ? ` (${config.diasEmbarcado}×${config.diasFolga})` : ''}
@@ -357,12 +423,11 @@ export default function EscalaScreen() {
 
         {/* ── Action row ── */}
         <View style={styles.actionRow}>
-          <ActionBtn icon="settings-outline"      label="Ajustes"  onPress={() => router.push('/escala-config')} />
-          <ActionBtn icon="add-circle-outline"    label="Dobra"   onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'dobra' } })} />
-          <ActionBtn icon="umbrella-outline"      label="Férias"  onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'ferias' } })} />
-          <ActionBtn icon="star-outline"          label="Data"    onPress={() => router.push('/escala-data-form')} />
-          <ActionBtn icon="airplane-outline"      label="Viagem"  onPress={() => router.push('/escala-viagem-form')} />
-          <ActionBtn icon="people-outline"        label="Cruzar"  onPress={() => router.push('/escala-cruzar')} />
+          <ActionBtn icon="settings-outline"   label="Ajustes"  onPress={() => router.push('/escala-config')} />
+          <ActionBtn icon="add-circle-outline"  label="Dobra"   onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'dobra' } })} />
+          <ActionBtn icon="umbrella-outline"    label="Férias"  onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'ferias' } })} />
+          <ActionBtn icon="calendar-outline"    label="Evento"  onPress={() => router.push('/escala-evento-form')} />
+          <ActionBtn icon="people-outline"      label="Cruzar"  onPress={() => router.push('/escala-cruzar')} />
         </View>
 
         {/* ── Calendar header ── */}
@@ -380,8 +445,7 @@ export default function EscalaScreen() {
         <CalendarMonth
           config={config}
           excecoes={excecoes}
-          datasPessoais={datasPessoais}
-          viagensFolga={viagensFolga}
+          eventosPessoais={eventosPessoais}
           ano={viewMes.ano}
           mes={viewMes.mes}
           onDayPress={setSelectedDay}
@@ -396,8 +460,10 @@ export default function EscalaScreen() {
           <LegendItem color="#ffc107" label="Dobra" />
           <LegendItem color="#7986cb" label="Férias" />
           <LegendItem color={colors.orange} dot label="Feriado" />
-          <LegendItem color={colors.cyan} dot label="Viagem" />
-          <LegendItem color="#ce93d8" dot label="Data especial" />
+          {(['VIAGEM','CURSO','DATA_ESPECIAL','COMPROMISSO'] as EventoTipo[]).map(t => {
+            const m = TIPO_META[t];
+            return <LegendItem key={t} icon={m.icon} color={m.color} label={m.label} />;
+          })}
         </View>
 
         {/* ── Feriados do mês ── */}
@@ -441,73 +507,52 @@ export default function EscalaScreen() {
           </View>
         )}
 
-        {/* ── Datas pessoais ── */}
-        {datasPessoais.length > 0 && (
+        {/* ── Eventos pessoais ── */}
+        {eventosPessoais.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeaderRow}>
-              <Text style={styles.sectionCardTitle}>Datas Especiais</Text>
-              <TouchableOpacity onPress={() => router.push('/escala-data-form')} hitSlop={8}>
+              <Text style={styles.sectionCardTitle}>Meus Eventos</Text>
+              <TouchableOpacity onPress={() => router.push('/escala-evento-form')} hitSlop={8}>
                 <Ionicons name="add" size={18} color={colors.cyanDim} />
               </TouchableOpacity>
             </View>
-            {datasPessoais.map(dp => (
-              <View key={dp.id} style={styles.listRow}>
-                <Ionicons name="star-outline" size={14} color="#ce93d8" />
-                <View style={styles.listRowInfo}>
-                  <Text style={styles.listRowText}>{dp.nome}</Text>
-                  <Text style={styles.listRowDate}>
-                    {formatDateBR(dp.start_date)}{dp.end_date ? ` → ${formatDateBR(dp.end_date)}` : ''}
-                  </Text>
+            {eventosPessoais.map(ev => {
+              const m = TIPO_META[ev.tipo];
+              return (
+                <View key={ev.id} style={styles.listRow}>
+                  <Ionicons name={m.icon} size={14} color={m.color} />
+                  <View style={styles.listRowInfo}>
+                    <Text style={styles.listRowText}>{ev.nome}</Text>
+                    <Text style={styles.listRowDate}>
+                      {formatDateBR(ev.data_ini)}{ev.data_fim ? ` → ${formatDateBR(ev.data_fim)}` : ''}
+                    </Text>
+                    {ev.obs ? <Text style={styles.listRowObs}>{ev.obs}</Text> : null}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/escala-evento-form', params: { id: ev.id } })}
+                    hitSlop={10}
+                  >
+                    <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteEvento(ev.id)} hitSlop={10} style={{ marginLeft: 6 }}>
+                    <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: '/escala-data-form', params: { id: dp.id, nome: dp.nome, start: dp.start_date, end: dp.end_date ?? '' } })}
-                  hitSlop={10}
-                >
-                  <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => removeDataPessoal(dp.id)} hitSlop={10} style={{ marginLeft: 6 }}>
-                  <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* ── Viagens na folga ── */}
-        {viagensFolga.length > 0 && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionCardHeaderRow}>
-              <Text style={styles.sectionCardTitle}>Viagens na Folga</Text>
-              <TouchableOpacity onPress={() => router.push('/escala-viagem-form')} hitSlop={8}>
-                <Ionicons name="add" size={18} color={colors.cyanDim} />
-              </TouchableOpacity>
-            </View>
-            {viagensFolga.map(v => (
-              <View key={v.id} style={styles.listRow}>
-                <Ionicons name="briefcase-outline" size={14} color={colors.cyan} />
-                <View style={styles.listRowInfo}>
-                  <Text style={styles.listRowText}>{v.destino}</Text>
-                  <Text style={styles.listRowDate}>{formatDateBR(v.data_ini)} → {formatDateBR(v.data_fim)}</Text>
-                  {v.obs ? <Text style={styles.listRowObs}>{v.obs}</Text> : null}
-                </View>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: '/escala-viagem-form', params: { id: v.id, destino: v.destino, ini: v.data_ini, fim: v.data_fim, obs: v.obs ?? '' } })}
-                  hitSlop={10}
-                >
-                  <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => removeViagemFolga(v.id)} hitSlop={10} style={{ marginLeft: 6 }}>
-                  <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
       </ScrollView>
 
-      {/* ── Day detail modal ── */}
-      <DayDetailModal day={selectedDay} onClose={() => setSelectedDay(null)} />
+      {/* ── Bottom sheet com detalhe do dia ── */}
+      <DayBottomSheet
+        day={selectedDay}
+        onClose={() => setSelectedDay(null)}
+        onAddEvento={(iso) => router.push({ pathname: '/escala-evento-form', params: { data: iso } })}
+        onEditEvento={(ev) => router.push({ pathname: '/escala-evento-form', params: { id: ev.id } })}
+        onDeleteEvento={deleteEvento}
+      />
     </OWBackground>
   );
 }
@@ -521,14 +566,16 @@ function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string
   );
 }
 
-function LegendItem({ color, label, dot, tag }: { color: string; label: string; dot?: boolean; tag?: string }) {
+function LegendItem({ color, label, dot, tag, icon }: { color: string; label: string; dot?: boolean; tag?: string; icon?: IoniconsName }) {
   return (
     <View style={styles.legendItem}>
       {tag
         ? <Text style={[styles.legendTagText, { color }]}>{tag}</Text>
-        : dot
-          ? <View style={[styles.dot, { backgroundColor: color }]} />
-          : <View style={[styles.legendSwatch, { backgroundColor: color }]} />
+        : icon
+          ? <Ionicons name={icon} size={9} color={color} />
+          : dot
+            ? <View style={[styles.dot, { backgroundColor: color }]} />
+            : <View style={[styles.legendSwatch, { backgroundColor: color }]} />
       }
       <Text style={styles.legendLabel}>{label}</Text>
     </View>
@@ -545,7 +592,6 @@ const styles = StyleSheet.create({
   setupBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, marginTop: spacing.sm },
   setupBtnText: { fontWeight: '700', fontSize: 16, color: colors.navy950 },
 
-  // Hero
   heroCard: {
     backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, gap: spacing.sm,
@@ -562,7 +608,6 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 3 },
   auditLine: { fontSize: 11, color: colors.mutedDim, marginTop: -spacing.sm, marginBottom: spacing.md, paddingHorizontal: 2 },
 
-  // Actions
   actionRow: {
     flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md,
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.sm,
@@ -571,11 +616,9 @@ const styles = StyleSheet.create({
   actionBtn: { alignItems: 'center', gap: 3, flex: 1 },
   actionLabel: { fontSize: 10, color: colors.mutedDim, fontWeight: '500' },
 
-  // Calendar header
   calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   calTitle: { fontSize: 16, fontWeight: '700', color: colors.white },
 
-  // Calendar grid
   calendar: { marginBottom: spacing.md },
   weekRow: { flexDirection: 'row' },
   dayHeaderCell: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
@@ -583,21 +626,19 @@ const styles = StyleSheet.create({
   dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, margin: 0.5, position: 'relative', paddingTop: 2 },
   dayEmpty: { margin: 0.5 },
   dayNum: { fontSize: 12, fontWeight: '600' },
-  dotRow: { flexDirection: 'row', gap: 2, marginTop: 1, height: 4, alignItems: 'center' },
+  iconRow: { flexDirection: 'row', gap: 1, marginTop: 1, height: 8, alignItems: 'center' },
   dot: { width: 4, height: 4, borderRadius: 2 },
   hojeRing: { borderWidth: 1.5, borderColor: 'rgba(247,250,252,0.75)', borderRadius: 10, paddingHorizontal: 3, paddingVertical: 1, alignItems: 'center', justifyContent: 'center' },
   transitionTag: { position: 'absolute', top: 1, left: 0, right: 0, alignItems: 'center' },
   embarqueTagText: { fontSize: 7, fontWeight: '800', color: '#6de88a', letterSpacing: 0.3 },
   desembarqueTagText: { fontSize: 7, fontWeight: '800', color: colors.amber, letterSpacing: 0.3 },
 
-  // Legend
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendSwatch: { width: 10, height: 10, borderRadius: 2 },
   legendLabel: { fontSize: 10, color: colors.mutedDim },
   legendTagText: { fontSize: 7, fontWeight: '800', letterSpacing: 0.3 },
 
-  // Section cards (exceções, datas pessoais, viagens)
   sectionCard: {
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
     borderWidth: 1, borderColor: colors.line, gap: spacing.sm, marginBottom: spacing.md,
@@ -610,15 +651,24 @@ const styles = StyleSheet.create({
   listRowDate: { fontSize: 11, color: colors.mutedDim, marginTop: 1 },
   listRowObs: { fontSize: 11, color: colors.mutedDim, fontStyle: 'italic', marginTop: 1 },
 
-  // Day detail modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
-  detailCard: { backgroundColor: surface.elevated, borderRadius: radius.lg, padding: spacing.md, width: '100%', gap: spacing.sm },
-  detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  detailDate: { fontSize: 16, fontWeight: '700', color: colors.white },
-  detailKindRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderRadius: radius.sm, padding: spacing.sm },
-  detailKindDot: { width: 10, height: 10, borderRadius: 5 },
-  detailKindText: { fontSize: 14, fontWeight: '600' },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  detailRowText: { fontSize: 13, color: colors.white, flex: 1 },
-  detailRowSub: { fontSize: 11, color: colors.mutedDim },
+  // Bottom sheet
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheetContainer: {
+    backgroundColor: '#071e2e', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.md, paddingBottom: spacing.xl,
+    borderTopWidth: 1, borderColor: maritime.glassBorder,
+    maxHeight: '70%',
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.md },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
+  sheetDate: { fontSize: 18, fontWeight: '700', color: colors.white, marginBottom: 6 },
+  kindPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
+  kindDot: { width: 8, height: 8, borderRadius: 4 },
+  kindText: { fontSize: 13, fontWeight: '600' },
+  addEventoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 6 },
+  addEventoBtnText: { fontSize: 12, fontWeight: '700', color: colors.navy950 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.lineSoft },
+  sheetRowText: { fontSize: 13, color: colors.white, flex: 1 },
+  sheetRowSub: { fontSize: 11, color: colors.mutedDim },
+  sheetEmpty: { fontSize: 13, color: colors.mutedDim, textAlign: 'center', paddingVertical: spacing.sm },
 });
