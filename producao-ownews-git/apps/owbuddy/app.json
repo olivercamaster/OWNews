@@ -3,7 +3,7 @@
     "name": "OWBuddy",
     "slug": "owbuddy",
     "owner": "offshoreworks",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "owbuddy",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "br.com.ownews.owbuddy",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "backgroundColor": "#061c2b",
         "foregroundImage": "./assets/android-icon-foreground.png",
