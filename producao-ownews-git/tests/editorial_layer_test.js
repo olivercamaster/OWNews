@@ -52,7 +52,7 @@ const mod = new Function(
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
   camadaSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA };"
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -207,6 +207,32 @@ test("blocoBuddyExplica vazio sem camada", () => {
 test("blocoBuddyExplica linka a política editorial (#buddy-te-explica)", () => {
   const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
   expect(html.includes("/politica-editorial#buddy-te-explica"));
+});
+test("blocoBuddyExplica (Identidade Premium): Buddy oficial, chamada em 2 linhas, H2/H3 e card 'Por que importa'", () => {
+  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: "Porque muda a escala de quem embarca.", revisado_em: "2026-10-06" });
+  expect(html.includes('src="/icons/buddy-head.png"'), "sem o mascote oficial");
+  expect(html.includes('class="buddy-explica-buddy"') && html.includes('aria-hidden="true"'), "imagem decorativa deve ser aria-hidden");
+  expect(html.includes("Não quer ler a matéria toda?") && html.includes("O Buddy resume e te explica."), "chamada oficial ausente");
+  expect(html.includes('<h2 id="buddyExplicaTitulo"') && html.includes('<h3 class="buddy-explica-sub">Por que isso importa?</h3>'), "hierarquia H2/H3");
+  expect(!html.includes("<h1"), "bloco não pode competir com o H1 da matéria");
+  expect(html.includes('class="buddy-explica-porque-card"'), "card 'Por que isso importa?' ausente");
+  expect(html.indexOf('class="buddy-explica-card"') < html.indexOf('class="buddy-explica-porque-card"'), "ordem: resumo antes do porquê");
+});
+test("classificarOrigemFonte: oficial/empresa citada = primária; imprensa = consultada; inválida = desconhecida", () => {
+  expect(mod.classificarOrigemFonte("https://www.gov.br/anp/pt-br/x") === "primaria");
+  expect(mod.classificarOrigemFonte("https://agencia.petrobras.com.br/x") === "primaria");
+  expect(mod.classificarOrigemFonte("https://www.equinor.com/news/x") === "primaria");
+  expect(mod.classificarOrigemFonte("https://g1.globo.com/economia/x") === "consultada");
+  expect(mod.classificarOrigemFonte("https://www.offshore-energy.biz/x") === "consultada");
+  expect(mod.classificarOrigemFonte("") === "desconhecida");
+  expect(mod.classificarOrigemFonte("nao-e-url") === "desconhecida");
+});
+test("blocoProvenienciaNoticia só chama de 'Fonte primária' o que é verificável pelo domínio", () => {
+  const oficial = mod.blocoProvenienciaNoticia({ image_credit: "Agência Petrobras", original_url: "https://agencia.petrobras.com.br/x", published_at: "2026-10-05T12:00:00Z" }, null);
+  const imprensa = mod.blocoProvenienciaNoticia({ image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-05T12:00:00Z" }, null);
+  expect(oficial.includes("Fonte primária (oficial): "), "oficial sem rótulo primária");
+  expect(!imprensa.includes("Fonte primária"), "imprensa rotulada como primária");
+  expect(imprensa.includes("<p>Fonte: "), "imprensa sem rótulo neutro");
 });
 test("blocoEntendaMelhor gera links /explica/ válidos e vazio sem slugs", () => {
   expect(mod.blocoEntendaMelhor([]) === "");

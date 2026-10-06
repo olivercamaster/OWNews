@@ -278,7 +278,24 @@ def run_static():
     test("Home linka bloco OWNews Explica (#explica)", lambda: expect_in('class="ed-section explica-home" id="explica"', worker(), "blocoExplicaHome"))
     test("/api/buddy/feed expõe buddy_summary/why_it_matters/explica", lambda: _check_buddy_feed_fields())
     test("deck-pusher tem ficha detalhada em SONDA_FUNCAO_EXTRA", lambda: expect_in('"deck-pusher": {', worker(), "SONDA_FUNCAO_EXTRA"))
-    test("editorial_layer_test.js passa (33 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("editorial_layer_test.js passa (36 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+
+    suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
+
+    test("constantes de tema definidas (boot, toggle, CSS claro, botões)", lambda: _check_tema_consts())
+    test("Home: boot script antes do CSS, CSS claro no <style>, botão #temaBtn, toggle antes de </body>", lambda: _check_tema_home())
+    test("paginaChrome: boot script, CSS claro, botão #temaBtn, toggle (uma única definição de cada)", lambda: _check_tema_chrome())
+    test("tema claro é paleta própria (não inversão): fundo off-white, texto navy, color-scheme:light", lambda: _check_tema_paleta())
+    test("Buddy oficial: constante BUDDY_HEAD_PNG + rota /icons/buddy-head.png imutável", lambda: _check_buddy_asset())
+    test("Buddy só onde tem função (≤ 3 usos: Buddy te explica, Ecossistema, /owbuddy) e sem animação", lambda: _check_buddy_usos())
+    test("Buddy te explica: chamada oficial + Buddy pequeno + card 'Por que isso importa?'", lambda: _check_buddy_explica_markup())
+    test("Ecossistema: card OWBuddy com copy oficial e CTA para /owbuddy (sem loja/download)", lambda: _check_ecossistema())
+    test("rota /owbuddy + renderOWBuddyLanding + sitemap; sem link de loja", lambda: _check_owbuddy_route())
+    test("marcas d'água: --wm-rosa/--wm-bati em dark e light, aplicadas por bloco", lambda: _check_watermarks())
+    test("H1/H2/H3: rodapés sem <h3>, Explica index em H2, institucionais em H2, CTAs não são headings", lambda: _check_hierarquia_headings())
+    test("Política Editorial: filosofia editorial + fluxo + bloco 'Sobre esta matéria'", lambda: _check_politica_filosofia())
+    test("Privacidade menciona preferência de tema só no navegador", lambda: expect_in("preferência de tema (claro ou escuro) também fica só no localStorage", worker().split("function renderPrivacidade(", 1)[1][:12000], "privacidade/tema"))
+    test("sem novos slots de anúncio (ADS_ENABLED=false, adSlot inerte, /ads.txt sem publisher inventado)", lambda: _check_ads_inalterado())
 
     suite("STATIC — security: no secrets in source")
 
@@ -365,6 +382,178 @@ def _check_buddy_feed_fields():
     for campo in ("buddy_summary:", "why_it_matters:", "buddy_reviewed_at:", "explica,", "thin:", "schema_version: 2"):
         expect_in(campo, bloco, campo)
     expect_in("resolverCamadaEditorial(a)", bloco, "feed usa resolver")
+
+
+# ── IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / headings ──
+
+def _chrome_src():
+    w = worker()
+    return w.split("function paginaChrome(", 1)[1].split("function pagina404()", 1)[0]
+
+
+def _home_src():
+    w = worker()
+    return w.split("const HTML = `<!doctype html>", 1)[1].split("\n`;", 1)[0]
+
+
+def _check_tema_consts():
+    w = worker()
+    for c in ("const TEMA_BOOT_SCRIPT = ", "const TEMA_TOGGLE_SCRIPT = ", "const CSS_TEMA_CLARO = `", "const TEMA_BOTAO_HOME = ", "const TEMA_BOTAO_HUB = "):
+        expect(w.count(c) == 1, f"{c!r} aparece {w.count(c)}x (esperado 1)")
+    expect_in('localStorage.getItem("ownews-tema")', w, "boot lê preferência")
+    expect_in('localStorage.setItem("ownews-tema"', w, "toggle persiste")
+    expect_in('setAttribute("content","#f4f7fa")', w, "boot atualiza theme-color")
+    expect(w.index("const TEMA_BOOT_SCRIPT") < w.index("const HTML = `<!doctype html>"), "constantes devem vir antes do template da Home")
+
+
+def _check_tema_home():
+    h = _home_src()
+    expect(h.index('<meta name="theme-color" content="#061c2b">') < h.index("${TEMA_BOOT_SCRIPT}") < h.index("<style>"), "boot script antes do <style> (sem flash)")
+    expect(h.index("${CSS_TEMA_CLARO}") < h.index("</style>\n</head>"), "CSS claro dentro do <style>")
+    expect_in("${TEMA_BOTAO_HOME}", h, "botão no header")
+    expect(h.rfind("${TEMA_TOGGLE_SCRIPT}") < h.rfind("</body>"), "toggle antes de </body>")
+    expect_in("grid-template-columns:42px 38px 1fr 38px 38px", h, "grid do header com 5 colunas (logo centralizado)")
+    expect_in(".theme-btn{display:flex;order:2;flex:none}", h, "botão visível no desktop")
+
+
+def _check_tema_chrome():
+    c = _chrome_src()
+    for s in ("TEMA_BOOT_SCRIPT +", "' + CSS_TEMA_CLARO + '</style>'", "+ TEMA_BOTAO_HUB +", "TEMA_TOGGLE_SCRIPT +"):
+        expect(c.count(s) == 1, f"{s!r} em paginaChrome: {c.count(s)}x")
+    expect(c.index("TEMA_BOOT_SCRIPT +") < c.index("<style>"), "boot antes do CSS no chrome")
+    # a string CSS do chrome continua em UMA linha (regra do arquivo)
+    css_line = [l for l in c.split("\n") if ".topline{display:none}}\\n' + CSS_TEMA_CLARO" in l]
+    expect(len(css_line) == 1, "linha CSS do chrome quebrada")
+
+
+def _check_tema_paleta():
+    w = worker()
+    bloco = w.split("const CSS_TEMA_CLARO = `", 1)[1].split("`;", 1)[0]
+    expect_in('html[data-theme="light"]{', bloco, "seletor do tema claro")
+    for v in ("--navy-950:#f4f7fa", "--navy-900:#ffffff", "--white:#0b2340", "--cyan:#0a66b3", "color-scheme:light", "--porque-bg:#fff7e3"):
+        expect_in(v, bloco, v)
+    expect_not_in("filter:invert", bloco, "inversão automática proibida")
+    expect_in('html[data-theme="light"] .lead h1', bloco, "texto sobre imagem continua claro")
+    expect_in('html[data-theme="light"] body{background:', bloco, "fundo claro com as mesmas cartas náuticas")
+    expect_in("%232a4a6b", bloco, "traço navy-acinzentado nas marcas d'água claras")
+
+
+def _check_buddy_asset():
+    w = worker()
+    expect(w.count('const BUDDY_HEAD_PNG = "') == 1, "constante BUDDY_HEAD_PNG")
+    b64 = w.split('const BUDDY_HEAD_PNG = "', 1)[1].split('"', 1)[0]
+    expect(b64.startswith("iVBORw0KGgo"), "não é PNG base64")
+    expect(20000 < len(b64) < 60000, f"tamanho base64 fora do esperado: {len(b64)}")
+    expect_in('url.pathname === "/icons/buddy-head.png"', w, "rota")
+    expect_in('"Cache-Control": "public, max-age=2592000, immutable"', w.split('url.pathname === "/icons/buddy-head.png"', 1)[1][:600], "cache imutável")
+
+
+def _check_buddy_usos():
+    w = worker()
+    usos = w.count('src="/icons/buddy-head.png"')
+    expect(usos == 3, f"Buddy aparece em {usos} templates (esperado 3: explica, ecossistema, /owbuddy)")
+    css = w.split("const CSS_TEMA_CLARO = `", 1)[1].split("`;", 1)[0] + w.split("const CSS_CAMADA_EDITORIAL", 1)[1][:6000]
+    expect_not_in("@keyframes", css, "animação no Buddy/tema")
+    expect_not_in("position:fixed", css, "Buddy flutuante")
+
+
+def _check_buddy_explica_markup():
+    w = worker()
+    fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
+    for s in ('class="buddy-explica-card"', 'class="buddy-explica-buddy" src="/icons/buddy-head.png"', 'aria-hidden="true" loading="lazy"',
+              "Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong>", '<h2 id="buddyExplicaTitulo"', '<h3 class="buddy-explica-sub">Por que isso importa?</h3>',
+              'class="buddy-explica-porque-card"', "/politica-editorial#buddy-te-explica"):
+        expect_in(s, fn, s)
+    expect_not_in("<h1", fn, "H1 dentro do bloco")
+    css = w.split("const CSS_CAMADA_EDITORIAL", 1)[1][:8000]
+    expect_in(".buddy-explica-buddy{flex:none;width:64px", css, "Buddy pequeno no mobile (64px)")
+    expect_in(".buddy-explica-buddy{width:118px", css, "Buddy proporcional no desktop")
+    expect_in("background:var(--porque-bg)", css, "card 'Por que importa' com fundo próprio")
+
+
+def _check_ecossistema():
+    h = _home_src()
+    bloco = h.split('<section class="eco-section" id="ecossistema">', 1)[1].split("</section>", 1)[0]
+    for s in ('class="eco-buddy"', 'src="/icons/buddy-head.png"', "<h2 class=\"eco-buddy-titulo\">Seu parceiro na vida offshore.</h2>",
+              "Do embarque ao desembarque, o Buddy está com você.", "Escala, viagem, certificados, lembretes e informação para facilitar sua rotina offshore.",
+              '<a class="eco-buddy-cta" href="/owbuddy">Conheça o OWBuddy →</a>', 'href="https://www.offshoreworks.com.br"'):
+        expect_in(s, bloco, s)
+    for proibido in ("play.google.com", "apps.apple.com", "Baixe", "Download"):
+        expect_not_in(proibido, bloco, f"link/termo de loja: {proibido}")
+    expect_in(".eco-buddy{", h, "CSS do card")
+    expect_in("background-image:var(--wm-bati)", h.split(".eco-buddy{", 1)[1][:600], "batimetria sutil no card")
+
+
+def _check_owbuddy_route():
+    w = worker()
+    expect_in('url.pathname === "/owbuddy"', w, "rota")
+    expect(w.count("function renderOWBuddyLanding()") == 1, "renderOWBuddyLanding")
+    fn = w.split("function renderOWBuddyLanding()", 1)[1].split("\nfunction ", 1)[0]
+    expect(fn.count("<h1>") == 1, "exatamente um H1")
+    for s in ("<h2>O que o Buddy já faz hoje, no navegador</h2>", "<h2>Aplicativo</h2>", "<h2>Quem é o Buddy</h2>", 'href="/minha-escala"', 'href="/meu-ownews"', 'href="/meus-certificados"', "em desenvolvimento", '"/owbuddy"\n  );'):
+        expect_in(s, fn, s)
+    for proibido in ("play.google.com", "apps.apple.com", "Baixe agora", "Download"):
+        expect_not_in(proibido, fn, f"loja/download falso: {proibido}")
+    sitemap = w.split("const ROTAS_ESTATICAS_SITEMAP = [", 1)[1].split("];", 1)[0]
+    expect_in('"/owbuddy"', sitemap, "sitemap")
+
+
+def _check_watermarks():
+    w = worker()
+    bloco = w.split("const CSS_TEMA_CLARO = `", 1)[1].split("`;", 1)[0]
+    root = bloco.split(":root{", 1)[1].split("}", 1)[0]
+    light = bloco.split('html[data-theme="light"]{', 1)[1].split("}", 1)[0]
+    for v in ("--wm-rosa:url(", "--wm-bati:url("):
+        expect_in(v, root, v + " (dark)")
+        expect_in(v, light, v + " (light)")
+    expect_in(".eco-section{background-image:var(--wm-bati)", bloco, "batimetria no Ecossistema")
+    expect_in(".hub-main::before{", bloco, "rosa dos ventos nas páginas internas")
+    expect_in("@media(min-width:1100px){.hub-main::before", bloco, "rosa só em telas largas (não atrás de texto no mobile)")
+    expect_in("stroke-opacity%3D%220.0", bloco, "opacidade baixa (tom sobre tom)")
+
+
+def _check_hierarquia_headings():
+    w = worker()
+    expect(w.count('<h3 class="footer-col-titulo">') == 0, "rodapé ainda usa <h3>")
+    expect(w.count('<p class="footer-col-titulo">') >= 6, "rodapé sem <p class=footer-col-titulo>")
+    ex = w.split("function renderExplicaIndex(", 1)[1].split("\nfunction ", 1)[0]
+    for s in ("<h2>Comece por aqui</h2>", "<h2>Todos os verbetes</h2>", "<h2>Guias práticos</h2>"):
+        expect_in(s, ex, s)
+    for fn in ("renderSobre", "renderContato", "renderPrivacidade", "renderPoliticaEditorial", "renderCorrecoes", "renderTermosDeUso"):
+        body = w.split("\nfunction " + fn + "(", 1)[1].split("\nfunction ", 1)[0]
+        expect(body.count("<h3>") == 0, f"{fn} ainda tem <h3> direto sob o H1")
+        expect(body.count("<h2>") >= 2, f"{fn} sem seções em H2")
+    expect(w.count("<h2>TRABALHA OFFSHORE? CONTRIBUA") == 0, "CTA salarial ainda é H2")
+    expect(w.count('<p class="pesquisa-cta-titulo">') == 2, "CTA salarial em <p>")
+    expect(w.count('<p class="cta-comunidade-titulo">') == 1, "CTA funções em <p>")
+    expect_in('<h2 class="escala-conta-titulo">', w, "Minha Escala conta em H2")
+    h = _home_src()
+    expect_in('<article class="highlight" onclick="\\${irPara(n.id)}">\n      <div class="thumb"', h, "template highlight")
+    expect_in("<h2>\\${escaparHTML(n.title)}</h2>", h.split('<article class="highlight"', 1)[1][:600], "highlight cliente em H2")
+    expect_in("'<h2>' + escaparHTML(n.title) + '</h2>'", w.split("function homeSsrMarkup(", 1)[1][:6000], "highlight SSR em H2")
+    expect_in("'<h2>' + escaparHTML(AREAS_OFFSHORE[areaKey].nome) + '</h2>'", w.split("function renderFuncoesIndex(", 1)[1], "Funções: áreas em H2")
+    expect_in("'<h2>' + escaparHTML(area.nome) + '</h2>'", w.split("function renderSalariosIndex(", 1)[1], "Salários: áreas em H2")
+    expect_in(".area-group h2,.area-group h3{", w, "CSS h2 nas seções institucionais")
+    expect_in(".highlight h2,.highlight h3", w, "CSS highlight h2")
+
+
+def _check_politica_filosofia():
+    bloco = worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    expect_in("O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.", bloco, "filosofia")
+    expect_in("o portal descobre o assunto; o pipeline localiza a fonte primária", bloco, "fluxo")
+    expect_in('no bloco "Sobre esta matéria"', bloco, "nome real do bloco")
+    expect_not_in('no bloco "Fonte primária"', bloco, "nome antigo do bloco")
+
+
+def _check_ads_inalterado():
+    w = worker()
+    expect_in("const ADS_ENABLED = false", w, "ads desligados")
+    expect_in("const ADSENSE_CLIENT_ID = null", w, "sem client id ativo")
+    expect_not_in("adsbygoogle.js", w.split("const HTML = `<!doctype html>", 1)[1][:200000], "script de anúncio na Home")
+    ads_txt = w.split('url.pathname === "/ads.txt"', 1)[1][:800]
+    corpo = ads_txt.split("new Response(", 1)[1].split('"', 2)[1]  # string literal realmente servida (comentários de código não contam)
+    expect(corpo.startswith("# OWNews"), "ads.txt deve ser só comentários enquanto o AdSense não está ativo")
+    expect_not_in("pub-", corpo, "publisher inventado no ads.txt")
 
 
 def _validate_browser_js():
