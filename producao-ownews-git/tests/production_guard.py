@@ -262,6 +262,24 @@ def run_static():
     # Real test: user taps card → form opens → fill → calculate → result appears.
     # Must be validated manually on device at 360/390/430px after each deploy.
 
+    suite("ADSENSE RECOVERY 1.0 — camada editorial / SEO")
+
+    test("worker.js < 2 MB (limite Cloudflare)", lambda: expect(WORKER_JS.stat().st_size < 2_000_000, f"{WORKER_JS.stat().st_size} bytes"))
+    test("boilerplate 'ENTENDA O IMPACTO' removido (sem caixaImpactoServidor)", lambda: _check_no_impacto_boilerplate())
+    test("módulo CAMADA EDITORIAL presente com marcadores", lambda: _check_camada_markers())
+    test("módulo HOME SSR presente (Home renderizada no servidor)", lambda: _check_home_ssr_markers())
+    test("paginaChrome aceita opcoes.robots (noindex em matéria thin)", lambda: expect_in("opcoes.robots", worker(), "paginaChrome"))
+    test("/noticia aplica noindex,follow em matéria thin", lambda: expect_in("robots: materiaThin ? 'noindex,follow' : null", worker(), "/noticia"))
+    test("rota /correcoes + renderCorrecoes", lambda: _check_correcoes_route())
+    test("/correcoes e /certificados-offshore no sitemap estático", lambda: _check_sitemap_rotas())
+    test("sitemap exclui matérias thin", lambda: expect_in("ehMateriaThin(", worker().split("function gerarSitemap", 1)[1][:4000], "gerarSitemap"))
+    test("Política Editorial tem âncora #buddy-te-explica e seções exigidas", lambda: _check_politica_editorial_secoes())
+    test("footers (home + chrome) linkam /correcoes e /explica", lambda: _check_footers_links())
+    test("Home linka bloco OWNews Explica (#explica)", lambda: expect_in('class="ed-section explica-home" id="explica"', worker(), "blocoExplicaHome"))
+    test("/api/buddy/feed expõe buddy_summary/why_it_matters/explica", lambda: _check_buddy_feed_fields())
+    test("deck-pusher tem ficha detalhada em SONDA_FUNCAO_EXTRA", lambda: expect_in('"deck-pusher": {', worker(), "SONDA_FUNCAO_EXTRA"))
+    test("editorial_layer_test.js passa (33 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+
     suite("STATIC — security: no secrets in source")
 
     test("no service_role key in worker.js", lambda: _check_no_secret("service_role"))
@@ -274,6 +292,79 @@ def run_static():
 def _node_check():
     r = subprocess.run(["node", "--check", str(WORKER_JS)], capture_output=True, text=True, timeout=30)
     expect(r.returncode == 0, f"node --check failed: {r.stderr[:300]}")
+
+
+# ── ADSENSE RECOVERY 1.0 — camada editorial / SEO ───────────────────────────
+
+def _run_node_test(nome):
+    r = subprocess.run(["node", str(ROOT / "tests" / nome)], capture_output=True, text=True, timeout=60)
+    expect(r.returncode == 0, f"{nome} falhou: {(r.stdout + r.stderr)[-400:]}")
+
+
+def _check_no_impacto_boilerplate():
+    w = worker()
+    expect_not_in("function caixaImpactoServidor", w, "caixaImpactoServidor ainda definida")
+    expect_not_in("caixaImpactoServidor(", w, "caixaImpactoServidor ainda chamada")
+    expect_not_in(">ENTENDA O IMPACTO<", w, "título boilerplate ainda renderizado")
+    expect_not_in("Pode afetar produção, logística, contratos ou mobilização", w.replace("'pode afetar produção, logística, contratos ou mobilização'", ""), "frase genérica ainda renderizada fora da lista de proibidas")
+
+
+def _check_camada_markers():
+    w = worker()
+    expect_in("/* ==== CAMADA EDITORIAL: INICIO ====", w, "marcador início")
+    expect_in("/* ==== CAMADA EDITORIAL: FIM ==== */", w, "marcador fim")
+    for fn in ("function validarTextoCamadaEditorial", "const CAMADA_EDITORIAL_CURADA", "function resolverCamadaEditorial",
+               "function blocoBuddyExplica", "function blocoProvenienciaNoticia", "function ehMateriaThin", "const BUDDY_FRASES_PROIBIDAS"):
+        expect_in(fn, w, fn)
+
+
+def _check_home_ssr_markers():
+    w = worker()
+    expect_in("/* ==== HOME SSR: INICIO ====", w, "marcador início")
+    expect_in("/* ==== HOME SSR: FIM ====", w, "marcador fim")
+    for fn in ("async function renderHomeServidor", "function selecionarHomeServidor", "function injetarNoticiasHome", "function blocoExplicaHome", "async function respostaCacheada"):
+        expect_in(fn, w, fn)
+    expect_in("respostaCacheada(request, ctx, 300", w, "rota / usa cache de borda")
+
+
+def _check_correcoes_route():
+    w = worker()
+    expect_in('url.pathname === "/correcoes"', w, "rota /correcoes")
+    expect_in("function renderCorrecoes", w, "renderCorrecoes")
+    expect_in('conteudo,\n    "/correcoes"', w, "canonical /correcoes")
+
+
+def _check_sitemap_rotas():
+    w = worker()
+    bloco = w.split("const ROTAS_ESTATICAS_SITEMAP = [", 1)[1].split("];", 1)[0]
+    expect_in('"/correcoes"', bloco, "sitemap /correcoes")
+    expect_in('"/certificados-offshore"', bloco, "sitemap /certificados-offshore")
+    expect_in('partes.push(xmlUrl(base + "/explica"))', w, "sitemap /explica (adicionado em gerarSitemap)")
+
+
+def _check_politica_editorial_secoes():
+    w = worker()
+    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    for anc in ('id="o-que-publicamos"', 'id="selecao"', 'id="fontes"', 'id="producao-automatizada"', 'id="buddy-te-explica"',
+                'id="conteudo-original"', 'id="autoria"', 'id="correcoes"', 'id="publicidade"'):
+        expect_in(anc, bloco, anc)
+    expect_in("Explicativo", bloco, "distinção notícia/explicativo")
+    expect_in("redatores fictícios", bloco, "autoria real (sem equipe fictícia)")
+
+
+def _check_footers_links():
+    w = worker()
+    alvo = '<a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a>'
+    expect(w.count(alvo) >= 2, f"footer com /correcoes aparece {w.count(alvo)}x (esperado ≥2: home + chrome)")
+    expect(w.count('<a href="/explica">OWNews Explica</a>') >= 2, "footer sem link /explica")
+
+
+def _check_buddy_feed_fields():
+    w = worker()
+    bloco = w.split('url.pathname === "/api/buddy/feed"', 1)[1][:6000]
+    for campo in ("buddy_summary:", "why_it_matters:", "buddy_reviewed_at:", "explica,", "thin:", "schema_version: 2"):
+        expect_in(campo, bloco, campo)
+    expect_in("resolverCamadaEditorial(a)", bloco, "feed usa resolver")
 
 
 def _validate_browser_js():
