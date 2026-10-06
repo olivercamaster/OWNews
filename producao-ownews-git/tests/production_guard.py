@@ -317,7 +317,23 @@ def run_static():
         "são players relevantes",
         worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0],
         "ramo players relevantes removido"))
-    test("editorial_layer_test.js passa (50 asserts Impacto Offshore 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("gerarImpactoOffshoreFallback: sem energy-only fallback (no-entity-no-topic → null)", lambda: expect_not_in(
+        "O assunto envolve o setor de energia",
+        worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0],
+        "energy-only fallback removido"))
+    test("validarTextoCamadaEditorial: rejeita truncado (motivo 'truncado')", lambda: expect_in(
+        "motivo: 'truncado'",
+        worker().split("function validarTextoCamadaEditorial(texto)", 1)[1].split("\nfunction ", 1)[0],
+        "cheque de truncamento"))
+    test("ehCopiaDoLead definida no worker", lambda: expect_in(
+        "function ehCopiaDoLead(gerado, resumoOriginal)", worker(), "fn definida"))
+    test("resolverCamadaEditorial: usa ehCopiaDoLead para banco tier", lambda: expect_in(
+        "ehCopiaDoLead(resumo, artigo.summary)",
+        worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "copy-lead check"))
+    test("resolverCamadaEditorial: rejeita why_it_matters similar ao buddy (buddy≈wm check)", lambda: expect_in(
+        "ehCopiaDoLead(porqueFinal, resumo)",
+        worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "buddy≈wm check"))
+    test("editorial_layer_test.js passa (59 asserts Qualidade Editorial 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
 
     suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
 

@@ -5512,7 +5512,8 @@ const BUDDY_FRASES_PROIBIDAS = [
   'vai gerar novas vagas', 'vai gerar vagas', 'deve gerar vagas', 'gerar milhares de vagas',
   'isso vai gerar', 'abre caminho para', 'é um divisor de águas',
   'pode afetar produção, logística, contratos ou mobilização',
-  'o impacto operacional depende dos desdobramentos'
+  'o impacto operacional depende dos desdobramentos',
+  'nesta edição', 'foto: divulgação', 'foto: reprodução'
 ];
 
 /* Valida um texto da camada editorial. Regras (todas verificáveis):
@@ -5526,6 +5527,7 @@ function validarTextoCamadaEditorial(texto) {
   if (typeof texto !== 'string') return { ok: false, motivo: 'nao_string' };
   const t = texto.trim();
   if (t.length < 40) return { ok: false, motivo: 'curto' };
+  if (t.endsWith('...') || t.endsWith('…') || /\w\.{2,}$/.test(t)) return { ok: false, motivo: 'truncado' };
   if (t.length > 600) return { ok: false, motivo: 'longo' };
   if (/<[a-z!\/][^>]*>/i.test(t)) return { ok: false, motivo: 'html' };
   const frases = t.split(/(?<=[.!?])\s+/).filter((f) => f.trim().length > 0);
@@ -5534,6 +5536,23 @@ function validarTextoCamadaEditorial(texto) {
   const proibida = BUDDY_FRASES_PROIBIDAS.find((p) => baixo.includes(p));
   if (proibida) return { ok: false, motivo: 'frase_proibida:' + proibida };
   return { ok: true, motivo: null };
+}
+
+/* Detecta se o texto gerado é essencialmente uma cópia do lead/resumo original.
+   Retorna true se sobreposição de palavras longas (>4 chars) nos primeiros 200 chars
+   for > 70% — indica que o resumo não acrescenta informação nova. */
+function ehCopiaDoLead(gerado, resumoOriginal) {
+  if (!gerado || !resumoOriginal) return false;
+  var norm = function(s) {
+    return s.toLowerCase().replace(/[^a-zà-ü\s]/g, ' ').split(/\s+/).filter(function(w) { return w.length > 4; });
+  };
+  var gW = norm(String(gerado).slice(0, 200));
+  var rW = norm(String(resumoOriginal).slice(0, 200));
+  if (!gW.length || !rW.length) return false;
+  var rSet = {};
+  rW.forEach(function(w) { rSet[w] = true; });
+  var overlap = gW.filter(function(w) { return rSet[w]; }).length;
+  return overlap / Math.max(gW.length, 1) > 0.70;
 }
 
 /* Curadoria editorial por matéria (id = articles.id no Supabase).
@@ -5757,18 +5776,19 @@ function gerarBuddySummaryFallback(artigo) {
     return overlap < maxOverlap;
   });
 
-  // Preferir frases filtradas; recair nas originais se todas foram descartadas
-  const candidatas = (filtradas.length >= 1 ? filtradas : todas).slice(0, 3);
+  // Também filtrar frases que são cópia do lead (sobreposição >70% com resumo original)
+  const filtradas2 = filtradas.filter((f) => !ehCopiaDoLead(f, resumo));
+
+  // Preferir frases sem cópia do lead; recuar progressivamente se necessário
+  const candidatas = (filtradas2.length >= 1 ? filtradas2 : filtradas.length >= 1 ? filtradas : todas).slice(0, 3);
 
   // Tentar de 3 frases para 1, parar no primeiro texto que passa o validador
   for (let n = Math.min(3, candidatas.length); n >= 1; n--) {
     const t = candidatas.slice(0, n).join(' ').trim();
-    if (validarTextoCamadaEditorial(t).ok) return t;
+    if (validarTextoCamadaEditorial(t).ok && !ehCopiaDoLead(t, resumo)) return t;
   }
 
-  // Último recurso: resumo direto (para artigos muito curtos mas com summary útil)
-  const s = resumo.slice(0, 400).trim();
-  return (s.length >= 40 && validarTextoCamadaEditorial(s).ok) ? s : null;
+  return null;
 }
 
 /* avaliarQualidadeMateria — Quality Gate editorial.
@@ -5850,6 +5870,7 @@ function validarImpactoOffshore(texto) {
     { re: /importante\s+avan[çc]o\s+para\s+o\s+setor/i,    label: 'boilerplate_avanco' },
     { re: /pode\s+impactar\s+toda\s+a\s+cadeia/i,           label: 'boilerplate_cadeia' },
     { re: /aumento\s+de\s+sal[aá]rios/i,                    label: 'salarios_sem_base' },
+    { re: /com base no conte[uú]do dispon[ií]vel[\s\S]{0,40}n[aã]o [eé] poss[ií]vel afirmar/i, label: 'boilerplate_limitacao_generica' },
   ];
   for (let i = 0; i < PROIBIDOS.length; i++) {
     if (PROIBIDOS[i].re.test(t)) return { ok: false, motivo: PROIBIDOS[i].label };
@@ -5954,11 +5975,8 @@ function gerarImpactoOffshoreFallback(artigo) {
   const limitacao = LIMITACOES[tipo] || 'Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações, vagas ou contratos específicos neste momento.';
 
   if (!entidades.length && !temas.length) {
-    const temEnergia = /\bpetróleo\b|\bpetroleo\b|\benergia\b|\bgás\b|\bgas\b/i.test(base);
-    if (!temEnergia) {
-      return 'Esta notícia não apresenta informação direta sobre impactos em operações, contratos ou mercado offshore. Acompanharemos o desenvolvimento para publicações com maior relevância ao setor.';
-    }
-    return 'O assunto envolve o setor de energia. Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações offshore, vagas ou contratos específicos neste momento.';
+    // Sem entidade offshore específica nem tema técnico: sem contexto real para o card.
+    return null;
   }
 
   const principaisEntidades = entidades.slice(0, 2).join(' e ');
@@ -5997,12 +6015,17 @@ function resolverCamadaEditorial(artigo) {
   if (fonte) {
     const resumo = curada ? curada.buddy_summary : artigo.buddy_summary;
     const porque = curada ? curada.why_it_matters : (artigo.why_it_matters || null);
-    if (validarTextoCamadaEditorial(resumo).ok) {
+    // Para curadoria: aceita sempre. Para banco: rejeita cópia automática do lead.
+    const passaResumo = validarTextoCamadaEditorial(resumo).ok &&
+      (fonte === 'curadoria' || !ehCopiaDoLead(resumo, artigo.summary));
+    if (passaResumo) {
       const porqueValido = porque && validarTextoCamadaEditorial(porque).ok && validarImpactoOffshore(porque).ok ? porque.trim() : null;
       const porqueFinal = porqueValido !== null ? porqueValido : gerarImpactoOffshoreFallback(artigo);
+      // Rejeitar why_it_matters que repete o mesmo conteúdo que o buddy_summary.
+      const porqueOK = porqueFinal && ehCopiaDoLead(porqueFinal, resumo) ? null : porqueFinal;
       return {
         buddy_summary: resumo.trim(),
-        why_it_matters: porqueFinal,
+        why_it_matters: porqueOK,
         explica: curada && Array.isArray(curada.explica) ? curada.explica.slice() : [],
         revisado_em: (curada && curada.revisado_em) || (artigo.buddy_reviewed_at ? String(artigo.buddy_reviewed_at).slice(0, 10) : null),
         fonte

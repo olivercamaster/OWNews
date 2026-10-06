@@ -52,7 +52,7 @@ const mod = new Function(
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
   camadaSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria, validarImpactoOffshore, gerarImpactoOffshoreFallback };"
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria, validarImpactoOffshore, gerarImpactoOffshoreFallback, ehCopiaDoLead };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -325,11 +325,10 @@ test("gerarImpactoOffshoreFallback: artigo com apenas entidade sem tema offshore
   const r = mod.gerarImpactoOffshoreFallback(artigo);
   expect(r === null, "esperado null para entidade sem tema offshore: " + r);
 });
-test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna texto honesto", () => {
+test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna null (sem card genérico)", () => {
   const artigo = { title: "Banco Central sobe taxa de juros", summary: "O Banco Central decidiu elevar a taxa Selic em reunião de outubro.", content: "O Comitê de Política Monetária decidiu elevar a taxa Selic de 10,5% para 10,75% ao ano." };
   const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null, "retornou null — esperado texto honesto");
-  expect(r.includes("não apresenta") || r.includes("não é possível afirmar") || r.includes("não há impacto"), "texto não comunica ausência de impacto: " + r);
+  expect(r === null, "esperado null para artigo sem sinal offshore: " + r);
 });
 test("gerarImpactoOffshoreFallback: nunca retorna texto com 'pode gerar vagas'", () => {
   const artigos = [
@@ -367,6 +366,56 @@ test("blocoBuddyExplica: segundo card não contém img (sem mascote)", () => {
   expect(cardStart > -1, "card offshore ausente");
   const cardContent = html.slice(cardStart);
   expect(!cardContent.includes("<img"), "segundo card não deve conter img (sem mascote)");
+});
+
+console.log("\n== QUALIDADE EDITORIAL 1.0 ==");
+test("validarTextoCamadaEditorial: rejeita texto truncado com '...'", () => {
+  const r = mod.validarTextoCamadaEditorial("A Petrobras assinou contrato de afretamento para FPSO no campo de Búzios, informou a empresa...");
+  expect(!r.ok && r.motivo === 'truncado', "esperado motivo 'truncado', obteve: " + JSON.stringify(r));
+});
+test("validarTextoCamadaEditorial: aceita texto completo sem truncamento", () => {
+  const r = mod.validarTextoCamadaEditorial("A Petrobras assinou contrato de afretamento para FPSO no campo de Búzios. O contrato tem duração de 20 anos.");
+  expect(r.ok, "texto completo deve passar: " + r.motivo);
+});
+test("ehCopiaDoLead: detecta cópia exata do lead", () => {
+  const lead = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal.";
+  const copia = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal da Bacia de Santos.";
+  expect(mod.ehCopiaDoLead(copia, lead), "deveria detectar cópia do lead");
+});
+test("ehCopiaDoLead: aceita texto com perspectiva diferente", () => {
+  const lead = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal.";
+  const diferente = "O contrato define o cronograma de carregamento para novembro. Cada offloading envolve navio aliviador e equipe embarcada.";
+  expect(!mod.ehCopiaDoLead(diferente, lead), "texto diferente não deve ser detectado como cópia: " + diferente);
+});
+test("gerarBuddySummaryFallback: não retorna cópia exata do resumo quando corpo tem frases distintas", () => {
+  const artigo = {
+    title: "Petrobras assina contrato de FPSO",
+    summary: "A Petrobras assinou contrato de FPSO para o campo de Búzios.",
+    content: "A Petrobras assinou contrato de FPSO para o campo de Búzios na Bacia de Santos. O valor total não foi divulgado. O FPSO terá capacidade para processar 180 mil barris por dia. A seleção seguiu processo competitivo com múltiplos fornecedores. A unidade deverá iniciar operações a partir de 2028."
+  };
+  const r = mod.gerarBuddySummaryFallback(artigo);
+  if (r) expect(!mod.ehCopiaDoLead(r, artigo.summary), "fallback não deve copiar o lead: " + r);
+});
+test("validarImpactoOffshore: rejeita 'com base no conteúdo disponível...não é possível afirmar'", () => {
+  const r = mod.validarImpactoOffshore("O assunto envolve o setor de energia. Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações offshore, vagas ou contratos específicos neste momento.");
+  expect(!r.ok && r.motivo === 'boilerplate_limitacao_generica', "esperado rejeição boilerplate: " + JSON.stringify(r));
+});
+test("resolverCamadaEditorial: rejeita DB summary truncado (banco tier)", () => {
+  const artigo = { id: "id-trunc-9999", title: "Título qualquer", summary: "Resumo original completo do artigo aqui.", buddy_summary: "A empresa anunciou novos contratos de afretamento para o campo de Búzios e...", content: "Texto longo. Petrobras firmou contrato com FPSO para pré-sal da Bacia de Santos. A duração é de 20 anos." };
+  const c = mod.resolverCamadaEditorial(artigo);
+  if (c) expect(c.fonte === 'fallback', "DB summary truncado não deve usar fonte banco, encontrou fonte: " + (c && c.fonte));
+});
+test("resolverCamadaEditorial: rejeita DB summary que é cópia do lead (banco tier)", () => {
+  const artigo = { id: "id-copialead-9999", title: "Petrobras assina FPSO", summary: "A Petrobras assinou contrato de FPSO para campo de Búzios no pré-sal.", buddy_summary: "A Petrobras assinou contrato de FPSO para campo de Búzios no pré-sal da Bacia de Santos.", content: "A Petrobras assinou contrato de FPSO. O FPSO terá capacidade para 180 mil barris. A operação será no pré-sal da Bacia de Santos com duração de 20 anos." };
+  const c = mod.resolverCamadaEditorial(artigo);
+  if (c) expect(c.fonte === 'fallback', "cópia do lead não deve ser aceita como banco, fonte: " + (c && c.fonte));
+});
+test("resolverCamadaEditorial: curadoria aceita mesmo que pareça lead (curadoria é humana)", () => {
+  const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA)[0];
+  const curada = mod.CAMADA_EDITORIAL_CURADA[idCurado];
+  const artigo = { id: idCurado, title: "T", summary: curada.buddy_summary, content: curada.buddy_summary.repeat(5) };
+  const c = mod.resolverCamadaEditorial(artigo);
+  expect(c !== null && c.fonte === 'curadoria', "curadoria deve ser aceita independente de similaridade: " + (c && c.fonte));
 });
 
 console.log("\n" + "─".repeat(50));
