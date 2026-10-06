@@ -68,21 +68,38 @@ function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
   const hasMarkers = !!(day.feriado || day.datasPessoais.length || day.viagensFolga.length);
+  // Embarque = bright emerald (distingue dos demais dias embarcados); Desembarque = âmbar
+  const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
   return (
     <TouchableOpacity
       style={[
         styles.dayCell,
         { backgroundColor: s.bg, borderColor: s.border ?? 'transparent', width: CELL_SIZE, height: CELL_SIZE },
-        day.isHoje && styles.dayCellToday,
       ]}
       onPress={onPress}
       activeOpacity={hasMarkers || day.kind !== 'SEM_ESCALA' ? 0.7 : 1}
     >
-      {day.isEmbarque && <View style={styles.embarqueBar} />}
-      {day.isDesembarque && <View style={styles.desembarqueBar} />}
-      <Text style={[styles.dayNum, { color: day.isHoje ? colors.cyan : s.text }]}>{dayNum}</Text>
+      {/* Micro-label de transição — posição absoluta no topo, não desloca o número */}
+      {day.isEmbarque && (
+        <View style={styles.transitionTag}>
+          <Text style={styles.embarqueTagText}>↓EMB</Text>
+        </View>
+      )}
+      {day.isDesembarque && (
+        <View style={styles.transitionTag}>
+          <Text style={styles.desembarqueTagText}>↑DSM</Text>
+        </View>
+      )}
+      {/* Número do dia — HOJE recebe anel branco neutro (estado de navegação, não evento) */}
+      {day.isHoje ? (
+        <View style={styles.hojeRing}>
+          <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+        </View>
+      ) : (
+        <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+      )}
       <View style={styles.dotRow}>
-        {day.feriado?.tipo === 'feriado' && <View style={[styles.dot, { backgroundColor: colors.amber }]} />}
+        {day.feriado?.tipo === 'feriado' && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
         {day.feriado?.tipo === 'comemorativa' && <View style={[styles.dot, { backgroundColor: colors.mutedDim }]} />}
         {day.datasPessoais.length > 0 && <View style={[styles.dot, { backgroundColor: '#ce93d8' }]} />}
         {day.viagensFolga.length > 0 && <View style={[styles.dot, { backgroundColor: colors.cyan }]} />}
@@ -372,11 +389,13 @@ export default function EscalaScreen() {
 
         {/* ── Legend ── */}
         <View style={styles.legend}>
+          <LegendItem color="#6de88a" tag="↓EMB" label="Embarque" />
           <LegendItem color="#4caf50" label="Embarcado" />
+          <LegendItem color={colors.amber} tag="↑DSM" label="Desembarque" />
           <LegendItem color={colors.white} label="Folga" />
           <LegendItem color="#ffc107" label="Dobra" />
           <LegendItem color="#7986cb" label="Férias" />
-          <LegendItem color={colors.amber} dot label="Feriado" />
+          <LegendItem color={colors.orange} dot label="Feriado" />
           <LegendItem color={colors.cyan} dot label="Viagem" />
           <LegendItem color="#ce93d8" dot label="Data especial" />
         </View>
@@ -502,12 +521,14 @@ function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string
   );
 }
 
-function LegendItem({ color, label, dot }: { color: string; label: string; dot?: boolean }) {
+function LegendItem({ color, label, dot, tag }: { color: string; label: string; dot?: boolean; tag?: string }) {
   return (
     <View style={styles.legendItem}>
-      {dot
-        ? <View style={[styles.dot, { backgroundColor: color }]} />
-        : <View style={[styles.legendSwatch, { backgroundColor: color }]} />
+      {tag
+        ? <Text style={[styles.legendTagText, { color }]}>{tag}</Text>
+        : dot
+          ? <View style={[styles.dot, { backgroundColor: color }]} />
+          : <View style={[styles.legendSwatch, { backgroundColor: color }]} />
       }
       <Text style={styles.legendLabel}>{label}</Text>
     </View>
@@ -560,19 +581,21 @@ const styles = StyleSheet.create({
   dayHeaderCell: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   dayHeaderText: { fontSize: 11, fontWeight: '600', color: colors.mutedDim },
   dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, margin: 0.5, position: 'relative', paddingTop: 2 },
-  dayCellToday: { borderColor: colors.cyan, borderWidth: 1.5 },
   dayEmpty: { margin: 0.5 },
   dayNum: { fontSize: 12, fontWeight: '600' },
   dotRow: { flexDirection: 'row', gap: 2, marginTop: 1, height: 4, alignItems: 'center' },
   dot: { width: 4, height: 4, borderRadius: 2 },
-  embarqueBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: '#4caf50', borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
-  desembarqueBar: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 3, backgroundColor: colors.amber, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
+  hojeRing: { borderWidth: 1.5, borderColor: 'rgba(247,250,252,0.75)', borderRadius: 10, paddingHorizontal: 3, paddingVertical: 1, alignItems: 'center', justifyContent: 'center' },
+  transitionTag: { position: 'absolute', top: 1, left: 0, right: 0, alignItems: 'center' },
+  embarqueTagText: { fontSize: 7, fontWeight: '800', color: '#6de88a', letterSpacing: 0.3 },
+  desembarqueTagText: { fontSize: 7, fontWeight: '800', color: colors.amber, letterSpacing: 0.3 },
 
   // Legend
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendSwatch: { width: 10, height: 10, borderRadius: 2 },
   legendLabel: { fontSize: 10, color: colors.mutedDim },
+  legendTagText: { fontSize: 7, fontWeight: '800', letterSpacing: 0.3 },
 
   // Section cards (exceções, datas pessoais, viagens)
   sectionCard: {
