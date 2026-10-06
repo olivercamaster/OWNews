@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { fetchVagas, type Vaga, type VagasResult } from '../src/api';
 import { analytics } from '../src/analytics';
 
@@ -89,6 +90,7 @@ export default function VagasScreen() {
   const isOffline = result.status === 'offline_cached';
 
   return (
+    <OWBackground>
     <View style={styles.root}>
       {isOffline && (
         <View style={styles.offlineBanner}>
@@ -120,11 +122,12 @@ export default function VagasScreen() {
         />
       )}
     </View>
+    </OWBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   list: { padding: spacing.md },
   offlineBanner: {

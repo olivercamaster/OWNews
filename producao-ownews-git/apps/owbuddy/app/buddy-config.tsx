@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPreviewMensagem, DEFAULT_BUDDY_PREFS } from '@owbuddy/domain';
 import type { BuddyPrefs, BuddyTom, BuddyTrat } from '@owbuddy/domain';
 import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 import { getSession, signInWithPassword, signInWithEmail, signOut, onAuthStateChange } from '../src/auth';
 import { syncAll } from '../src/sync';
@@ -118,6 +119,7 @@ export default function BuddyConfig() {
   const preview = getPreviewMensagem(prefs, 3);
 
   return (
+    <OWBackground>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
 
@@ -295,11 +297,12 @@ export default function BuddyConfig() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </OWBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.header },
+  root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
 
   previewCard: {

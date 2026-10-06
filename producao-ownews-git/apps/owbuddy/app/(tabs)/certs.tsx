@@ -16,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { calcCertStatus } from '@owbuddy/domain';
 import type { Certificado, CertCalc } from '@owbuddy/domain';
 import { getCerts, setCerts } from '../../src/storage';
-import { colors, spacing, radius, typography } from '../../src/theme';
+import { colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR, maskDateBR, parseDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 
@@ -87,6 +88,7 @@ export default function MeusCerts() {
   );
 
   return (
+    <OWBackground>
     <View style={styles.root}>
       <FlatList
         data={certs}
@@ -111,6 +113,7 @@ export default function MeusCerts() {
         </TouchableOpacity>
       )}
     </View>
+    </OWBackground>
   );
 }
 
@@ -184,10 +187,10 @@ const fStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.navy950 },
+  root: { flex: 1, backgroundColor: 'transparent' },
   list: { padding: spacing.md, paddingBottom: 100 },
   formContent: { padding: spacing.md },
-  card: { backgroundColor: colors.navy800, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
+  card: { backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: maritime.glassBorder, ...maritime.cardShadow },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
   certNome: { ...typography.h3, flex: 1, marginRight: spacing.sm },
   badge: { borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 },

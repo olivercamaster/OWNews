@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -149,6 +150,7 @@ export default function FerramentasScreen() {
   };
 
   return (
+    <OWBackground>
     <View style={styles.root}>
       {/* Category chips */}
       <ScrollView
@@ -219,13 +221,14 @@ export default function FerramentasScreen() {
 
       <Text style={styles.hint}>Toque para inverter · Segure para compartilhar</Text>
     </View>
+    </OWBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
 
-  catBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: colors.line },
+  catBar: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: maritime.glassBorder },
   catBarContent: { padding: spacing.sm, gap: spacing.xs, flexDirection: 'row' },
   catChip: {
     flexDirection: 'row',
@@ -234,9 +237,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: 99,
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
   },
   catChipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   catLabel: { fontSize: 12, fontWeight: '600', color: colors.muted },
@@ -247,11 +250,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     margin: spacing.md,
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glassElevated,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cyan + '55',
     padding: spacing.md,
+    ...maritime.cardShadow,
   },
   valueInput: {
     flex: 1,
@@ -277,12 +281,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: surface.card,
+    backgroundColor: maritime.glass,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.glassBorder,
   },
   resultLeft: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   resultValue: { fontSize: 22, fontWeight: '700', color: colors.white },
@@ -293,7 +297,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: maritime.glassBorder,
   },
 });

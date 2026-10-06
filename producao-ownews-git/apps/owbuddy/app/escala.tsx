@@ -37,7 +37,8 @@ import {
   getViagensFolga,
   setViagensFolga,
 } from '../src/storage';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
 
@@ -272,7 +273,7 @@ export default function EscalaScreen() {
   });
 
   return (
-    <>
+    <OWBackground>
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
 
         {/* ── Status hero ── */}
@@ -488,7 +489,7 @@ export default function EscalaScreen() {
 
       {/* ── Day detail modal ── */}
       <DayDetailModal day={selectedDay} onClose={() => setSelectedDay(null)} />
-    </>
+    </OWBackground>
   );
 }
 
@@ -514,7 +515,7 @@ function LegendItem({ color, label, dot }: { color: string; label: string; dot?:
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, paddingBottom: spacing.xxl + spacing.lg },
 
   setupRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: surface.bg, padding: spacing.xl, gap: spacing.md },

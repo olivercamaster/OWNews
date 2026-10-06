@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { getAeroporto } from '@owbuddy/domain';
 import { getEscala } from '../src/storage';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 
 const API_URL = 'https://ownews.com.br/api/buddy/aeroportos';
@@ -75,8 +77,11 @@ export default function AeroportosScreen() {
 
   const outros = result?.aeroportos.filter(a => a.codigo !== meuCodigo) ?? [];
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <OWBackground>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
       <View style={styles.hero}>
         <Ionicons name="airplane-outline" size={52} color={colors.cyanDim} />
         <Text style={styles.heroTitle}>Aeroportos & Heliportos</Text>
@@ -129,6 +134,7 @@ export default function AeroportosScreen() {
         <Text style={styles.ctaText}>Ver painel completo no OWNews</Text>
       </TouchableOpacity>
     </ScrollView>
+    </OWBackground>
   );
 }
 
@@ -166,7 +172,7 @@ function AeroCard({ aero, destaque = false }: { aero: AeroportoVivo; destaque?: 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: 40 },
 
   hero: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
@@ -176,16 +182,19 @@ const styles = StyleSheet.create({
   sectionLabel: { ...typography.micro, color: colors.mutedDim, marginTop: spacing.sm },
 
   card: {
-    backgroundColor: surface.card,
-    borderRadius: radius.md,
-    padding: spacing.sm,
+    backgroundColor: maritime.glass,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.line,
-    gap: spacing.xs,
+    borderColor: maritime.glassBorder,
+    gap: spacing.sm,
+    ...maritime.cardShadow,
   },
   cardDestaque: {
     borderColor: colors.cyan + '55',
-    backgroundColor: colors.cyanFaint,
+    backgroundColor: maritime.glassElevated,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.cyan,
   },
   cardTop: {
     flexDirection: 'row',
@@ -193,7 +202,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   codeBadge: {
-    backgroundColor: surface.elevated,
+    backgroundColor: maritime.glassElevated,
     borderRadius: radius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,

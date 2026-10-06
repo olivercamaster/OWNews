@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { OWBackground } from '../src/components/OWBackground';
 import { CITIES, type City } from '../src/cities';
 import { getWeather, type WeatherData, weatherCacheLabel } from '../src/weather';
 import { getCityPref, setCityPref } from '../src/storage';
@@ -80,6 +81,7 @@ export default function MeteorologiaScreen() {
   const selected = rows.find(r => r.city.name === selectedCity?.name);
 
   return (
+    <OWBackground>
     <View style={styles.root}>
       {selected && (
         <View style={styles.hero}>
@@ -119,11 +121,12 @@ export default function MeteorologiaScreen() {
         onRefresh={load}
       />
     </View>
+    </OWBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: surface.bg },
+  root: { flex: 1, backgroundColor: 'transparent' },
   hero: {
     backgroundColor: surface.card,
     padding: spacing.lg,

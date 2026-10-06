@@ -244,35 +244,38 @@ export default function TelaHoje() {
         {/* ── Escala: 3 estados (SEM_ESCALA / DE_FOLGA / EMBARCADO) ── */}
         <HomeEscalaCard resumo={resumo} aeroporto={aeroporto} checklist={checkCount} />
 
-        {/* ── Como te ajudo, Buddy? ── */}
-        <Text style={styles.sectionTitle}>Como te ajudo, Buddy?</Text>
-
-        {/* Primary actions */}
-        <View style={styles.ctaGrid}>
-          <CtaCard
+        {/* ── Ações principais (list rows — não card soup) ── */}
+        <Text style={styles.sectionLabel}>Meu painel</Text>
+        <View style={styles.actionList}>
+          <ActionRow
             icon="calendar-outline"
             label="Minha Escala"
+            sub={escala ? 'Ver calendário e ciclo' : 'Configurar agora'}
             accent={escala ? colors.cyan : colors.mutedDim}
             onPress={() => router.push(escala ? '/escala' : '/escala-config')}
           />
-          <CtaCard
+          <ActionRow
             icon="checkbox-outline"
             label="Meu Embarque"
+            sub={checkCount ? `${checkCount.feitos}/${checkCount.total} itens prontos` : 'Checklist de viagem'}
             badge={checkCount && checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
             onPress={() => router.navigate('/mala')}
           />
-          <CtaCard
+          <ActionRow
             icon="airplane-outline"
             label="Minha Viagem"
+            sub={viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem de embarque'}
             accent={viagemBreve ? colors.amber : undefined}
             onPress={() => router.navigate('/viagem')}
           />
-          <CtaCard
+          <ActionRow
             icon="document-text-outline"
             label="Certificados"
+            sub={critCerts.length > 0 ? `${critCerts.length} vence(m) em breve` : 'Controle de validades'}
             badge={critCerts.length > 0 ? String(critCerts.length) : undefined}
             badgeColor={colors.red}
             onPress={() => router.navigate('/certs')}
+            last
           />
         </View>
 
@@ -304,11 +307,11 @@ export default function TelaHoje() {
 
         {/* ── Informação offshore ── */}
         <Text style={styles.sectionLabel}>Informação offshore</Text>
-        <View style={styles.offshoreGrid}>
-          <OffshoreCard icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
-          <OffshoreCard icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
-          <OffshoreCard icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
-          <OffshoreCard icon="hammer-outline" label="Ferramentas" onPress={() => router.push('/ferramentas')} />
+        <View style={styles.chipRow}>
+          <ChipButton icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
+          <ChipButton icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
+          <ChipButton icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
+          <ChipButton icon="hammer-outline" label="Ferramentas" onPress={() => router.push('/ferramentas')} />
         </View>
       </ScrollView>
 
@@ -462,41 +465,52 @@ function HomeEscalaCard({
   );
 }
 
-function CtaCard({
-  icon,
-  label,
-  onPress,
-  accent,
-  badge,
-  badgeColor,
+/** Action row — ícone + label + sub + badge. Usado no painel principal. */
+function ActionRow({
+  icon, label, sub, onPress, accent, badge, badgeColor, last,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
+  sub?: string;
   onPress: () => void;
   accent?: string;
   badge?: string;
   badgeColor?: string;
+  last?: boolean;
 }) {
   return (
-    <TouchableOpacity style={styles.ctaCard} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.ctaIconWrap}>
-        <Ionicons name={icon} size={iconSize.card} color={accent ?? colors.cyanDim} />
-        {badge && (
-          <View style={[styles.ctaBadge, { backgroundColor: badgeColor ?? colors.cyan }]}>
-            <Text style={styles.ctaBadgeText}>{badge}</Text>
-          </View>
-        )}
+    <TouchableOpacity
+      style={[styles.actionRow, !last && styles.actionRowBorder]}
+      onPress={onPress}
+      activeOpacity={0.72}
+    >
+      <View style={[styles.actionIconWrap, { backgroundColor: (accent ?? colors.cyanDim) + '18' }]}>
+        <Ionicons name={icon} size={18} color={accent ?? colors.cyanDim} />
       </View>
-      <Text style={styles.ctaLabel}>{label}</Text>
+      <View style={styles.actionContent}>
+        <Text style={styles.actionLabel}>{label}</Text>
+        {sub ? <Text style={styles.actionSub} numberOfLines={1}>{sub}</Text> : null}
+      </View>
+      {badge ? (
+        <View style={[styles.actionBadge, { backgroundColor: badgeColor ?? colors.cyan }]}>
+          <Text style={styles.actionBadgeText}>{badge}</Text>
+        </View>
+      ) : null}
+      <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
     </TouchableOpacity>
   );
 }
 
-function OffshoreCard({ icon, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }) {
+/** Chip compacto — linha de 4 chips para atalhos de informação */
+function ChipButton({ icon, label, onPress }: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <TouchableOpacity style={styles.offshoreCard} onPress={onPress} activeOpacity={0.75}>
-      <Ionicons name={icon} size={20} color={colors.muted} />
-      <Text style={styles.offshoreLabel}>{label}</Text>
+    <TouchableOpacity style={styles.chip} onPress={onPress} activeOpacity={0.72}>
+      <Ionicons name={icon} size={16} color={colors.cyanDim} />
+      <Text style={styles.chipLabel}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -592,36 +606,66 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 
-  // CTA grid
-  ctaGrid: {
+  // Action list (painel principal)
+  actionList: {
+    backgroundColor: maritime.glass,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: maritime.glassBorder,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+    ...maritime.cardShadow,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 13,
+    gap: spacing.sm,
+  },
+  actionRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: maritime.glassBorder,
+  },
+  actionIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionContent: { flex: 1 },
+  actionLabel: { fontSize: 14, fontWeight: '600', color: colors.white },
+  actionSub: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
+  actionBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  actionBadgeText: { fontSize: 10, fontWeight: '700', color: colors.navy950 },
+
+  // Chips offshore (linha horizontal)
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  ctaCard: {
-    width: '47.5%',
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: maritime.glass,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: radius.xl,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
-    gap: spacing.sm,
   },
-  ctaIconWrap: { position: 'relative', width: iconSize.card, height: iconSize.card },
-  ctaBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  ctaBadgeText: { fontSize: 9, fontWeight: '700', color: colors.navy950 },
-  ctaLabel: { fontSize: 13, fontWeight: '600', color: colors.white },
+  chipLabel: { fontSize: 12, fontWeight: '600', color: colors.muted },
 
   // Escala status card (3 estados)
   escalaCard: {
@@ -661,25 +705,7 @@ const styles = StyleSheet.create({
   alertCardViagem: { borderColor: colors.amber + '44' },
   alertText: { flex: 1, fontSize: 13, color: colors.muted },
 
-  // Offshore info grid
-  offshoreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    justifyContent: 'flex-start',
-  },
-  offshoreCard: {
-    width: '47.5%',
-    backgroundColor: maritime.glass,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: maritime.glassBorder,
-  },
-  offshoreLabel: { fontSize: 11, color: colors.muted, fontWeight: '500', textAlign: 'center' },
+  // Offshore - estilos removidos (agora usa chipRow/chip)
 
   // City search modal
   modalRoot: { flex: 1, backgroundColor: surface.header },
