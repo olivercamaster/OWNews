@@ -278,7 +278,21 @@ def run_static():
     test("Home linka bloco OWNews Explica (#explica)", lambda: expect_in('class="ed-section explica-home" id="explica"', worker(), "blocoExplicaHome"))
     test("/api/buddy/feed expõe buddy_summary/why_it_matters/explica", lambda: _check_buddy_feed_fields())
     test("deck-pusher tem ficha detalhada em SONDA_FUNCAO_EXTRA", lambda: expect_in('"deck-pusher": {', worker(), "SONDA_FUNCAO_EXTRA"))
-    test("editorial_layer_test.js passa (36 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("editorial_layer_test.js passa (38 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+
+    suite("ADSENSE RECOVERY 2.0 — Buddy universal + thin isolado + quality gate + hero")
+
+    test("gerarBuddySummaryFallback definida e exportada no módulo", lambda: _check_fallback_fn())
+    test("avaliarQualidadeMateria definida e retorna gate+sinais", lambda: _check_quality_gate_fn())
+    test("resolverCamadaEditorial tem fallback como tier 3/4", lambda: _check_resolver_fallback())
+    test("ehMateriaThin: thin = corpo APENAS, não depende de camada", lambda: _check_thin_no_camada())
+    test("thin continua noindex mesmo com fallback Buddy", lambda: _check_thin_noindex())
+    test("blocoBuddyExplica: footer honesto para fallback (sem 'revisada em')", lambda: _check_buddy_footer_fallback())
+    test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
+    test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
+    test("quality gate avalia thin, repetição, fatos e origemFonte", lambda: expect_in("function avaliarQualidadeMateria(artigo)", worker(), "avaliarQualidadeMateria"))
+    test("editorial_layer_test.js passa (38 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("Política Editorial: texto explica as 3 prioridades do resolver", lambda: _check_politica_buddy_te_explica())
 
     suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
 
@@ -382,6 +396,92 @@ def _check_buddy_feed_fields():
     for campo in ("buddy_summary:", "why_it_matters:", "buddy_reviewed_at:", "explica,", "thin:", "schema_version: 2"):
         expect_in(campo, bloco, campo)
     expect_in("resolverCamadaEditorial(a)", bloco, "feed usa resolver")
+
+
+# ── ADSENSE RECOVERY 2.0 — Buddy universal + thin isolado + quality gate ─────
+
+def _check_fallback_fn():
+    w = worker()
+    expect_in("function gerarBuddySummaryFallback(artigo)", w, "fn definida")
+    fn = w.split("function gerarBuddySummaryFallback(artigo)", 1)[1].split("\nfunction ", 1)[0]
+    # Princípios: não inventa, usa só base, valida
+    expect_in("validarTextoCamadaEditorial(", fn, "usa validador")
+    expect_in("return null", fn, "retorna null quando sem material")
+    expect_not_in("inventar", fn, "palavra inventar no código não é permitida (sinal de erro)")
+
+
+def _check_quality_gate_fn():
+    w = worker()
+    expect_in("function avaliarQualidadeMateria(artigo)", w, "fn definida")
+    fn = w.split("function avaliarQualidadeMateria(artigo)", 1)[1].split("\nfunction ", 1)[0]
+    for campo in ("thin", "corpoUtil", "origemFonte", "temNumero", "temEntidade", "muitoRepetitivo", "temMaterialBuddy", "gate", "motivos"):
+        expect_in(campo, fn, campo)
+    for gate_val in ("'pass'", "'hold'", "'nota_curta'", "'descartar'"):
+        expect_in(gate_val, fn, gate_val)
+
+
+def _check_resolver_fallback():
+    w = worker()
+    fn = w.split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("gerarBuddySummaryFallback(artigo)", fn, "fallback chamado no resolver")
+    expect_in("fonte: 'fallback'", fn, "marca fallback")
+    expect_in("why_it_matters: null", fn, "fallback sem why_it_matters")
+    # Prioridade: curadoria > banco > fallback
+    idx_curada = fn.index("CAMADA_EDITORIAL_CURADA")
+    idx_banco = fn.index("artigo.buddy_summary")
+    idx_fallback = fn.index("gerarBuddySummaryFallback")
+    expect(idx_curada < idx_banco < idx_fallback, "prioridade: curadoria < banco < fallback")
+
+
+def _check_thin_no_camada():
+    w = worker()
+    fn = w.split("function ehMateriaThin(artigo,", 1)[1].split("\nfunction ", 1)[0]
+    expect_not_in("camada.buddy_summary", fn, "thin NÃO deve consultar camada.buddy_summary")
+    expect_not_in("if (camada", fn, "thin NÃO deve fazer if(camada)")
+    expect_in("corpo.length < 400", fn, "verificação de corpo curto")
+    expect_in("corpo === resumo", fn, "verificação corpo==resumo")
+
+
+def _check_thin_noindex():
+    w = worker()
+    # noticia route: materiaThin deve ser calculada independente de camadaEditorial
+    bloco = w.split('url.pathname === "/noticia"', 1)[1][:10000]
+    expect_in("ehMateriaThin(artigo, camadaEditorial)", bloco, "ehMateriaThin ainda chamada com camada (compatibilidade)")
+    expect_in("robots: materiaThin ? 'noindex,follow' : null", w, "noindex se thin")
+    # A camada (fallback) não pode mudar o resultado de ehMateriaThin
+    # (garantido pela remoção do if(camada) no próprio ehMateriaThin)
+    fn_thin = w.split("function ehMateriaThin(artigo,", 1)[1].split("\nfunction ", 1)[0]
+    # Verificar que o CÓDIGO (não o comentário) não consulta buddy_summary
+    fn_thin_code = "\n".join(l for l in fn_thin.split("\n") if not l.strip().startswith("//"))
+    expect_not_in("buddy_summary", fn_thin_code, "ehMateriaThin não usa buddy_summary no código (thin = corpo)")
+
+
+def _check_buddy_footer_fallback():
+    w = worker()
+    fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("camada.fonte === 'fallback'", fn, "footer diferente para fallback")
+    expect_in("Resumo gerado automaticamente pelo OWNews", fn, "texto honesto do footer fallback")
+    expect_in("Camada editorial do OWNews", fn, "texto para camada revisada")
+
+
+def _check_home_thin_filter():
+    w = worker()
+    fn = w.split("function selecionarHomeServidor(noticias, agoraMs)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("ehMateriaThin(n, null)", fn, "thin filter no hero")
+    expect_in("semThin", fn, "variável semThin")
+    # Fallback gracioso: se todas forem thin, usar noticias originais
+    expect_in("semThin.length >= 3 ? semThin : noticias", fn, "fallback gracioso")
+
+
+def _check_politica_buddy_te_explica():
+    w = worker()
+    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    pe_bloco = bloco.split('id="buddy-te-explica"', 1)[1][:3000]
+    expect_in("ordem de prioridade", pe_bloco, "3 prioridades documentadas")
+    expect_in("curadoria editorial", pe_bloco, "curadoria")
+    expect_in("banco de dados", pe_bloco, "banco")
+    expect_in("geração automática", pe_bloco, "fallback auto")
+    expect_in("noindex", pe_bloco, "thin continua noindex")
 
 
 # ── IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / headings ──

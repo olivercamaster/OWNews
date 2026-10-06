@@ -5721,25 +5721,153 @@ function explicaRelacionadosParaNoticia(artigo, camada) {
   return slugs.filter((s) => !existentes || existentes.has(s)).slice(0, 3);
 }
 
-/* Resolve a camada editorial de uma matéria. Curadoria em código vence o
-   banco (é revisada); banco entra como fallback quando as colunas existirem
-   (artigo.buddy_summary / artigo.why_it_matters). Tudo passa pelo validador:
-   dado inválido é descartado em silêncio, nunca renderizado. */
+/* gerarBuddySummaryFallback — prioridade 3/4 do resolver.
+   Produz um resumo de 2–4 frases a partir do texto que já está na matéria.
+   Princípios:
+   - Usa SOMENTE os fatos presentes na própria matéria.
+   - 2–3 frases objetivas, em português natural.
+   - Não copia mecanicamente o primeiro parágrafo: filtra frases que
+     são paráfrases do título, marketing boilerplate e texto sem valor.
+   - Retorna null se não houver material suficiente para um texto válido.
+   - NÃO gera vagas, salários, datas ou valores inventados.
+   - Texto curto e correto > texto completo fabricado. */
+function gerarBuddySummaryFallback(artigo) {
+  const titulo = String((artigo && artigo.title) || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo  = String((artigo && artigo.content) || '').trim();
+
+  // Base: texto mais substancial disponível
+  const base = (corpo.length > resumo.length && corpo !== resumo) ? corpo : resumo;
+  if (!base || base.length < 80) return null;
+
+  // Normalizar quebras de parágrafo e espaços
+  const textoNorm = base.replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').replace(/  +/g, ' ');
+
+  // Extrair frases por pontuação de fim
+  const todas = (textoNorm.match(/[^.!?]+[.!?]+/g) || []).map((f) => f.trim()).filter((f) => f.length >= 28 && f.length <= 300);
+  if (!todas.length) return null;
+
+  // Filtrar frases que repetem excessivamente o título (paráfrases redundantes)
+  const tWords = titulo.toLowerCase().replace(/[^\wà-ú\s]/g, '').split(/\s+/).filter((w) => w.length > 4);
+  const maxOverlap = Math.min(4, Math.max(2, Math.ceil(tWords.length * 0.65)));
+  const filtradas = todas.filter((f) => {
+    const fl = f.toLowerCase();
+    const overlap = tWords.filter((w) => fl.includes(w)).length;
+    return overlap < maxOverlap;
+  });
+
+  // Preferir frases filtradas; recair nas originais se todas foram descartadas
+  const candidatas = (filtradas.length >= 1 ? filtradas : todas).slice(0, 3);
+
+  // Tentar de 3 frases para 1, parar no primeiro texto que passa o validador
+  for (let n = Math.min(3, candidatas.length); n >= 1; n--) {
+    const t = candidatas.slice(0, n).join(' ').trim();
+    if (validarTextoCamadaEditorial(t).ok) return t;
+  }
+
+  // Último recurso: resumo direto (para artigos muito curtos mas com summary útil)
+  const s = resumo.slice(0, 400).trim();
+  return (s.length >= 40 && validarTextoCamadaEditorial(s).ok) ? s : null;
+}
+
+/* avaliarQualidadeMateria — Quality Gate editorial.
+   Retorna um objeto com sinais de qualidade para uso no pipeline de
+   publicação. Não bloqueia renderização: é informativo + serve ao editor.
+
+   gate: 'pass'      → matéria tem material suficiente para uma página editorial
+         'nota_curta'→ fato real mas corpo muito curto; publicável como nota noindex
+         'hold'      → segurar para enriquecimento antes de publicar
+         'descartar' → não tem material para página própria
+
+   IMPORTANTE: a decisão final é editorial. Esta função produz
+   sinais objetivos compatíveis com a arquitetura atual; não publica
+   nem descarta automaticamente. */
+function avaliarQualidadeMateria(artigo) {
+  const titulo  = String((artigo && artigo.title)   || '').trim();
+  const resumo  = String((artigo && artigo.summary) || '').trim();
+  const corpo   = String((artigo && artigo.content) || '').trim();
+  const urlFonte = String((artigo && artigo.original_url) || '');
+
+  // Sinal 1: thin (corpo insuficiente)
+  const thin = ehMateriaThin(artigo, null);
+
+  // Sinal 2: corpo diferente do resumo (acrescenta algo)
+  const corpoAcrescenta = corpo.length > 0 && corpo !== resumo;
+  const corpoUtil = corpoAcrescenta ? corpo.length : 0;
+
+  // Sinal 3: título parafraseia o corpo (pouca informação nova)
+  const tWords = titulo.toLowerCase().replace(/[^\wà-ú\s]/g, '').split(/\s+/).filter((w) => w.length > 4);
+  const baseLower = (corpo + ' ' + resumo).toLowerCase();
+  const titleOverlap = tWords.length > 0 ? tWords.filter((w) => baseLower.includes(w)).length / tWords.length : 0;
+  const muitoRepetitivo = titleOverlap > 0.8;
+
+  // Sinal 4: fatos concretos (números, entidades)
+  const temNumero   = /\d+/.test(corpo + resumo);
+  const temEntidade = /\b(petrobras|ppsa|anp|ibama|equinor|shell|bp|total|brava|prio|enauta|modec|sbm|saipem|transocean|seadrill|valaris|ocyan|subsea7|offshore)\b/i.test(corpo + resumo);
+
+  // Sinal 5: qualidade da fonte
+  const origemFonte = classificarOrigemFonte(urlFonte);
+
+  // Sinal 6: material para o Buddy conseguir explicar
+  const temMaterialBuddy = gerarBuddySummaryFallback(artigo) !== null;
+
+  // Gate
+  const motivos = [];
+  let gate = 'pass';
+  if (thin) { gate = 'hold'; motivos.push('thin_body'); }
+  if (muitoRepetitivo) { gate = gate === 'pass' ? 'hold' : gate; motivos.push('titulo_repete_corpo'); }
+  if (!temMaterialBuddy && thin) { gate = 'descartar'; motivos.push('sem_material_para_buddy'); }
+  // Nota curta: thin mas tem fato real identificável
+  if (gate === 'hold' && (temNumero || temEntidade) && !muitoRepetitivo) gate = 'nota_curta';
+
+  return {
+    thin,
+    corpoUtil,
+    origemFonte,
+    temNumero,
+    temEntidade,
+    muitoRepetitivo,
+    temMaterialBuddy,
+    gate,
+    motivos
+  };
+}
+
+/* Resolve a camada editorial de uma matéria.
+   Prioridade:
+   1. CAMADA_EDITORIAL_CURADA — revisão humana/editorial em código.
+   2. Colunas articles.buddy_summary no Supabase (quando disponíveis).
+   3. gerarBuddySummaryFallback — derivado do conteúdo existente da
+      matéria. Nunca inventa fato. Marcado como fonte='fallback'.
+   O resolver garante que TODA página /noticia válida exibe o componente
+   "Buddy te explica". Thin continua noindex — Buddy não reindexe. */
 function resolverCamadaEditorial(artigo) {
   if (!artigo || !artigo.id) return null;
   const curada = CAMADA_EDITORIAL_CURADA[artigo.id] || null;
   const fonte = curada ? 'curadoria' : (artigo.buddy_summary ? 'banco' : null);
-  if (!fonte) return null;
-  const resumo = curada ? curada.buddy_summary : artigo.buddy_summary;
-  const porque = curada ? curada.why_it_matters : (artigo.why_it_matters || null);
-  if (!validarTextoCamadaEditorial(resumo).ok) return null;
-  const porqueValido = porque && validarTextoCamadaEditorial(porque).ok ? porque.trim() : null;
+  if (fonte) {
+    const resumo = curada ? curada.buddy_summary : artigo.buddy_summary;
+    const porque = curada ? curada.why_it_matters : (artigo.why_it_matters || null);
+    if (validarTextoCamadaEditorial(resumo).ok) {
+      const porqueValido = porque && validarTextoCamadaEditorial(porque).ok ? porque.trim() : null;
+      return {
+        buddy_summary: resumo.trim(),
+        why_it_matters: porqueValido,
+        explica: curada && Array.isArray(curada.explica) ? curada.explica.slice() : [],
+        revisado_em: (curada && curada.revisado_em) || (artigo.buddy_reviewed_at ? String(artigo.buddy_reviewed_at).slice(0, 10) : null),
+        fonte
+      };
+    }
+  }
+  // Prioridade 3/4: fallback derivado do conteúdo da própria matéria
+  const summaryFallback = gerarBuddySummaryFallback(artigo);
+  if (!summaryFallback) return null;
   return {
-    buddy_summary: resumo.trim(),
-    why_it_matters: porqueValido,
-    explica: curada && Array.isArray(curada.explica) ? curada.explica.slice() : [],
-    revisado_em: (curada && curada.revisado_em) || (artigo.buddy_reviewed_at ? String(artigo.buddy_reviewed_at).slice(0, 10) : null),
-    fonte
+    buddy_summary: summaryFallback,
+    why_it_matters: null,
+    explica: [],
+    revisado_em: null,
+    fonte: 'fallback'
   };
 }
 
@@ -5763,7 +5891,10 @@ function blocoBuddyExplica(camada) {
     (camada.why_it_matters
       ? '<div class="buddy-explica-porque-card"><h3 class="buddy-explica-sub">Por que isso importa?</h3><p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p></div>'
       : '') +
-    '<footer class="buddy-explica-rodape">Camada editorial do OWNews' + (camada.revisado_em ? ', revisada em ' + escaparHTML(formatarDataCurtaServidor(camada.revisado_em)) : '') + '. <a href="/politica-editorial#buddy-te-explica">Como produzimos</a></footer>' +
+    '<footer class="buddy-explica-rodape">' + (camada.fonte === 'fallback'
+      ? 'Resumo gerado automaticamente pelo OWNews a partir do conteúdo publicado. <a href="/politica-editorial#buddy-te-explica">Sobre a camada editorial</a>'
+      : 'Camada editorial do OWNews' + (camada.revisado_em ? ', revisada em ' + escaparHTML(formatarDataCurtaServidor(camada.revisado_em)) : '') + '. <a href="/politica-editorial#buddy-te-explica">Como produzimos</a>') +
+    '</footer>' +
     '</section>';
 }
 
@@ -5820,8 +5951,12 @@ function blocoProvenienciaNoticia(artigo, camada) {
    ao resumo (fontes em inglês guardam só o resumo traduzido como content).
    Essas páginas continuam acessíveis (atribuição, link para fonte), mas
    saem do índice e dos sitemaps até ganharem camada ou corpo real. */
-function ehMateriaThin(artigo, camada) {
-  if (camada && camada.buddy_summary) return false;
+function ehMateriaThin(artigo, _camada) {
+  // Recovery 2.0: thin é determinado exclusivamente pelo corpo editorial.
+  // A presença de buddy_summary NÃO retira o noindex de uma matéria thin:
+  // Buddy é camada de compreensão, não mecanismo para mascarar conteúdo
+  // insuficiente. O parâmetro _camada foi mantido para compatibilidade de
+  // chamada mas não é mais consultado.
   const corpo = String((artigo && artigo.content) || '').trim();
   const resumo = String((artigo && artigo.summary) || '').trim();
   if (corpo.length < 400) return true;
@@ -5867,7 +6002,7 @@ const CSS_CAMADA_EDITORIAL =
    por cima (com rotação de imagens, modo embarcado etc.) — nada do
    comportamento atual muda; só deixa de haver um "buraco" no HTML inicial.
    Falha de rede → Home estática de sempre (nunca 500). */
-const NOTICIAS_HOME_SELECT_SERVIDOR = 'id,title,summary,image_url,image_credit,original_url,published_at,editorial_score';
+const NOTICIAS_HOME_SELECT_SERVIDOR = 'id,title,summary,content,image_url,image_credit,original_url,published_at,editorial_score';
 const PALAVRAS_BREAKING_SERVIDOR = ['acidente', 'explosão', 'explosao', 'vazamento', 'greve', 'parada de produção', 'parada de producao', 'interdição', 'interdicao', 'morte', 'fatal', 'resgate', 'incêndio', 'incendio'];
 
 async function obterNoticiasHomeServidor() {
@@ -5884,7 +6019,11 @@ async function obterNoticiasHomeServidor() {
 
 function selecionarHomeServidor(noticias, agoraMs) {
   const horasDe = (n) => (agoraMs - new Date(n.published_at).getTime()) / 3600000;
-  const em48h = noticias.filter((n) => { const h = horasDe(n); return Number.isFinite(h) && h >= 0 && h <= 48; });
+  // Recovery 2.0: matéria thin nunca vira hero nem lateral da Home.
+  // O select da Home já inclui `content`, o que permite o check real.
+  const semThin = noticias.filter((n) => !ehMateriaThin(n, null));
+  const em48hBase = semThin.length >= 3 ? semThin : noticias; // fallback gracioso
+  const em48h = em48hBase.filter((n) => { const h = horasDe(n); return Number.isFinite(h) && h >= 0 && h <= 48; });
   if (!em48h.length) return null;
   const maisNova = em48h[0];
   const breaking = em48h.find((n) => { const t = ((n.title || '') + ' ' + (n.summary || '')).toLowerCase(); return PALAVRAS_BREAKING_SERVIDOR.some((p) => t.includes(p)); });
@@ -16290,7 +16429,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="fontes">' +
     "<h2>Fontes e atribuição</h2>" +
-    '<p class="area-desc"><strong>O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.</strong> O fluxo é sempre o mesmo: o portal descobre o assunto; o pipeline localiza a fonte primária (documento, comunicado ou dado oficial), verifica e escreve; a redação contextualiza; e, quando cabe, o Buddy explica. Toda notícia traz o nome da fonte e o link para o documento ou matéria original, no bloco "Sobre esta matéria" ao final do texto, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. Damos prioridade a fontes primárias e a veículos especializados com histórico verificável. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
+    '<p class="area-desc"><strong>O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.</strong> O fluxo é sempre o mesmo: o portal descobre o assunto; o pipeline localiza a fonte primária (documento, comunicado ou dado oficial), verifica e escreve; a redação contextualiza; e, quando cabe, o Buddy explica. Uma matéria precisa ter conteúdo suficiente para justificar uma página editorial própria antes de ser publicada — esse critério é avaliado automaticamente pelo Quality Gate editorial. Toda notícia traz o nome da fonte e o link para o documento ou matéria original, no bloco "Sobre esta matéria" ao final do texto, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. Damos prioridade a fontes primárias e a veículos especializados com histórico verificável. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
     "</div>" +
 
     '<div class="area-group" id="producao-automatizada">' +
@@ -16300,7 +16439,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="buddy-te-explica">' +
     '<h2>A camada "Buddy te explica"</h2>' +
-    '<p class="area-desc">Em parte das notícias, logo abaixo da imagem, há um bloco chamado <strong>Buddy te explica</strong>. É um texto curto, escrito pelo OWNews, que diz em linguagem direta o que a notícia significa — e, quando há base concreta para isso, <strong>por que isso importa</strong> para quem trabalha ou quer trabalhar embarcado. Regras que seguimos nesse bloco: não repete o primeiro parágrafo; não inventa consequências ("isso vai gerar vagas") sem fonte; não é um chatbot nem responde perguntas; cada texto tem data de revisão visível. O mesmo texto alimenta o aplicativo OWBuddy: uma única produção editorial, dois produtos. Notícias sem esse bloco são notícias que ainda não receberam essa camada — não há geração automática.</p>' +
+    '<p class="area-desc">Toda notícia válida exibe o bloco <strong>Buddy te explica</strong>. O resumo vem, em ordem de prioridade: (1) curadoria editorial registrada em código, com data de revisão; (2) campos revisados no banco de dados quando disponíveis; (3) geração automática a partir do texto já publicado da matéria, sem inventar fatos, datas ou valores — o rodapé do bloco informa a origem. Matérias thin (corpo insuficiente) continuam com noindex mesmo quando recebem resumo Buddy. Em parte das notícias, logo abaixo da imagem, há um bloco chamado <strong>Buddy te explica</strong>. É um texto curto, escrito pelo OWNews, que diz em linguagem direta o que a notícia significa — e, quando há base concreta para isso, <strong>por que isso importa</strong> para quem trabalha ou quer trabalhar embarcado. Regras que seguimos nesse bloco: não repete o primeiro parágrafo; não inventa consequências ("isso vai gerar vagas") sem fonte; não é um chatbot nem responde perguntas; cada texto tem data de revisão visível. O mesmo texto alimenta o aplicativo OWBuddy: uma única produção editorial, dois produtos. Notícias sem esse bloco são notícias que ainda não receberam essa camada — não há geração automática.</p>' +
     "</div>" +
 
     '<div class="area-group" id="conteudo-original">' +

@@ -52,7 +52,7 @@ const mod = new Function(
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
   camadaSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte };"
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -168,8 +168,39 @@ test("resolverCamadaEditorial rejeita banco inválido (frase proibida)", () => {
   const c = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000001", buddy_summary: "A empresa reforça seu compromisso com o setor e marca um novo capítulo na história offshore do país." });
   expect(c === null, "deveria retornar null");
 });
-test("resolverCamadaEditorial retorna null sem nada", () => {
+test("resolverCamadaEditorial retorna null sem nada (sem content/summary para fallback)", () => {
   expect(mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000002" }) === null);
+});
+test("resolverCamadaEditorial fallback: usa conteúdo da matéria quando não há curadoria/banco", () => {
+  const artigo = {
+    id: "00000000-0000-0000-0000-000000000003",
+    title: "Petrobras anuncia contrato",
+    summary: "A Petrobras assinou contrato com a CHC para operações de helicóptero no campo de Búzios.",
+    content: "A Petrobras assinou um contrato de cinco anos com a CHC Helicopters para troca de equipes no campo de Búzios, na Bacia de Santos. A aeronave utilizada é um S-92 operando a partir de Maricá. O início das operações está previsto para junho de 2027.",
+  };
+  const c = mod.resolverCamadaEditorial(artigo);
+  expect(c !== null, "fallback deveria retornar camada");
+  expect(c.fonte === 'fallback', "fonte deve ser 'fallback', é: " + c.fonte);
+  expect(c.buddy_summary.length >= 40, "fallback muito curto");
+  expect(c.why_it_matters === null, "fallback não deve ter 'por que importa'");
+  expect(mod.validarTextoCamadaEditorial(c.buddy_summary).ok, "fallback não passa no validador: " + c.buddy_summary);
+});
+test("resolverCamadaEditorial fallback: NÃO inventa fatos — só usa o que está no artigo", () => {
+  // O fallback não pode conter palavras que não estão no artigo
+  const artigo = {
+    id: "00000000-0000-0000-0000-000000000004",
+    title: "Empresa firma parceria",
+    content: "A Subsea7 firmou contrato de instalação de dutos com a Shell no Mar do Norte. O prazo é de 18 meses e o início está previsto para o segundo trimestre de 2027.",
+    summary: "A Subsea7 fechou contrato com a Shell."
+  };
+  const c = mod.resolverCamadaEditorial(artigo);
+  if (c && c.fonte === 'fallback') {
+    const palavrasArtigo = (artigo.content + ' ' + artigo.summary + ' ' + artigo.title).toLowerCase();
+    const palavrasFallback = c.buddy_summary.toLowerCase().replace(/[^\wà-ú\s]/g, ' ').split(/\s+/).filter(w => w.length > 5);
+    palavrasFallback.forEach(p => {
+      expect(palavrasArtigo.includes(p), "fallback contém palavra não presente no artigo: " + p);
+    });
+  }
 });
 test("ehMateriaThin: content === summary → thin", () => {
   const s = "A plataforma P-78 deixou o estaleiro em Singapura rumo ao campo de Búzios.";
@@ -181,9 +212,14 @@ test("ehMateriaThin: conteúdo curto → thin", () => {
 test("ehMateriaThin: conteúdo longo → não thin", () => {
   expect(mod.ehMateriaThin({ content: "x".repeat(900), summary: "resumo" }, null) === false);
 });
-test("ehMateriaThin: com camada editorial nunca é thin", () => {
-  const s = "Frase única.";
-  expect(mod.ehMateriaThin({ content: s, summary: s }, { buddy_summary: "ok" }) === false);
+test("ehMateriaThin: camada NÃO afeta o resultado — thin = corpo insuficiente APENAS (Recovery 2.0)", () => {
+  const curto = "Frase única.";
+  const longo = "x".repeat(500);
+  // Thin com camada → ainda thin (Buddy ≠ indexação)
+  expect(mod.ehMateriaThin({ content: curto, summary: curto }, { buddy_summary: "ok" }) === true, "curto com camada ainda thin");
+  // Não-thin independente de camada
+  expect(mod.ehMateriaThin({ content: longo, summary: "resumo diferente" }, null) === false);
+  expect(mod.ehMateriaThin({ content: longo, summary: "resumo diferente" }, { buddy_summary: "ok" }) === false);
 });
 
 console.log("\n== CAMADA EDITORIAL — HTML ==");
