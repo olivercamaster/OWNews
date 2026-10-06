@@ -278,7 +278,7 @@ def run_static():
     test("Home linka bloco OWNews Explica (#explica)", lambda: expect_in('class="ed-section explica-home" id="explica"', worker(), "blocoExplicaHome"))
     test("/api/buddy/feed expõe buddy_summary/why_it_matters/explica", lambda: _check_buddy_feed_fields())
     test("deck-pusher tem ficha detalhada em SONDA_FUNCAO_EXTRA", lambda: expect_in('"deck-pusher": {', worker(), "SONDA_FUNCAO_EXTRA"))
-    test("editorial_layer_test.js passa (38 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("editorial_layer_test.js passa (49 asserts)", lambda: _run_node_test("editorial_layer_test.js"))
 
     suite("ADSENSE RECOVERY 2.0 — Buddy universal + thin isolado + quality gate + hero")
 
@@ -291,8 +291,29 @@ def run_static():
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
     test("quality gate avalia thin, repetição, fatos e origemFonte", lambda: expect_in("function avaliarQualidadeMateria(artigo)", worker(), "avaliarQualidadeMateria"))
-    test("editorial_layer_test.js passa (38 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("editorial_layer_test.js passa (49 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
     test("Política Editorial: texto explica as 3 prioridades do resolver", lambda: _check_politica_buddy_te_explica())
+
+    suite("IMPACTO OFFSHORE 1.0 — segunda camada editorial em toda notícia")
+
+    test("validarImpactoOffshore definida no worker", lambda: expect_in("function validarImpactoOffshore(texto)", worker(), "fn definida"))
+    test("gerarImpactoOffshoreFallback definida no worker", lambda: expect_in("function gerarImpactoOffshoreFallback(artigo)", worker(), "fn definida"))
+    test("gerarImpactoOffshoreFallback usa validarImpactoOffshore", lambda: expect_in(
+        "validarImpactoOffshore(texto).ok", worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0], "usa validador interno"))
+    test("resolver: porqueFinal gerado quando why_it_matters é null", lambda: expect_in(
+        "porqueFinal", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "porqueFinal no resolver"))
+    test("resolver: fallback branch usa gerarImpactoOffshoreFallback", lambda: expect_in(
+        "impactoFallback || null", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "impactoFallback no fallback"))
+    test("blocoBuddyExplica: título 'O que isso representa para o offshore?'", lambda: expect_in(
+        "O que isso representa para o offshore?",
+        worker().split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0], "título offshore"))
+    test("blocoBuddyExplica: segundo card não contém <img> (sem mascote)", lambda: _check_impacto_no_mascote())
+    test("gerarImpactoOffshoreFallback: proibido 'pode gerar vagas' nos PROIBIDOS", lambda: expect_in(
+        "vagas_sem_base", worker().split("function validarImpactoOffshore(texto)", 1)[1].split("\nfunction ", 1)[0], "vagas_sem_base"))
+    test("Política Editorial menciona bloco de impacto offshore", lambda: expect_in(
+        '"O que isso representa para o offshore?"',
+        worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0], "impacto na política"))
+    test("editorial_layer_test.js passa (49 asserts Impacto Offshore 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
 
     suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
 
@@ -302,7 +323,7 @@ def run_static():
     test("tema claro é paleta própria (não inversão): fundo off-white, texto navy, color-scheme:light", lambda: _check_tema_paleta())
     test("Buddy oficial: constante BUDDY_HEAD_PNG + rota /icons/buddy-head.png imutável", lambda: _check_buddy_asset())
     test("Buddy só onde tem função (≤ 3 usos: Buddy te explica, Ecossistema, /owbuddy) e sem animação", lambda: _check_buddy_usos())
-    test("Buddy te explica: chamada oficial + Buddy pequeno + card 'Por que isso importa?'", lambda: _check_buddy_explica_markup())
+    test("Buddy te explica: chamada oficial + Buddy pequeno + card offshore (Impacto Offshore 1.0)", lambda: _check_buddy_explica_markup())
     test("Ecossistema: card OWBuddy com copy oficial e CTA para /owbuddy (sem loja/download)", lambda: _check_ecossistema())
     test("rota /owbuddy + renderOWBuddyLanding + sitemap; sem link de loja", lambda: _check_owbuddy_route())
     test("marcas d'água: --wm-rosa/--wm-bati em dark e light, aplicadas por bloco", lambda: _check_watermarks())
@@ -425,7 +446,12 @@ def _check_resolver_fallback():
     fn = w.split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0]
     expect_in("gerarBuddySummaryFallback(artigo)", fn, "fallback chamado no resolver")
     expect_in("fonte: 'fallback'", fn, "marca fallback")
-    expect_in("why_it_matters: null", fn, "fallback sem why_it_matters")
+    # Impacto Offshore 1.0: fallback agora gera why_it_matters
+    expect_in("gerarImpactoOffshoreFallback(artigo)", fn, "impacto offshore no fallback")
+    expect_in("impactoFallback", fn, "impactoFallback usado no retorno")
+    # porqueFinal na branch de curadoria/banco
+    expect_in("porqueFinal", fn, "porqueFinal na branch curadoria/banco")
+    expect_in("gerarImpactoOffshoreFallback(artigo)", fn, "impacto offshore no resolver")
     # Prioridade: curadoria > banco > fallback
     idx_curada = fn.index("CAMADA_EDITORIAL_CURADA")
     idx_banco = fn.index("artigo.buddy_summary")
@@ -561,7 +587,8 @@ def _check_buddy_explica_markup():
     w = worker()
     fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
     for s in ('class="buddy-explica-card"', 'class="buddy-explica-buddy" src="/icons/buddy-head.png"', 'aria-hidden="true" loading="lazy"',
-              "Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong>", '<h2 id="buddyExplicaTitulo"', '<h3 class="buddy-explica-sub">Por que isso importa?</h3>',
+              "Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong>", '<h2 id="buddyExplicaTitulo"',
+              '<h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3>',
               'class="buddy-explica-porque-card"', "/politica-editorial#buddy-te-explica"):
         expect_in(s, fn, s)
     expect_not_in("<h1", fn, "H1 dentro do bloco")
@@ -569,6 +596,15 @@ def _check_buddy_explica_markup():
     expect_in(".buddy-explica-buddy{flex:none;width:64px", css, "Buddy pequeno no mobile (64px)")
     expect_in(".buddy-explica-buddy{width:118px", css, "Buddy proporcional no desktop")
     expect_in("background:var(--porque-bg)", css, "card 'Por que importa' com fundo próprio")
+
+
+def _check_impacto_no_mascote():
+    w = worker()
+    fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
+    # O segundo card (buddy-explica-porque-card) não deve conter <img
+    card_start = fn.index('class="buddy-explica-porque-card"')
+    card_content = fn[card_start:]
+    expect_not_in("<img", card_content, "segundo card não deve ter <img (sem mascote)")
 
 
 def _check_ecossistema():

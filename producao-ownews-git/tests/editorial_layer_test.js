@@ -52,7 +52,7 @@ const mod = new Function(
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
   camadaSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria };"
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria, validarImpactoOffshore, gerarImpactoOffshoreFallback };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -182,7 +182,11 @@ test("resolverCamadaEditorial fallback: usa conteúdo da matéria quando não h�
   expect(c !== null, "fallback deveria retornar camada");
   expect(c.fonte === 'fallback', "fonte deve ser 'fallback', é: " + c.fonte);
   expect(c.buddy_summary.length >= 40, "fallback muito curto");
-  expect(c.why_it_matters === null, "fallback não deve ter 'por que importa'");
+  // Impacto Offshore 1.0: fallback agora gera why_it_matters via gerarImpactoOffshoreFallback.
+  // Para artigo com Petrobras/Búzios, expected não-null. Se não-null, deve passar no validador.
+  if (c.why_it_matters !== null) {
+    expect(mod.validarImpactoOffshore(c.why_it_matters).ok, "why_it_matters do fallback não passa no validador: " + c.why_it_matters);
+  }
   expect(mod.validarTextoCamadaEditorial(c.buddy_summary).ok, "fallback não passa no validador: " + c.buddy_summary);
 });
 test("resolverCamadaEditorial fallback: NÃO inventa fatos — só usa o que está no artigo", () => {
@@ -231,11 +235,11 @@ test("blocoBuddyExplica escapa HTML do texto", () => {
   expect(html.includes('class="buddy-explica"'));
   expect(html.includes("Buddy te explica"));
 });
-test("blocoBuddyExplica mostra 'Por que isso importa?' só quando há texto", () => {
+test("blocoBuddyExplica: segundo card visível apenas quando why_it_matters preenchido", () => {
   const sem = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
   const com = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: "Porque muda a escala de quem embarca.", revisado_em: "2026-10-06" });
-  expect(!sem.includes("Por que isso importa?"));
-  expect(com.includes("Por que isso importa?"));
+  expect(!sem.includes("buddy-explica-porque-card"), "sem why_it_matters → sem card offshore");
+  expect(com.includes("O que isso representa para o offshore?"), "com why_it_matters → card offshore visível");
 });
 test("blocoBuddyExplica vazio sem camada", () => {
   expect(mod.blocoBuddyExplica(null) === "");
@@ -244,15 +248,15 @@ test("blocoBuddyExplica linka a política editorial (#buddy-te-explica)", () => 
   const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
   expect(html.includes("/politica-editorial#buddy-te-explica"));
 });
-test("blocoBuddyExplica (Identidade Premium): Buddy oficial, chamada em 2 linhas, H2/H3 e card 'Por que importa'", () => {
+test("blocoBuddyExplica (Identidade Premium): Buddy oficial, chamada em 2 linhas, H2/H3 e card de impacto offshore", () => {
   const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: "Porque muda a escala de quem embarca.", revisado_em: "2026-10-06" });
   expect(html.includes('src="/icons/buddy-head.png"'), "sem o mascote oficial");
   expect(html.includes('class="buddy-explica-buddy"') && html.includes('aria-hidden="true"'), "imagem decorativa deve ser aria-hidden");
   expect(html.includes("Não quer ler a matéria toda?") && html.includes("O Buddy resume e te explica."), "chamada oficial ausente");
-  expect(html.includes('<h2 id="buddyExplicaTitulo"') && html.includes('<h3 class="buddy-explica-sub">Por que isso importa?</h3>'), "hierarquia H2/H3");
+  expect(html.includes('<h2 id="buddyExplicaTitulo"') && html.includes('<h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3>'), "hierarquia H2/H3 e título offshore");
   expect(!html.includes("<h1"), "bloco não pode competir com o H1 da matéria");
-  expect(html.includes('class="buddy-explica-porque-card"'), "card 'Por que isso importa?' ausente");
-  expect(html.indexOf('class="buddy-explica-card"') < html.indexOf('class="buddy-explica-porque-card"'), "ordem: resumo antes do porquê");
+  expect(html.includes('class="buddy-explica-porque-card"'), "card offshore ausente");
+  expect(html.indexOf('class="buddy-explica-card"') < html.indexOf('class="buddy-explica-porque-card"'), "ordem: resumo antes do impacto");
 });
 test("classificarOrigemFonte: oficial/empresa citada = primária; imprensa = consultada; inválida = desconhecida", () => {
   expect(mod.classificarOrigemFonte("https://www.gov.br/anp/pt-br/x") === "primaria");
@@ -290,6 +294,74 @@ test("explicaRelacionadosParaNoticia: máximo 3, curados primeiro", () => {
 });
 test("formatarDataCurtaServidor → dd/mm/aaaa", () => {
   expect(mod.formatarDataCurtaServidor("2026-10-06") === "06/10/2026", mod.formatarDataCurtaServidor("2026-10-06"));
+});
+
+console.log("\n== IMPACTO OFFSHORE 1.0 ==");
+
+test("validarImpactoOffshore: rejeita 'pode gerar vagas'", () => {
+  expect(!mod.validarImpactoOffshore("A informação pode gerar vagas para profissionais offshore.").ok);
+});
+test("validarImpactoOffshore: rejeita boilerplate 'mercado offshore continua aquecido'", () => {
+  expect(!mod.validarImpactoOffshore("O mercado offshore continua aquecido com mais contratos.").ok);
+});
+test("validarImpactoOffshore: aceita declaração honesta com limitação", () => {
+  const r = mod.validarImpactoOffshore("A informação envolve unidades FPSO, com participação de Petrobras. O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.");
+  expect(r.ok, "declaração honesta rejeitada: " + (r.motivo || ''));
+});
+test("gerarImpactoOffshoreFallback: artigo com Petrobras retorna texto não-nulo", () => {
+  const artigo = { title: "Petrobras anuncia novo contrato", summary: "A Petrobras fechou acordo de afretamento para o campo de Búzios.", content: "A Petrobras assinou contrato de afretamento de FPSO para o campo de Búzios no pré-sal da Bacia de Santos. O valor total do contrato não foi divulgado." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null && r.length > 40, "retornou null ou muito curto para artigo com Petrobras: " + r);
+  expect(r.includes("Petrobras") || r.includes("FPSO") || r.includes("pré-sal"), "texto não menciona nenhum elemento específico do artigo: " + r);
+});
+test("gerarImpactoOffshoreFallback: artigo com FPSO e subsea retorna texto com esses termos", () => {
+  const artigo = { title: "SBM Offshore entrega FPSO para operação", summary: "SBM Offshore concluiu a entrega do FPSO para uso em projeto subsea.", content: "A SBM Offshore entregou o FPSO ao operador. O projeto envolveu tecnologia subsea e risers de conexão no campo." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null, "retornou null para artigo offshore relevante");
+  expect(mod.validarImpactoOffshore(r).ok, "texto gerado não passa no validador: " + r);
+});
+test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna texto honesto", () => {
+  const artigo = { title: "Banco Central sobe taxa de juros", summary: "O Banco Central decidiu elevar a taxa Selic em reunião de outubro.", content: "O Comitê de Política Monetária decidiu elevar a taxa Selic de 10,5% para 10,75% ao ano." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null, "retornou null — esperado texto honesto");
+  expect(r.includes("não apresenta") || r.includes("não é possível afirmar") || r.includes("não há impacto"), "texto não comunica ausência de impacto: " + r);
+});
+test("gerarImpactoOffshoreFallback: nunca retorna texto com 'pode gerar vagas'", () => {
+  const artigos = [
+    { title: "Petrobras expande operações", summary: "A Petrobras anunciou expansão das operações no pré-sal.", content: "Expansão das operações no pré-sal com novos FPSOs contratados." },
+    { title: "Subsea 7 assina contrato", summary: "Subsea 7 fechou contrato para projeto subsea no Brasil.", content: "Contrato de subsea para instalação de flowlines e umbilicais." },
+  ];
+  artigos.forEach((a) => {
+    const r = mod.gerarImpactoOffshoreFallback(a);
+    if (r) expect(!mod.validarImpactoOffshore(r).ok === false, "vagas ou boilerplate no texto: " + r);
+  });
+});
+test("resolverCamadaEditorial: why_it_matters sempre preenchido para artigo válido com corpo", () => {
+  const artigo = { id: "id-teste-offshore-9999", title: "Transocean opera sonda no pré-sal", summary: "A Transocean opera sonda jack-up em campo brasileiro.", content: "A Transocean confirmou operação de sonda jack-up em campo de petróleo no pré-sal da Bacia de Campos. O contrato tem duração de dois anos e envolve perfuração de três poços exploratórios.".repeat(2) };
+  const c = mod.resolverCamadaEditorial(artigo);
+  expect(c !== null, "resolver retornou null para artigo com corpo");
+  expect(c.why_it_matters !== null && c.why_it_matters.length > 40, "why_it_matters vazio para artigo offshore: " + (c && c.why_it_matters));
+});
+test("resolverCamadaEditorial: why_it_matters curado preservado (não substituído por fallback)", () => {
+  const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA).find((id) => mod.CAMADA_EDITORIAL_CURADA[id].why_it_matters);
+  if (!idCurado) { console.log("  (skip: nenhum curado com why_it_matters)"); return; }
+  const curValues = mod.CAMADA_EDITORIAL_CURADA[idCurado];
+  const artigo = { id: idCurado, title: "T", summary: curValues.buddy_summary, content: curValues.buddy_summary.repeat(5) };
+  const c = mod.resolverCamadaEditorial(artigo);
+  expect(c !== null && c.why_it_matters === curValues.why_it_matters.trim(), "curado substituído por fallback: " + (c && c.why_it_matters));
+  expect(c.fonte === 'curadoria', "fonte incorreta: " + (c && c.fonte));
+});
+test("blocoBuddyExplica: segundo card tem título 'O que isso representa para o offshore?'", () => {
+  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto da matéria com fatos offshore.", why_it_matters: "Isso representa impacto nas operações de perfuração.", revisado_em: null, fonte: 'fallback' });
+  expect(html.includes("O que isso representa para o offshore?"), "título offshore ausente");
+  expect(!html.includes("Por que isso importa?"), "título antigo ainda presente");
+});
+test("blocoBuddyExplica: segundo card não contém img (sem mascote)", () => {
+  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto da matéria com fatos offshore.", why_it_matters: "Envolve tecnologia subsea e FPSO.", revisado_em: null, fonte: 'fallback' });
+  const cardStart = html.indexOf('class="buddy-explica-porque-card"');
+  expect(cardStart > -1, "card offshore ausente");
+  const cardContent = html.slice(cardStart);
+  expect(!cardContent.includes("<img"), "segundo card não deve conter img (sem mascote)");
 });
 
 console.log("\n" + "─".repeat(50));

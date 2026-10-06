@@ -5481,10 +5481,10 @@ function editoriaDeServidor(n) {
      notícia significa para quem trabalha (ou quer trabalhar) offshore.
      Nunca repete o primeiro parágrafo; nunca inventa fato que não está na
      fonte.
-   - why_it_matters: "Por que isso importa?" — SÓ quando há base concreta na
-     própria matéria. Se não há, o campo fica null e o bloco não aparece.
-     Frases de promessa ("vai gerar vagas", "promete revolucionar") são
-     bloqueadas por validador.
+   - why_it_matters: "O que isso representa para o offshore?" — presente em
+     toda notícia válida. Curadoria tem prioridade; quando null, o resolver
+     gera texto honesto via gerarImpactoOffshoreFallback (nunca inventa
+     vagas, salários ou mobilização sem base factual).
    - explica: verbetes do OWNews Explica relacionados (links internos reais).
 
    Fontes da camada, em ordem de prioridade:
@@ -5493,8 +5493,9 @@ function editoriaDeServidor(n) {
    2. Colunas articles.buddy_summary / articles.why_it_matters no Supabase —
       ainda NÃO existem (ver docs/MIGRATION-BUDDY-EXPLICA.sql). O resolver
       já as consome quando vierem; a leitura é feature-detectada na rota.
-   Sem camada → nenhum bloco é renderizado. Nunca há texto automático
-   genérico de preenchimento.
+   Sem buddy_summary → página não exibe os blocos.
+   O bloco de impacto é gerado automaticamente quando why_it_matters é null,
+   usando SOMENTE fatos do conteúdo existente da matéria.
 
    Os mesmos campos alimentam /api/buddy/feed (OWBuddy): UMA produção
    editorial, DOIS produtos. */
@@ -5833,14 +5834,161 @@ function avaliarQualidadeMateria(artigo) {
   };
 }
 
+/* validarImpactoOffshore — rejeita texto com afirmações proibidas:
+   vagas, salários, mobilização ou expansão de frota sem suporte factual.
+   Separado do validarTextoCamadaEditorial: regras distintas para o bloco
+   de impacto ("O que isso representa para o offshore?"). */
+function validarImpactoOffshore(texto) {
+  if (!texto || typeof texto !== 'string') return { ok: false, motivo: 'vazio' };
+  const t = texto.trim();
+  if (t.length < 40) return { ok: false, motivo: 'muito_curto' };
+  const PROIBIDOS = [
+    { re: /pode\s+gerar\s+(novas?\s+)?vagas/i,              label: 'vagas_sem_base' },
+    { re: /novas?\s+oportunidades\s+para\s+profissionais/i, label: 'oportunidades_vagas' },
+    { re: /mercado\s+offshore\s+continua\s+aquecido/i,      label: 'boilerplate_aquecido' },
+    { re: /refor[çc]a\s+a\s+import[aâ]ncia\s+do\s+setor/i, label: 'boilerplate_importancia' },
+    { re: /importante\s+avan[çc]o\s+para\s+o\s+setor/i,    label: 'boilerplate_avanco' },
+    { re: /pode\s+impactar\s+toda\s+a\s+cadeia/i,           label: 'boilerplate_cadeia' },
+    { re: /aumento\s+de\s+sal[aá]rios/i,                    label: 'salarios_sem_base' },
+  ];
+  for (let i = 0; i < PROIBIDOS.length; i++) {
+    if (PROIBIDOS[i].re.test(t)) return { ok: false, motivo: PROIBIDOS[i].label };
+  }
+  return { ok: true };
+}
+
+/* gerarImpactoOffshoreFallback — segunda camada editorial.
+   Responde: "O que isso representa para o offshore?"
+   Missão Impacto Offshore 1.0 (2026-10-06).
+
+   Princípios:
+   - Usa SOMENTE fatos presentes na própria matéria (título + resumo + corpo).
+   - Nunca afirma vagas, salários, mobilização ou expansão de frota sem base.
+   - Quando não há impacto demonstrável, declara isso explicitamente.
+   - Retorna null somente se o validador rejeitar o texto gerado. */
+function gerarImpactoOffshoreFallback(artigo) {
+  const titulo = String((artigo && artigo.title)   || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo  = String((artigo && artigo.content) || '').trim();
+  const base   = [titulo, resumo, corpo].filter(Boolean).join(' ');
+
+  const ENTIDADES = [
+    { re: /\bpetrobras\b/i,                          nome: 'Petrobras' },
+    { re: /\bppsa\b/i,                               nome: 'PPSA' },
+    { re: /\banp\b/i,                                nome: 'ANP' },
+    { re: /\bequinor\b/i,                            nome: 'Equinor' },
+    { re: /\bshell\b/i,                              nome: 'Shell' },
+    { re: /\bsbm\s+offshore\b|\bsbm\b/i,             nome: 'SBM Offshore' },
+    { re: /\bmodec\b/i,                              nome: 'MODEC' },
+    { re: /\bsaipem\b/i,                             nome: 'Saipem' },
+    { re: /\bsubsea\s*7\b/i,                         nome: 'Subsea 7' },
+    { re: /\bschlumberger\b|\bslb\b/i,               nome: 'SLB' },
+    { re: /\bhalliburton\b/i,                        nome: 'Halliburton' },
+    { re: /\btransocean\b/i,                         nome: 'Transocean' },
+    { re: /\bvalaris\b/i,                            nome: 'Valaris' },
+    { re: /\bocyan\b/i,                              nome: 'Ocyan' },
+    { re: /\bchevron\b/i,                            nome: 'Chevron' },
+    { re: /\btotalenergies\b|\btotal\s+energies\b/i, nome: 'TotalEnergies' },
+    { re: /\bbp\b/i,                                 nome: 'BP' },
+    { re: /\bbrava\s+energia\b/i,                    nome: 'Brava Energia' },
+    { re: /\benauta\b/i,                             nome: 'Enauta' },
+    { re: /\bprio\b/i,                               nome: 'PRIO' },
+    { re: /\bocean\s*rig\b/i,                        nome: 'Ocean Rig' },
+    { re: /\bodfjell\b/i,                            nome: 'Odfjell' },
+  ];
+
+  const TEMAS = [
+    { re: /\bfpso\b/i,                        desc: 'unidades FPSO' },
+    { re: /\bsemisubmers/i,                   desc: 'plataformas semissubmersíveis' },
+    { re: /\bjack.?up\b/i,                    desc: 'sondas jack-up' },
+    { re: /\bdrillship\b|\bnavio.?sonda\b/i,  desc: 'navios-sonda' },
+    { re: /\bsubsea\b/i,                      desc: 'tecnologia subsea' },
+    { re: /\bmanifold\b/i,                    desc: 'manifolds submarinos' },
+    { re: /\briser\b/i,                       desc: 'risers' },
+    { re: /\bumbilical\b/i,                   desc: 'umbilicais' },
+    { re: /\bflowline\b/i,                    desc: 'flowlines' },
+    { re: /\bperfura[çc]/i,                   desc: 'perfuração de poços' },
+    { re: /\bcomple[çt][aã]o\b/i,             desc: 'completação de poços' },
+    { re: /\bpré.sal|pre.sal\b/i,             desc: 'pré-sal' },
+    { re: /\bbúzios\b|\bbuzios\b/i,           desc: 'campo de Búzios' },
+    { re: /\bcampo\s+de\s+lula\b/i,           desc: 'campo de Lula' },
+    { re: /\blibra\b/i,                       desc: 'campo de Libra' },
+    { re: /\bbacia\s+de\s+santos\b/i,         desc: 'Bacia de Santos' },
+    { re: /\bbacia\s+de\s+campos\b/i,         desc: 'Bacia de Campos' },
+    { re: /\brov\b/i,                         desc: 'ROVs submarinos' },
+    { re: /\báguas?\s+profundas?\b/i,         desc: 'águas profundas' },
+    { re: /\bultraprofund/i,                  desc: 'águas ultraprofundas' },
+    { re: /\blng\b|\bgnl\b/i,                 desc: 'GNL' },
+  ];
+
+  const TIPOS = [
+    { re: /\bcontrat[aoa]\b|\badjudic|\baward\b/i,              tipo: 'contrato' },
+    { re: /\blicita[çc][aã]o\b/i,                               tipo: 'licitacao' },
+    { re: /\binvestimento\b|\baporte\b/i,                        tipo: 'investimento' },
+    { re: /\bregula[çc][aã]o\b|\bportaria\b|\bresolu[çc][aã]o\b/i, tipo: 'regulacao' },
+    { re: /\bconcess[aã]o\b/i,                                  tipo: 'concessao' },
+    { re: /\bprodução\b|\bextração\b/i,                         tipo: 'producao' },
+    { re: /\bdescomiss/i,                                       tipo: 'descomissionamento' },
+    { re: /\btecnologia\b|\binovação\b/i,                       tipo: 'tecnologia' },
+    { re: /\bacidente\b|\bincidente\b|\bvazamento\b/i,          tipo: 'seguranca' },
+    { re: /\bfase\s+(?:inicial|de\s+estudo|explorat)/i,         tipo: 'fase_inicial' },
+  ];
+
+  const LIMITACOES = {
+    contrato:            'O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.',
+    licitacao:           'O resultado não implica, neste momento, contratação de pessoal ou início de operações.',
+    investimento:        'O comunicado não especifica, neste momento, cronograma de operações, contratações ou expansão de frota.',
+    regulacao:           'O texto regulatório não determina, neste momento, impactos diretos em empregos ou operações em campo.',
+    concessao:           'A concessão de blocos é etapa inicial; exploração, desenvolvimento e produção dependem de decisões e investimentos futuros.',
+    producao:            'Os dados refletem o estado atual das operações e não implicam, por si só, novas contratações ou expansões.',
+    descomissionamento:  'O processo pode resultar em redução gradual de atividades nessas instalações ao longo do tempo.',
+    tecnologia:          'O comunicado não especifica contratos, aplicações ou contratações derivadas neste momento.',
+    seguranca:           'Incidentes em operações offshore têm impacto direto na segurança dos trabalhadores e podem resultar em paralisações ou revisões operacionais.',
+    fase_inicial:        'Trata-se de etapa inicial; não é possível afirmar, neste momento, impacto direto em vagas ou operações.',
+  };
+
+  const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
+  const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
+  const tipoMatch = TIPOS.find((t) => t.re.test(base));
+  const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
+  const limitacao = LIMITACOES[tipo] || 'Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações, vagas ou contratos específicos neste momento.';
+
+  if (!entidades.length && !temas.length) {
+    const temEnergia = /\bpetróleo\b|\bpetroleo\b|\benergia\b|\bgás\b|\bgas\b/i.test(base);
+    if (!temEnergia) {
+      return 'Esta notícia não apresenta informação direta sobre impactos em operações, contratos ou mercado offshore. Acompanharemos o desenvolvimento para publicações com maior relevância ao setor.';
+    }
+    return 'O assunto envolve o setor de energia. Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações offshore, vagas ou contratos específicos neste momento.';
+  }
+
+  const principaisEntidades = entidades.slice(0, 2).join(' e ');
+  const principaisTemas = temas.slice(0, 2).join(' e ');
+
+  let parte1 = '';
+  if (principaisTemas && principaisEntidades) {
+    parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
+  } else if (principaisTemas) {
+    parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
+  } else {
+    parte1 = principaisEntidades + (entidades.length > 1 ? ' são players relevantes' : ' é player relevante') + ' para o mercado offshore brasileiro.';
+  }
+
+  const texto = (parte1 + ' ' + limitacao).trim();
+  if (!validarImpactoOffshore(texto).ok) return null;
+  return texto;
+}
+
 /* Resolve a camada editorial de uma matéria.
    Prioridade:
    1. CAMADA_EDITORIAL_CURADA — revisão humana/editorial em código.
    2. Colunas articles.buddy_summary no Supabase (quando disponíveis).
    3. gerarBuddySummaryFallback — derivado do conteúdo existente da
       matéria. Nunca inventa fato. Marcado como fonte='fallback'.
-   O resolver garante que TODA página /noticia válida exibe o componente
-   "Buddy te explica". Thin continua noindex — Buddy não reindexe. */
+   4. gerarImpactoOffshoreFallback — segunda camada editorial "O que
+      isso representa para o offshore?", em toda notícia válida.
+      Nunca inventa vagas, salários ou mobilização sem base factual.
+   O resolver garante que TODA página /noticia válida exibe os dois
+   blocos. Thin continua noindex — Buddy e impacto não reindexam. */
 function resolverCamadaEditorial(artigo) {
   if (!artigo || !artigo.id) return null;
   const curada = CAMADA_EDITORIAL_CURADA[artigo.id] || null;
@@ -5850,9 +5998,10 @@ function resolverCamadaEditorial(artigo) {
     const porque = curada ? curada.why_it_matters : (artigo.why_it_matters || null);
     if (validarTextoCamadaEditorial(resumo).ok) {
       const porqueValido = porque && validarTextoCamadaEditorial(porque).ok ? porque.trim() : null;
+      const porqueFinal = porqueValido !== null ? porqueValido : gerarImpactoOffshoreFallback(artigo);
       return {
         buddy_summary: resumo.trim(),
-        why_it_matters: porqueValido,
+        why_it_matters: porqueFinal,
         explica: curada && Array.isArray(curada.explica) ? curada.explica.slice() : [],
         revisado_em: (curada && curada.revisado_em) || (artigo.buddy_reviewed_at ? String(artigo.buddy_reviewed_at).slice(0, 10) : null),
         fonte
@@ -5862,23 +6011,25 @@ function resolverCamadaEditorial(artigo) {
   // Prioridade 3/4: fallback derivado do conteúdo da própria matéria
   const summaryFallback = gerarBuddySummaryFallback(artigo);
   if (!summaryFallback) return null;
+  const impactoFallback = gerarImpactoOffshoreFallback(artigo);
   return {
     buddy_summary: summaryFallback,
-    why_it_matters: null,
+    why_it_matters: impactoFallback || null,
     explica: [],
     revisado_em: null,
     fonte: 'fallback'
   };
 }
 
-/* Bloco visual "Buddy te explica". Discreto: borda esquerda fina, fundo
-   navy, tipografia editorial. Sem balão de chat, sem mascote grande, sem
-   neon — é componente de leitura, não de conversa. */
+/* Bloco visual "Buddy te explica" + "O que isso representa para o offshore?".
+   Dois cartões por notícia: (1) Buddy com resumo objetivo do fato;
+   (2) segundo card com impacto editorial, visualmente secundário, sem mascote.
+   Missão Impacto Offshore 1.0 (2026-10-06). */
 function blocoBuddyExplica(camada) {
   if (!camada || !camada.buddy_summary) return '';
   // Identidade Premium (2026-10-06): Buddy OFICIAL pequeno, saindo pela
   // lateral do card (cabeça: capacete + óculos), chamada em duas linhas e
-  // "Por que isso importa?" em card próprio. Semântica: o H1 é o título da
+  // "O que isso representa para o offshore?" em card próprio. Semântica:
   // matéria; aqui só H2 (seção) e H3 (subseção) — nada compete com o H1.
   return '<section class="buddy-explica" aria-labelledby="buddyExplicaTitulo">' +
     '<div class="buddy-explica-card">' +
@@ -5889,7 +6040,7 @@ function blocoBuddyExplica(camada) {
     '<p class="buddy-explica-texto">' + escaparHTML(camada.buddy_summary) + '</p>' +
     '</div></div>' +
     (camada.why_it_matters
-      ? '<div class="buddy-explica-porque-card"><h3 class="buddy-explica-sub">Por que isso importa?</h3><p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p></div>'
+      ? '<div class="buddy-explica-porque-card"><h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3><p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p></div>'
       : '') +
     '<footer class="buddy-explica-rodape">' + (camada.fonte === 'fallback'
       ? 'Resumo gerado automaticamente pelo OWNews a partir do conteúdo publicado. <a href="/politica-editorial#buddy-te-explica">Sobre a camada editorial</a>'
@@ -16429,7 +16580,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="fontes">' +
     "<h2>Fontes e atribuição</h2>" +
-    '<p class="area-desc"><strong>O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.</strong> O fluxo é sempre o mesmo: o portal descobre o assunto; o pipeline localiza a fonte primária (documento, comunicado ou dado oficial), verifica e escreve; a redação contextualiza; e, quando cabe, o Buddy explica. Uma matéria precisa ter conteúdo suficiente para justificar uma página editorial própria antes de ser publicada — esse critério é avaliado automaticamente pelo Quality Gate editorial. Toda notícia traz o nome da fonte e o link para o documento ou matéria original, no bloco "Sobre esta matéria" ao final do texto, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. Damos prioridade a fontes primárias e a veículos especializados com histórico verificável. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
+    '<p class="area-desc"><strong>O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.</strong> O fluxo é sempre o mesmo: o portal descobre o assunto; o pipeline localiza a fonte primária (documento, comunicado ou dado oficial), verifica e escreve; a redação contextualiza; e, quando cabe, o Buddy explica. Uma matéria precisa ter conteúdo suficiente para justificar uma página editorial própria antes de ser publicada — esse critério é avaliado automaticamente pelo Quality Gate editorial. Toda notícia válida exibe também o bloco "O que isso representa para o offshore?", que contextualiza o fato para quem vive o setor. Quando não há impacto demonstrável pelos fatos disponíveis, o bloco diz isso claramente — nunca inventa consequências. Toda notícia traz o nome da fonte e o link para o documento ou matéria original, no bloco "Sobre esta matéria" ao final do texto, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. Damos prioridade a fontes primárias e a veículos especializados com histórico verificável. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
     "</div>" +
 
     '<div class="area-group" id="producao-automatizada">' +
