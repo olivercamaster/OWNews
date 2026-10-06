@@ -5970,7 +5970,8 @@ function gerarImpactoOffshoreFallback(artigo) {
   } else if (principaisTemas) {
     parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
   } else {
-    parte1 = principaisEntidades + (entidades.length > 1 ? ' são players relevantes' : ' é player relevante') + ' para o mercado offshore brasileiro.';
+    // Apenas entidade sem tema offshore específico — insuficiente para contexto genuíno.
+    return null;
   }
 
   const texto = (parte1 + ' ' + limitacao).trim();
@@ -5997,7 +5998,7 @@ function resolverCamadaEditorial(artigo) {
     const resumo = curada ? curada.buddy_summary : artigo.buddy_summary;
     const porque = curada ? curada.why_it_matters : (artigo.why_it_matters || null);
     if (validarTextoCamadaEditorial(resumo).ok) {
-      const porqueValido = porque && validarTextoCamadaEditorial(porque).ok ? porque.trim() : null;
+      const porqueValido = porque && validarTextoCamadaEditorial(porque).ok && validarImpactoOffshore(porque).ok ? porque.trim() : null;
       const porqueFinal = porqueValido !== null ? porqueValido : gerarImpactoOffshoreFallback(artigo);
       return {
         buddy_summary: resumo.trim(),

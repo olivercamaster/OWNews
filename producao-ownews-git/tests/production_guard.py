@@ -313,7 +313,11 @@ def run_static():
     test("Política Editorial menciona bloco de impacto offshore", lambda: expect_in(
         '"O que isso representa para o offshore?"',
         worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0], "impacto na política"))
-    test("editorial_layer_test.js passa (49 asserts Impacto Offshore 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("gerarImpactoOffshoreFallback: sem ramo 'players relevantes' (anti-boilerplate)", lambda: expect_not_in(
+        "são players relevantes",
+        worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0],
+        "ramo players relevantes removido"))
+    test("editorial_layer_test.js passa (50 asserts Impacto Offshore 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
 
     suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
 
