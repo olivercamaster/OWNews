@@ -340,7 +340,7 @@ export default function EscalaScreen() {
 
         {/* ── Action row ── */}
         <View style={styles.actionRow}>
-          <ActionBtn icon="settings-outline"      label="Config"  onPress={() => router.push('/escala-config')} />
+          <ActionBtn icon="settings-outline"      label="Ajustes"  onPress={() => router.push('/escala-config')} />
           <ActionBtn icon="add-circle-outline"    label="Dobra"   onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'dobra' } })} />
           <ActionBtn icon="umbrella-outline"      label="Férias"  onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'ferias' } })} />
           <ActionBtn icon="star-outline"          label="Data"    onPress={() => router.push('/escala-data-form')} />

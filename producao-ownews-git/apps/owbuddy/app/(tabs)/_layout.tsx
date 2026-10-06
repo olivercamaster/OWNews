@@ -89,7 +89,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="certs"
         options={{
-          title: 'Docs',
+          title: 'Certificados',
           tabBarIcon: ({ focused }) => <TabIcon name="document-text" focused={focused} />,
           headerStyle: { backgroundColor: '#07223a' },
         }}

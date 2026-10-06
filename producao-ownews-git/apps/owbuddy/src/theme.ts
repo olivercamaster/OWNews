@@ -149,14 +149,11 @@ export const maritime = {
   bathymetryColor:   '#5fc4ee',
   bathymetryOpacity: 0.030,
 
-  // Sonar náutico (círculos concêntricos) — complementar ao mascote, ainda mais discreto.
-  nauticalTint:    '#5aafc5',
-  nauticalOpacity: 0.016,
-
-  // Mascote OWBuddy "A" chevron — watermark principal, tom sobre tom.
-  // Grande, parcialmente cortado nas laterais. "Quando percebe, fica bonito."
-  watermarkTint:    '#62b5d2',
-  watermarkOpacity: 0.068,
+  // Mascote oficial OWBuddy (assets/buddy-watermark.png — máscara alfa gerada a partir
+  // do mascote oficial, capacete + óculos + sorriso). Tom sobre tom, grande, centrado.
+  // Regra permanente: nunca remover, nunca competir com texto/cards. Ajuste fino só aqui.
+  watermarkTint:    '#9fd3ee',
+  watermarkOpacity: 0.08,
 } as const;
 
 /** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */

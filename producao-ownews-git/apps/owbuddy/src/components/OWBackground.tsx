@@ -4,14 +4,15 @@
  * Hierarquia visual (fundo → frente):
  *   1. Gradiente navy profundo com brilho diagonal e sombra de profundidade.
  *   2. Curvas batimétricas orgânicas — textura sutil (~3%), nunca grade.
- *   3. Sonar náutico (círculos concêntricos) — carta náutica ultra-discreta,
- *      complementar ao mascote (~1.6%).
- *   4. Mascote OWBuddy "A" chevron — watermark tom sobre tom, grande, parcialmente
- *      cortado nas laterais. ~2–3% percebido. "Quando percebe, fica bonito."
- *   5. Conteúdo da tela.
+ *   3. Mascote OFICIAL OWBuddy como grande marca-d'água tom sobre tom
+ *      (assets/buddy-watermark.png: máscara alfa derivada do mascote oficial —
+ *      capacete OW + óculos com plataforma + sorriso). Opacidade muito baixa,
+ *      nunca compete com cards ou texto. Primeiro se percebe "identidade premium";
+ *      só depois "o Buddy está ali".
+ *   4. Conteúdo da tela.
  *
- * Tudo em React Native puro + expo-linear-gradient. Compatível com Expo Go SDK 57.
- * Os valores de opacidade e tint vivem em `maritime` (src/theme.ts).
+ * React Native puro + expo-linear-gradient. Compatível com Expo Go SDK 57.
+ * Opacidade e tint vivem em `maritime` (src/theme.ts).
  */
 
 import React from 'react';
@@ -19,10 +20,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { maritime } from '../theme';
 
-// Mascote OWBuddy: silhueta "A" chevron (monochrome, fundo transparente)
-const MASCOT = require('../../assets/android-icon-monochrome.png');
-// Carta náutica: círculos concêntricos (sonar), elemento complementar
-const NAUTICAL = require('../../assets/splash-icon.png');
+const BUDDY = require('../../assets/buddy-watermark.png');
 
 interface OWBackgroundProps {
   children: React.ReactNode;
@@ -60,29 +58,20 @@ export function OWBackground({ children, showWatermark = true }: OWBackgroundPro
         <Bathymetry />
       </View>
 
+      {/* 3. Mascote oficial OWBuddy — marca-d'água tom sobre tom */}
       {showWatermark && (
-        <>
-          {/* 3. Carta náutica: sonar concêntrico — complementar ao mascote */}
+        <View style={[StyleSheet.absoluteFill, styles.clip]} pointerEvents="none">
           <Image
-            source={NAUTICAL}
-            style={styles.nautical}
+            source={BUDDY}
+            style={styles.buddy}
             resizeMode="contain"
             accessibilityElementsHidden
             importantForAccessibility="no"
           />
-
-          {/* 4. Mascote OWBuddy "A" — marca-d'água tom sobre tom, grande, parcialmente cortado */}
-          <Image
-            source={MASCOT}
-            style={styles.mascot}
-            resizeMode="contain"
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          />
-        </>
+        </View>
       )}
 
-      {/* 5. Conteúdo */}
+      {/* 4. Conteúdo */}
       {children}
     </View>
   );
@@ -139,31 +128,15 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-
-  // Carta náutica: sonar concêntrico, centrado, tamanho médio, ultra-discreto.
-  // Fica "dentro" da abertura do mascote "A", criando composição náutica.
-  nautical: {
+  // Cabeça do Buddy grande e centrada na metade superior (composição do mockup aprovado):
+  // ligeiramente mais larga que a tela, para as bordas do capacete tocarem as laterais.
+  buddy: {
     position: 'absolute',
-    width: '72%',
-    height: '38%',
-    top: '32%',
-    left: '14%',
-    opacity: maritime.nauticalOpacity,
-    tintColor: maritime.nauticalTint,
-    pointerEvents: 'none',
-  } as const,
-
-  // Mascote "A" chevron: grande, centrado horizontalmente, braços cortados nas laterais.
-  // Pico visível na área central-superior; base se dissolve na parte inferior.
-  // A silhueta é percebida nas áreas livres entre os cards.
-  mascot: {
-    position: 'absolute',
-    width: '145%',
-    height: '72%',
-    top: '18%',
-    left: '-22.5%',
+    width: '108%',
+    height: '52%',
+    top: '10%',
+    left: '-4%',
     opacity: maritime.watermarkOpacity,
     tintColor: maritime.watermarkTint,
-    pointerEvents: 'none',
   } as const,
 });
