@@ -3,18 +3,18 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, surface, screen, maritime } from '../src/theme';
 import { OWBackground } from '../src/components/OWBackground';
 import { fetchFeed, type Article, type FeedResult } from '../src/api';
+import { setArticles } from '../src/articleStore';
 import { analytics } from '../src/analytics';
 
 function relativeTime(isoDate: string): string {
@@ -26,12 +26,21 @@ function relativeTime(isoDate: string): string {
   return `${d}d`;
 }
 
+function sourceNameFrom(article: Article): string {
+  if (article.image_credit) return article.image_credit;
+  try { return new URL(article.original_url).hostname.replace('www.', ''); }
+  catch { return ''; }
+}
+
 function ArticleCard({ item }: { item: Article }) {
   const [pressed, setPressed] = useState(false);
   const handlePress = () => {
     analytics.track('news_opened', { article_id: item.id });
-    Linking.openURL(item.original_url);
+    router.push(`/noticia/${item.id}`);
   };
+  const hasBuddy = !!item.buddy_summary;
+  const source = sourceNameFrom(item);
+
   return (
     <Pressable
       style={[styles.card, pressed && styles.cardPressed]}
@@ -49,11 +58,22 @@ function ArticleCard({ item }: { item: Article }) {
         </View>
       )}
       <View style={styles.cardBody}>
+        {!!source && (
+          <Text style={styles.cardSource} numberOfLines={1}>{source}</Text>
+        )}
         <Text style={styles.cardTitle} numberOfLines={3}>{item.title}</Text>
         {!!item.summary && (
           <Text style={styles.cardSummary} numberOfLines={2}>{item.summary}</Text>
         )}
-        <Text style={styles.cardMeta}>{relativeTime(item.published_at)}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardMeta}>{relativeTime(item.published_at)}</Text>
+          {hasBuddy && (
+            <View style={styles.buddyBadge}>
+              <Ionicons name="chatbubble-ellipses-outline" size={10} color={colors.cyanDim} />
+              <Text style={styles.buddyBadgeText}>Buddy</Text>
+            </View>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -67,6 +87,9 @@ export default function NoticiasScreen() {
     if (isRefresh) setRefreshing(true);
     const r = await fetchFeed();
     setResult(r);
+    if (r.status === 'ok' || r.status === 'offline_cached') {
+      setArticles(r.articles);
+    }
     if (isRefresh) setRefreshing(false);
     analytics.screen('Noticias');
   }, []);
@@ -158,10 +181,18 @@ const styles = StyleSheet.create({
   cardPressed: { opacity: 0.75 },
   thumb: { width: 90, height: screen.listItemHeight + 20, borderRadius: 0 },
   thumbFallback: { backgroundColor: surface.elevated, alignItems: 'center', justifyContent: 'center' },
-  cardBody: { flex: 1, paddingVertical: spacing.sm, paddingRight: spacing.sm, gap: 4 },
+  cardBody: { flex: 1, paddingVertical: spacing.sm, paddingRight: spacing.sm, gap: 3 },
+  cardSource: { fontSize: 10, fontWeight: '700', color: colors.cyanDim, letterSpacing: 0.4, textTransform: 'uppercase' },
   cardTitle: { ...typography.h3, fontSize: 14, lineHeight: 19 },
   cardSummary: { ...typography.small, fontSize: 12, lineHeight: 17 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   cardMeta: { ...typography.micro, fontSize: 10, color: colors.mutedDim },
+  buddyBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: colors.cyan + '18', borderRadius: 99,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  buddyBadgeText: { fontSize: 9, fontWeight: '700', color: colors.cyanDim },
 
   separator: { height: spacing.sm },
   emptyTitle: { ...typography.h3, color: colors.muted },

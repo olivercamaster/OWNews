@@ -66,6 +66,10 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="noticia/[id]"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="escala"
           options={{
             title: 'Minha Escala',
@@ -107,6 +111,14 @@ export default function RootLayout() {
           name="escala-secundaria-form"
           options={{
             title: 'Nova Escala Secundária',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="escala-evento-form"
+          options={{
+            title: 'Evento Pessoal',
             headerStyle: { backgroundColor: colors.navy800 },
             presentation: 'modal',
           }}

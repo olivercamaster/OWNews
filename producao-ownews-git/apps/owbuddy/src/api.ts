@@ -4,19 +4,33 @@ const BASE_URL = 'https://ownews.com.br';
 const FEED_URL = `${BASE_URL}/api/buddy/feed`;
 const VAGAS_URL = `${BASE_URL}/api/buddy/vagas`;
 
-const CACHE_KEY_FEED = 'owbuddy_cache_feed';
+const CACHE_KEY_FEED = 'owbuddy_cache_feed_v2';
 const CACHE_KEY_VAGAS = 'owbuddy_cache_vagas';
 const FEED_TTL_MS = 5 * 60 * 1000;     // 5 min
 const VAGAS_TTL_MS = 60 * 60 * 1000;   // 1 h
+
+export type ExplicaItem = {
+  slug: string;
+  titulo: string;
+  url: string;
+};
 
 export type Article = {
   id: string;
   title: string;
   summary: string | null;
   image_url: string | null;
+  image_credit: string | null;
   original_url: string;
   published_at: string;
   editorial_score: number;
+  url: string;
+  buddy_summary: string | null;
+  why_it_matters: string | null;
+  buddy_reviewed_at: string | null;
+  buddy_source: string | null;
+  explica: ExplicaItem[] | null;
+  thin: boolean | null;
 };
 
 export type Vaga = {
