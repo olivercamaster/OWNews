@@ -21,8 +21,8 @@ import type { Unidade } from '../src/api';
 const TIPO_CHIPS = [
   { key: '', label: 'Todos' },
   { key: 'fpso', label: 'FPSO' },
-  { key: 'navio_sonda', label: 'Navio-Sonda' },
-  { key: 'semi', label: 'Semissubmersível' },
+  { key: 'drillship', label: 'Navio-Sonda' },
+  { key: 'semissubmersivel', label: 'Semissubmersível' },
   { key: 'psv', label: 'PSV' },
   { key: 'ahts', label: 'AHTS' },
 ];

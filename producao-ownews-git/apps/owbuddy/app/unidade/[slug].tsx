@@ -20,8 +20,8 @@ import type { Unidade } from '../../src/api';
 
 const TIPO_ICON: Record<string, string> = {
   fpso: 'boat',
-  navio_sonda: 'construct',
-  semi: 'layers',
+  drillship: 'construct',
+  semissubmersivel: 'layers',
   psv: 'navigate',
   ahts: 'navigate-circle',
   plsv: 'navigate-circle-outline',

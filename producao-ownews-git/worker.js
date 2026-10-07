@@ -14624,7 +14624,7 @@ function renderUnidades(){
 ========================================================================= */
 
 const RADAR_TIPOS_LABEL = {
-  drillship: "Drillship",
+  drillship: "Navio-Sonda",
   semissubmersivel: "Semissubmersível",
   fpso: "FPSO",
   fso: "FSO",
@@ -16344,7 +16344,7 @@ async function renderRadarFicha(slug, env, ctx) {
     /* falha de notícias relacionadas nunca quebra a ficha — seção só some */
   }
 
-  const caracteristicas =
+  const especsTecnicas =
     campoOuNada("IMO", unidade.imo) +
     campoOuNada("MMSI", unidade.mmsi) +
     campoOuNada("Callsign", unidade.callsign) +
@@ -16356,11 +16356,12 @@ async function renderRadarFicha(slug, env, ctx) {
     campoOuNada("Calado", unidade.calado_m ? unidade.calado_m + " m" : null) +
     campoOuNada("GT", unidade.gt) +
     campoOuNada("DWT", unidade.dwt) +
+    campoOuNada("Capacidade", unidade.capacidade);
+
+  const empresaInfo =
     campoOuNada("Proprietário (owner)", unidade.owner) +
     campoOuNada("Gestora (manager)", unidade.manager) +
-    campoOuNada("Operador", unidade.operador) +
-    campoOuNada("Campo", unidade.campo) +
-    campoOuNada("Capacidade", unidade.capacidade);
+    campoOuNada("Operador", unidade.operador);
 
   const fontesHtml = unidade.fontes && unidade.fontes.length
     ? '<ul class="radar-fontes-lista">' + unidade.fontes.map((f) =>
@@ -16376,16 +16377,17 @@ async function renderRadarFicha(slug, env, ctx) {
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Radar Offshore", href: "/radar" }, { nome: unidade.nome }]) +
     RADAR_CSS +
+
+    // 1 — Hero: identificação + nome + favoritar (sem operador no eyebrow, sem aviso metodológico)
     '<div class="radar-ficha-topo">' +
     '<div class="hub-hero" style="margin-bottom:0">' +
-    '<span class="eyebrow">' + prefixoIdentidade + (unidade.operador ? " · " + escaparHTML(unidade.operador) : "") + "</span>" +
+    '<span class="eyebrow">' + prefixoIdentidade + "</span>" +
     "<h1>" + escaparHTML(unidade.nome) + "</h1>" +
     "</div>" +
     '<button type="button" class="filtro-btn" id="radarFavBtnFicha" data-slug="' + escaparHTML(unidade.slug) + '" style="flex:none">&#9734; Favoritar</button>' +
     "</div>" +
 
-    (situacaoLabel ? '<p class="radar-aviso-historico">' + escaparHTML(situacaoLabel) + " — não contabilizada como sonda ativa no Brasil.</p>" : "") +
-
+    // 2 — Foto real (ou ícone placeholder)
     (unidade.foto_url
       ? '<figure class="radar-ficha-foto radar-ficha-foto-real" style="--acento:var(--radar-' + grupoIcone + ')">' +
         '<img src="' + escaparHTML(unidade.foto_url) + '" alt="' + escaparHTML(unidade.nome) + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'figure\').outerHTML=\'<div class=&quot;radar-ficha-foto&quot; style=&quot;--acento:var(--radar-' + grupoIcone + ')&quot;>' + RADAR_ICONES_GRUPO[grupoIcone].replace(/"/g, "&quot;") + '</div>\'">' +
@@ -16393,19 +16395,30 @@ async function renderRadarFicha(slug, env, ctx) {
         "</figure>"
       : '<div class="radar-ficha-foto" style="--acento:var(--radar-' + grupoIcone + ')">' + RADAR_ICONES_GRUPO[grupoIcone] + "</div>") +
 
+    // 3 — Sobre a unidade
     (unidade.sobre ? '<div class="radar-secao"><h2>Sobre a unidade</h2><p class="hub-lead" style="font-size:15px">' + escaparHTML(unidade.sobre) + "</p></div>" : "") +
 
-    (caracteristicas ? '<div class="radar-secao"><h2>Características</h2><div class="campo-grid">' + caracteristicas + "</div></div>" : "") +
-
-    (caracteristicas ? adSlot("unit_after_specs") : "") +
-
-    ((unidade.status_operacional || unidade.contratante)
-      ? '<div class="radar-secao"><h2>Operação no Brasil</h2><div class="campo-grid">' +
-        campoOuNada("Status", unidade.status_operacional ? RADAR_STATUS_OPERACIONAL_LABEL[unidade.status_operacional] || unidade.status_operacional : null) +
-        campoOuNada("Contratante", unidade.contratante) +
+    // 4 — Situação Operacional: status atual + cliente + campo
+    ((situacaoLabel || unidade.status_operacional || unidade.contratante || unidade.campo)
+      ? '<div class="radar-secao"><h2>Situação Operacional</h2><div class="campo-grid">' +
+        (situacaoLabel ? campoOuNada("Situação no Brasil", situacaoLabel) : "") +
+        (unidade.status_operacional ? campoOuNada("Status", RADAR_STATUS_OPERACIONAL_LABEL[unidade.status_operacional] || unidade.status_operacional) : "") +
+        campoOuNada("Cliente (contratante)", unidade.contratante) +
+        campoOuNada("Campo de atuação", unidade.campo) +
         "</div></div>"
       : "") +
 
+    // 5 — Empresa (proprietário / gestora / operador)
+    (empresaInfo
+      ? '<div class="radar-secao"><h2>Empresa</h2><div class="campo-grid">' + empresaInfo + "</div></div>"
+      : "") +
+
+    // 6 — Dados técnicos
+    (especsTecnicas ? '<div class="radar-secao"><h2>Dados técnicos</h2><div class="campo-grid">' + especsTecnicas + "</div></div>" : "") +
+
+    (especsTecnicas ? adSlot("unit_after_specs") : "") +
+
+    // 7 — Localização operacional
     (localizacao
       ? '<div class="radar-secao"><h2>Localização</h2>' +
         '<p class="hub-lead" style="font-size:15px">Área operacional conhecida: <strong>Campo de ' + escaparHTML(localizacao.campo_anp) + '</strong>, conforme o polígono oficial da ANP para este campo de produção. Não é uma posição de rastreamento em tempo real — é a área onde esta unidade comprovadamente opera.</p>' +
@@ -16413,8 +16426,10 @@ async function renderRadarFicha(slug, env, ctx) {
         "</div>"
       : "") +
 
+    // 8 — Notícias relacionadas
     (noticiasHtml ? '<div class="radar-secao"><h2>Notícias sobre esta unidade</h2>' + noticiasHtml + "</div>" : "") +
 
+    // 9 — Empresa e vagas relacionadas
     (empresasRel.length
       ? '<div class="radar-secao"><h2>Empresa relacionada</h2><div class="chip-list-flex">' +
         empresasRel.map((e) => '<a class="jornada-cta" href="/empresas/' + escaparHTML(e.slug) + '">Ver perfil da ' + escaparHTML(e.nome) + ' →</a>').join('') +
@@ -16425,6 +16440,7 @@ async function renderRadarFicha(slug, env, ctx) {
       ? '<div class="radar-secao"><h2>Vagas relacionadas</h2><div class="campo-grid">' + vagasRel.map(cardVaga).join('') + '</div></div>' + scriptFavoritarVagasBotoes()
       : '') +
 
+    // 10 — Fleet Intelligence
     (unidade.fleet_status_fonte
       ? '<div class="radar-secao"><h2>Fleet Intelligence</h2>' +
         '<div class="campo-grid">' +
@@ -16436,10 +16452,12 @@ async function renderRadarFicha(slug, env, ctx) {
         '</div>'
       : '') +
 
-    (fontesHtml || localizacao || unidade.foto_url
+    // 11 — Fontes & Verificação (inclui nota metodológica se situacaoLabel)
+    (fontesHtml || localizacao || unidade.foto_url || situacaoLabel
       ? '<div class="radar-secao"><h2>Fontes &amp; Verificação</h2>' + fontesHtml +
         (localizacao ? '<p class="dado-fonte" style="margin-top:6px">Localização: polígono oficial ANP — Campos de Produção (' + escaparHTML(localizacao.campo_anp) + ').</p>' : "") +
         (unidade.foto_url ? '<p class="dado-fonte" style="margin-top:6px">Foto: ' + escaparHTML(unidade.foto_credito || "") + ' — <a href="' + escaparHTML(unidade.foto_fonte_url) + '" target="_blank" rel="noopener">fonte</a> (' + escaparHTML(unidade.foto_licenca) + ').</p>' : "") +
+        (situacaoLabel ? '<p class="dado-fonte" style="margin-top:6px">Nota metodológica: esta unidade tem situação "' + escaparHTML(situacaoLabel) + '" — não contabilizada como sonda ativa no Brasil.</p>' : "") +
         '<p class="dado-fonte" style="margin-top:8px">Dados verificados em 2026-10-07.</p></div>'
       : "") +
 
