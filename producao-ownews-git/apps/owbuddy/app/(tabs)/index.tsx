@@ -255,7 +255,7 @@ export default function TelaHoje() {
           <ActionRow
             icon="checkbox-outline"
             label="Meu Embarque"
-            sub={checkCount ? `${checkCount.feitos}/${checkCount.total} itens prontos` : 'Checklist de viagem'}
+            sub="Checklist e lembretes até o embarque"
             badge={checkCount && checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
             onPress={() => router.navigate('/mala')}
           />

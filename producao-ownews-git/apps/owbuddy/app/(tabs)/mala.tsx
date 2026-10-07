@@ -37,6 +37,23 @@ function labelEmbarque(dias: number): string {
   return `Faltam ${dias} dias`;
 }
 
+/** Mensagem contextual do Buddy — lembrete inline quando embarque se aproxima. */
+function labelBuddy(feitos: number, total: number, pendentes: number, diasParaEmbarque: number | null): string {
+  if (pendentes === 0) return 'Tudo preparado. Bom embarque!';
+  if (diasParaEmbarque != null) {
+    if (diasParaEmbarque <= 0) {
+      return pendentes === 1 ? 'Embarque hoje — ainda falta 1 item.' : `Embarque hoje — faltam ${pendentes} itens.`;
+    }
+    if (diasParaEmbarque === 1) {
+      return pendentes === 1 ? 'Amanhã você embarca. Ainda falta 1 item.' : `Amanhã você embarca. Faltam ${pendentes} itens.`;
+    }
+    if (diasParaEmbarque <= 3) {
+      return `Faltam ${diasParaEmbarque} dias. Ainda ${pendentes === 1 ? 'tem 1 item pendente' : `tem ${pendentes} itens pendentes`}.`;
+    }
+  }
+  return pendentes === 1 ? 'Vai resolvendo. Ainda falta 1 item.' : `Vai resolvendo. Faltam ${pendentes} itens.`;
+}
+
 type Section = {
   cat: string;
   label: string;
@@ -130,6 +147,17 @@ export default function MeuEmbarque() {
         contentContainerStyle={[styles.listContent, { paddingTop: insets.top + spacing.md, paddingBottom: bottomNavSpace(insets.bottom) }]}
         ListHeaderComponent={
           <>
+            {/* ── Buddy intro ── */}
+            <View style={styles.buddyIntro}>
+              <View style={styles.buddyIntroRow}>
+                <Ionicons name="person-circle-outline" size={16} color={colors.cyanDim} />
+                <Text style={styles.buddyIntroTitle}>O Buddy acompanha seu embarque</Text>
+              </View>
+              <Text style={styles.buddyIntroSub}>
+                Marque o que já resolveu. Perto do embarque, eu te lembro do que ainda estiver pendente.
+              </Text>
+            </View>
+
             {/* ── Próximo embarque ── */}
             {temEscala && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null ? (
               <TouchableOpacity style={styles.embarqueCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
@@ -176,7 +204,9 @@ export default function MeuEmbarque() {
               <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: tudo ? colors.green : colors.cyan }]} />
             </View>
 
-            <Text style={styles.buddyMsg}>Vai lembrando. Eu guardo pra você.</Text>
+            <Text style={styles.buddyMsg}>
+              {labelBuddy(counts.feitos, counts.total, counts.pendentes, resumo.diasParaEmbarque ?? null)}
+            </Text>
           </>
         }
         renderSectionHeader={({ section }) => (
@@ -241,6 +271,35 @@ function MalaItem({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   listContent: {},
+
+  buddyIntro: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: 4,
+    padding: spacing.sm,
+    backgroundColor: maritime.glass,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: maritime.glassBorder,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.cyan,
+    gap: 5,
+  },
+  buddyIntroRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  buddyIntroTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: colors.white,
+  },
+  buddyIntroSub: {
+    fontSize: 12,
+    color: colors.muted,
+    lineHeight: 17,
+  },
 
   embarqueCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
