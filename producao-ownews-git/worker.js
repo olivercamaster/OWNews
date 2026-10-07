@@ -2081,7 +2081,7 @@ footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;co
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;
   font-size:10px;font-weight:700;color:var(--muted-dim);font-family:var(--ui);
 }
-.tabbar a .ti{font-size:18px}
+.tabbar a svg{width:20px;height:20px;flex-shrink:0;display:block}
 .tabbar a.active{color:var(--cyan)}
 @media(min-width:760px){.tabbar{display:none}}
 
@@ -3044,10 +3044,10 @@ ${CSS_TEMA_CLARO}
 <footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><p class="footer-col-titulo">Portal</p><a href="/sobre">Sobre</a><a href="/explica">OWNews Explica</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><p class="footer-col-titulo">Explore</p><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><p class="footer-col-titulo">Acompanhe</p><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>
 
 <nav class="tabbar" aria-label="Navegação principal">
-  <a href="#inicio" class="active"><span class="ti">🏠</span>Home</a>
-  <a href="#destaque"><span class="ti">📰</span>Notícias</a>
-  <a href="#carreiras"><span class="ti">💼</span>Carreiras</a>
-  <a href="https://www.offshoreworks.com.br"><span class="ti">🛒</span>Loja</a>
+  <a href="#inicio" class="active"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</a>
+  <a href="#destaque"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V5h16v14zM6 7h8v2H6zm0 4h8v2H6zm0 4h4v2H6zm10-4h2v6h-2z"/></svg>Notícias</a>
+  <a href="https://t.me/ownewsradar" onclick="if(window.ownewsEvento)window.ownewsEvento('telegram_bottom_nav_click')"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram</a>
+  <a href="https://www.offshoreworks.com.br"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 6h-2c0-2.2-1.8-4-4-4S8 3.8 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm6 16H6V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h4v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/></svg>Loja</a>
 </nav>
 
 <script>
@@ -8755,58 +8755,313 @@ function renderFuncaoDetalhe(slug) {
 /* ---------- /carreiras e /carreiras/sonda-de-perfuracao ---------- */
 
 function renderCarreirasIndex() {
-  const tiposOp = [
-    {
-      id: "sonda",
-      nome: "Sonda de Perfuração",
-      desc: "Drilling rigs — plataformas e unidades semissubmersíveis dedicadas à perfuração de poços de petróleo e gás.",
-      ativo: true,
-      href: "/carreiras/sonda-de-perfuracao"
-    },
-    { id: "fpso", nome: "FPSO / Produção", desc: "Unidades flutuantes de produção, armazenamento e transferência de petróleo.", ativo: false },
-    { id: "embarcacoes", nome: "Embarcações", desc: "PSVs, AHTS, embarcações de apoio e navios especializados.", ativo: false },
-    { id: "rov-subsea", nome: "ROV / Subsea", desc: "Operações remotamente operadas e trabalhos submarinos especializados.", ativo: false },
-    { id: "catering", nome: "Catering / Hotelaria", desc: "Serviços de alimentação, hotelaria e apoio logístico a bordo.", ativo: false },
-  ];
+  // ---- area metadata (override AREAS_OFFSHORE for cleaner display labels)
+  const AREA_META = {
+    deck:      { nome: 'Deck / Convés' },
+    drilling:  { nome: 'Drilling / Perfuração' },
+    engine:    { nome: 'Engine / Máquinas' },
+    marine:    { nome: 'Marine / Náutica' },
+    subsea:    { nome: 'Subsea / ROV' },
+    seguranca: { nome: 'Segurança (HSE)' },
+    logistica: { nome: 'Logística / Catering' },
+    gestao:    { nome: 'Gestão da Instalação' },
+  };
 
-  const cardsHtml = tiposOp.map(t => {
-    const cls = t.ativo ? 'tipo-op-card ativo' : 'tipo-op-card em-breve';
-    const badge = t.ativo
-      ? '<span class="tipo-op-badge ativo">Disponível</span>'
-      : '<span class="tipo-op-badge em-breve">Em breve</span>';
-    const inner =
-      badge +
-      '<p class="tipo-op-nome">' + escaparHTML(t.nome) + '</p>' +
-      '<p class="tipo-op-desc">' + escaparHTML(t.desc) + '</p>' +
-      (t.ativo ? '<span class="tipo-op-cta">Explorar carreiras →</span>' : '');
-    return t.ativo
-      ? '<a class="' + cls + '" href="' + t.href + '">' + inner + '</a>'
-      : '<div class="' + cls + '">' + inner + '</div>';
+  // ---- count and sample functions per area
+  const funcoesPorArea = {};
+  FUNCOES_OFFSHORE.forEach(function(f) {
+    if (!funcoesPorArea[f.area]) funcoesPorArea[f.area] = [];
+    funcoesPorArea[f.area].push(f);
+  });
+
+  const areasHtml = Object.keys(AREA_META).map(function(key) {
+    const meta = AREA_META[key];
+    const arr = funcoesPorArea[key] || [];
+    const count = arr.length;
+    const samples = arr.slice(0, 2).map(function(f) { return escaparHTML(f.nome); }).join(', ');
+    return '<a class="c3-area-card" href="/funcoes" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_area_click\')">' +
+      '<div class="c3-area-count">' + count + '</div>' +
+      '<div class="c3-area-nome">' + escaparHTML(meta.nome) + '</div>' +
+      (samples ? '<div class="c3-area-samples">' + samples + (count > 2 ? '…' : '') + '</div>' : '') +
+      '</a>';
   }).join('');
 
+  // ---- career path maps
+  const pathDefs = [
+    { nome: 'Convés', slugs: CAMINHO_DECK },
+    { nome: 'Drilling', slugs: CAMINHO_DRILLING },
+    { nome: 'Máquinas (subalternos)', slugs: CAMINHO_MAQUINAS_SUBALTERNOS },
+    { nome: 'Náutica', slugs: CAMINHO_NAUTICA },
+  ];
+
+  const pathsHtml = pathDefs.map(function(p) {
+    const stepsHtml = p.slugs.map(function(slug, i) {
+      const f = funcaoPorSlug(slug);
+      const nome = f ? f.nome : slug;
+      const href = f ? '/funcoes/' + f.slug : '/funcoes';
+      return '<a class="c3-path-step" href="' + href + '">' + escaparHTML(nome) + '</a>' +
+        (i < p.slugs.length - 1 ? '<span class="c3-path-arrow">→</span>' : '');
+    }).join('');
+    return '<div class="c3-path-row">' +
+      '<div class="c3-path-label">' + escaparHTML(p.nome) + '</div>' +
+      '<div class="c3-path-steps">' + stepsHtml + '</div>' +
+      '</div>';
+  }).join('');
+
+  // ---- featured functions (8 editorial picks)
+  const FEATURED_SLUGS = ['deck-pusher', 'driller', 'toolpusher', 'dpo', 'rov', 'tecnico-seguranca-trabalho', 'mecanico', 'oim'];
+  const featuredHtml = FEATURED_SLUGS.map(function(slug) {
+    const f = funcaoPorSlug(slug);
+    if (!f) return '';
+    const areaNome = AREA_META[f.area] ? AREA_META[f.area].nome : f.area;
+    return '<a class="c3-funcao-card" href="/funcoes/' + f.slug + '" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_function_open\')">' +
+      '<div class="c3-funcao-area">' + escaparHTML(areaNome) + '</div>' +
+      '<div class="c3-funcao-nome">' + escaparHTML(f.nome) + '</div>' +
+      (f.resumo ? '<div class="c3-funcao-resumo">' + escaparHTML(f.resumo.slice(0, 88)) + '…</div>' : '') +
+      '</a>';
+  }).filter(Boolean).join('');
+
+  // ---- vagas preview (up to 3 offshore)
+  const vagasOffshore = VAGAS_RADAR.filter(function(v) { return v.offshore_onshore === 'OFFSHORE'; }).slice(0, 3);
+  const vagasHtml = vagasOffshore.map(function(v) {
+    return '<a class="c3-vaga-card" href="/vagas" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_jobs_click\')">' +
+      '<div class="c3-vaga-tag">OFFSHORE</div>' +
+      '<div class="c3-vaga-titulo">' + escaparHTML(v.titulo) + '</div>' +
+      '<div class="c3-vaga-empresa">' + escaparHTML(v.empresa) + '</div>' +
+      '</a>';
+  }).join('');
+
+  // ---- serialized function data for client-side search
+  const funcoesBusca = JSON.stringify(FUNCOES_OFFSHORE.map(function(f) {
+    return { s: f.slug, n: f.nome, a: f.area, r: (f.resumo || '').slice(0, 90) };
+  })).replace(/<\//g, '<\\/');
+
+  // ---- CSS (scoped to carreiras 3.0)
+  const css =
+    '<style>' +
+    '.c3-hero{padding:52px 0 44px;text-align:center}' +
+    '.c3-hero h1{font-family:var(--editorial);font-size:clamp(26px,6vw,46px);color:var(--white);margin:0 0 14px;line-height:1.15;letter-spacing:-.5px}' +
+    '.c3-hero-sub{font-size:15px;color:var(--muted);max-width:520px;margin:0 auto 30px;line-height:1.65}' +
+    '.c3-hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}' +
+    '.c3-cta-p{background:var(--cyan);color:var(--navy-950);font-weight:800;font-size:14px;border-radius:6px;padding:13px 24px;text-decoration:none;font-family:var(--ui);transition:opacity .15s;letter-spacing:.2px}' +
+    '.c3-cta-p:hover{opacity:.85}' +
+    '.c3-cta-s{border:2px solid var(--line);color:var(--cyan-dim);font-weight:700;font-size:14px;border-radius:6px;padding:12px 24px;text-decoration:none;font-family:var(--ui);transition:border-color .15s}' +
+    '.c3-cta-s:hover{border-color:var(--cyan-dim)}' +
+    '.c3-sec{padding:44px 0 0}' +
+    '.c3-sec-eyebrow{font-family:var(--ui);font-size:10px;font-weight:800;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin:0 0 8px}' +
+    '.c3-sec-titulo{font-family:var(--editorial);font-size:clamp(19px,4vw,26px);color:var(--white);margin:0 0 8px;line-height:1.25}' +
+    '.c3-sec-sub{font-size:14px;color:var(--muted);margin:0 0 24px;line-height:1.65;max-width:580px}' +
+    '.c3-divider{border:none;border-top:1px solid var(--line);margin:44px 0 0}' +
+    /* areas grid */
+    '.c3-areas-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}' +
+    '@media(max-width:760px){.c3-areas-grid{grid-template-columns:repeat(2,1fr)}}' +
+    '.c3-area-card{border:1px solid var(--line);border-radius:8px;padding:16px 14px;background:rgba(10,44,64,.45);text-decoration:none;display:block;transition:border-color .15s,background .15s}' +
+    '.c3-area-card:hover{border-color:var(--cyan-dim);background:rgba(10,44,64,.7)}' +
+    '.c3-area-count{font-family:var(--ui);font-size:24px;font-weight:800;color:var(--cyan);line-height:1;margin-bottom:4px}' +
+    '.c3-area-nome{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--white);margin-bottom:6px;line-height:1.3}' +
+    '.c3-area-samples{font-size:11px;color:var(--muted-dim);line-height:1.5}' +
+    /* sonda destaque */
+    '.c3-sonda{border:1px solid rgba(18,168,238,.4);border-radius:10px;background:linear-gradient(135deg,rgba(18,168,238,.08),rgba(10,44,64,.5));padding:24px 28px;display:flex;justify-content:space-between;align-items:center;text-decoration:none;gap:16px;transition:background .15s;margin-bottom:10px}' +
+    '.c3-sonda:hover{background:linear-gradient(135deg,rgba(18,168,238,.15),rgba(10,44,64,.7))}' +
+    '.c3-sonda-eyebrow{font-family:var(--ui);font-size:10px;font-weight:800;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}' +
+    '.c3-sonda-titulo{font-family:var(--editorial);font-size:20px;color:var(--white);margin:0 0 6px}' +
+    '.c3-sonda-sub{font-size:13px;color:var(--muted)}' +
+    '.c3-sonda-cta{font-size:22px;color:var(--cyan);flex-shrink:0;font-family:var(--ui);font-weight:700;line-height:1}' +
+    /* career paths */
+    '.c3-path-wrap{display:flex;flex-direction:column;gap:18px}' +
+    '.c3-path-label{font-family:var(--ui);font-size:10px;font-weight:800;color:var(--muted-dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}' +
+    '.c3-path-steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px}' +
+    '.c3-path-step{background:rgba(18,168,238,.08);border:1px solid rgba(18,168,238,.18);border-radius:4px;padding:5px 10px;font-size:12px;color:var(--muted);font-family:var(--ui);text-decoration:none;white-space:nowrap;transition:all .15s}' +
+    '.c3-path-step:hover{background:rgba(18,168,238,.18);color:var(--cyan-dim);border-color:rgba(18,168,238,.35)}' +
+    '.c3-path-arrow{color:var(--muted-dim);font-size:13px;flex-shrink:0;line-height:1}' +
+    '.c3-path-nota{font-size:12px;color:var(--muted-dim);margin-top:16px;line-height:1.6;font-style:italic}' +
+    /* function search */
+    '.c3-busca{background:rgba(10,44,64,.45);border:1px solid var(--line);border-radius:10px;padding:20px 22px}' +
+    '.c3-busca-row{position:relative}' +
+    '.c3-busca-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted-dim);pointer-events:none}' +
+    '.c3-busca-input{width:100%;background:var(--navy-900);border:1px solid var(--line);border-radius:6px;padding:10px 12px 10px 34px;font-size:14px;color:var(--white);font-family:var(--ui);outline:none;box-sizing:border-box;transition:border-color .15s}' +
+    '.c3-busca-input:focus{border-color:var(--cyan)}' +
+    '.c3-busca-hint{font-size:12px;color:var(--muted-dim);margin-top:8px}' +
+    '.c3-busca-res{margin-top:8px;display:flex;flex-direction:column;gap:2px}' +
+    '.c3-busca-item{padding:8px 12px;border-radius:5px;font-size:13px;color:var(--cyan-dim);text-decoration:none;font-family:var(--ui);font-weight:600;border:1px solid transparent;transition:all .1s;display:block}' +
+    '.c3-busca-item:hover{background:rgba(18,168,238,.1);border-color:rgba(18,168,238,.2)}' +
+    /* featured functions */
+    '.c3-funcoes-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}' +
+    '@media(max-width:760px){.c3-funcoes-grid{grid-template-columns:repeat(2,1fr)}}' +
+    '.c3-funcao-card{border:1px solid var(--line);border-radius:8px;padding:14px;background:rgba(10,44,64,.4);text-decoration:none;display:block;transition:border-color .15s,background .15s}' +
+    '.c3-funcao-card:hover{border-color:var(--cyan-dim);background:rgba(10,44,64,.65)}' +
+    '.c3-funcao-area{font-size:9px;font-weight:800;color:var(--cyan);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;font-family:var(--ui)}' +
+    '.c3-funcao-nome{font-size:14px;font-weight:700;color:var(--white);line-height:1.3;margin-bottom:5px}' +
+    '.c3-funcao-resumo{font-size:11px;color:var(--muted-dim);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}' +
+    /* como entrar steps */
+    '.c3-steps{display:flex;flex-direction:column;gap:18px}' +
+    '.c3-step{display:flex;align-items:flex-start;gap:16px}' +
+    '.c3-step-num{width:32px;height:32px;border-radius:50%;background:rgba(18,168,238,.12);border:1px solid rgba(18,168,238,.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--cyan);font-family:var(--ui)}' +
+    '.c3-step-body{}' +
+    '.c3-step-titulo{font-size:15px;font-weight:700;color:var(--white);margin:0 0 3px;font-family:var(--ui)}' +
+    '.c3-step-desc{font-size:13px;color:var(--muted);line-height:1.6;margin:0}' +
+    '.c3-step-link{color:var(--cyan-dim);text-decoration:none;font-weight:600}' +
+    '.c3-step-link:hover{text-decoration:underline}' +
+    /* vagas preview */
+    '.c3-vagas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}' +
+    '@media(max-width:760px){.c3-vagas-grid{grid-template-columns:1fr}}' +
+    '.c3-vaga-card{border:1px solid var(--line);border-radius:8px;padding:16px;background:rgba(10,44,64,.4);text-decoration:none;display:block;transition:border-color .15s}' +
+    '.c3-vaga-card:hover{border-color:var(--cyan-dim)}' +
+    '.c3-vaga-tag{font-size:9px;font-weight:800;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;font-family:var(--ui)}' +
+    '.c3-vaga-titulo{font-size:14px;font-weight:700;color:var(--white);margin-bottom:4px;line-height:1.35}' +
+    '.c3-vaga-empresa{font-size:12px;color:var(--muted-dim)}' +
+    /* currículo cta */
+    '.c3-curriculo{border:1px solid var(--line);border-radius:10px;background:rgba(10,44,64,.4);padding:28px 28px;display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:10px;flex-wrap:wrap}' +
+    '.c3-curriculo-left{}' +
+    '.c3-curriculo-titulo{font-family:var(--editorial);font-size:19px;color:var(--white);margin:0 0 5px}' +
+    '.c3-curriculo-sub{font-size:13px;color:var(--muted);margin:0}' +
+    '.c3-curriculo-btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-weight:700;font-size:13px;border-radius:6px;padding:11px 20px;text-decoration:none;font-family:var(--ui);flex-shrink:0;white-space:nowrap;transition:background .15s}' +
+    '.c3-curriculo-btn:hover{background:rgba(18,168,238,.1)}' +
+    '</style>';
+
+  // ---- inline search script
+  const scriptJs =
+    '<script>' +
+    'var C3FD=' + funcoesBusca + ';' +
+    'function c3nc(s){return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}' +
+    'document.addEventListener("DOMContentLoaded",function(){' +
+    '  var inp=document.getElementById("c3BuscaInput");' +
+    '  var res=document.getElementById("c3BuscaRes");' +
+    '  if(!inp||!res)return;' +
+    '  inp.addEventListener("input",function(){' +
+    '    var q=c3nc(this.value.trim());' +
+    '    if(q.length<2){res.innerHTML="";return;}' +
+    '    if(window.ownewsEvento)window.ownewsEvento("careers_function_search");' +
+    '    var hits=C3FD.filter(function(f){return c3nc(f.n).includes(q)||c3nc(f.r).includes(q);}).slice(0,6);' +
+    '    if(!hits.length){res.innerHTML=\'<span style="color:var(--muted-dim);font-size:13px;padding:8px 12px;display:block">Nenhuma função encontrada</span>\';return;}' +
+    '    res.innerHTML=hits.map(function(f){return\'<a class="c3-busca-item" href="/funcoes/\'+f.s+\'">\'+f.n+\'</a>\';}).join("");' +
+    '  });' +
+    '});' +
+    '<\/script>';
+
+  // ---- assemble page
   const conteudo =
+    css +
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Carreiras Offshore" }]) +
-    '<div class="carreiras-hero">' +
-    '<h1>Carreiras Offshore</h1>' +
-    '<p>Conheça as funções a bordo, entenda como as equipes se organizam e descubra caminhos possíveis para desenvolver sua carreira no setor offshore.</p>' +
+
+    // HERO
+    '<div class="c3-hero">' +
+    '<h1>Central de Carreiras Offshore</h1>' +
+    '<p class="c3-hero-sub">Funções, hierarquias, caminhos de carreira e vagas verificadas para quem quer trabalhar no setor offshore brasileiro.</p>' +
+    '<div class="c3-hero-ctas">' +
+    '<a class="c3-cta-p" href="#como-entrar" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_cta_entrar\')">QUERO ENTRAR NO OFFSHORE</a>' +
+    '<a class="c3-cta-s" href="#funcoes-destaque" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_cta_trabalho\')">JÁ TRABALHO OFFSHORE</a>' +
     '</div>' +
-    '<p class="tipos-op-label">Tipo de operação</p>' +
-    '<div class="tipos-op-grid">' + cardsHtml + '</div>' +
-    '<div class="hub-continue">' +
-    '<span class="hub-continue-label">Explore também</span>' +
-    '<a href="/funcoes">Todas as funções a bordo →</a>' +
-    '<a href="/vagas">Vagas verificadas →</a>' +
-    '<a href="/carreiras/modelo-curriculo">Monte seu currículo →</a>' +
-    '<a href="/carreiras/cadastre-seu-curriculo">Cadastre-se nas empresas →</a>' +
-    '<a href="/minha-escala">Já trabalha offshore? Organize seus embarques →</a>' +
-    '</div>';
+    '</div>' +
+
+    // ÁREAS DE ATUAÇÃO
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec">' +
+    '<p class="c3-sec-eyebrow">Estrutura da indústria</p>' +
+    '<h2 class="c3-sec-titulo">Áreas de atuação a bordo</h2>' +
+    '<p class="c3-sec-sub">O setor offshore organiza suas equipes em áreas técnicas distintas. Cada área possui funções próprias, hierarquia e requisitos de certificação.</p>' +
+    '<div class="c3-areas-grid">' + areasHtml + '</div>' +
+    '</div>' +
+
+    // DESTAQUE: SONDA
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec">' +
+    '<p class="c3-sec-eyebrow">Guia completo</p>' +
+    '<h2 class="c3-sec-titulo">Sonda de Perfuração — hierarquia completa</h2>' +
+    '<p class="c3-sec-sub">A unidade mais complexa do offshore: da tripulação ao Superintendent, com funções, níveis e requisitos mapeados função a função.</p>' +
+    '<a class="c3-sonda" href="/carreiras/sonda-de-perfuracao" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_sonda_click\')">' +
+    '<div>' +
+    '<div class="c3-sonda-eyebrow">Guia Sonda de Perfuração</div>' +
+    '<div class="c3-sonda-titulo">Hierarquia completa da Sonda</div>' +
+    '<div class="c3-sonda-sub">Drilling, Deck, Máquinas, Marine, HSE — todas as funções com seus caminhos de carreira</div>' +
+    '</div>' +
+    '<div class="c3-sonda-cta">Explorar →</div>' +
+    '</a>' +
+    '</div>' +
+
+    // CAMINHOS DE CARREIRA
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec">' +
+    '<p class="c3-sec-eyebrow">Progressão profissional</p>' +
+    '<h2 class="c3-sec-titulo">Caminhos de carreira</h2>' +
+    '<p class="c3-sec-sub">Exemplos editoriais de progressão por área — os caminhos variam conforme empresa, experiência e formação.</p>' +
+    '<div class="c3-path-wrap">' + pathsHtml + '</div>' +
+    '<p class="c3-path-nota">Os caminhos acima são trajetórias comuns documentadas na indústria, não regras fixas. Promoções dependem de tempo de embarque, cursos e avaliação de cada empresa.</p>' +
+    '</div>' +
+
+    // BUSCA DE FUNÇÕES
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec">' +
+    '<p class="c3-sec-eyebrow">Base de funções offshore</p>' +
+    '<h2 class="c3-sec-titulo">Busque qualquer função a bordo</h2>' +
+    '<p class="c3-sec-sub">' + FUNCOES_OFFSHORE.length + ' funções documentadas, com requisitos, certificações e caminhos de carreira.</p>' +
+    '<div class="c3-busca">' +
+    '<div class="c3-busca-row">' +
+    '<svg class="c3-busca-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>' +
+    '<input id="c3BuscaInput" class="c3-busca-input" type="search" placeholder="Driller, ROV, Almoxarife, Mecânico…" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Buscar função offshore" oninput="if(window.ownewsEvento)window.ownewsEvento(\'careers_function_search\')">' +
+    '</div>' +
+    '<p class="c3-busca-hint">Digite o nome ou área para encontrar a função.</p>' +
+    '<div id="c3BuscaRes" class="c3-busca-res" aria-live="polite"></div>' +
+    '</div>' +
+    '<p style="margin-top:12px"><a href="/funcoes" style="color:var(--cyan-dim);font-size:13px;font-weight:700;text-decoration:none">Ver todas as ' + FUNCOES_OFFSHORE.length + ' funções →</a></p>' +
+    '</div>' +
+
+    // FUNÇÕES EM DESTAQUE
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec" id="funcoes-destaque">' +
+    '<p class="c3-sec-eyebrow">Funções mais buscadas</p>' +
+    '<h2 class="c3-sec-titulo">Funções em destaque</h2>' +
+    '<p class="c3-sec-sub">Uma seleção representativa das principais funções de cada área, com resumo e link para a ficha completa.</p>' +
+    '<div class="c3-funcoes-grid">' + featuredHtml + '</div>' +
+    '</div>' +
+
+    // COMO ENTRAR
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec" id="como-entrar">' +
+    '<p class="c3-sec-eyebrow">Primeiros passos</p>' +
+    '<h2 class="c3-sec-titulo">Como entrar no offshore</h2>' +
+    '<p class="c3-sec-sub">Um roteiro direto para quem está começando — sem atalhos inventados, só o que realmente funciona.</p>' +
+    '<div class="c3-steps">' +
+    '<div class="c3-step"><div class="c3-step-num">1</div><div class="c3-step-body"><p class="c3-step-titulo">Entenda as funções e escolha a sua área</p><p class="c3-step-desc">Leia as fichas de função para entender o que cada cargo faz, o que exige e como é o cotidiano a bordo. <a class="c3-step-link" href="/funcoes">Ver todas as funções →</a></p></div></div>' +
+    '<div class="c3-step"><div class="c3-step-num">2</div><div class="c3-step-body"><p class="c3-step-titulo">Organize suas certificações e documentação</p><p class="c3-step-desc">Cada função exige um conjunto de cursos (NR-37, HUET, STCW) e documentos. Confira os requisitos na ficha da função que você quer. <a class="c3-step-link" href="/cursos">Ver cursos e escolas →</a></p></div></div>' +
+    '<div class="c3-step"><div class="c3-step-num">3</div><div class="c3-step-body"><p class="c3-step-titulo">Monte um currículo específico para offshore</p><p class="c3-step-desc">O currículo offshore tem formato próprio: embarques, certificações e habilitações em destaque. <a class="c3-step-link" href="/carreiras/modelo-curriculo">Ver modelo de currículo →</a></p></div></div>' +
+    '<div class="c3-step"><div class="c3-step-num">4</div><div class="c3-step-body"><p class="c3-step-titulo">Candidature-se em vagas verificadas</p><p class="c3-step-desc">Acompanhe vagas reais de empresas offshore — sem intermediários duvidosos. <a class="c3-step-link" href="/vagas">Ver vagas verificadas →</a></p></div></div>' +
+    '</div>' +
+    '</div>' +
+
+    // VAGAS EM ABERTO
+    (vagasHtml ? (
+      '<hr class="c3-divider">' +
+      '<div class="c3-sec">' +
+      '<p class="c3-sec-eyebrow">Radar de vagas</p>' +
+      '<h2 class="c3-sec-titulo">Vagas offshore verificadas</h2>' +
+      '<p class="c3-sec-sub">Vagas reais, de fontes oficiais, verificadas manualmente.</p>' +
+      '<div class="c3-vagas-grid">' + vagasHtml + '</div>' +
+      '<a href="/vagas" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_jobs_click\')" style="color:var(--cyan-dim);font-size:13px;font-weight:700;text-decoration:none">Ver todas as vagas →</a>' +
+      '</div>'
+    ) : '') +
+
+    // CURRÍCULO CTA
+    '<hr class="c3-divider">' +
+    '<div class="c3-sec">' +
+    '<div class="c3-curriculo">' +
+    '<div class="c3-curriculo-left">' +
+    '<p class="c3-curriculo-titulo">Cadastre seu currículo nas empresas</p>' +
+    '<p class="c3-curriculo-sub">Deixe seu perfil disponível para operadoras e prestadoras de serviço offshore.</p>' +
+    '</div>' +
+    '<a class="c3-curriculo-btn" href="/carreiras/cadastre-seu-curriculo" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_resume_click\')">Cadastrar currículo →</a>' +
+    '</div>' +
+    '</div>' +
+
+    '<div style="padding-bottom:48px"></div>' +
+    scriptJs;
 
   return paginaChrome(
     "Carreiras Offshore — Funções, Hierarquia e Caminhos de Carreira",
-    "Conheça as funções a bordo, a estrutura das equipes e os caminhos possíveis para crescer no setor offshore.",
+    "Central de carreiras offshore: funções a bordo, hierarquias, caminhos de carreira e vagas verificadas para quem quer trabalhar no setor offshore brasileiro.",
     conteudo,
     "/carreiras",
-    { eventoAbertura: "carreiras_aberta" }
+    { eventoAbertura: "careers_view" }
   );
 }
 
