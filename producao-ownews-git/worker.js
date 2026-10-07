@@ -4466,10 +4466,23 @@ function renderTudo(noticias){
   // Regra P0: prioriza 24h; cai para 48h quando 24h produz <2 artigos
   // (finais de semana / dias fracos). Artigos antigos continuam disponíveis
   // no arquivo e nas categorias.
-  const ultimasHoje = proximosSemImagemRepetida(poolElegivelHoje, 6);
+  // Ultimas: dedup de imagem só contra hero (não contra destaques) para
+  // não bloquear artigos cronologicamente mais novos que os destaques.
+  const imagensUltimas = new Set([hero.image_url].filter(Boolean));
+  function proximosUltimas(pool, n) {
+    const r = [];
+    for (const c of pool) {
+      if (r.length >= n) break;
+      if (chavesHome(c).some(k => usados.has(k))) continue;
+      if (c.image_url && imagensUltimas.has(c.image_url)) continue;
+      r.push(c); chavesHome(c).forEach(k => usados.add(k)); if (c.image_url) imagensUltimas.add(c.image_url);
+    }
+    return r;
+  }
+  const ultimasHoje = proximosUltimas(poolElegivelHoje, 6);
   const ultimas = ultimasHoje.length >= 2
     ? ultimasHoje
-    : ultimasHoje.concat(proximosSemImagemRepetida(poolResiliencia48h, 6 - ultimasHoje.length));
+    : ultimasHoje.concat(proximosUltimas(poolResiliencia48h, 6 - ultimasHoje.length));
 
   // As editorias têm composição própria: a lista lateral e o trilho de cards
   // não podem ser esvaziados pela reserva consumida por Últimas. Mantém-se a
@@ -4508,9 +4521,14 @@ function renderTudo(noticias){
   renderTicker(restantesPosHero);
 }
 
-/* 1) estado inicial imediato, com o snapshot real — sem tela em branco */
+/* 1) estado inicial imediato — só usa SEED quando SSR não injetou notícias.
+   SSR injeta um <a class="lead-ssr-link"> dentro de #heroCard; se ele já
+   está presente, sobrescrever com o snapshot (hoje ~4 dias velho) causaria
+   flash de conteúdo antigo antes da busca ao vivo chegar. */
 renderAirports(SEED_AEROPORTOS);
-renderTudo(ULTIMAS_NOTICIAS_RADAR);
+if (!document.querySelector('#heroCard .lead-ssr-link')) {
+  renderTudo(ULTIMAS_NOTICIAS_RADAR);
+}
 
 /* 2) dado ao vivo (mesmos endpoints públicos da produção), com atualização
    automática periódica.
@@ -6192,6 +6210,16 @@ async function obterNoticiasHomeServidor() {
   })) : [];
 }
 
+/* editorial_score é calculado na coleta e fica estático — inclui recência
+   que envelhece. homeScoreServidor recalcula o peso temporal agora para que
+   laterais sejam ordenadas por relevância FRESCA, não por relevância da
+   hora da coleta. */
+function homeScoreServidor(n, agoraMs) {
+  const h = (agoraMs - new Date(n.published_at).getTime()) / 3600000;
+  const decaimento = h <= 6 ? 1.0 : h <= 24 ? 0.8 : h <= 48 ? 0.5 : 0.0;
+  return (Number(n.editorial_score) || 0) * decaimento;
+}
+
 function selecionarHomeServidor(noticias, agoraMs) {
   const horasDe = (n) => (agoraMs - new Date(n.published_at).getTime()) / 3600000;
   // Recovery 2.0: matéria thin nunca vira hero nem lateral da Home.
@@ -6205,7 +6233,7 @@ function selecionarHomeServidor(noticias, agoraMs) {
   const hero = (breaking && breaking.id !== maisNova.id && horasDe(breaking) <= 24) ? breaking : maisNova;
   const restantes = em48h.filter((n) => n.id !== hero.id);
   const em24h = restantes.filter((n) => horasDe(n) <= 24);
-  const elegiveis = (em24h.length >= 3 ? em24h : restantes).slice().sort((a, b) => (Number(b.editorial_score) || 0) - (Number(a.editorial_score) || 0));
+  const elegiveis = (em24h.length >= 3 ? em24h : restantes).slice().sort((a, b) => homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
   const imagens = new Set([hero.image_url].filter(Boolean));
   const fontes = new Set([hero.image_credit].filter(Boolean));
   const laterais = [];
@@ -6222,12 +6250,15 @@ function selecionarHomeServidor(noticias, agoraMs) {
     laterais.push(c); if (c.image_url) imagens.add(c.image_url);
   }
   const usados = new Set([hero, ...laterais].map((n) => n.id));
+  // Dedup de imagem em Últimas só contra hero — laterais não bloqueiam artigos
+  // mais novos que ficam fora das laterais por terem score menor.
+  const imagensUltimasSSR = new Set([hero.image_url].filter(Boolean));
   const ultimas = [];
   for (const c of restantes) {
     if (ultimas.length >= 6) break;
     if (usados.has(c.id)) continue;
-    if (c.image_url && imagens.has(c.image_url)) continue;
-    ultimas.push(c); usados.add(c.id); if (c.image_url) imagens.add(c.image_url);
+    if (c.image_url && imagensUltimasSSR.has(c.image_url)) continue;
+    ultimas.push(c); usados.add(c.id); if (c.image_url) imagensUltimasSSR.add(c.image_url);
   }
   return { hero, laterais, ultimas };
 }
