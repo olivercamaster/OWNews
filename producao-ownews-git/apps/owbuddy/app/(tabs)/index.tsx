@@ -309,6 +309,7 @@ export default function TelaHoje() {
           <ChipButton icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
           <ChipButton icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
           <ChipButton icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
+          <ChipButton icon="boat-outline" label="Unidades" onPress={() => router.push('/unidades')} />
           <ChipButton icon="hammer-outline" label="Ferramentas" onPress={() => router.push('/ferramentas')} />
         </View>
       </ScrollView>

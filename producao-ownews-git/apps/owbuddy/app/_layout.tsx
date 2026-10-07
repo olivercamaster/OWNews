@@ -123,6 +123,17 @@ export default function RootLayout() {
             presentation: 'modal',
           }}
         />
+        <Stack.Screen
+          name="unidades"
+          options={{
+            title: 'Radar de Unidades',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="unidade/[slug]"
+          options={{ headerShown: false }}
+        />
       </Stack>
     </>
   );

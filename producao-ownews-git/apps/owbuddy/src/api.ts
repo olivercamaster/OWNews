@@ -3,11 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL = 'https://ownews.com.br';
 const FEED_URL = `${BASE_URL}/api/buddy/feed`;
 const VAGAS_URL = `${BASE_URL}/api/buddy/vagas`;
+const UNIDADES_URL = `${BASE_URL}/api/buddy/unidades`;
 
 const CACHE_KEY_FEED = 'owbuddy_cache_feed_v2';
 const CACHE_KEY_VAGAS = 'owbuddy_cache_vagas';
-const FEED_TTL_MS = 5 * 60 * 1000;     // 5 min
-const VAGAS_TTL_MS = 60 * 60 * 1000;   // 1 h
+const CACHE_KEY_UNIDADES = 'owbuddy_cache_unidades_v1';
+const FEED_TTL_MS = 5 * 60 * 1000;       // 5 min
+const VAGAS_TTL_MS = 60 * 60 * 1000;     // 1 h
+const UNIDADES_TTL_MS = 60 * 60 * 1000;  // 1 h
 
 export type ExplicaItem = {
   slug: string;
@@ -31,6 +34,32 @@ export type Article = {
   buddy_source: string | null;
   explica: ExplicaItem[] | null;
   thin: boolean | null;
+};
+
+export type FleetStatusFonte = {
+  nome: string;
+  url: string;
+  documento: string;
+  data_ref: string;
+};
+
+export type Unidade = {
+  slug: string;
+  nome: string;
+  tipo: string;
+  tipo_label: string;
+  codigo_petrobras: string | null;
+  codigo_confianca: string | null;
+  owner: string | null;
+  contratante: string | null;
+  status_brasil: string;
+  campo: string | null;
+  sobre: string | null;
+  image_url: string | null;
+  image_credit: string | null;
+  image_status: 'real' | 'ilustrativa' | 'ausente';
+  fleet_status_fonte: FleetStatusFonte | null;
+  url: string;
 };
 
 export type Vaga = {
@@ -111,6 +140,30 @@ export async function fetchVagas(): Promise<VagasResult> {
     return { status: 'ok', vagas, fromCache: false };
   } catch {
     if (cached) return { status: 'offline_cached', vagas: cached.data, cachedAt: cached.cachedAt };
+    return { status: 'offline_empty' };
+  }
+}
+
+export type UnidadesResult =
+  | { status: 'ok'; unidades: Unidade[]; fromCache: boolean; cachedAt?: number }
+  | { status: 'offline_cached'; unidades: Unidade[]; cachedAt: number }
+  | { status: 'offline_empty' }
+  | { status: 'error'; message: string };
+
+export async function fetchUnidades(): Promise<UnidadesResult> {
+  const cached = await readCache<Unidade[]>(CACHE_KEY_UNIDADES);
+  if (cached && !isStale(cached.cachedAt, UNIDADES_TTL_MS)) {
+    return { status: 'ok', unidades: cached.data, fromCache: true, cachedAt: cached.cachedAt };
+  }
+  try {
+    const resp = await fetch(UNIDADES_URL, { signal: AbortSignal.timeout(10_000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json() as { unidades: Unidade[] };
+    const unidades = json.unidades ?? [];
+    await writeCache(CACHE_KEY_UNIDADES, unidades);
+    return { status: 'ok', unidades, fromCache: false };
+  } catch {
+    if (cached) return { status: 'offline_cached', unidades: cached.data, cachedAt: cached.cachedAt };
     return { status: 'offline_empty' };
   }
 }

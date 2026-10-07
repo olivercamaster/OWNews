@@ -27,6 +27,8 @@ type EventName =
   | 'news_source_open'
   | 'vaga_opened'
   | 'aeroportos_web_opened'
+  | 'unidade_opened'
+  | 'unidade_radar_web_opened'
   | 'weather_city_selected'
   | 'city_searched'
   | 'ferramentas_opened'

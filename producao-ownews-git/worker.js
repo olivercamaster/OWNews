@@ -14703,12 +14703,14 @@ const UNIDADES_RADAR = [
     {
     slug: "west-jupiter", nome: "West Jupiter", tipo: "drillship",
     codigo_petrobras: "NS-55",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Jupiter.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     imo: "9655030", mmsi: "354150000", callsign: "3FCT3", bandeira: "Panamá",
     ano_construcao: 2014, estaleiro: "Samsung Heavy Industries (Geoje, Coreia do Sul)",
     comprimento_m: 227, boca_m: 42, calado_m: null, gt: 60555, dwt: 62500,
     owner: "Seadrill", manager: "Seadrill Management Singapore", operador: null,
     contratante: "Petrobras", status_brasil: "contrato_vigente_brasil",
     codigo_confianca: "baixa",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     campo: null,
     sobre: "Drillship construído pela Samsung Heavy Industries, da frota da Seadrill. Contrato de 1.095 dias com a Petrobras (~US$493-525 milhões) anunciado em dezembro de 2024, com início de operação no Brasil no 1º trimestre de 2026 — status ativo confirmado no Fleet Status Report da Seadrill de maio de 2026, com término previsto em março de 2029. O código NS-55 tem confiança baixa (única fonte encontrada é uma publicação no LinkedIn; buscas em documentos oficiais da Marinha do Brasil e da Petrobras não encontraram essa associação) — mantido aqui apenas como referência de busca, nunca apresentado como confirmado.",
     fontes: [
@@ -14719,6 +14721,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "fpso-alexandre-de-gusmao", nome: "FPSO Alexandre de Gusmão", tipo: "fpso",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Alexandre%20de%20Gusm%C3%A3o_Foto7_Divulga%C3%A7%C3%A3o%20Petrobras/677273e5-92ce-fae4-e6c9-ca09e5692af3", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/navio-plataforma-alexandre-de-gusm%C3%A3o-atinge-topo-de-produ%C3%A7%C3%A3o-no-pr%C3%A9-sal", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "SBM Offshore (integração na China)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14743,7 +14746,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-80", nome: "P-80", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P80_Estaleiro_Foto1_Divulgacao_Seatrium.jpg/a3c46a3b-f7ba-34e9-2107-06f5e26f3500", foto_credito: "Divulgação Seatrium / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P80_Estaleiro_Foto1_Divulgacao_Seatrium.jpg/a3c46a3b-f7ba-34e9-2107-06f5e26f3500", foto_credito: "Divulgação Seatrium / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
     ano_construcao: null, estaleiro: "Seatrium — módulos no BrasFELS (Angra dos Reis, RJ), integração em Tuas Boulevard Yard (Singapura)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14754,6 +14757,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "p-82", nome: "P-82", tipo: "fpso",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P82_Estaleiro_Foto1_Credito_Divulgacao_Petrobras.jpg", foto_credito: "Divulgação Petrobras / Seatrium", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "Seatrium — módulos em Aracruz (ES), integração em Tuas Boulevard Yard (Singapura)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14766,7 +14770,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-almirante-tamandare", nome: "FPSO Almirante Tamandaré", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Almirante%20Tamandar%C3%A9%20em%20%C3%A1guas%20brasileiras_Foto3/881007f2-cc71-ebdf-ef27-90ed2e379a91", foto_credito: "Divulgação SBM Offshore / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/en/w/plataforma-almirante-tamandar%C3%A9-instalada-no-campo-de-b%C3%BAzios-bate-recorde-de-produ%C3%A7%C3%A3o-de-petr%C3%B3leo",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Almirante%20Tamandar%C3%A9%20em%20%C3%A1guas%20brasileiras_Foto3/881007f2-cc71-ebdf-ef27-90ed2e379a91", foto_credito: "Divulgação SBM Offshore / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/en/w/plataforma-almirante-tamandar%C3%A9-instalada-no-campo-de-b%C3%BAzios-bate-recorde-de-produ%C3%A7%C3%A3o-de-petr%C3%B3leo", image_status: "real",
     ano_construcao: null, estaleiro: "China Merchants Heavy Industry (projeto SBM Offshore)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: 44000, dwt: null,
     owner: "SBM Offshore", manager: null, operador: "Petrobras",
@@ -14781,7 +14785,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-anna-nery", nome: "FPSO Anna Nery", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anna_nery_2.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/612a713b-b6ad-0258-8b7d-3a9a2f96954b", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anna-nery-sai-do-estaleiro-brasfels-rumo-ao-campo-de-marlim",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anna_nery_2.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/612a713b-b6ad-0258-8b7d-3a9a2f96954b", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anna-nery-sai-do-estaleiro-brasfels-rumo-ao-campo-de-marlim", image_status: "real",
     ano_construcao: null, estaleiro: "BrasFELS (módulos) e estaleiro na China (integração) — projeto Yinson",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Yinson", manager: null, operador: "Petrobras",
@@ -14793,7 +14797,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-anita-garibaldi", nome: "FPSO Anita Garibaldi", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anita_garibaldi_5.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/a131ec31-fb8d-35eb-f7b8-77b5985daded", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anita-garibaldi-sai-do-estaleiro-da-china-rumo-ao-brasil",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anita_garibaldi_5.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/a131ec31-fb8d-35eb-f7b8-77b5985daded", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anita-garibaldi-sai-do-estaleiro-da-china-rumo-ao-brasil", image_status: "real",
     ano_construcao: null, estaleiro: "DSIC — Dalian, China",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Modec", manager: null, operador: "Petrobras",
@@ -14805,7 +14809,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-71", nome: "P-71", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/p-71_9.png__1280x0_q85_ALIAS-cover_crop_subsampling-2%20(2).jpg/060d7d56-b041-1247-19a8-abdfbd73d956", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-coloca-em-producao-plataforma-p-71-no-pre-sal-da-bacia-de-santos",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/p-71_9.png__1280x0_q85_ALIAS-cover_crop_subsampling-2%20(2).jpg/060d7d56-b041-1247-19a8-abdfbd73d956", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-coloca-em-producao-plataforma-p-71-no-pre-sal-da-bacia-de-santos", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: 316, boca_m: 54, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14839,7 +14843,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-78", nome: "P-78", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Navio-plataforma%20P-78%20deixa%20o%20estaleiro%20Benoi,%20em%20Singapura_Foto4/5cfbdbcd-bbfa-10c2-db32-2c0bcfe86bc2", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-p-78-deixa-singapura-rumo-ao-campo-de-buzios",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Navio-plataforma%20P-78%20deixa%20o%20estaleiro%20Benoi,%20em%20Singapura_Foto4/5cfbdbcd-bbfa-10c2-db32-2c0bcfe86bc2", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-p-78-deixa-singapura-rumo-ao-campo-de-buzios", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14851,7 +14855,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-79", nome: "P-79", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/P-79_Chegada_Campo%20de%20Buzios.jpeg/d4df50cd-fabf-2743-d354-60e454e39c13", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/plataforma-da-petrobras-p-79-chega-ao-campo-de-b%C3%BAzios",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/P-79_Chegada_Campo%20de%20Buzios.jpeg/d4df50cd-fabf-2743-d354-60e454e39c13", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/plataforma-da-petrobras-p-79-chega-ao-campo-de-b%C3%BAzios", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14863,7 +14867,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-carioca-mv30", nome: "FPSO Carioca MV30", tipo: "fpso",
     imo: "9235256", mmsi: "311000768", callsign: null, bandeira: "Bahamas",
-    foto_url: "https://www.modec.com/project/assets/img/FPSO_Carioca_MV30.jpg", foto_credito: "MODEC", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da operadora)", foto_fonte_url: "https://www.modec.com/project/detail/sepia.html",
+    foto_url: "https://www.modec.com/project/assets/img/FPSO_Carioca_MV30.jpg", foto_credito: "MODEC", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da operadora)", foto_fonte_url: "https://www.modec.com/project/detail/sepia.html", image_status: "real",
     ano_construcao: 2004, estaleiro: "COSCO Shipyard Group (conversão do casco do petroleiro Flandre)",
     comprimento_m: 332, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "MODEC", manager: "MODEC", operador: "MODEC (afretada à Petrobras)",
@@ -14875,7 +14879,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-guanabara-mv31", nome: "FPSO Guanabara MV31", tipo: "fpso",
     imo: "9171436", mmsi: "311000245", callsign: "C6BF2", bandeira: "Bahamas",
-    foto_url: "https://www.modec.com/project/assets/img/FPSO_Guanabara_MV31.jpg", foto_credito: "MODEC", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da operadora)", foto_fonte_url: "https://www.modec.com/project/detail/libra.html",
+    foto_url: "https://www.modec.com/project/assets/img/FPSO_Guanabara_MV31.jpg", foto_credito: "MODEC", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da operadora)", foto_fonte_url: "https://www.modec.com/project/detail/libra.html", image_status: "real",
     ano_construcao: 1999, estaleiro: null,
     comprimento_m: 332, boca_m: 58, calado_m: null, gt: 165094, dwt: 299150,
     owner: "MODEC", manager: "MODEC", operador: "MODEC (afretada à Petrobras)",
@@ -14887,7 +14891,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-almirante-barroso", nome: "FPSO Almirante Barroso (MV32)", tipo: "fpso",
     imo: "9291274", mmsi: "311000917", callsign: "C6EK2", bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_almirante_barroso_buzios_1.png__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/5fbde52c-0bb7-50cd-2aa9-1f29d552d194", foto_credito: "Divulgação Petrobras (unidade de propriedade/operação da MODEC — atenção: não é da SBM Offshore, apesar de o catálogo do site listar SBM)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-almirante-barroso-comeca-a-produzir-no-campo-de-buzios",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_almirante_barroso_buzios_1.png__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/5fbde52c-0bb7-50cd-2aa9-1f29d552d194", foto_credito: "Divulgação Petrobras (unidade de propriedade/operação da MODEC — atenção: não é da SBM Offshore, apesar de o catálogo do site listar SBM)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-almirante-barroso-comeca-a-produzir-no-campo-de-buzios", image_status: "real",
     ano_construcao: 2005, estaleiro: "Cosco Dalian (conversão do casco do petroleiro Eddie); módulos integrados no estaleiro BrasFELS, Angra dos Reis (RJ)",
     comprimento_m: 338, boca_m: 58, calado_m: null, gt: null, dwt: null,
     owner: "MODEC", manager: "MODEC", operador: "MODEC (afretada à Petrobras)",
@@ -14899,7 +14903,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-sepetiba", nome: "FPSO Sepetiba", tipo: "fpso",
     imo: "9881457", mmsi: "311000945", callsign: "C6EN4", bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_sepetiba_36_de_56_2/af46985e-c362-9a85-f5b5-5af9117af65a", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-sepetiba-chega-ao-brasil-para-iniciar-a-producao-ate-o-fim-deste-ano",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_sepetiba_36_de_56_2/af46985e-c362-9a85-f5b5-5af9117af65a", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-sepetiba-chega-ao-brasil-para-iniciar-a-producao-ate-o-fim-deste-ano", image_status: "real",
     ano_construcao: 2021, estaleiro: null,
     comprimento_m: 331, boca_m: 60, calado_m: null, gt: null, dwt: 250000,
     owner: "SBM Offshore", manager: "SBM Offshore", operador: "SBM Offshore (afretada à Petrobras)",
@@ -14911,7 +14915,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-maria-quiteria", nome: "FPSO Maria Quitéria", tipo: "fpso",
     imo: "9246645", mmsi: "311001154", callsign: "C6FO5", bandeira: "Bahamas",
-    foto_url: "https://www.yinson-production.com/wp-content/uploads/2024/10/MQ-004-1024x575.jpg", foto_credito: "Divulgação Yinson Production", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.yinson-production.com/news/yinson-productions-fpso-maria-quiteria-achieves-first-oil/",
+    foto_url: "https://www.yinson-production.com/wp-content/uploads/2024/10/MQ-004-1024x575.jpg", foto_credito: "Divulgação Yinson Production", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.yinson-production.com/news/yinson-productions-fpso-maria-quiteria-achieves-first-oil/", image_status: "real",
     ano_construcao: 2003, estaleiro: null,
     comprimento_m: 333, boca_m: 57, calado_m: null, gt: null, dwt: 309021,
     owner: "Yinson Production", manager: "Yinson Production", operador: "Yinson Production (afretada à Petrobras)",
@@ -14923,7 +14927,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-atlanta", nome: "FPSO Atlanta", tipo: "fpso",
     imo: "8618217", mmsi: "636015533", callsign: "D5BJ5", bandeira: "Libéria",
-    foto_url: "https://www.portosenavios.com.br/images/240517-fpso-yinson.jpg", foto_credito: "Divulgação Yinson (via Portos e Navios)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.portosenavios.com.br/noticias/offshore/enauta-recebe-fpso-atlanta-para-operar-na-bacia-de-santos",
+    foto_url: "https://www.portosenavios.com.br/images/240517-fpso-yinson.jpg", foto_credito: "Divulgação Yinson (via Portos e Navios)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.portosenavios.com.br/noticias/offshore/enauta-recebe-fpso-atlanta-para-operar-na-bacia-de-santos", image_status: "real",
     ano_construcao: 1989, estaleiro: null,
     comprimento_m: 322, boca_m: 56, calado_m: null, gt: null, dwt: 238546,
     owner: "Yinson Production", manager: "Yinson Production", operador: "Yinson Production (afretada à Brava Energia, ex-Enauta)",
@@ -15051,7 +15055,7 @@ const UNIDADES_RADAR = [
     slug: "odn-ii", nome: "ODN II", tipo: "drillship",
     codigo_petrobras: "NS-42",
     imo: "9588706", mmsi: "311041300", callsign: null, bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Sonda%20NS-42%20(ODN-II)_Foto1_Divulga%C3%A7%C3%A3o%20Foresea.jpg/8c314af6-f771-f30e-30f2-0a09aff03d1b", foto_credito: "Divulgação Foresea / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-descobre-hidrocarbonetos-em-%C3%A1guas-ultra-profundas-na-costa-do-amap%C3%A1",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Sonda%20NS-42%20(ODN-II)_Foto1_Divulga%C3%A7%C3%A3o%20Foresea.jpg/8c314af6-f771-f30e-30f2-0a09aff03d1b", foto_credito: "Divulgação Foresea / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-descobre-hidrocarbonetos-em-%C3%A1guas-ultra-profundas-na-costa-do-amap%C3%A1", image_status: "real",
     ano_construcao: 2012, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Foresea (ex-Ocyan)", manager: "Foresea", operador: "Foresea (contrato com Petrobras)",
@@ -15064,7 +15068,7 @@ const UNIDADES_RADAR = [
   {
     slug: "skandi-buzios", nome: "Skandi Búzios", tipo: "plsv",
     imo: null, mmsi: null, callsign: null, bandeira: "Brasil",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6479b097769cf2e78b91de01_Skandi_Buzios_CSV.jpg", foto_credito: "DOF Group", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da armadora)", foto_fonte_url: "https://www.dof.com/fleet/skandi-buzios",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6479b097769cf2e78b91de01_Skandi_Buzios_CSV.jpg", foto_credito: "DOF Group", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa (site oficial da armadora)", foto_fonte_url: "https://www.dof.com/fleet/skandi-buzios", image_status: "real",
     ano_construcao: 2016, estaleiro: null,
     comprimento_m: 146, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "DOFCON Navegação (joint venture DOF/TechnipFMC, 50/50)", manager: "TechnipFMC (engenharia de lançamento) / DOF Subsea (operação marítima)", operador: "TechnipFMC / DOF Subsea (contrato com Petrobras)",
@@ -15075,7 +15079,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-niteroi", nome: "Skandi Niterói", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d497956f88d43bc99ec6_Skandi_Niteroi_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-niteroi",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d497956f88d43bc99ec6_Skandi_Niteroi_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-niteroi", image_status: "real",
     imo: "9387243", mmsi: "710006260", callsign: null, bandeira: "Brasil",
     ano_construcao: 2011, estaleiro: null,
     comprimento_m: 142, boca_m: 27, calado_m: null, gt: null, dwt: 9000,
@@ -15087,7 +15091,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-vitoria", nome: "Skandi Vitória", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6364ea703dcce8ffc3697f32_Skandi_Vitoria_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-vitoria",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6364ea703dcce8ffc3697f32_Skandi_Vitoria_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-vitoria", image_status: "real",
     imo: "9387231", mmsi: "710005570", callsign: "PPZK", bandeira: "Brasil",
     ano_construcao: 2010, estaleiro: null,
     comprimento_m: 142.2, boca_m: 26.97, calado_m: null, gt: null, dwt: null,
@@ -15099,7 +15103,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-recife", nome: "Skandi Recife", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d99d9a76cca6027a11d8_Skandi_Recife_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-recife",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d99d9a76cca6027a11d8_Skandi_Recife_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-recife", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: "Brasil",
     ano_construcao: 2018, estaleiro: "Vard Promar, Brasil",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15122,7 +15126,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-chieftain", nome: "Skandi Chieftain", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b333fc13f181142e5836_Skandi_Chieftain_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-chieftain",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b333fc13f181142e5836_Skandi_Chieftain_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-chieftain", image_status: "real",
     imo: "9330692", mmsi: "710003847", callsign: "PU4824", bandeira: "Brasil",
     ano_construcao: 2005, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15134,7 +15138,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-olympia", nome: "Skandi Olympia", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d6b31f7aa62eaa50e5cb_Skandi_Olympia_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-olympia",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d6b31f7aa62eaa50e5cb_Skandi_Olympia_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-olympia", image_status: "real",
     imo: "9417359", mmsi: "710003848", callsign: "PU4825", bandeira: "Brasil",
     ano_construcao: 2009, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15146,7 +15150,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-commander", nome: "Skandi Commander", tipo: "rov_support",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b323bc4942a2acb4e7f1_Skandi_Commander_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-commander",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b323bc4942a2acb4e7f1_Skandi_Commander_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-commander", image_status: "real",
     imo: "9382774", mmsi: "710030270", callsign: null, bandeira: "Brasil",
     ano_construcao: 2007, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15158,7 +15162,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-salvador", nome: "Skandi Salvador", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363da8000a648e58c849c35_Skandi_Salvador_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-salvador",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363da8000a648e58c849c35_Skandi_Salvador_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-salvador", image_status: "real",
     imo: "9389576", mmsi: "710000750", callsign: null, bandeira: "Brasil",
     ano_construcao: 2009, estaleiro: null,
     comprimento_m: 106, boca_m: 21, calado_m: null, gt: null, dwt: 3600,
@@ -15214,7 +15218,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-sigma", nome: "Normand Sigma", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/DSC06447-1024x684.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sigma/",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/DSC06447-1024x684.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sigma/", image_status: "real",
     imo: "9659062", mmsi: "259827000", callsign: "LGPE", bandeira: "Noruega",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: 87, boca_m: 21, calado_m: null, gt: null, dwt: 3954,
@@ -15226,7 +15230,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-sirius", nome: "Normand Sirius", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Sirius-e1700744516475-1024x611.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sirius/",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Sirius-e1700744516475-1024x611.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sirius/", image_status: "real",
     imo: "9659074", mmsi: "259941000", callsign: null, bandeira: "Noruega",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15238,7 +15242,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-turquesa", nome: "Normand Turquesa", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Turquesa-1024x768.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-turquesa/",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Turquesa-1024x768.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-turquesa/", image_status: "real",
     imo: "9329966", mmsi: "710002990", callsign: null, bandeira: "Brasil",
     ano_construcao: 2007, estaleiro: null,
     comprimento_m: 80.4, boca_m: 18, calado_m: null, gt: null, dwt: 2640,
@@ -15250,6 +15254,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-flower", nome: "Normand Flower", tipo: "offshore_construction",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/flower-1024x683.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-flower/", image_status: "real",
     imo: "9249489", mmsi: "258609000", callsign: null, bandeira: "Brasil",
     ano_construcao: 2002, estaleiro: null,
     comprimento_m: 93, boca_m: 21, calado_m: null, gt: null, dwt: 4115,
@@ -15272,8 +15277,9 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "west-auriga", nome: "West Auriga", tipo: "drillship",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Auriga.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9609392", mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2024/01/West_Auriga_JGEG_1920x1080_m2425.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/media/image-gallery/",
     ano_construcao: 2013, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Seadrill", manager: "Seadrill Offshore", operador: "Seadrill",
@@ -15286,8 +15292,9 @@ const UNIDADES_RADAR = [
   {
     slug: "west-tellus", nome: "West Tellus", tipo: "drillship",
     codigo_petrobras: "NS-47",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Tellus.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9623934", mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2024/01/west-tellus.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/media/image-gallery/",
     ano_construcao: 2012, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Seadrill", manager: "Seadrill Offshore", operador: "Seadrill",
@@ -15300,8 +15307,9 @@ const UNIDADES_RADAR = [
   {
     slug: "west-carina", nome: "West Carina", tipo: "drillship",
     codigo_petrobras: "NS-48", codigo_confianca: "baixa",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Carina.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/08/Seadrill-Fleet-Status-Report-August-2026-vF.pdf", documento: "Fleet Status Report — agosto de 2026", data_ref: "2026-08-01" },
     imo: "9674127", mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2024/01/west-carina.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/media/image-gallery/",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Seadrill", manager: "Seadrill Offshore", operador: "Seadrill",
@@ -15317,8 +15325,9 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "west-polaris", nome: "West Polaris", tipo: "drillship",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Polaris.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9372535", mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2024/01/West_Polaris_JGEG_1920x1080_m2428.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/media/image-gallery/",
     ano_construcao: 2008, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Seadrill", manager: "Seadrill Offshore", operador: "Seadrill",
@@ -15330,8 +15339,9 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "west-saturn", nome: "West Saturn", tipo: "drillship",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Saturn.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9657428", mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2024/01/west-saturn.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/media/image-gallery/",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Seadrill", manager: "Seadrill Offshore", operador: "Seadrill",
@@ -15536,7 +15546,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "valaris-ds-4", nome: "Valaris DS-4", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS4.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS4.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9459943", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2010, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15549,7 +15559,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "valaris-ds-8", nome: "Valaris DS-8", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS8.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS8.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9659531", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2015, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15562,7 +15572,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "valaris-ds-17", nome: "Valaris DS-17", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/RELIANCE.jpg", foto_credito: "Divulgação Valaris (ex-Rowan Reliance)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/RELIANCE.jpg", foto_credito: "Divulgação Valaris (ex-Rowan Reliance)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9646950", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2013, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -16415,11 +16425,22 @@ async function renderRadarFicha(slug, env, ctx) {
       ? '<div class="radar-secao"><h2>Vagas relacionadas</h2><div class="campo-grid">' + vagasRel.map(cardVaga).join('') + '</div></div>' + scriptFavoritarVagasBotoes()
       : '') +
 
+    (unidade.fleet_status_fonte
+      ? '<div class="radar-secao"><h2>Fleet Intelligence</h2>' +
+        '<div class="campo-grid">' +
+        '<div class="campo-item"><span class="campo-label">Fonte primária</span><span class="campo-valor">' + escaparHTML(unidade.fleet_status_fonte.nome) + '</span></div>' +
+        '<div class="campo-item"><span class="campo-label">Documento</span><span class="campo-valor">' + escaparHTML(unidade.fleet_status_fonte.documento) + '</span></div>' +
+        '<div class="campo-item"><span class="campo-label">Data de referência</span><span class="campo-valor">' + escaparHTML(unidade.fleet_status_fonte.data_ref) + '</span></div>' +
+        '</div>' +
+        '<a class="filtro-btn" href="' + escaparHTML(unidade.fleet_status_fonte.url) + '" target="_blank" rel="noopener noreferrer" style="margin-top:10px">Ver relatório oficial ↗</a>' +
+        '</div>'
+      : '') +
+
     (fontesHtml || localizacao || unidade.foto_url
-      ? '<div class="radar-secao"><h2>Fontes</h2>' + fontesHtml +
+      ? '<div class="radar-secao"><h2>Fontes &amp; Verificação</h2>' + fontesHtml +
         (localizacao ? '<p class="dado-fonte" style="margin-top:6px">Localização: polígono oficial ANP — Campos de Produção (' + escaparHTML(localizacao.campo_anp) + ').</p>' : "") +
         (unidade.foto_url ? '<p class="dado-fonte" style="margin-top:6px">Foto: ' + escaparHTML(unidade.foto_credito || "") + ' — <a href="' + escaparHTML(unidade.foto_fonte_url) + '" target="_blank" rel="noopener">fonte</a> (' + escaparHTML(unidade.foto_licenca) + ').</p>' : "") +
-        '<p class="dado-fonte" style="margin-top:8px">Dados verificados em 2026-09-16.</p></div>'
+        '<p class="dado-fonte" style="margin-top:8px">Dados verificados em 2026-10-07.</p></div>'
       : "") +
 
     '<div class="hub-continue">' +
@@ -22250,6 +22271,34 @@ export default {
         }
       });
     }
+    if (url.pathname === "/api/buddy/unidades" && request.method === "GET") {
+      const unidades = UNIDADES_RADAR.map((u) => ({
+        slug: u.slug,
+        nome: u.nome,
+        tipo: u.tipo,
+        tipo_label: RADAR_TIPOS_LABEL[u.tipo] || u.tipo,
+        codigo_petrobras: u.codigo_petrobras || null,
+        codigo_confianca: u.codigo_confianca || null,
+        owner: u.owner || null,
+        contratante: u.contratante || null,
+        status_brasil: u.status_brasil || 'ativa_brasil',
+        campo: u.campo || null,
+        sobre: u.sobre || null,
+        image_url: u.foto_url || null,
+        image_credit: u.foto_credito || null,
+        image_status: u.image_status || (u.foto_url ? 'real' : 'ausente'),
+        fleet_status_fonte: u.fleet_status_fonte || null,
+        url: 'https://ownews.com.br/radar/' + u.slug,
+      }));
+      return new Response(JSON.stringify({ unidades, schema_version: 1, total: unidades.length, updated_at: new Date().toISOString() }), {
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600"
+        }
+      });
+    }
+
     if (url.pathname === "/api/buddy/aeroportos" && request.method === "GET") {
       // S3 (2026-10-05): proxy do collector com reshaping limpo para o app.
       // Mesma fonte e mesmo frescor que o /aeroportos da web.

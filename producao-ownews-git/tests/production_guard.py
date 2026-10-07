@@ -1441,6 +1441,144 @@ def _check_me_no_leaked_tokens():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# RADAR DE UNIDADES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def run_radar():
+    suite("RADAR")
+    test("UNIDADES_RADAR defined in worker", _check_radar_array_exists)
+    test("NS is identifier not source label", _check_ns_is_identifier_not_source)
+    test("West Jupiter has foto_url", _check_west_jupiter_foto)
+    test("All units with fleet_status_fonte have data_ref", _check_fleet_status_data_ref)
+    test("image_status present on units with foto_url", _check_image_status_field)
+    test("No cross-contaminated Seadrill photos", _check_seadrill_photos_not_cross_contaminated)
+    test("GET /api/buddy/unidades returns 200", _check_api_unidades_200)
+    test("/api/buddy/unidades schema: slug + nome + tipo + image_status", _check_api_unidades_schema)
+    test("/api/buddy/unidades total > 50", _check_api_unidades_count)
+    test("/api/buddy/unidades no null slug", _check_api_unidades_no_null_slug)
+
+
+def _check_radar_array_exists():
+    c = worker()
+    expect("UNIDADES_RADAR" in c, "UNIDADES_RADAR not found in worker.js")
+
+
+def _check_ns_is_identifier_not_source():
+    c = worker()
+    # NS must never appear as a source label — the string "NS não é" or "NS is not" would be wrong
+    expect_not_in("NS não é uma fonte", c, "worker.js")
+    expect_not_in("NS is not a reliable", c, "worker.js")
+    # NS must appear as a codigo_petrobras value pattern (NS-\d\d)
+    ns_codes = re.findall(r'"NS-\d{2}"', c)
+    expect(len(ns_codes) >= 3, f"Expected at least 3 NS-xx codes, found {len(ns_codes)}")
+
+
+def _check_west_jupiter_foto():
+    c = worker()
+    idx = c.find("west-jupiter")
+    expect(idx >= 0, "west-jupiter slug not found in worker.js")
+    chunk = c[idx:idx + 2000]
+    foto_m = re.search(r'\bfoto_url\s*:\s*"([^"]+)"', chunk)
+    expect(foto_m is not None, "West Jupiter has no foto_url field")
+    if foto_m:
+        expect("seadrill.com" in foto_m.group(1), f"West Jupiter foto_url not from seadrill.com: {foto_m.group(1)}")
+
+
+def _check_fleet_status_data_ref():
+    c = worker()
+    # Only check data object entries: fleet_status_fonte: { ... }
+    fonte_positions = [m.start() for m in re.finditer(r'fleet_status_fonte\s*:\s*\{', c)]
+    expect(len(fonte_positions) >= 5, f"Expected at least 5 fleet_status_fonte data entries, got {len(fonte_positions)}")
+    for pos in fonte_positions:
+        chunk = c[pos:pos + 800]
+        expect("data_ref" in chunk, f"fleet_status_fonte data entry at pos {pos} missing data_ref")
+
+
+def _check_image_status_field():
+    c = worker()
+    # JS object literals use unquoted keys: foto_url: "..."
+    foto_positions = [m.start() for m in re.finditer(r'\bfoto_url\s*:', c)]
+    # Exclude comment lines (lines starting with //)
+    data_positions = []
+    for pos in foto_positions:
+        # Check preceding chars for comment marker
+        line_start = c.rfind('\n', 0, pos)
+        line_prefix = c[line_start:pos]
+        if '//' not in line_prefix:
+            data_positions.append(pos)
+    expect(len(data_positions) >= 5, f"Expected at least 5 foto_url data entries, got {len(data_positions)}")
+    missing = 0
+    for pos in data_positions:
+        # Look up to 800 chars after foto_url for image_status
+        chunk = c[pos:pos + 800]
+        if "image_status" not in chunk:
+            missing += 1
+    expect(missing == 0, f"{missing} units have foto_url but no nearby image_status field")
+
+
+def _check_seadrill_photos_not_cross_contaminated():
+    c = worker()
+    # West Jupiter photo must not appear on West Tellus section and vice versa
+    jupiter_idx = c.find('"west-jupiter"')
+    tellus_idx = c.find('"west-tellus"')
+    expect(jupiter_idx >= 0 and tellus_idx >= 0, "Could not find jupiter/tellus slugs")
+    # Extract foto_url from each unit block (roughly 3000 chars)
+    jupiter_chunk = c[jupiter_idx:jupiter_idx + 3000]
+    tellus_chunk = c[tellus_idx:tellus_idx + 3000]
+    jupiter_url_m = re.search(r'\bfoto_url\s*:\s*"([^"]+)"', jupiter_chunk)
+    tellus_url_m = re.search(r'\bfoto_url\s*:\s*"([^"]+)"', tellus_chunk)
+    if jupiter_url_m and tellus_url_m:
+        expect(jupiter_url_m.group(1) != tellus_url_m.group(1),
+               f"Jupiter and Tellus share the same photo URL: {jupiter_url_m.group(1)}")
+    # Both should contain vessel-specific name in URL
+    if jupiter_url_m:
+        expect("Jupiter" in jupiter_url_m.group(1) or "jupiter" in jupiter_url_m.group(1),
+               f"West Jupiter foto_url doesn't contain 'Jupiter': {jupiter_url_m.group(1)}")
+    if tellus_url_m:
+        expect("Tellus" in tellus_url_m.group(1) or "tellus" in tellus_url_m.group(1),
+               f"West Tellus foto_url doesn't contain 'Tellus': {tellus_url_m.group(1)}")
+
+
+def _check_api_unidades_200():
+    status, body = get("/api/buddy/unidades")
+    expect(status == 200, f"Expected 200, got {status}")
+
+
+def _check_api_unidades_schema():
+    status, body = get("/api/buddy/unidades")
+    expect(status == 200, f"HTTP {status}")
+    try:
+        data = json.loads(body)
+    except Exception as e:
+        raise AssertionError(f"Invalid JSON: {e}")
+    expect("unidades" in data, "Response missing 'unidades' key")
+    expect("total" in data, "Response missing 'total' key")
+    expect("schema_version" in data, "Response missing 'schema_version' key")
+    if data.get("unidades"):
+        first = data["unidades"][0]
+        for field in ("slug", "nome", "tipo", "image_status"):
+            expect(field in first, f"First unit missing field '{field}'")
+        expect(first["image_status"] in ("real", "ilustrativa", "ausente"),
+               f"Invalid image_status: {first['image_status']}")
+
+
+def _check_api_unidades_count():
+    status, body = get("/api/buddy/unidades")
+    expect(status == 200, f"HTTP {status}")
+    data = json.loads(body)
+    total = data.get("total", 0)
+    expect(total > 50, f"Expected more than 50 units, got {total}")
+
+
+def _check_api_unidades_no_null_slug():
+    status, body = get("/api/buddy/unidades")
+    expect(status == 200, f"HTTP {status}")
+    data = json.loads(body)
+    null_slugs = [u for u in data.get("unidades", []) if not u.get("slug")]
+    expect(len(null_slugs) == 0, f"{len(null_slugs)} units have null/empty slug")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1452,6 +1590,7 @@ def main():
     run_sm = run_all or "--smoke" in args
     run_sec = run_all or "--security" in args
     run_ed = run_all or "--editorial" in args
+    run_rd = run_all or "--radar" in args
 
     print("=" * 60)
     print("OWNews Production Guard")
@@ -1467,6 +1606,8 @@ def main():
         run_editorial()
     if run_sec:
         run_security()
+    if run_rd:
+        run_radar()
 
     # ── Summary ──────────────────────────────────────────────────────────────
     print("\n" + "=" * 60)
