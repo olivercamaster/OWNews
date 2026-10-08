@@ -2519,9 +2519,12 @@ h1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-w
 .area-count,.role-row .campo-pill{flex-shrink:0}
 @media(min-width:1100px){.hub-links{width:auto;margin-left:auto}}
 @media(max-width:759px){
-  /* Compactação do header mobile: topline oculta (redundante com nav-subtitle)
-     e "by OffshoreWorks" incorporado discretamente no próprio subtítulo. */
+  /* Compactação do header mobile: topline oculta (redundante com nav-subtitle).
+     "by OffshoreWorks" removido do header no mobile — posicionamento absoluto
+     (right:0) invadia o slogan centralizado em telas < ~494px. A marca continua
+     identificada no rodapé e em outros pontos do portal. */
   .topline{display:none}
+  .nav-by{display:none}
 }
 ${CSS_TEMA_CLARO}
 </style>
