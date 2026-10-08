@@ -520,6 +520,14 @@ if (url.pathname === "/teste-materia") {
   return Response.json(await avaliarSaudeEditorial(env));
 }
 
+ if (url.pathname === "/debug-newsletter-agendador") {
+  if (!env.NEWSLETTER_DO) return Response.json({ ok: false, erro: "NEWSLETTER_DO não disponível" });
+  const id = env.NEWSLETTER_DO.idFromName("global");
+  const stub = env.NEWSLETTER_DO.get(id);
+  const resp = await stub.fetch("https://newsletter-agendador.interno/debug");
+  return new Response(resp.body, { headers: { "Content-Type": "application/json" } });
+}
+
  if (url.pathname === "/debug-agendador" || url.pathname === "/reset-agendador-alarm") {
   if (!env.TELEGRAM_AGENDADOR_DO) return Response.json({ ok: false, erro: "TELEGRAM_AGENDADOR_DO não disponível" });
   const id = env.TELEGRAM_AGENDADOR_DO.idFromName("global");
@@ -763,6 +771,9 @@ if (url.pathname === "/teste-materia") {
       // no limite 5/5 do plano Free). Idempotente: o DO só agenda o alarme
       // na primeira chamada; chamadas subsequentes retornam ok imediato.
       await garantirTelegramAgendadorAtivo(env);
+      // Mantém o agendador semanal da newsletter ativo (draft todo domingo 20:05 UTC).
+      // Mesmo padrão do TelegramAgendadorPoller — DO alarm, nunca cron trigger.
+      await garantirNewsletterAgendadorAtivo(env);
     })());
   }
 };
@@ -6923,4 +6934,173 @@ async function garantirTelegramAgendadorAtivo(env) {
     const stub = env.TELEGRAM_AGENDADOR_DO.get(id);
     await stub.fetch("https://telegram-agendador.interno/ping");
   } catch { /* nunca derruba o collector */ }
+}
+
+// ── Newsletter 1.0 — Radar da Semana (2026-10-08) ────────────────────────────
+// Draft gerado todo domingo ~17:05 BRT via Durable Object alarm.
+// Storage: PERGUNTE_IA_KV (compartilhado com ownews-git, prefixos nl_* isolados).
+
+const NL_ED_KEY_PREFIX_SP = 'nl_ed:';
+const NL_ED_INDEX_KEY_SP = 'nl_ed_index';
+
+function proximoAlarmeDomingoNewsletter(agora) {
+  const d = new Date(agora);
+  const diaSemana = d.getUTCDay(); // 0 = domingo
+  const minutosUTC = d.getUTCHours() * 60 + d.getUTCMinutes();
+  let diasAte;
+  if (diaSemana === 0 && minutosUTC < 20 * 60 + 5) {
+    diasAte = 0;
+  } else if (diaSemana === 0) {
+    diasAte = 7;
+  } else {
+    diasAte = 7 - diaSemana;
+  }
+  const target = new Date(d);
+  target.setUTCDate(target.getUTCDate() + diasAte);
+  target.setUTCHours(20, 5, 0, 0); // 20:05 UTC = 17:05 BRT
+  return target.getTime();
+}
+
+function formatPeriodoNewsletter(agora) {
+  const meses = ['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
+  const fimBRT = new Date(agora - 3 * 3600000);
+  const iniBRT = new Date(agora - 3 * 3600000 - 6 * 86400000);
+  const dFim = fimBRT.getUTCDate();
+  const dIni = iniBRT.getUTCDate();
+  const mFim = meses[fimBRT.getUTCMonth()];
+  const mIni = meses[iniBRT.getUTCMonth()];
+  const ano = fimBRT.getUTCFullYear();
+  return iniBRT.getUTCMonth() === fimBRT.getUTCMonth()
+    ? `${dIni}–${dFim} de ${mFim} de ${ano}`
+    : `${dIni} de ${mIni} – ${dFim} de ${mFim} de ${ano}`;
+}
+
+async function gerarDraftNewsletter(env) {
+  if (!env.PERGUNTE_IA_KV) throw new Error("PERGUNTE_IA_KV não disponível");
+  const agora = Date.now();
+  const hojeStr = dataBRTString(agora);
+  const seteDias = new Date(agora - 7 * 86400000).toISOString();
+
+  let index = [];
+  try { index = JSON.parse(await env.PERGUNTE_IA_KV.get(NL_ED_INDEX_KEY_SP) || '[]'); } catch {}
+  const existente = index.find(e => e.period_end === hojeStr && (e.status === 'draft' || e.status === 'ready'));
+  if (existente) return { ok: true, existente: true, id: existente.id, slug: existente.slug };
+
+  const resp = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,published_at,original_url,editorial_score,score_reason,buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(seteDias)}&order=editorial_score.desc&limit=100`,
+    { headers: supabaseHeaders(env) }
+  );
+  if (!resp.ok) throw new Error(`Supabase ${resp.status}`);
+  const artigos = await resp.json();
+  if (!artigos.length) return { ok: false, motivo: 'sem_artigos' };
+
+  const pontuados = artigos.map(a => {
+    let pts = Number(a.editorial_score) || 0;
+    if (a.buddy_summary && a.buddy_summary.length > 50) pts += 15;
+    if (a.why_it_matters && a.why_it_matters.length > 30) pts += 10;
+    if (a.image_url) pts += 5;
+    const cat = (a.score_reason && a.score_reason.categoria) || 'geral';
+    return { ...a, _pts: pts, _cat: cat };
+  }).sort((a, b) => b._pts - a._pts);
+
+  const selecionados = [];
+  const catsUsadas = new Set();
+  for (const a of pontuados) {
+    if (selecionados.length >= 5) break;
+    if (!selecionados.length || !catsUsadas.has(a._cat) || selecionados.length < 3) {
+      selecionados.push(a); catsUsadas.add(a._cat);
+    } else if (selecionados.length < 5) {
+      selecionados.push(a);
+    }
+  }
+  if (!selecionados.length) return { ok: false, motivo: 'sem_candidatos' };
+
+  const baseUrl = 'https://ownews.com.br';
+  const utm = 'utm_source=newsletter&utm_medium=email&utm_campaign=radar_da_semana';
+  const artUrl = id => `${baseUrl}/noticia?id=${encodeURIComponent(id)}&${utm}`;
+
+  const mainArt = selecionados[0];
+  const highlights = selecionados.slice(1);
+  const comBuddy = pontuados.find(a => a.buddy_summary && a.buddy_summary.length > 50);
+  const comImpacto = pontuados.find(a => a.why_it_matters && a.why_it_matters.length > 30 && (!comBuddy || a.id !== comBuddy.id));
+
+  const sections = [];
+  sections.push({ type: 'main', article_id: mainArt.id, headline: mainArt.title, summary: mainArt.summary || '', url: artUrl(mainArt.id) });
+  if (highlights.length) sections.push({ type: 'highlights', items: highlights.map(a => ({ article_id: a.id, headline: a.title, summary: a.summary || '', url: artUrl(a.id) })) });
+  if (comBuddy) sections.push({ type: 'buddy', article_id: comBuddy.id, headline: comBuddy.title, content: comBuddy.buddy_summary, url: artUrl(comBuddy.id) });
+  if (comImpacto) sections.push({ type: 'impact', article_id: comImpacto.id, headline: comImpacto.title, content: comImpacto.why_it_matters, url: artUrl(comImpacto.id) });
+
+  const periodo = formatPeriodoNewsletter(agora);
+  const slug = `radar-da-semana-${hojeStr}`;
+  const edition = {
+    id: crypto.randomUUID(),
+    slug,
+    title: `Radar da Semana | ${periodo}`,
+    subject: `Radar da Semana | ${mainArt.title.slice(0, 80)}`,
+    status: 'draft',
+    period_start: dataBRTString(agora - 7 * 86400000),
+    period_end: hojeStr,
+    opening: `${periodo} — uma semana de movimentos no offshore brasileiro. Aqui está o que realmente importou.`,
+    sections,
+    article_ids: selecionados.map(a => a.id),
+    recipient_count: null,
+    sent_at: null,
+    approved_at: null,
+    error_log: null,
+    created_at: new Date().toISOString()
+  };
+
+  await env.PERGUNTE_IA_KV.put(`${NL_ED_KEY_PREFIX_SP}${edition.id}`, JSON.stringify(edition));
+  const newIndex = [{ id: edition.id, slug: edition.slug, title: edition.title, status: edition.status, period_end: edition.period_end, sent_at: null }, ...index].slice(0, 52);
+  await env.PERGUNTE_IA_KV.put(NL_ED_INDEX_KEY_SP, JSON.stringify(newIndex));
+
+  return { ok: true, existente: false, id: edition.id, slug: edition.slug, artigos_selecionados: selecionados.length, tem_buddy: !!comBuddy, tem_impacto: !!comImpacto };
+}
+
+async function garantirNewsletterAgendadorAtivo(env) {
+  try {
+    if (!env.NEWSLETTER_DO) return;
+    const id = env.NEWSLETTER_DO.idFromName("global");
+    const stub = env.NEWSLETTER_DO.get(id);
+    await stub.fetch("https://newsletter-agendador.interno/ping");
+  } catch { /* nunca derruba o collector */ }
+}
+
+export class NewsletterAgendadorDO {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.pronto = this.inicializar();
+  }
+
+  async inicializar() {
+    const alarmeExiste = await this.state.storage.getAlarm();
+    if (!alarmeExiste) {
+      await this.state.storage.setAlarm(proximoAlarmeDomingoNewsletter(Date.now()));
+    }
+  }
+
+  async fetch(request) {
+    await this.pronto;
+    const alarme = await this.state.storage.getAlarm();
+    return new Response(JSON.stringify({
+      ok: true,
+      tipo: "NewsletterAgendadorDO",
+      proximo_alarme_ms: alarme,
+      proximo_alarme_iso: alarme ? new Date(alarme).toISOString() : null
+    }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  async alarm() {
+    const agora = Date.now();
+    try {
+      if (this.env.PERGUNTE_IA_KV) {
+        const resultado = await gerarDraftNewsletter(this.env);
+        console.log("[NewsletterAgendador] resultado:", JSON.stringify(resultado));
+      }
+    } catch (e) {
+      console.error("[NewsletterAgendador] erro ao gerar draft:", e.message);
+    }
+    await this.state.storage.setAlarm(proximoAlarmeDomingoNewsletter(agora + 120000));
+  }
 }

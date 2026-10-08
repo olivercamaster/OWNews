@@ -2034,10 +2034,57 @@ a.eco-row:hover .eco-row-mark{color:var(--cyan-dim)}
 
 /* ---------- newsletter ---------- */
 .newsletter{margin-top:52px;padding-top:26px;padding-bottom:32px;border-top:1px solid var(--line-hair)}
-.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:14px}
-.subscribe{display:flex;max-width:440px}
-.subscribe input{min-width:0;flex:1;padding:12px 14px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit;font-size:14px}
-.subscribe button{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 18px;border-radius:0 6px 6px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap}
+.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
+.newsletter-desc{font-size:14px;color:var(--muted);margin:0 0 12px;max-width:440px;line-height:1.5}
+.nl-home-form{display:flex;max-width:440px}
+.nl-home-input{min-width:0;flex:1;padding:11px 13px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit;font-size:14px;outline:none}
+.nl-home-input:focus{border-color:var(--cyan)}
+.nl-home-btn{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 16px;border-radius:0 6px 6px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap;line-height:46px}
+.nl-home-msg{font-size:12px;margin:6px 0 0}
+/* /newsletter landing */
+.nl-hero{padding:32px 0 8px}
+.nl-tagline{font-size:17px;color:var(--muted);margin:8px 0 0;line-height:1.5}
+.nl-card{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;padding:24px;margin:24px 0}
+.nl-desc{font-size:15px;color:var(--muted);margin:0 0 20px;line-height:1.6}
+.nl-form{margin:0}
+.nl-row{display:flex;max-width:480px}
+.nl-input{min-width:0;flex:1;padding:12px 14px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit;font-size:15px;outline:none}
+.nl-input:focus{border-color:var(--cyan)}
+.nl-cta{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 20px;border-radius:0 6px 6px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap}
+.nl-consent{font-size:11px;color:var(--muted-dim);margin:10px 0 0;line-height:1.5;max-width:480px}
+.nl-msg{font-size:13px;margin:8px 0 0;padding:8px 12px;border-radius:4px}
+.nl-msg.ok{background:rgba(13,232,200,.1);color:var(--cyan);border:1px solid rgba(13,232,200,.2)}
+.nl-msg.err{background:rgba(220,50,50,.08);color:#e86060;border:1px solid rgba(220,50,50,.2)}
+.nl-archive{margin-top:32px}
+.nl-sec-titulo{font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:block}
+.nl-ed-list{display:flex;flex-direction:column;gap:4px}
+.nl-ed-item{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px;border:1px solid var(--line-hair);border-radius:6px;text-decoration:none;color:inherit;background:transparent}
+.nl-ed-item:hover{background:var(--navy-900)}
+.nl-ed-titulo{font-size:14px;color:var(--white);font-weight:500}
+.nl-ed-data{font-size:11px;color:var(--muted-dim);white-space:nowrap;flex-shrink:0}
+.nl-info-boxes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:28px}
+.nl-info-box{background:var(--navy-900);border:1px solid var(--line-hair);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.nl-info-titulo{font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--cyan-dim,var(--cyan))}
+.nl-info-desc{font-size:12px;color:var(--muted);line-height:1.4}
+/* edition page */
+.nl-edicao-header{padding:28px 0 8px;border-bottom:1px solid var(--line-hair);margin-bottom:24px}
+.nl-edicao-titulo{font-size:22px;line-height:1.3;margin:8px 0 4px}
+.nl-edicao-data{font-size:13px;color:var(--muted-dim);margin:0}
+.nl-edicao-abertura{background:var(--navy-900);border-left:3px solid var(--cyan);padding:16px 20px;border-radius:0 6px 6px 0;margin-bottom:28px}
+.nl-edicao-abertura p{margin:0;font-size:15px;line-height:1.65;color:var(--muted)}
+.nl-sec-label{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);display:block;margin-bottom:8px}
+.nl-edicao-sec{margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--line-hair)}
+.nl-edicao-sec h2{font-size:18px;margin:8px 0 10px}
+.nl-edicao-destaque{padding:12px 0;border-bottom:1px solid var(--line-hair)}
+.nl-edicao-destaque:last-child{border-bottom:none}
+.nl-destaque-link{font-size:15px;font-weight:600;color:var(--white);text-decoration:none;display:block;margin-bottom:4px}
+.nl-destaque-link:hover{color:var(--cyan)}
+.nl-edicao-buddy{background:var(--navy-900);border-radius:8px;padding:18px 20px;margin-bottom:28px;border-left:3px solid var(--cyan)}
+.nl-edicao-impact{background:var(--navy-900);border-radius:8px;padding:18px 20px;border:1px solid var(--line-hair);margin-bottom:28px}
+.nl-link{font-size:13px;color:var(--cyan);text-decoration:none}
+.nl-link:hover{text-decoration:underline}
+.nl-edicao-signup{margin-top:28px;padding:20px;background:var(--navy-900);border-radius:8px;text-align:center;border:1px solid var(--line-soft)}
+@media(max-width:540px){.nl-info-boxes{grid-template-columns:1fr}.nl-row{flex-direction:column}.nl-input{border-right:1px solid var(--line-soft);border-bottom:0;border-radius:6px 6px 0 0}.nl-cta{border-radius:0 0 6px 6px;padding:12px 20px}}
 
 footer{margin-top:44px;border-top:1px solid var(--line-soft);padding:40px 0 0;color:var(--muted-dim);font-size:12px}
 .footer-novo{display:grid;grid-template-columns:1fr;gap:28px;padding-bottom:28px}
@@ -3037,10 +3084,33 @@ ${CSS_TEMA_CLARO}
   </section>
 
   <section class="newsletter">
-    <h3>Receba as principais notícias</h3>
-    <div class="subscribe"><input type="email" placeholder="Seu e-mail" id="newsletterEmail" disabled><button type="button" id="newsletterBtn">Em breve</button></div>
-    <p class="ed-sub" id="newsletterAviso" style="margin-top:8px" hidden>Ainda não estamos aceitando inscrições — essa área está em preparação.</p>
+    <h3>Radar da Semana</h3>
+    <p class="newsletter-desc">O que movimentou o offshore, todo domingo. Gratuito.</p>
+    <form id="nlHomeForm" class="nl-home-form" novalidate>
+      <input type="email" id="nlHomeEmail" class="nl-home-input" placeholder="Seu e-mail" autocomplete="email" required>
+      <button type="submit" id="nlHomeBtn" class="nl-home-btn">Assinar</button>
+    </form>
+    <p id="nlHomeMsg" class="nl-home-msg" hidden></p>
   </section>
+  <script>(function(){
+    var f=document.getElementById("nlHomeForm");
+    var inp=document.getElementById("nlHomeEmail");
+    var btn=document.getElementById("nlHomeBtn");
+    var msg=document.getElementById("nlHomeMsg");
+    if(!f)return;
+    f.addEventListener("submit",function(e){e.preventDefault();
+      var em=inp.value.trim();
+      if(!em||em.indexOf("@")<1){msg.textContent="E-mail inválido.";msg.hidden=false;return;}
+      btn.disabled=true;btn.textContent="Aguarde…";
+      fetch("/api/newsletter/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){msg.textContent="✓ Inscrito! Você receberá o próximo Radar da Semana.";f.style.display="none";}
+        else{msg.textContent=d.erro||"Tente novamente.";}
+        msg.hidden=false;btn.disabled=false;btn.textContent="Assinar";
+      }).catch(function(){msg.textContent="Tente novamente.";msg.hidden=false;btn.disabled=false;btn.textContent="Assinar";});
+    });
+  })();</script>
 
 </main>
 
@@ -4990,7 +5060,7 @@ const SW_SCRIPT = `
 const SW_VERSION = "ownews-sw-v3";
 const CACHE_NAME = "ownews-shell-v3";
 const CACHE_URLS = ["/", "/minha-escala", "/manifest.webmanifest"];
-const NEVER_CACHE = ["/api/", "/auth/", "/meu-ownews", "/central-do-trabalhador", "/meus-certificados", "/checklist-embarque", "/meus-alertas", "/command-center", "/minha-escala?", "supabase"];
+const NEVER_CACHE = ["/api/", "/auth/", "/meu-ownews", "/central-do-trabalhador", "/meus-certificados", "/checklist-embarque", "/meus-alertas", "/command-center", "/minha-escala?", "supabase", "/newsletter/cancelar"];
 
 function neverCache(url) {
   return NEVER_CACHE.some(function(p) { return url.includes(p); });
@@ -7186,7 +7256,8 @@ const ROTAS_ESTATICAS_SITEMAP = [
   "/guias/onde-encontrar-vagas-confiaveis", "/guias/primeiro-emprego-offshore",
   "/guias/escolher-uma-funcao", "/guias/rotina-a-bordo",
   "/guias/embarque-de-helicoptero", "/certificados-offshore",
-  "/sobre", "/contato", "/privacidade", "/politica-editorial", "/correcoes", "/termos-de-uso", "/owbuddy"
+  "/sobre", "/contato", "/privacidade", "/politica-editorial", "/correcoes", "/termos-de-uso", "/owbuddy",
+  "/newsletter"
 ];
 
 /* Missão AdSense Recovery 1.0 — resposta em cache de borda (caches.default)
@@ -20681,6 +20752,7 @@ function renderCCDashboard() {
     '<button type="button" class="cc-tab-btn" data-tab="receita">RECEITA</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="push">PUSH</button>' +
     '<button type="button" class="cc-tab-btn" data-tab="owbuddy">OWBUDDY</button>' +
+    '<button type="button" class="cc-tab-btn" data-tab="newsletter">NEWSLETTER</button>' +
     '</div>' +
 
     '<div class="cc-painel ativo" data-painel="geral" id="ccPainelGeral"><div class="cc-carregando">Carregando…</div></div>' +
@@ -20696,6 +20768,7 @@ function renderCCDashboard() {
     '<div class="cc-pendente"><strong>Receita — AdSense aguardando conexão/aprovação.</strong><br><br>A verificação do AdSense já está no &lt;head&gt; do site. Quando aprovado e conectado, esta aba mostrará receita do dia/mês, RPM, Page RPM, impressões e páginas de maior receita.</div></div>' +
     '<div class="cc-painel" data-painel="push" id="ccPainelPush"><div class="cc-carregando">Carregando…</div></div>' +
     '<div class="cc-painel" data-painel="owbuddy" id="ccPainelOWBuddy"><div class="cc-carregando">Carregando…</div></div>' +
+    '<div class="cc-painel" data-painel="newsletter" id="ccPainelNewsletter"><div class="cc-carregando">Carregando…</div></div>' +
     '</div>' +
 
     '<script>(function(){' +
@@ -21131,6 +21204,7 @@ function renderCCDashboard() {
     'if(alvo==="vagas")carregarVagas();' +
     'if(alvo==="push")carregarPush();' +
     'if(alvo==="owbuddy")carregarOWBuddy();' +
+    'if(alvo==="newsletter")carregarNewsletter();' +
     '});' +
 
     'var cacheVagas=null;' +
@@ -21224,6 +21298,85 @@ function renderCCDashboard() {
     'carregarDados(periodoAtual);' +
     'carregarSistema();' +
     'carregarRevisao();' +
+
+    // ---- Newsletter CC tab ----
+    'var cacheNewsletter=null;' +
+    'var statusBadge={draft:"rascunho",ready:"pronto",approved:"aprovado",sending:"enviando",sent:"enviado",failed:"falha"};' +
+    'function renderNewsletterCC(d){' +
+    'var el=document.getElementById("ccPainelNewsletter");if(!el)return;' +
+    'var html=\'<div class="cc-secao"><h2>Newsletter — Radar da Semana</h2>\';' +
+    'html+=\'<div class="cc-grid">\';' +
+    'html+=\'<div class="cc-card"><div class="cc-card-label">Assinantes ativos</div><div class="cc-card-valor">\'+esc(String(d.subscribers||0))+\'</div></div>\';' +
+    'var resendOk=d.resend_configured?"✓ Configurada":"✗ Não configurada";' +
+    'html+=\'<div class="cc-card"><div class="cc-card-label">RESEND_API_KEY</div><div class="cc-card-valor" style="font-size:14px;font-weight:700">\'+esc(resendOk)+\'</div></div>\';' +
+    'html+=\'</div>\';' +
+    'if(!d.resend_configured)html+=\'<p style="color:#e86060;font-size:12px;margin-top:8px">Configure o secret RESEND_API_KEY no dashboard da Cloudflare para habilitar envio de e-mails.</p>\';' +
+    'html+=\'<h2 style="margin-top:18px">Edições</h2>\';' +
+    'if(!d.editions||!d.editions.length){html+=\'<p style="font-size:13px;color:var(--muted-dim)">Nenhuma edição gerada ainda. O draft é criado automaticamente todo domingo às 17h BRT.</p>\';}' +
+    'else{d.editions.forEach(function(e){' +
+    'var statusLabel=statusBadge[e.status]||e.status;' +
+    'var badgeColor={draft:"#3a7090",ready:"#4a8040",approved:"#6a50a0",sending:"#a07020",sent:"#2a8060",failed:"#903030"}[e.status]||"#555";' +
+    'html+=\'<div style="border:1px solid var(--line-hair);border-radius:6px;padding:12px 14px;margin-bottom:10px">\';' +
+    'html+=\'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px"><span style="font-size:14px;font-weight:600;color:var(--white)">\'+esc(e.title)+\'</span><span style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 6px;border-radius:3px;background:\'+badgeColor+\';color:#fff;white-space:nowrap">\'+esc(statusLabel)+\'</span></div>\';' +
+    'if(e.period_end)html+=\'<p style="font-size:11px;color:var(--muted-dim);margin:0 0 8px">Período: \'+esc(e.period_end)+\'</p>\';' +
+    'if(e.status==="draft"||e.status==="ready"){' +
+    'html+=\'<div style="display:flex;gap:6px;flex-wrap:wrap">\';' +
+    'if(e.status==="draft")html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px" data-action="marcar-pronto" data-id="\'+esc(e.id)+\'">Marcar pronto</button>\';' +
+    'if(e.status==="ready")html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px" data-action="aprovar" data-id="\'+esc(e.id)+\'">Aprovar</button>\';' +
+    'html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px;background:var(--navy-900);color:var(--muted);border:1px solid var(--line-soft)" data-action="ver-edicao" data-slug="\'+esc(e.slug||"")+\'">Ver edição</button>\';' +
+    'html+=\'</div>\';' +
+    '}' +
+    'if(e.status==="approved"){' +
+    'html+=\'<div style="display:flex;gap:6px;flex-wrap:wrap">\';' +
+    'html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px" data-action="enviar-teste" data-id="\'+esc(e.id)+\'">Enviar teste</button>\';' +
+    'html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px;background:#6a30a0;border:none;color:#fff" data-action="disparar" data-id="\'+esc(e.id)+\'" data-titulo="\'+esc(e.title)+\'">Disparar para todos</button>\';' +
+    'html+=\'<button class="cc-btn-pub" style="cursor:pointer;font-size:11px;padding:4px 10px;background:var(--navy-900);color:var(--muted);border:1px solid var(--line-soft)" data-action="ver-edicao" data-slug="\'+esc(e.slug||"")+\'">Ver edição</button>\';' +
+    'html+=\'</div>\';' +
+    '}' +
+    'if(e.status==="sent")html+=\'<p style="font-size:11px;color:var(--muted-dim);margin:4px 0 0">Enviado em: \'+esc(e.sent_at||"–")+\' · \'+esc(String(e.recipient_count||"–"))+\' destinatários</p>\';' +
+    'if(e.status==="failed")html+=\'<p style="font-size:11px;color:#e86060;margin:4px 0 0">Falha: \'+esc(e.error_log||"erro desconhecido")+\'</p>\';' +
+    'html+=\'</div>\';' +
+    '});}' +
+    'html+=\'</div>\';' +
+    'el.innerHTML=html;' +
+    '[].slice.call(el.querySelectorAll("[data-action]")).forEach(function(btn){' +
+    'btn.addEventListener("click",function(){' +
+    'var action=btn.getAttribute("data-action");' +
+    'var id=btn.getAttribute("data-id");' +
+    'var slug=btn.getAttribute("data-slug");' +
+    'if(action==="ver-edicao"&&slug){window.open("/newsletter/edicao/"+slug,"_blank");return;}' +
+    'if(action==="marcar-pronto"||action==="aprovar"){' +
+    'var novoStatus=action==="marcar-pronto"?"ready":"approved";' +
+    'btn.disabled=true;btn.textContent="Salvando…";' +
+    'fetch("/api/newsletter/cc-aprovar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,status:novoStatus})})' +
+    '.then(function(r){return r.json();}).then(function(res){if(res.ok){cacheNewsletter=null;carregarNewsletter();}else{alert("Erro: "+(res.erro||"desconhecido"));}}).catch(function(e){alert(e.message);});' +
+    '}' +
+    'if(action==="enviar-teste"){' +
+    'var dest=prompt("Enviar e-mail de teste para qual endereço?","olivercamaster@gmail.com");if(!dest)return;' +
+    'btn.disabled=true;btn.textContent="Enviando…";' +
+    'fetch("/api/newsletter/cc-send-test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,to:dest})})' +
+    '.then(function(r){return r.json();}).then(function(res){alert(res.ok?"E-mail de teste enviado para "+dest:"Erro: "+(res.erro||"desconhecido"));btn.disabled=false;btn.textContent="Enviar teste";}).catch(function(e){alert(e.message);btn.disabled=false;btn.textContent="Enviar teste";});' +
+    '}' +
+    'if(action==="disparar"){' +
+    'var titulo=btn.getAttribute("data-titulo")||"esta edição";' +
+    'if(!confirm("Disparar \\""+titulo+"\\" para TODOS os assinantes ativos? Esta ação não pode ser desfeita."))return;' +
+    'btn.disabled=true;btn.textContent="Disparando…";' +
+    'fetch("/api/newsletter/cc-disparar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})})' +
+    '.then(function(r){return r.json();}).then(function(res){if(res.ok){alert("Envio concluído: "+res.enviados+" enviados, "+res.erros+" erros.");cacheNewsletter=null;carregarNewsletter();}else{alert("Erro: "+(res.erro||"desconhecido"));}btn.disabled=false;}).catch(function(e){alert(e.message);btn.disabled=false;});' +
+    '}' +
+    '});});' +
+    '}' +
+    'function carregarNewsletter(){' +
+    'if(cacheNewsletter){renderNewsletterCC(cacheNewsletter);return;}' +
+    'document.getElementById("ccPainelNewsletter").innerHTML=\'<div class="cc-carregando">Carregando…</div>\';' +
+    'fetch("/api/newsletter/cc-status").then(function(r){' +
+    'if(r.status===401){window.location.href="/command-center/login";throw new Error("sessao");}' +
+    'return r.json();' +
+    '}).then(function(d){cacheNewsletter=d;renderNewsletterCC(d);}).catch(function(){' +
+    'document.getElementById("ccPainelNewsletter").innerHTML=\'<p class="cc-vazio">Não foi possível carregar status da newsletter.</p>\';' +
+    '});' +
+    '}' +
+
     '})();</script>' +
     '</main></body></html>';
 }
@@ -21250,6 +21403,303 @@ async function responderPesquisaSalarial(request, env) {
     body: JSON.stringify(dados),
     headers: { 'Content-Type': 'application/json' }
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NEWSLETTER — Radar da Semana 1.0 (2026-10-08)
+// Assinatura via PERGUNTE_IA_KV. Envio via Resend (RESEND_API_KEY, secret).
+// ══════════════════════════════════════════════════════════════════════════════
+
+const NL_SUB_PFX = 'nl_sub:';
+const NL_EMAIL_PFX = 'nl_email:';
+const NL_ED_PFX = 'nl_ed:';
+const NL_ED_IDX = 'nl_ed_index';
+const NL_RATE_PFX = 'nl_rate:';
+const NL_CONSENT_VER = '1.0';
+
+function nlEmailKey(email) {
+  try {
+    const safe = btoa(encodeURIComponent(email.toLowerCase().trim())
+      .replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode(parseInt(p, 16))))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return NL_EMAIL_PFX + safe;
+  } catch { return NL_EMAIL_PFX + email.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 100); }
+}
+
+async function nlGetSub(kv, token) {
+  if (!kv || !token) return null;
+  try { const r = await kv.get(NL_SUB_PFX + token); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
+async function nlSaveSub(kv, token, data) {
+  await kv.put(NL_SUB_PFX + token, JSON.stringify(data));
+  await kv.put(nlEmailKey(data.email), token);
+}
+
+async function nlGetTokenByEmail(kv, email) {
+  if (!kv || !email) return null;
+  try { return await kv.get(nlEmailKey(email)); } catch { return null; }
+}
+
+async function nlGetEdIndex(kv) {
+  if (!kv) return [];
+  try { const r = await kv.get(NL_ED_IDX); return r ? JSON.parse(r) : []; } catch { return []; }
+}
+
+async function nlGetEdition(kv, id) {
+  if (!kv || !id) return null;
+  try { const r = await kv.get(NL_ED_PFX + id); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
+async function nlSaveEdition(kv, edition) {
+  await kv.put(NL_ED_PFX + edition.id, JSON.stringify(edition));
+  const index = await nlGetEdIndex(kv);
+  const entry = { id: edition.id, slug: edition.slug, title: edition.title, status: edition.status, period_end: edition.period_end, sent_at: edition.sent_at };
+  const idx = index.findIndex(e => e.id === edition.id);
+  if (idx >= 0) index[idx] = entry; else index.unshift(entry);
+  await kv.put(NL_ED_IDX, JSON.stringify(index.slice(0, 52)));
+}
+
+async function nlCheckRate(kv, ip) {
+  if (!kv) return false;
+  try {
+    const key = NL_RATE_PFX + (ip || 'x').replace(/[^0-9a-f.:]/gi, '').slice(0, 45);
+    const v = parseInt(await kv.get(key) || '0', 10);
+    if (v >= 5) return true;
+    await kv.put(key, String(v + 1), { expirationTtl: 3600 });
+    return false;
+  } catch { return false; }
+}
+
+async function nlListActiveTokens(kv) {
+  const tokens = [];
+  try {
+    let cursor = null;
+    do {
+      const opts = { prefix: NL_SUB_PFX, limit: 1000 };
+      if (cursor) opts.cursor = cursor;
+      const result = await kv.list(opts);
+      result.keys.forEach(k => tokens.push(k.name.slice(NL_SUB_PFX.length)));
+      cursor = result.list_complete ? null : result.cursor;
+    } while (cursor);
+  } catch {}
+  return tokens;
+}
+
+function nlFormatDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric' }); }
+  catch { return String(iso).slice(0, 10); }
+}
+
+function nlEmailHtml(edition, unsubUrl) {
+  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const base = 'https://ownews.com.br';
+  const archiveUrl = `${base}/newsletter/edicao/${edition.slug}`;
+  const mainSec = (edition.sections || []).find(s => s.type === 'main');
+  const hlSec   = (edition.sections || []).find(s => s.type === 'highlights');
+  const buddySec = (edition.sections || []).find(s => s.type === 'buddy');
+  const impactSec = (edition.sections || []).find(s => s.type === 'impact');
+
+  let rows = '';
+  if (edition.opening) rows += `<tr><td style="padding:0 24px 18px"><p style="margin:0;font-size:15px;line-height:1.7;color:#c0d4df">${esc(edition.opening)}</p></td></tr>`;
+  if (mainSec) {
+    rows += `<tr><td style="padding:0 24px 18px"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0d2c40;border-radius:8px;border:1px solid #1b4060"><tr><td style="padding:18px 20px"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0de8c8;margin-bottom:8px">O QUE MARCOU A SEMANA</div><a href="${esc(mainSec.url)}" style="display:block;font-size:17px;font-weight:700;line-height:1.4;color:#ffffff;text-decoration:none;margin-bottom:10px">${esc(mainSec.headline)}</a><p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#7aA0b4">${esc((mainSec.summary||'').slice(0,200))}${mainSec.summary&&mainSec.summary.length>200?'…':''}</p><a href="${esc(mainSec.url)}" style="display:inline-block;background:#0de8c8;color:#061c2b;font-weight:700;font-size:12px;padding:7px 15px;border-radius:4px;text-decoration:none">Ler notícia →</a></td></tr></table></td></tr>`;
+  }
+  if (hlSec && hlSec.items && hlSec.items.length) {
+    rows += `<tr><td style="padding:0 24px 4px"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0de8c8;margin-bottom:12px">DESTAQUES DA SEMANA</div>`;
+    hlSec.items.forEach(item => {
+      rows += `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px solid #1a3a50;margin-bottom:12px"><tr><td style="padding:0 0 12px"><a href="${esc(item.url)}" style="display:block;font-size:14px;font-weight:600;color:#dde8f0;text-decoration:none;line-height:1.4;margin-bottom:4px">${esc(item.headline)}</a><p style="margin:0;font-size:12px;color:#6a8898;line-height:1.5">${esc((item.summary||'').slice(0,150))}${item.summary&&item.summary.length>150?'…':''}</p></td></tr></table>`;
+    });
+    rows += `</td></tr>`;
+  }
+  if (buddySec) rows += `<tr><td style="padding:0 24px 18px"><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#07202e;border-left:3px solid #0de8c8;border-radius:0 6px 6px 0"><tr><td style="padding:14px 18px"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0de8c8;margin-bottom:6px">BUDDY TE EXPLICA</div><p style="margin:0 0 10px;font-size:13px;line-height:1.65;color:#a0c0cc">${esc(buddySec.content)}</p><a href="${esc(buddySec.url)}" style="font-size:11px;color:#0de8c8;text-decoration:none">Ver notícia completa →</a></td></tr></table></td></tr>`;
+  if (impactSec) rows += `<tr><td style="padding:0 24px 18px"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6fc8b8;margin-bottom:6px">O QUE ISSO REPRESENTA PARA O OFFSHORE?</div><p style="margin:0;font-size:13px;line-height:1.65;color:#88a8b8">${esc(impactSec.content)}</p></td></tr>`;
+
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(edition.title)}</title></head>
+<body style="margin:0;padding:0;background:#071929;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#071929"><tr><td align="center" style="padding:20px 16px">
+<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#061c2b;border-radius:12px;border:1px solid #1a3a50">
+<tr><td style="padding:24px 24px 18px;border-bottom:1px solid #1a3a50">
+<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td><span style="font-size:17px;font-weight:800;color:#fff;letter-spacing:.01em">OW<span style="color:#0de8c8">News</span></span></td>
+<td align="right"><span style="font-size:10px;color:#3a6a7a;letter-spacing:.08em;font-weight:700;text-transform:uppercase">RADAR DA SEMANA</span></td>
+</tr></table>
+<p style="margin:6px 0 0;font-size:12px;color:#3a6a7a">${esc(edition.title)}</p>
+</td></tr>
+<tr><td style="padding:24px 0 0"><table width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr>
+<tr><td style="padding:20px 24px 28px;border-top:1px solid #1a3a50">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center" style="padding-bottom:20px"><a href="${esc(archiveUrl)}" style="display:inline-block;border:1px solid #0de8c8;color:#0de8c8;font-size:12px;font-weight:600;padding:9px 22px;border-radius:4px;text-decoration:none">Ver edição completa no OWNews →</a></td></tr>
+<tr><td align="center"><p style="margin:0;font-size:11px;color:#2a5060;line-height:1.6"><strong style="color:#4a7080">OWNews · by OffshoreWorks</strong><br>Informação para quem vive o offshore.<br><a href="${esc(unsubUrl)}" style="color:#2a5060;text-decoration:underline">Cancelar inscrição</a></p></td></tr>
+</table>
+</td></tr>
+</table></td></tr></table>
+</body></html>`;
+}
+
+async function nlEnviarEmail(env, to, subject, html) {
+  if (!env.RESEND_API_KEY) return { ok: false, erro: 'RESEND_API_KEY não configurada' };
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'OWNews Radar <radar@ownews.com.br>', to: [to], subject, html })
+    });
+    if (!r.ok) { const t = await r.text(); return { ok: false, erro: `Resend ${r.status}: ${t.slice(0,200)}` }; }
+    return { ok: true, id: (await r.json()).id };
+  } catch (e) { return { ok: false, erro: e.message }; }
+}
+
+async function nlEnviarParaTodos(kv, resendKey, edition) {
+  if (!kv) return { ok: false, erro: 'KV indisponível' };
+  if (!resendKey) return { ok: false, erro: 'RESEND_API_KEY não configurada' };
+  const tokens = await nlListActiveTokens(kv);
+  let enviados = 0, erros = 0;
+  const erroLog = [];
+  for (const token of tokens) {
+    const sub = await nlGetSub(kv, token);
+    if (!sub || sub.status !== 'confirmed') continue;
+    const unsubUrl = `https://ownews.com.br/newsletter/cancelar?token=${token}`;
+    const fakeEnv = { RESEND_API_KEY: resendKey };
+    const r = await nlEnviarEmail(fakeEnv, sub.email, edition.subject, nlEmailHtml(edition, unsubUrl));
+    if (r.ok) enviados++; else { erros++; if (erroLog.length < 20) erroLog.push(`${sub.email}: ${r.erro}`); }
+    await new Promise(res => setTimeout(res, 80));
+  }
+  return { ok: true, enviados, erros, erroLog };
+}
+
+function nlRenderLanding(edIndex) {
+  const sentEditions = (edIndex || []).filter(e => e.status === 'sent').slice(0, 6);
+  const archiveHtml = sentEditions.length
+    ? '<div class="nl-archive"><span class="nl-sec-titulo">Edições anteriores</span><div class="nl-ed-list">' +
+      sentEditions.map(e => '<a class="nl-ed-item" href="/newsletter/edicao/' + escaparHTML(e.slug) + '"><span class="nl-ed-titulo">' + escaparHTML(e.title) + '</span><span class="nl-ed-data">' + nlFormatDate(e.sent_at || e.period_end) + '</span></a>').join('') +
+      '</div></div>'
+    : '';
+
+  const conteudo =
+    '<div class="nl-hero">' +
+    '<span class="eyebrow">Newsletter Semanal</span>' +
+    '<h1>Radar da Semana</h1>' +
+    '<p class="nl-tagline">O que movimentou o offshore, em poucos minutos.</p>' +
+    '</div>' +
+    '<div class="nl-card">' +
+    '<p class="nl-desc">Toda semana, uma seleção cuidadosa do que realmente importou no offshore: notícias, mercado e contexto. Sem urgência — só o essencial.</p>' +
+    '<form id="nlForm" class="nl-form" novalidate>' +
+    '<div class="nl-row">' +
+    '<input type="email" id="nlEmail" name="email" placeholder="Seu melhor e-mail" required autocomplete="email" class="nl-input" aria-label="E-mail">' +
+    '<button type="submit" id="nlBtn" class="nl-cta">Quero receber</button>' +
+    '</div>' +
+    '<p class="nl-consent">Ao se inscrever, você concorda em receber o Radar da Semana por e-mail. Cancele quando quiser. Conforme a LGPD.</p>' +
+    '<p id="nlMsg" class="nl-msg" hidden></p>' +
+    '</form>' +
+    '</div>' +
+    archiveHtml +
+    '<div class="nl-info-boxes">' +
+    '<div class="nl-info-box"><span class="nl-info-titulo">Toda semana</span><span class="nl-info-desc">Publicado todo domingo às 18h</span></div>' +
+    '<div class="nl-info-box"><span class="nl-info-titulo">Curado</span><span class="nl-info-desc">Seleção editorial, não automação</span></div>' +
+    '<div class="nl-info-box"><span class="nl-info-titulo">Gratuito</span><span class="nl-info-desc">Sem limite de edições</span></div>' +
+    '</div>' +
+    '<script>(function(){' +
+    'var f=document.getElementById("nlForm");' +
+    'var inp=document.getElementById("nlEmail");' +
+    'var btn=document.getElementById("nlBtn");' +
+    'var msg=document.getElementById("nlMsg");' +
+    'function show(t,ok){msg.textContent=t;msg.className="nl-msg "+(ok?"ok":"err");msg.hidden=false;}' +
+    'f.addEventListener("submit",function(e){e.preventDefault();' +
+    'var em=inp.value.trim();' +
+    'if(!em||em.indexOf("@")<1||em.split("@")[1].indexOf(".")<0){show("E-mail inválido.",false);return;}' +
+    'btn.disabled=true;btn.textContent="Aguarde…";' +
+    'fetch("/api/newsletter/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})})' +
+    '.then(function(r){return r.json();})' +
+    '.then(function(d){if(d.ok){show("✓ Inscrito! O próximo Radar da Semana chegará no seu e-mail.",true);f.style.display="none";}' +
+    'else{show(d.erro||"Ocorreu um erro. Tente novamente.",false);}' +
+    'btn.disabled=false;btn.textContent="Quero receber";})' +
+    '.catch(function(){show("Ocorreu um erro. Tente novamente.",false);btn.disabled=false;btn.textContent="Quero receber";});' +
+    '});' +
+    '})();</scr' + 'ipt>';
+
+  return paginaChrome(
+    'OWNews | Radar da Semana',
+    'A newsletter semanal do OWNews. O que movimentou o offshore, em poucos minutos.',
+    conteudo,
+    '/newsletter'
+  );
+}
+
+function nlRenderEdicao(edition) {
+  const esc = escaparHTML;
+  const mainSec   = (edition.sections || []).find(s => s.type === 'main');
+  const hlSec     = (edition.sections || []).find(s => s.type === 'highlights');
+  const buddySec  = (edition.sections || []).find(s => s.type === 'buddy');
+  const impactSec = (edition.sections || []).find(s => s.type === 'impact');
+
+  let corpo =
+    '<div class="nl-edicao-header">' +
+    '<span class="eyebrow">Radar da Semana</span>' +
+    '<h1 class="nl-edicao-titulo">' + esc(edition.title) + '</h1>' +
+    (edition.sent_at ? '<p class="nl-edicao-data">Publicado em ' + nlFormatDate(edition.sent_at) + '</p>' : '') +
+    '</div>';
+
+  if (edition.opening) corpo += '<div class="nl-edicao-abertura"><p>' + esc(edition.opening) + '</p></div>';
+
+  if (mainSec) {
+    const artId = new URLSearchParams((mainSec.url || '').split('?')[1] || '').get('id') || '';
+    corpo += '<div class="nl-edicao-sec">' +
+      '<span class="nl-sec-label">O que marcou a semana</span>' +
+      '<h2>' + esc(mainSec.headline) + '</h2>' +
+      '<p>' + esc(mainSec.summary) + '</p>' +
+      (artId ? '<a href="/noticia?id=' + esc(artId) + '" class="nl-link">Ler notícia completa →</a>' : '') +
+      '</div>';
+  }
+
+  if (hlSec && hlSec.items && hlSec.items.length) {
+    corpo += '<div class="nl-edicao-sec"><span class="nl-sec-label">Destaques da semana</span>';
+    hlSec.items.forEach(item => {
+      const itemId = new URLSearchParams((item.url || '').split('?')[1] || '').get('id') || '';
+      corpo += '<div class="nl-edicao-destaque">' +
+        (itemId ? '<a href="/noticia?id=' + esc(itemId) + '" class="nl-destaque-link">' + esc(item.headline) + '</a>' : '<span class="nl-destaque-link">' + esc(item.headline) + '</span>') +
+        '<p>' + esc(item.summary) + '</p>' +
+        '</div>';
+    });
+    corpo += '</div>';
+  }
+
+  if (buddySec) {
+    const buddyId = new URLSearchParams((buddySec.url || '').split('?')[1] || '').get('id') || '';
+    corpo += '<div class="nl-edicao-buddy">' +
+      '<span class="nl-sec-label">Buddy te explica</span>' +
+      '<p>' + esc(buddySec.content) + '</p>' +
+      (buddyId ? '<a href="/noticia?id=' + esc(buddyId) + '" class="nl-link">Ver notícia →</a>' : '') +
+      '</div>';
+  }
+
+  if (impactSec) {
+    corpo += '<div class="nl-edicao-impact">' +
+      '<span class="nl-sec-label">O que isso representa para o offshore?</span>' +
+      '<p>' + esc(impactSec.content) + '</p>' +
+      '</div>';
+  }
+
+  corpo += '<div class="nl-edicao-signup"><p>Gostou? <a href="/newsletter" class="nl-link">Assine o Radar da Semana</a> e receba todo domingo.</p></div>';
+
+  return paginaChrome(
+    esc(edition.title) + ' — OWNews',
+    'Edição do Radar da Semana OWNews. ' + (edition.opening || '').slice(0, 130),
+    corpo,
+    '/newsletter/edicao/' + edition.slug
+  );
+}
+
+function nlRenderCancelar(status) {
+  const msgs = {
+    ok: { h: 'Inscrição cancelada', p: 'Você não receberá mais o Radar da Semana. Pode se inscrever novamente quando quiser.' },
+    already: { h: 'Já cancelado', p: 'Você já tinha cancelado sua inscrição anteriormente.' },
+    invalid: { h: 'Link inválido', p: 'O link de cancelamento é inválido ou expirou. Acesse a página da newsletter para cancelar.' }
+  };
+  const m = msgs[status] || msgs.invalid;
+  const conteudo = '<div class="nl-hero"><h1>' + escaparHTML(m.h) + '</h1><p class="nl-tagline">' + escaparHTML(m.p) + '</p><a href="/" style="display:inline-block;margin-top:20px" class="nl-link">Ir para o OWNews →</a></div>';
+  return paginaChrome('Cancelar inscrição — OWNews', m.p, conteudo, '/newsletter/cancelar');
 }
 
 export default {
@@ -22649,6 +23099,167 @@ export default {
       }
     }
     // ──────────────────────────────────────────────────────────────────────
+
+    // ── Newsletter 1.0 ────────────────────────────────────────────────────
+
+    // Landing page — formulário de inscrição
+    if (url.pathname === "/newsletter") {
+      const edIndex = await nlGetEdIndex(env.PERGUNTE_IA_KV);
+      return new Response(nlRenderLanding(edIndex), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+    }
+
+    // Arquivo de edições — /newsletter/edicao/:slug
+    if (url.pathname.startsWith("/newsletter/edicao/")) {
+      const slug = url.pathname.slice("/newsletter/edicao/".length);
+      if (!slug) return Response.redirect("https://ownews.com.br/newsletter", 302);
+      const edIndex = await nlGetEdIndex(env.PERGUNTE_IA_KV);
+      const entry = edIndex.find(e => e.slug === slug && e.status === 'sent');
+      if (!entry) return pagina404();
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, entry.id);
+      if (!edition) return pagina404();
+      return new Response(nlRenderEdicao(edition), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+    }
+
+    // Cancelamento de inscrição (token-based, sem login)
+    if (url.pathname === "/newsletter/cancelar") {
+      const token = url.searchParams.get("token") || "";
+      if (!token) return new Response(nlRenderCancelar("invalid"), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      const sub = await nlGetSub(env.PERGUNTE_IA_KV, token);
+      if (!sub) return new Response(nlRenderCancelar("invalid"), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      if (sub.status === "unsubscribed") return new Response(nlRenderCancelar("already"), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      sub.status = "unsubscribed";
+      sub.unsubscribed_at = new Date().toISOString();
+      await nlSaveSub(env.PERGUNTE_IA_KV, token, sub);
+      return new Response(nlRenderCancelar("ok"), { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+    }
+
+    // API — inscrição
+    if (url.pathname === "/api/newsletter/subscribe" && request.method === "POST") {
+      let body;
+      try { body = await request.json(); } catch { return _jsonResp({ ok: false, erro: "json inválido" }, 400); }
+      const email = (body.email || "").trim().toLowerCase();
+      if (!email || email.indexOf("@") < 1 || !email.split("@")[1].includes(".")) return _jsonResp({ ok: false, erro: "E-mail inválido." }, 400);
+      const ip = request.headers.get("CF-Connecting-IP") || "x";
+      const rateLimited = await nlCheckRate(env.PERGUNTE_IA_KV, ip);
+      if (rateLimited) return _jsonResp({ ok: false, erro: "Muitas tentativas. Aguarde e tente novamente." }, 429);
+      const tokenExistente = await nlGetTokenByEmail(env.PERGUNTE_IA_KV, email);
+      if (tokenExistente) {
+        const sub = await nlGetSub(env.PERGUNTE_IA_KV, tokenExistente);
+        if (sub && sub.status === "confirmed") return _jsonResp({ ok: true, ja_inscrito: true });
+        if (sub && sub.status === "unsubscribed") {
+          sub.status = "confirmed";
+          sub.subscribed_at = new Date().toISOString();
+          sub.confirmed_at = new Date().toISOString();
+          sub.unsubscribed_at = null;
+          await nlSaveSub(env.PERGUNTE_IA_KV, tokenExistente, sub);
+          return _jsonResp({ ok: true, reativado: true });
+        }
+      }
+      const token = crypto.randomUUID();
+      const sub = { email, status: "confirmed", source: "web", consent_version: NL_CONSENT_VER, subscribed_at: new Date().toISOString(), confirmed_at: new Date().toISOString(), unsubscribed_at: null };
+      await nlSaveSub(env.PERGUNTE_IA_KV, token, sub);
+      // Boas-vindas se Resend configurado
+      if (env.RESEND_API_KEY) {
+        ctx.waitUntil(nlEnviarEmail(env, email, "Bem-vindo ao Radar da Semana — OWNews", `<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:sans-serif;background:#071929;color:#ccc;padding:32px"><h2 style="color:#0de8c8">Bem-vindo ao Radar da Semana!</h2><p>Você está inscrito. Toda semana, você receberá o melhor do offshore direto na sua caixa de entrada.</p><p style="font-size:12px"><a href="https://ownews.com.br/newsletter/cancelar?token=${token}" style="color:#3a7090">Cancelar inscrição</a></p></body></html>`));
+      }
+      return _jsonResp({ ok: true });
+    }
+
+    // API pública — lista de edições (OWBuddy)
+    if (url.pathname === "/api/newsletter/edicoes") {
+      const edIndex = await nlGetEdIndex(env.PERGUNTE_IA_KV);
+      const sentEditions = edIndex.filter(e => e.status === "sent");
+      return new Response(JSON.stringify({ ok: true, edicoes: sentEditions }), {
+        headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+
+    // API pública — detalhe de edição (OWBuddy)
+    if (url.pathname.startsWith("/api/newsletter/edicao/")) {
+      const id = url.pathname.slice("/api/newsletter/edicao/".length);
+      if (!id) return _jsonResp({ ok: false, erro: "id obrigatório" }, 400);
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, id);
+      if (!edition || edition.status !== "sent") return _jsonResp({ ok: false, erro: "não encontrado" }, 404);
+      return new Response(JSON.stringify({ ok: true, edition }), {
+        headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*" }
+      });
+    }
+
+    // API CC — status geral (autenticado)
+    if (url.pathname === "/api/newsletter/cc-status") {
+      if (!(await ccAutenticado(request, env))) return _jsonResp({ ok: false, erro: "não autorizado" }, 401);
+      const edIndex = await nlGetEdIndex(env.PERGUNTE_IA_KV);
+      // contar assinantes ativos (iteração KV leve — max ~1000 chaves nl_sub:)
+      let subscribers = 0;
+      try {
+        const listed = await env.PERGUNTE_IA_KV.list({ prefix: NL_SUB_PFX, limit: 1000 });
+        for (const key of listed.keys) {
+          const raw = await env.PERGUNTE_IA_KV.get(key.name);
+          if (raw) { try { const s = JSON.parse(raw); if (s.status === "confirmed") subscribers++; } catch {} }
+        }
+      } catch {}
+      return _jsonResp({ ok: true, subscribers, resend_configured: !!env.RESEND_API_KEY, editions: edIndex.slice(0, 20) });
+    }
+
+    // API CC — aprovar / marcar pronto (autenticado)
+    if (url.pathname === "/api/newsletter/cc-aprovar" && request.method === "POST") {
+      if (!(await ccAutenticado(request, env))) return _jsonResp({ ok: false, erro: "não autorizado" }, 401);
+      let body; try { body = await request.json(); } catch { return _jsonResp({ ok: false, erro: "json" }, 400); }
+      const { id, status: novoStatus } = body;
+      if (!id || !["ready", "approved"].includes(novoStatus)) return _jsonResp({ ok: false, erro: "parâmetros inválidos" }, 400);
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, id);
+      if (!edition) return _jsonResp({ ok: false, erro: "edição não encontrada" }, 404);
+      const transicoesValidas = { ready: ["draft"], approved: ["ready"] };
+      if (!transicoesValidas[novoStatus].includes(edition.status)) return _jsonResp({ ok: false, erro: `transição inválida: ${edition.status} → ${novoStatus}` }, 409);
+      edition.status = novoStatus;
+      if (novoStatus === "approved") edition.approved_at = new Date().toISOString();
+      await nlSaveEdition(env.PERGUNTE_IA_KV, edition);
+      return _jsonResp({ ok: true, status: novoStatus });
+    }
+
+    // API CC — enviar e-mail de teste (autenticado)
+    if (url.pathname === "/api/newsletter/cc-send-test" && request.method === "POST") {
+      if (!(await ccAutenticado(request, env))) return _jsonResp({ ok: false, erro: "não autorizado" }, 401);
+      if (!env.RESEND_API_KEY) return _jsonResp({ ok: false, erro: "RESEND_API_KEY não configurada" });
+      let body; try { body = await request.json(); } catch { return _jsonResp({ ok: false, erro: "json" }, 400); }
+      const { id, to } = body;
+      if (!id || !to || to.indexOf("@") < 1) return _jsonResp({ ok: false, erro: "id e to obrigatórios" }, 400);
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, id);
+      if (!edition) return _jsonResp({ ok: false, erro: "edição não encontrada" }, 404);
+      const unsubUrl = "https://ownews.com.br/newsletter/cancelar?token=TEST";
+      const r = await nlEnviarEmail(env, to, "[TESTE] " + edition.subject, nlEmailHtml(edition, unsubUrl));
+      return _jsonResp(r);
+    }
+
+    // API CC — disparar para todos (autenticado, apenas approved)
+    if (url.pathname === "/api/newsletter/cc-disparar" && request.method === "POST") {
+      if (!(await ccAutenticado(request, env))) return _jsonResp({ ok: false, erro: "não autorizado" }, 401);
+      if (!env.RESEND_API_KEY) return _jsonResp({ ok: false, erro: "RESEND_API_KEY não configurada" });
+      let body; try { body = await request.json(); } catch { return _jsonResp({ ok: false, erro: "json" }, 400); }
+      const { id } = body;
+      if (!id) return _jsonResp({ ok: false, erro: "id obrigatório" }, 400);
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, id);
+      if (!edition) return _jsonResp({ ok: false, erro: "edição não encontrada" }, 404);
+      if (edition.status !== "approved") return _jsonResp({ ok: false, erro: `status deve ser approved, atual: ${edition.status}` }, 409);
+      edition.status = "sending";
+      await nlSaveEdition(env.PERGUNTE_IA_KV, edition);
+      try {
+        const resultado = await nlEnviarParaTodos(env.PERGUNTE_IA_KV, env.RESEND_API_KEY, edition);
+        edition.status = resultado.erros > 0 && resultado.enviados === 0 ? "failed" : "sent";
+        edition.sent_at = new Date().toISOString();
+        edition.recipient_count = resultado.enviados;
+        edition.error_log = resultado.erroLog && resultado.erroLog.length ? resultado.erroLog.join("; ") : null;
+        await nlSaveEdition(env.PERGUNTE_IA_KV, edition);
+        return _jsonResp({ ok: true, ...resultado });
+      } catch (e) {
+        edition.status = "failed";
+        edition.error_log = e.message;
+        await nlSaveEdition(env.PERGUNTE_IA_KV, edition);
+        return _jsonResp({ ok: false, erro: e.message }, 500);
+      }
+    }
+
+    // ── /newsletter/ fim ──────────────────────────────────────────────────
 
     return pagina404();
   }

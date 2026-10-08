@@ -29,7 +29,10 @@
   // Também guarda o snapshot/backoff do OffVoos (chaves "offvoos_snapshot"
   // e "offvoos_backoff") — mesmo binding, sem custo adicional.
   "kv_namespaces": [
-    { "binding": "SAUDE_KV", "id": "d56be506566247ed8a76f74eef14cd6d" }
+    { "binding": "SAUDE_KV", "id": "d56be506566247ed8a76f74eef14cd6d" },
+    // PERGUNTE_IA_KV compartilhado com ownews-git — newsletter draft/index/subs
+    // (mesmo id que o ownews-git usa para IA cache, prefixos nl_* isolados)
+    { "binding": "PERGUNTE_IA_KV", "id": "cedf263f9dce418189dea07bce83eab0" }
   ],
 
   // AI binding: Workers AI (Cloudflare) — usado para tradução PT-BR de
@@ -65,7 +68,10 @@
       { "name": "OFFVOOS_DO", "class_name": "OffVoosPoller" },
       { "name": "MERCADO_DO", "class_name": "MercadoPoller" },
       { "name": "EDITORIAL_DO", "class_name": "EditorialPoller" },
-      { "name": "TELEGRAM_AGENDADOR_DO", "class_name": "TelegramAgendadorPoller" }
+      { "name": "TELEGRAM_AGENDADOR_DO", "class_name": "TelegramAgendadorPoller" },
+      // NEWSLETTER_DO: gera draft todo domingo 20:05 UTC (17:05 BRT) via Alarm
+      // (conta no limite 5/5 cron triggers — usa DO alarm como TELEGRAM_AGENDADOR_DO)
+      { "name": "NEWSLETTER_DO", "class_name": "NewsletterAgendadorDO" }
     ]
   },
 
@@ -83,6 +89,7 @@
     { "tag": "v1-offvoos-poller", "new_sqlite_classes": ["OffVoosPoller"] },
     { "tag": "v2-mercado-poller", "new_sqlite_classes": ["MercadoPoller"] },
     { "tag": "v3-editorial-poller", "new_sqlite_classes": ["EditorialPoller"] },
-    { "tag": "v4-telegram-agendador", "new_sqlite_classes": ["TelegramAgendadorPoller"] }
+    { "tag": "v4-telegram-agendador", "new_sqlite_classes": ["TelegramAgendadorPoller"] },
+    { "tag": "v5-newsletter-agendador", "new_sqlite_classes": ["NewsletterAgendadorDO"] }
   ]
 }
