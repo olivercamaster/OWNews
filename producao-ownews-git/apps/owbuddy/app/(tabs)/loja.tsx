@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
 import {
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
@@ -14,19 +14,37 @@ import { bottomNavSpace, colors, maritime, radius, spacing, typography } from '.
 
 const STORE_URL = 'https://www.offshoreworks.com.br';
 
+async function openInApp(url: string): Promise<void> {
+  try {
+    // expo-web-browser: SFSafariViewController / Chrome Custom Tab (requer build nativo)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const WebBrowser = require('expo-web-browser');
+    if (typeof WebBrowser?.openBrowserAsync === 'function') {
+      await WebBrowser.openBrowserAsync(url, {
+        toolbarColor: '#061c2b',
+        controlsColor: '#0de8c8',
+        createTask: false,
+      });
+      return;
+    }
+  } catch {
+    // módulo nativo não disponível neste build
+  }
+  // fallback: abre no browser padrão do sistema
+  await Linking.openURL(url);
+}
+
 export default function Loja() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
   const openStore = useCallback(async () => {
     setLoading(true);
-    await WebBrowser.openBrowserAsync(STORE_URL, {
-      toolbarColor: '#061c2b',
-      controlsColor: '#0de8c8',
-      createTask: false,
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-    });
-    setLoading(false);
+    try {
+      await openInApp(STORE_URL);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -65,7 +83,7 @@ export default function Loja() {
           {!loading && <Ionicons name="arrow-forward" size={16} color={colors.navy950} />}
         </TouchableOpacity>
 
-        <Text style={styles.hint}>A loja abre dentro do app — sem sair.</Text>
+        <Text style={styles.hint}>Toque para abrir a loja</Text>
       </View>
     </OWBackground>
   );
