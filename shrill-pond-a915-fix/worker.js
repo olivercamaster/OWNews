@@ -1953,17 +1953,32 @@ async function obterStatusTelegram(env) {
     /* não crítico pro /saude */
   }
 
-  const proximaJanela = estado.ultimoEnvioEm
-    ? new Date(estado.ultimoEnvioEm + INTERVALO_MINIMO_MS_TELEGRAM).toISOString()
-    : null;
+  // Próxima janela = próximo slot BRT (08:50 ou 17:50)
+  const proximaJanela = (() => {
+    try {
+      const brt = new Date(agora - OFFSET_BRT_MS);
+      const todayMin = brt.getUTCHours() * 60 + brt.getUTCMinutes();
+      for (const s of SLOTS_NOTICIAS_TELEGRAM) {
+        const slotMin = s.horaAlvoBRT * 60 + s.minAlvoBRT;
+        if (todayMin < slotMin) {
+          const todayBase = Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()) + OFFSET_BRT_MS;
+          return new Date(todayBase + slotMin * 60000).toISOString();
+        }
+      }
+      const tomorrowBase = Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate() + 1) + OFFSET_BRT_MS;
+      return new Date(tomorrowBase + (8 * 60 + 50) * 60000).toISOString();
+    } catch { return null; }
+  })();
 
   let agendadorStatus = null;
   try {
     if (env.SAUDE_KV) {
       const hojeStr = dataBRTString(agora);
-      const [boletimRaw, dicaRaw] = await Promise.all([
+      const [boletimRaw, dicaRaw, slotManhaRaw, slotTardeRaw] = await Promise.all([
         env.SAUDE_KV.get("telegram_boletim_ultimo"),
-        env.SAUDE_KV.get("telegram_dica_ultima")
+        env.SAUDE_KV.get("telegram_dica_ultima"),
+        env.SAUDE_KV.get("telegram_slot_manha_dia"),
+        env.SAUDE_KV.get("telegram_slot_tarde_dia"),
       ]);
       const boletimDados = boletimRaw ? JSON.parse(boletimRaw) : null;
       const dicaDados = dicaRaw ? JSON.parse(dicaRaw) : null;
@@ -1971,7 +1986,9 @@ async function obterStatusTelegram(env) {
         boletim_hoje: boletimDados ? boletimDados.dia === hojeStr : false,
         dica_hoje: dicaDados ? dicaDados.dia === hojeStr : false,
         boletim_ultimo_em: boletimDados ? boletimDados.em : null,
-        dica_ultima_em: dicaDados ? dicaDados.em : null
+        dica_ultima_em: dicaDados ? dicaDados.em : null,
+        slot_manha_hoje: slotManhaRaw === hojeStr,
+        slot_tarde_hoje: slotTardeRaw === hojeStr,
       };
     }
   } catch { /* não crítico pro /saude */ }
@@ -1981,14 +1998,16 @@ async function obterStatusTelegram(env) {
     acesso_ao_canal: acessoCanal,
     ativado_em: TELEGRAM_ATIVADO_EM,
     migracao_aplicada: true,
+    curadoria_modelo: "2 notícias/dia",
+    curadoria_slots_brt: ["08:50", "17:50"],
+    limiar_slot: LIMIAR_SLOT_TELEGRAM,
+    limiar_breaking: LIMIAR_BREAKING_TELEGRAM,
     ultimo_envio: ultimo ? ultimo.published_at : null,
     ultimo_resultado: ultimoResultado,
     motivo_ultimo_bloqueio: motivoUltimoBloqueio,
     proxima_janela: proximaJanela,
     enviados_hoje: estado.enviadosHoje,
     limite_diario_normal: LIMITE_NORMAL_POR_DIA_TELEGRAM,
-    limite_diario_excepcional: LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM,
-    intervalo_minimo_horas: INTERVALO_MINIMO_MS_TELEGRAM / 3600000,
     ultimo_erro: ultimoErro,
     proximo_candidato: proximoCandidato,
     garantia_minima_diaria: garantiaMeioDia,
@@ -5750,8 +5769,10 @@ const PONTUACAO_NORMAL_TELEGRAM = [
 ];
 
 const LIMIAR_MINIMO_ELEGIVEL_TELEGRAM = 8;
-const LIMIAR_PRIORIDADE_MUITO_ALTA_TELEGRAM = 20;
-const LIMIAR_QUINTO_POST_EXCECIONAL_TELEGRAM = 16;
+const LIMIAR_SLOT_TELEGRAM = 12;
+const LIMIAR_BREAKING_TELEGRAM = 22;
+const LIMIAR_PRIORIDADE_MUITO_ALTA_TELEGRAM = LIMIAR_BREAKING_TELEGRAM;
+const LIMIAR_QUINTO_POST_EXCECIONAL_TELEGRAM = LIMIAR_SLOT_TELEGRAM;
 
 function avaliarElegibilidadeTelegram(artigo) {
   const titulo = (artigo.title || "").toLowerCase();
@@ -6113,9 +6134,16 @@ async function fetchComFallbackTelegram(base, payload, env) {
   }
 }
 
-const LIMITE_NORMAL_POR_DIA_TELEGRAM = 4;
-const LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM = 5;
-const INTERVALO_MINIMO_MS_TELEGRAM = 2 * 60 * 60 * 1000;
+// Curadoria 2 Notícias/Dia — Missão 2026-10-08
+// Antes: até 4 notícias/dia com intervalo de 2h, qualquer horário.
+// Agora: 2 slots fixos (08:50 e 17:50 BRT) + breaking sob limiar elevado.
+const LIMITE_NOTICIAS_POR_DIA_TELEGRAM = 2;
+const LIMITE_BREAKING_POR_DIA_TELEGRAM = 1;
+const ESPACO_MINIMO_BREAKING_SLOT_MS = 45 * 60000;
+// Aliases retrocompat. para dry-run do status endpoint.
+const LIMITE_NORMAL_POR_DIA_TELEGRAM = LIMITE_NOTICIAS_POR_DIA_TELEGRAM;
+const LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM = LIMITE_NOTICIAS_POR_DIA_TELEGRAM;
+const INTERVALO_MINIMO_MS_TELEGRAM = 8 * 60 * 60 * 1000;
 
 // Brasil não observa horário de verão desde 2019 — deslocamento fixo de
 // -3h é seguro (sem depender de Intl/timezone database) pra calcular o
@@ -6125,6 +6153,25 @@ const OFFSET_BRT_MS = 3 * 3600000;
 function inicioDoDiaBrtMs(agora) {
   const brt = new Date(agora - OFFSET_BRT_MS);
   return Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()) + OFFSET_BRT_MS;
+}
+
+// Slots de notícias BRT — Curadoria 2 Notícias/Dia (2026-10-08).
+// Janela de aceitação: -10min (latência de alarm/cron) a +30min (retentativa).
+const SLOTS_NOTICIAS_TELEGRAM = [
+  { nome: "manha", horaAlvoBRT: 8, minAlvoBRT: 50, kvKey: "telegram_slot_manha_dia" },
+  { nome: "tarde", horaAlvoBRT: 17, minAlvoBRT: 50, kvKey: "telegram_slot_tarde_dia" },
+];
+const JANELA_SLOT_ANTES_MIN = 10;
+const JANELA_SLOT_APOS_MIN = 30;
+
+function detectarSlotAtivo(agora) {
+  const brt = new Date(agora - OFFSET_BRT_MS);
+  const totalMin = brt.getUTCHours() * 60 + brt.getUTCMinutes();
+  for (const s of SLOTS_NOTICIAS_TELEGRAM) {
+    const alvo = s.horaAlvoBRT * 60 + s.minAlvoBRT;
+    if (totalMin >= alvo - JANELA_SLOT_ANTES_MIN && totalMin <= alvo + JANELA_SLOT_APOS_MIN) return s;
+  }
+  return null;
 }
 
 function computarEstadoEnviosTelegram(historicoPublicados, agora) {
@@ -6153,42 +6200,46 @@ function computarEstadoEnviosTelegram(historicoPublicados, agora) {
 // candidato abaixo do limiar editorial (score >= 8) só pra bater a cota;
 // "nenhum candidato elegível hoje" é um motivo honesto, não um erro).
 function avaliarGarantiaMeioDiaTelegram(estado, agora, candidatosElegiveisHoje) {
+  // Curadoria 2 Notícias/Dia: o slot da manhã (08:50 BRT) é o marco mínimo.
+  // Janela da manhã termina às 09:20 BRT (08:50 + 30min de tolerância).
   const brt = new Date(agora - OFFSET_BRT_MS);
-  const passouDoMeioDia = brt.getUTCHours() >= 12;
+  const totalMin = brt.getUTCHours() * 60 + brt.getUTCMinutes();
+  const passouJanelaManha = totalMin > (9 * 60 + 20);
 
   if (estado.enviadosHoje > 0) {
-    return { horarioAlvoBrt: "12:00", cumprida: true, motivo: "pelo menos 1 publicação já saiu hoje (BRT)" };
+    return { horarioAlvoBrt: "08:50", cumprida: true, motivo: "pelo menos 1 notícia já foi para o canal hoje (BRT)" };
   }
-  if (!passouDoMeioDia) {
-    return { horarioAlvoBrt: "12:00", cumprida: null, motivo: "ainda não são 12:00 BRT — garantia ainda não venceu hoje" };
+  if (!passouJanelaManha) {
+    return { horarioAlvoBrt: "08:50", cumprida: null, motivo: "janela da manhã ainda não encerrou (08:50 BRT ± tolerância)" };
   }
   if (candidatosElegiveisHoje > 0) {
-    // Havia candidato elegível e o loop normal de envio (mesma passada)
-    // já teria publicado — se chegou aqui sem enviadosHoje>0, o motivo
-    // real (intervalo/erro/limite) já está registrado por candidato nos
-    // resultados desta execução.
-    return { horarioAlvoBrt: "12:00", cumprida: false, motivo: "havia candidato elegível, mas não foi publicado nesta execução — ver motivo por artigo" };
+    return { horarioAlvoBrt: "08:50", cumprida: false, motivo: `havia candidato elegível (score >= ${LIMIAR_SLOT_TELEGRAM}), mas janela da manhã passou sem publicação` };
   }
-  return { horarioAlvoBrt: "12:00", cumprida: false, motivo: "nenhum candidato com pontuação >= " + LIMIAR_MINIMO_ELEGIVEL_TELEGRAM + " disponível hoje — sem forçar conteúdo abaixo do limiar editorial" };
+  return { horarioAlvoBrt: "08:50", cumprida: false, motivo: `slot da manhã pulado — nenhum candidato com score >= ${LIMIAR_SLOT_TELEGRAM}` };
 }
 
-function avaliarJanelaDeEnvioTelegram(estado, agora, candidato) {
+function avaliarJanelaDeEnvioTelegram(estado, agora, candidato, opcoes = {}) {
+  // Modo curadoria: janela gerida externamente (slot/breaking) — bypass dos checks de frequência.
+  if (opcoes.modoCuradoria) {
+    return { permitido: true, motivo: `aprovado pelo orquestrador de curadoria (${opcoes.tipoSlot || "slot"})`, furouIntervalo: false };
+  }
+  // Caminho legado — usado pelo dry-run do /api/telegram-status.
   if (estado.enviadosHoje >= LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM) {
-    return { permitido: false, motivo: `limite diário excepcional (${LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM}) já atingido` };
+    return { permitido: false, motivo: `limite diário (${LIMITE_EXCEPCIONAL_POR_DIA_TELEGRAM}) já atingido` };
   }
   if (estado.enviadosHoje >= LIMITE_NORMAL_POR_DIA_TELEGRAM) {
     if (candidato.pontuacao < LIMIAR_QUINTO_POST_EXCECIONAL_TELEGRAM) {
-      return { permitido: false, motivo: `limite normal diário (${LIMITE_NORMAL_POR_DIA_TELEGRAM}) atingido e notícia não é excepcional o bastante para o 5º post` };
+      return { permitido: false, motivo: `limite diário (${LIMITE_NORMAL_POR_DIA_TELEGRAM}) atingido e notícia abaixo do limiar de slot (${candidato.pontuacao} < ${LIMIAR_QUINTO_POST_EXCECIONAL_TELEGRAM})` };
     }
   }
   if (estado.ultimoEnvioEm !== null) {
     const desdeUltimo = agora - estado.ultimoEnvioEm;
     if (desdeUltimo < INTERVALO_MINIMO_MS_TELEGRAM) {
       if (candidato.prioridadeMuitoAlta && !estado.jaFurouIntervaloHoje) {
-        return { permitido: true, motivo: "furou o intervalo mínimo por prioridade muito alta (raro, 1x/dia)", furouIntervalo: true };
+        return { permitido: true, motivo: "prioridade muito alta — furou o intervalo (1x/dia)", furouIntervalo: true };
       }
       const minutosFaltando = Math.ceil((INTERVALO_MINIMO_MS_TELEGRAM - desdeUltimo) / 60000);
-      return { permitido: false, motivo: `intervalo mínimo de 2h ainda não passou (faltam ~${minutosFaltando}min)` };
+      return { permitido: false, motivo: `intervalo entre slots ainda não passou (faltam ~${minutosFaltando}min)` };
     }
   }
   return { permitido: true, motivo: "dentro dos limites de frequência", furouIntervalo: false };
@@ -6196,7 +6247,7 @@ function avaliarJanelaDeEnvioTelegram(estado, agora, candidato) {
 
 const LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM = 48;
 
-async function processarArtigosParaTelegram(artigos, historicoPublicados, urlBase, env, logger, agora) {
+async function processarArtigosParaTelegram(artigos, historicoPublicados, urlBase, env, logger, agora, opcoes = {}) {
   const momento = agora || Date.now();
   const idsJaPublicados = (historicoPublicados || []).map((h) => h.article_id);
   const estado = computarEstadoEnviosTelegram(historicoPublicados, momento);
@@ -6245,7 +6296,7 @@ async function processarArtigosParaTelegram(artigos, historicoPublicados, urlBas
       ultimoEnvioEm: ultimoEnvioNestaExecucao,
       jaFurouIntervaloHoje: jaFurouNestaExecucao
     };
-    const janela = avaliarJanelaDeEnvioTelegram(estadoAtual, momento, { pontuacao, prioridadeMuitoAlta });
+    const janela = avaliarJanelaDeEnvioTelegram(estadoAtual, momento, { pontuacao, prioridadeMuitoAlta }, opcoes);
 
     if (!janela.permitido) {
       resultados.push({ articleId: artigo.id, status: "aguardando_intervalo", motivo: janela.motivo, pontuacao, categoria });
@@ -6341,34 +6392,120 @@ async function registrarResultadoTelegram(env, artigo, resultado) {
   }
 }
 
-/* Ponto de entrada único, chamado a partir de scheduled(). Blindado: nunca
-   lança — qualquer erro aqui fica só registrado no log, o collector segue
-   normalmente. */
+/* Ponto de entrada único do radar de notícias — Curadoria 2 Notícias/Dia (2026-10-08).
+   Blindado: nunca lança — qualquer erro fica registrado no log, collector segue normalmente.
+
+   FILOSOFIA: OWNews publica tudo. Telegram seleciona.
+   Dois slots fixos/dia: manhã (08:50 BRT) e tarde (17:50 BRT).
+   Slot pulado se não houver notícia com score >= LIMIAR_SLOT_TELEGRAM (12).
+   Breaking news fora de slot exige score >= LIMIAR_BREAKING_TELEGRAM (22), máx 1/dia.
+   Espaçamento: breaking < 45min antes de um slot → slot pulado. */
 async function executarRadarTelegram(env) {
   try {
     if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHANNEL_ID) {
       return { ok: true, ativo: false, motivo: "secrets do Telegram não configurados" };
     }
 
+    const agora = Date.now();
+    const hojeStr = dataBRTString(agora);
+    const slotAtivo = detectarSlotAtivo(agora);
+
+    // ── 1. Slot: idempotência e espaçamento com breaking ───────────────────
+    if (slotAtivo && env.SAUDE_KV) {
+      const slotUsado = await env.SAUDE_KV.get(slotAtivo.kvKey);
+      if (slotUsado === hojeStr) {
+        return { ok: true, ativo: false, slotAtivo: slotAtivo.nome, motivo: `slot ${slotAtivo.nome} já foi usado hoje` };
+      }
+      const ultimoBreakingRaw = await env.SAUDE_KV.get("telegram_breaking_ultimo");
+      if (ultimoBreakingRaw) {
+        const desdeBreaking = agora - parseInt(ultimoBreakingRaw, 10);
+        if (desdeBreaking >= 0 && desdeBreaking < ESPACO_MINIMO_BREAKING_SLOT_MS) {
+          const min = Math.floor(desdeBreaking / 60000);
+          await env.SAUDE_KV.put(slotAtivo.kvKey, hojeStr);
+          console.log(`[Telegram] slot ${slotAtivo.nome} pulado — breaking há ${min}min (< 45min)`);
+          return { ok: true, ativo: false, slotAtivo: slotAtivo.nome, slotSkipped: true, motivoSkip: "espaco_breaking", motivo: `slot ${slotAtivo.nome} pulado — breaking recente há ${min}min` };
+        }
+      }
+    }
+
+    // ── 2. Fora de slot: verificar cota de breaking do dia ─────────────────
+    if (!slotAtivo && env.SAUDE_KV) {
+      const breakingDia = await env.SAUDE_KV.get("telegram_breaking_dia");
+      if (breakingDia === hojeStr) {
+        return { ok: true, ativo: false, motivo: "fora de slot e breaking já enviado hoje" };
+      }
+    }
+
+    // ── 3. Buscar histórico e candidatos ────────────────────────────────────
     const historicoResp = await buscarHistoricoTelegramPublicados(env);
     if (!historicoResp.ok) {
-      console.warn("[Telegram] histórico indisponível, pulando esta execução com segurança:", historicoResp.motivo);
+      console.warn("[Telegram] histórico indisponível, pulando:", historicoResp.motivo);
       return { ok: true, ativo: false, motivo: `histórico indisponível: ${historicoResp.motivo}` };
     }
 
-    const candidatos = await buscarCandidatosTelegram(env);
+    const todosCandidatos = await buscarCandidatosTelegram(env);
+    const idsJaPublicados = (historicoResp.historico || []).map(h => h.article_id);
+    const estado = computarEstadoEnviosTelegram(historicoResp.historico, agora);
+
+    // ── 4. Limite diário de notícias (só se em slot) ────────────────────────
+    if (slotAtivo && estado.enviadosHoje >= LIMITE_NOTICIAS_POR_DIA_TELEGRAM) {
+      if (env.SAUDE_KV) await env.SAUDE_KV.put(slotAtivo.kvKey, hojeStr);
+      return { ok: true, ativo: false, slotAtivo: slotAtivo.nome, motivo: `limite diário de ${LIMITE_NOTICIAS_POR_DIA_TELEGRAM} notícias já atingido` };
+    }
+
+    // ── 5. Selecionar melhor candidato ──────────────────────────────────────
+    const limiar = slotAtivo ? LIMIAR_SLOT_TELEGRAM : LIMIAR_BREAKING_TELEGRAM;
+    const candidatosElegiveis = todosCandidatos
+      .filter(a => !idsJaPublicados.includes(a.id))
+      .map(a => ({ artigo: a, ...avaliarElegibilidadeTelegram(a) }))
+      .filter(c => c.elegivel && c.pontuacao >= limiar)
+      .sort((a, b) => b.pontuacao - a.pontuacao);
+
+    if (candidatosElegiveis.length === 0) {
+      if (slotAtivo) {
+        // Slot pulado: sem notícia relevante — registrar para não retornar
+        console.log(`[Telegram] slot ${slotAtivo.nome} pulado — sem candidato com score >= ${LIMIAR_SLOT_TELEGRAM}`);
+        if (env.SAUDE_KV) await env.SAUDE_KV.put(slotAtivo.kvKey, hojeStr);
+        return { ok: true, ativo: false, slotAtivo: slotAtivo.nome, slotSkipped: true, motivoSkip: "sem_candidato_elegivel", motivo: `slot ${slotAtivo.nome} pulado — nenhum candidato com score >= ${LIMIAR_SLOT_TELEGRAM}` };
+      }
+      return { ok: true, ativo: false, motivo: `fora de slot — sem candidato de breaking (score >= ${LIMIAR_BREAKING_TELEGRAM})` };
+    }
+
+    const escolhido = candidatosElegiveis[0];
+    const tipoEnvio = slotAtivo ? slotAtivo.nome : "breaking";
+
+    // ── 6. Publicar o candidato escolhido ───────────────────────────────────
     const resultados = await processarArtigosParaTelegram(
-      candidatos, historicoResp.historico, "https://ownews.com.br", env, console, Date.now()
+      [escolhido.artigo],
+      historicoResp.historico,
+      "https://ownews.com.br",
+      env,
+      console,
+      agora,
+      { modoCuradoria: true, tipoSlot: tipoEnvio }
     );
 
-    const porId = Object.fromEntries(candidatos.map((a) => [a.id, a]));
+    const porId = { [escolhido.artigo.id]: escolhido.artigo };
     for (const r of resultados) {
       if (r.status === "publicado" || r.status === "erro") {
         await registrarResultadoTelegram(env, porId[r.articleId], r);
       }
     }
 
-    return { ok: true, ativo: true, resultados };
+    const publicou = resultados.some(r => r.status === "publicado");
+
+    // ── 7. Atualizar KV ─────────────────────────────────────────────────────
+    if (env.SAUDE_KV) {
+      if (slotAtivo) {
+        // Marcar slot como usado independente de sucesso (evitar retry no mesmo slot)
+        await env.SAUDE_KV.put(slotAtivo.kvKey, hojeStr);
+      } else if (publicou) {
+        await env.SAUDE_KV.put("telegram_breaking_dia", hojeStr);
+        await env.SAUDE_KV.put("telegram_breaking_ultimo", String(agora));
+      }
+    }
+
+    return { ok: true, ativo: true, tipoEnvio, slotAtivo: slotAtivo?.nome ?? null, resultados };
   } catch (erro) {
     console.error("[Telegram] erro inesperado no radar, ignorado com segurança (collector não é afetado):", erro.message);
     return { ok: false, motivo: erro.message };
