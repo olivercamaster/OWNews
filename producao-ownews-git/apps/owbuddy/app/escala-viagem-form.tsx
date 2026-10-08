@@ -14,8 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { calcEscalaParaDia } from '@owbuddy/domain';
 import type { ViagemFolga } from '@owbuddy/domain';
 import { getViagensFolga, setViagensFolga, getEscala } from '../src/storage';
+import { OWDatePicker } from '../src/components/OWDatePicker';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
-import { maskDateBR, parseDateBR } from '../src/format';
+import { formatDateBR } from '../src/format';
 
 function gerarId(): string {
   return `vf_${Date.now()}`;
@@ -25,16 +26,17 @@ export default function EscalaViagemForm() {
   const params = useLocalSearchParams<{ id?: string; destino?: string; ini?: string; fim?: string; obs?: string }>();
   const isEdit = !!params.id;
   const [destino, setDestino] = useState(params.destino ?? '');
-  const [ini, setIni] = useState(params.ini ? maskDateBR(params.ini.replace(/-/g, '')) : '');
-  const [fim, setFim] = useState(params.fim ? maskDateBR(params.fim.replace(/-/g, '')) : '');
+  const [ini, setIni] = useState(params.ini ?? ''); // ISO
+  const [fim, setFim] = useState(params.fim ?? ''); // ISO
   const [obs, setObs] = useState(params.obs ?? '');
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
+  const [showPickerIni, setShowPickerIni] = useState(false);
+  const [showPickerFim, setShowPickerFim] = useState(false);
 
   const verificarConflito = async (iniISO: string, fimISO: string): Promise<string> => {
     const config = await getEscala();
     if (!config) return '';
-    // Check each day in the range
     let d = new Date(iniISO + 'T12:00:00Z').getTime();
     const endMs = new Date(fimISO + 'T12:00:00Z').getTime();
     while (d <= endMs) {
@@ -50,23 +52,18 @@ export default function EscalaViagemForm() {
 
   const save = async () => {
     if (!destino.trim()) { setErro('Informe um destino.'); return; }
-    const iniISO = parseDateBR(ini);
-    const fimISO = parseDateBR(fim);
-    if (!iniISO || !fimISO) { setErro('Data inválida. Use DD/MM/AAAA.'); return; }
-    if (fimISO < iniISO) { setErro('Data fim deve ser igual ou posterior à data início.'); return; }
+    if (!ini || !fim) { setErro('Selecione as datas de início e fim.'); return; }
+    if (fim < ini) { setErro('Data fim deve ser igual ou posterior à data início.'); return; }
 
-    const conflito = await verificarConflito(iniISO, fimISO);
-    if (conflito && !aviso) {
-      setAviso(conflito);
-      return; // first press shows warning; second press saves anyway
-    }
+    const conflito = await verificarConflito(ini, fim);
+    if (conflito && !aviso) { setAviso(conflito); return; }
 
     const viagens = await getViagensFolga();
     const v: ViagemFolga = {
       id: params.id ?? gerarId(),
       destino: destino.trim(),
-      data_ini: iniISO,
-      data_fim: fimISO,
+      data_ini: ini,
+      data_fim: fim,
       obs: obs.trim() || undefined,
     };
     await setViagensFolga([...viagens.filter(x => x.id !== v.id), v]);
@@ -93,27 +90,23 @@ export default function EscalaViagemForm() {
           maxLength={80}
         />
 
-        <Text style={styles.sectionLabel}>Data início (DD/MM/AAAA)</Text>
-        <TextInput
-          style={styles.input}
-          value={ini}
-          onChangeText={v => { setIni(maskDateBR(v)); setErro(''); setAviso(''); }}
-          keyboardType="numeric"
-          placeholder="12/11/2026"
-          placeholderTextColor={colors.mutedDim}
-          maxLength={10}
-        />
+        <Text style={styles.sectionLabel}>Data início</Text>
+        <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPickerIni(true)}>
+          <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+          <Text style={[styles.dateBtnText, !ini && { color: colors.mutedDim }]}>
+            {ini ? formatDateBR(ini) : 'Selecionar'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
 
-        <Text style={styles.sectionLabel}>Data fim (DD/MM/AAAA)</Text>
-        <TextInput
-          style={styles.input}
-          value={fim}
-          onChangeText={v => { setFim(maskDateBR(v)); setErro(''); setAviso(''); }}
-          keyboardType="numeric"
-          placeholder="18/11/2026"
-          placeholderTextColor={colors.mutedDim}
-          maxLength={10}
-        />
+        <Text style={styles.sectionLabel}>Data fim</Text>
+        <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPickerFim(true)}>
+          <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+          <Text style={[styles.dateBtnText, !fim && { color: colors.mutedDim }]}>
+            {fim ? formatDateBR(fim) : 'Selecionar'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Observação (opcional)</Text>
         <TextInput
@@ -154,6 +147,13 @@ export default function EscalaViagemForm() {
           <Text style={styles.cancelText}>Cancelar</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <OWDatePicker visible={showPickerIni} value={ini} title="Data início"
+        onConfirm={v => { setIni(v); setShowPickerIni(false); setErro(''); setAviso(''); }}
+        onCancel={() => setShowPickerIni(false)} />
+      <OWDatePicker visible={showPickerFim} value={fim || ini} title="Data fim"
+        onConfirm={v => { setFim(v); setShowPickerFim(false); setErro(''); setAviso(''); }}
+        onCancel={() => setShowPickerFim(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -167,6 +167,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line,
   },
   inputMulti: { minHeight: 72, textAlignVertical: 'top' },
+  dateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: surface.card, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, minHeight: 48,
+  },
+  dateBtnText: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.white },
   erro: { color: '#f44336', fontSize: 13, marginTop: 4 },
   avisoBox: {
     flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.amber + '18',

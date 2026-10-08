@@ -16,19 +16,19 @@ import { calcularMomento, descreverMomento, AEROPORTOS_ESCALA, ESCALA_TIPOS } fr
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
-import { formatDateBR, isValidDateBR, maskDateBR, parseDateBR } from '../src/format';
+import { OWDatePicker } from '../src/components/OWDatePicker';
+import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
 
 export default function EscalaConfigScreen() {
   const [form, setForm] = useState<Partial<EscalaConfig>>({ tipo: '14x14', tipoRef: 'embarquei' });
   const [preview, setPreview] = useState('');
   const [erro, setErro] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useFocusEffect(useCallback(() => {
     getEscala().then(cfg => {
-      if (cfg) {
-        setForm({ ...cfg, dataRef: formatDateBR(cfg.dataRef) || cfg.dataRef });
-      }
+      if (cfg) setForm({ ...cfg });
     });
   }, []));
 
@@ -36,10 +36,9 @@ export default function EscalaConfigScreen() {
     const updated = { ...form, ...partial };
     setForm(updated);
     setErro('');
-    const isoDataRef = updated.dataRef ? parseDateBR(updated.dataRef) : undefined;
-    if (updated.tipo && isoDataRef && updated.tipoRef) {
+    if (updated.tipo && updated.dataRef && updated.tipoRef) {
       try {
-        const m = calcularMomento({ ...updated, dataRef: isoDataRef } as EscalaConfig);
+        const m = calcularMomento(updated as EscalaConfig);
         setPreview(descreverMomento(m));
       } catch { setPreview(''); }
     }
@@ -47,16 +46,11 @@ export default function EscalaConfigScreen() {
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
-    // Nunca falhar em silêncio: a escala antiga continuaria valendo sem o usuário saber.
-    const isoDataRef = isValidDateBR(form.dataRef) ? parseDateBR(form.dataRef) : null;
-    if (!isoDataRef) { setErro('Data inválida. Use DD/MM/AAAA (ex: 12/10/2026).'); return; }
     const existing = await getEscala();
-    // Só os campos editáveis entram — carimbo/origem são do storage (edição deste aparelho = agora).
     const { updated_at: _u, origem: _o, ...editavel } = form;
     const isoConfig: EscalaConfig = {
       ...editavel,
-      dataRef: isoDataRef,
-      // Exceções (dobras/férias) são editadas no hub — preservar sempre
+      dataRef: form.dataRef,
       excecoes: existing?.excecoes ?? [],
     } as EscalaConfig;
     if (isoConfig.tipo !== 'custom') {
@@ -100,14 +94,16 @@ export default function EscalaConfigScreen() {
         </>)}
 
         <Text style={styles.sectionLabel}>Data de referência</Text>
-        <Field
-          label="Data de referência (DD/MM/AAAA)"
-          value={maskDateBR(form.dataRef ?? '')}
-          onChange={v => update({ dataRef: maskDateBR(v) })}
-          keyboardType="numeric"
-          placeholder="05/10/2026"
-          maxLength={10}
-        />
+        <TouchableOpacity
+          style={styles.dateBtn}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+          <Text style={[styles.dateBtnText, !form.dataRef && { color: colors.mutedDim }]}>
+            {form.dataRef ? formatDateBR(form.dataRef) : 'Selecionar data'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>Nesta data eu estava...</Text>
         <View style={styles.tratRow}>
@@ -156,6 +152,14 @@ export default function EscalaConfigScreen() {
           <Text style={styles.saveBtnText}>Salvar escala</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <OWDatePicker
+        visible={showDatePicker}
+        value={form.dataRef}
+        title="Data de referência"
+        onConfirm={v => { update({ dataRef: v }); setShowDatePicker(false); }}
+        onCancel={() => setShowDatePicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -236,6 +240,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.4 },
+  dateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line,
+    marginBottom: spacing.md, minHeight: 48,
+  },
+  dateBtnText: { flex: 1, fontSize: 16, fontWeight: '500', color: colors.white },
   erroText: { ...typography.small, color: colors.red, marginBottom: spacing.sm },
   saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
 });

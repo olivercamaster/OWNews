@@ -19,7 +19,8 @@ import { getCerts, setCerts } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
-import { formatDateBR, maskDateBR, parseDateBR } from '../../src/format';
+import { OWDatePicker } from '../../src/components/OWDatePicker';
+import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -45,12 +46,8 @@ export default function MeusCerts() {
   const save = async () => {
     if (!form?.nome) { Alert.alert('Atenção', 'Nome do certificado é obrigatório.'); return; }
     const all = await getCerts();
-    // Convert BR dates to ISO before storing
     const saveForm = {
       ...form,
-      validade: form.validade ? parseDateBR(form.validade) : form.validade,
-      emissao:  form.emissao  ? parseDateBR(form.emissao)  : form.emissao,
-      // Mesmo campo que o web grava — permite merge por id (mais recente vence) na sincronização
       updated_at: new Date().toISOString(),
     };
     if (saveForm.id) {
@@ -83,7 +80,7 @@ export default function MeusCerts() {
   if (form !== null) return (
     <OWBackground>
       <CertForm
-        form={form.id ? { ...form, validade: formatDateBR(form.validade) || form.validade, emissao: formatDateBR(form.emissao) || form.emissao } : form}
+        form={form}
         onChange={setForm}
         onSave={save}
         onCancel={() => setForm(null)}
@@ -152,19 +149,53 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 function CertForm({ form, onChange, onSave, onCancel }: { form: Partial<Certificado>; onChange: (v: Partial<Certificado>) => void; onSave: () => void; onCancel: () => void }) {
+  const [showPickerValidade, setShowPickerValidade] = useState(false);
+  const [showPickerEmissao, setShowPickerEmissao] = useState(false);
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.root} contentContainerStyle={styles.formContent}>
         <Text style={fStyles.sectionLabel}>Certificado</Text>
         <Field label="Nome *" value={form.nome ?? ''} onChange={v => onChange({ ...form, nome: v })} placeholder="OPITO BOSIET, HUET, H2S..." />
         <Field label="Instituição" value={form.instituicao ?? ''} onChange={v => onChange({ ...form, instituicao: v })} placeholder="SENAI, PETROBRAS..." />
-        <Field label="Data de validade" value={maskDateBR(form.validade ?? '')} onChange={v => onChange({ ...form, validade: maskDateBR(v) })} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
-        <Field label="Data de emissão" value={maskDateBR(form.emissao ?? '')} onChange={v => onChange({ ...form, emissao: maskDateBR(v) })} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} />
+
+        <Text style={fStyles.label}>Data de validade</Text>
+        <TouchableOpacity style={fStyles.dateBtn} onPress={() => setShowPickerValidade(true)}>
+          <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
+          <Text style={[fStyles.dateBtnText, !form.validade && { color: colors.mutedDim }]}>
+            {form.validade ? formatDateBR(form.validade) : 'Selecionar'}
+          </Text>
+          {form.validade ? (
+            <TouchableOpacity onPress={() => onChange({ ...form, validade: undefined })} hitSlop={8}>
+              <Ionicons name="close-circle" size={15} color={colors.mutedDim} />
+            </TouchableOpacity>
+          ) : <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />}
+        </TouchableOpacity>
+
+        <Text style={fStyles.label}>Data de emissão</Text>
+        <TouchableOpacity style={fStyles.dateBtn} onPress={() => setShowPickerEmissao(true)}>
+          <Ionicons name="calendar-outline" size={16} color={colors.mutedDim} />
+          <Text style={[fStyles.dateBtnText, !form.emissao && { color: colors.mutedDim }]}>
+            {form.emissao ? formatDateBR(form.emissao) : 'Selecionar (opcional)'}
+          </Text>
+          {form.emissao ? (
+            <TouchableOpacity onPress={() => onChange({ ...form, emissao: undefined })} hitSlop={8}>
+              <Ionicons name="close-circle" size={15} color={colors.mutedDim} />
+            </TouchableOpacity>
+          ) : <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />}
+        </TouchableOpacity>
+
         <View style={fStyles.btnRow}>
           <TouchableOpacity style={fStyles.cancelBtn} onPress={onCancel}><Text style={fStyles.cancelText}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity style={fStyles.saveBtn} onPress={onSave}><Text style={fStyles.saveText}>Salvar</Text></TouchableOpacity>
         </View>
       </ScrollView>
+
+      <OWDatePicker visible={showPickerValidade} value={form.validade} title="Data de validade"
+        onConfirm={v => { onChange({ ...form, validade: v }); setShowPickerValidade(false); }}
+        onCancel={() => setShowPickerValidade(false)} />
+      <OWDatePicker visible={showPickerEmissao} value={form.emissao} title="Data de emissão"
+        onConfirm={v => { onChange({ ...form, emissao: v }); setShowPickerEmissao(false); }}
+        onCancel={() => setShowPickerEmissao(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -181,8 +212,15 @@ function Field({ label, value, onChange, placeholder, keyboardType, maxLength }:
 const fStyles = StyleSheet.create({
   sectionLabel: { ...typography.micro, marginBottom: spacing.md },
   fieldWrap: { marginBottom: spacing.sm },
-  label: { ...typography.small, marginBottom: 4 },
+  label: { ...typography.small, marginBottom: 4, marginTop: spacing.sm },
   input: { backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line },
+  dateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line,
+    minHeight: 44, marginBottom: spacing.sm,
+  },
+  dateBtnText: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '500' },
   btnRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   cancelBtn: { flex: 1, padding: spacing.md, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
   cancelText: { color: colors.muted, fontWeight: '600' },
