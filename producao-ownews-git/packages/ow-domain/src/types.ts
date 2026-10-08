@@ -46,6 +46,7 @@ export interface EscalaSecundaria {
   id: string;
   nome: string;
   relacao?: string;
+  icon?: string;
   tipo: EscalaTipo;
   diasEmbarcado?: number;
   diasFolga?: number;

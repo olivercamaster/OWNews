@@ -73,10 +73,13 @@ export default function EscalaCruzarScreen() {
         return (
           <View key={sec.id} style={styles.card}>
             <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardNome}>{sec.nome}</Text>
-                {sec.relacao && <Text style={styles.cardRelacao}>{sec.relacao}</Text>}
-                <Text style={styles.cardEscala}>{sec.tipo === 'custom' ? `${sec.diasEmbarcado}×${sec.diasFolga}` : sec.tipo}</Text>
+              <View style={styles.cardLeft}>
+                <Text style={styles.cardIcon}>{sec.icon ?? '🔗'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardNome}>{sec.nome}</Text>
+                  {sec.relacao && <Text style={styles.cardRelacao}>{sec.relacao}</Text>}
+                  <Text style={styles.cardEscala}>{sec.tipo === 'custom' ? `${sec.diasEmbarcado}×${sec.diasFolga}` : sec.tipo}</Text>
+                </View>
               </View>
               <TouchableOpacity onPress={() => remover(sec.id)} hitSlop={10}>
                 <Ionicons name="trash-outline" size={18} color={colors.mutedDim} />
@@ -130,6 +133,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.line, gap: spacing.sm,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, flex: 1 },
+  cardIcon: { fontSize: 24, marginTop: 2 },
   cardNome: { fontSize: 16, fontWeight: '700', color: colors.white },
   cardRelacao: { fontSize: 12, color: colors.cyanDim, marginTop: 1 },
   cardEscala: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },

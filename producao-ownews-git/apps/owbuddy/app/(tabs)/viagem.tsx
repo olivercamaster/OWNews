@@ -20,8 +20,9 @@ import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '.
 import { OWBackground } from '../../src/components/OWBackground';
 import { OWCard } from '../../src/components/OWCard';
 import { OWEmptyState } from '../../src/components/OWEmptyState';
+import { OWDatePicker } from '../../src/components/OWDatePicker';
 import { OWTimePicker, normalizeHora } from '../../src/components/OWTimePicker';
-import { formatDateBR, maskDateBR, parseDateBR, isValidDateBR } from '../../src/format';
+import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 
 const TIPOS: ViagemTipo[] = ['AVIAO', 'ONIBUS', 'CARRO', 'VAN', 'EMPRESA', 'OUTRO'];
@@ -58,7 +59,7 @@ export default function MinhaViagem() {
 
   const startEdit = () => {
     if (viagem) {
-      setForm({ ...viagem, data: formatDateBR(viagem.data) || viagem.data });
+      setForm({ ...viagem });
       setEditing(true);
     }
   };
@@ -68,16 +69,10 @@ export default function MinhaViagem() {
       Alert.alert('Atenção', 'Data e tipo são obrigatórios.');
       return;
     }
-    if (!isValidDateBR(form.data)) {
-      Alert.alert('Data inválida', 'Use o formato DD/MM/AAAA (ex: 12/10/2026).');
-      return;
-    }
-    const isoData = parseDateBR(form.data) ?? form.data;
     const v: Viagem = {
       ...(form as Viagem),
       tipo: form.tipo as ViagemTipo,
-      data: isoData,
-      // Garante maiúsculas no voo
+      data: form.data,
       num_voo: form.num_voo ? normalizeVoo(form.num_voo) : undefined,
     };
     await setViagem(v);
@@ -223,6 +218,7 @@ function ViagemForm({
 }) {
   const tipo = form.tipo ?? 'AVIAO';
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const insets = useSafeAreaInsets();
 
   return (
@@ -250,14 +246,13 @@ function ViagemForm({
         <Text style={formStyles.sectionLabel}>Data e horário</Text>
         <View style={formStyles.dateTimeRow}>
           <View style={{ flex: 1 }}>
-            <Field
-              label="Data *"
-              placeholder="DD/MM/AAAA"
-              value={maskDateBR(form.data ?? '')}
-              onChange={v => onChange({ ...form, data: maskDateBR(v) })}
-              keyboardType="numeric"
-              maxLength={10}
-            />
+            <Text style={formStyles.fieldLabel}>Data *</Text>
+            <TouchableOpacity style={formStyles.horaBtn} onPress={() => setShowDatePicker(true)}>
+              <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
+              <Text style={[formStyles.horaBtnText, !form.data && { color: colors.mutedDim }]}>
+                {form.data ? formatDateBR(form.data) : 'Selecionar'}
+              </Text>
+            </TouchableOpacity>
           </View>
           {/* Botão de hora — abre OWTimePicker */}
           <View style={{ width: 110 }}>
@@ -405,6 +400,16 @@ function ViagemForm({
           setShowTimePicker(false);
         }}
         onCancel={() => setShowTimePicker(false)}
+      />
+      <OWDatePicker
+        visible={showDatePicker}
+        value={form.data}
+        title="Data da viagem"
+        onConfirm={(v) => {
+          onChange({ ...form, data: v });
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
       />
     </KeyboardAvoidingView>
   );
