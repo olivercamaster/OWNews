@@ -146,7 +146,7 @@ export default function TelaHoje() {
   // Reserva no fim do scroll para a nav flutuante nunca cobrir o último card (Android + iOS).
   const insets = useSafeAreaInsets();
   const contentStyle = [styles.content, {
-    paddingTop: insets.top + spacing.md,
+    paddingTop: insets.top + spacing.lg,
     paddingBottom: bottomNavSpace(insets.bottom),
   }];
 
@@ -200,7 +200,7 @@ export default function TelaHoje() {
             hitSlop={12}
             accessibilityLabel="Configurações do Buddy"
           >
-            <Ionicons name="person-circle-outline" size={28} color={colors.muted} />
+            <Ionicons name="person-circle-outline" size={32} color={colors.muted} />
           </TouchableOpacity>
         </View>
 
@@ -524,20 +524,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
   },
   greetingLeft: { flex: 1, marginRight: spacing.sm },
-  greetingText: { fontSize: 22, fontWeight: '700', color: colors.white, marginBottom: 6 },
+  greetingText: { fontSize: 30, fontWeight: '700', color: colors.white, marginBottom: 10 },
   momentoChip: {
     alignSelf: 'flex-start',
     borderWidth: 1,
     borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
   },
-  momentoChipText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
-  configBtn: { paddingTop: 2 },
+  momentoChipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
+  configBtn: { paddingTop: 4 },
 
   // Weather
   weatherCard: {
@@ -653,19 +653,19 @@ const styles = StyleSheet.create({
 
   // Escala status card (3 estados)
   escalaCard: {
-    backgroundColor: maritime.glassElevated, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: maritime.glassBorder, gap: spacing.sm,
+    backgroundColor: maritime.glassElevated, borderRadius: radius.lg, padding: spacing.lg,
+    marginBottom: spacing.md, borderWidth: 1, borderColor: maritime.glassBorder, gap: spacing.md,
     ...maritime.cardShadow,
   },
   escalaCardEmbarcado: { borderColor: colors.green + '55' },
   escalaCardFolga: { borderColor: colors.amber + '44' },
   escalaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  escalaLabel: { fontSize: 10, fontWeight: '700', color: colors.mutedDim, letterSpacing: 0.8 },
-  escalaValue: { fontSize: 16, fontWeight: '700', color: colors.white, marginTop: 2 },
-  escalaSub: { fontSize: 12, color: colors.mutedDim, marginTop: 2 },
+  escalaLabel: { fontSize: 10, fontWeight: '700', color: colors.mutedDim, letterSpacing: 1 },
+  escalaValue: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 4 },
+  escalaSub: { fontSize: 13, color: colors.mutedDim, marginTop: 4 },
   escalaRight: { alignItems: 'flex-end' },
-  escalaCountdown: { fontSize: 24, fontWeight: '700', color: colors.green },
-  escalaUnit: { fontSize: 10, color: colors.mutedDim },
+  escalaCountdown: { fontSize: 36, fontWeight: '700', color: colors.green },
+  escalaUnit: { fontSize: 11, color: colors.mutedDim },
   escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
   escalaProgress: { height: 4, backgroundColor: 'rgba(6, 28, 43, 0.6)', borderRadius: 2, overflow: 'hidden' },
   escalaFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
