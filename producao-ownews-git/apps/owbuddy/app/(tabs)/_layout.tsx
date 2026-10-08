@@ -94,6 +94,14 @@ export default function TabLayout() {
           headerStyle: { backgroundColor: '#07223a' },
         }}
       />
+      <Tabs.Screen
+        name="loja"
+        options={{
+          title: 'Loja',
+          tabBarIcon: ({ focused }) => <TabIcon name="storefront" focused={focused} />,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }
