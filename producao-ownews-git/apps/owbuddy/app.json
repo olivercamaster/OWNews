@@ -17,9 +17,9 @@
       "package": "br.com.ownews.owbuddy",
       "versionCode": 11,
       "adaptiveIcon": {
-        "backgroundColor": "#061c2b",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png"
+        "backgroundColor": "#061c2b",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
