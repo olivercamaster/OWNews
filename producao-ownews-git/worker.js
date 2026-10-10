@@ -21509,7 +21509,7 @@ function nlEmailHtml(edition, unsubUrl) {
   if (hlSec && hlSec.items && hlSec.items.length) {
     rows += `<tr><td style="padding:0 24px 4px"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0de8c8;margin-bottom:12px">DESTAQUES DA SEMANA</div>`;
     hlSec.items.forEach(item => {
-      rows += `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px solid #1a3a50;margin-bottom:12px"><tr><td style="padding:0 0 12px"><a href="${esc(item.url)}" style="display:block;font-size:14px;font-weight:600;color:#dde8f0;text-decoration:none;line-height:1.4;margin-bottom:4px">${esc(item.headline)}</a><p style="margin:0;font-size:12px;color:#6a8898;line-height:1.5">${esc((item.summary||'').slice(0,150))}${item.summary&&item.summary.length>150?'…':''}</p></td></tr></table>`;
+      rows += `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px solid #1a3a50;margin-bottom:14px"><tr><td style="padding:0 0 14px"><a href="${esc(item.url)}" style="display:block;font-size:14px;font-weight:600;color:#dde8f0;text-decoration:none;line-height:1.4;margin-bottom:5px">${esc(item.headline)}</a><p style="margin:0 0 8px;font-size:12px;color:#6a8898;line-height:1.5">${esc((item.summary||'').slice(0,120))}${item.summary&&item.summary.length>120?'…':''}</p><a href="${esc(item.url)}" style="font-size:11px;font-weight:700;color:#0de8c8;text-decoration:none;letter-spacing:.04em">LER →</a></td></tr></table>`;
     });
     rows += `</td></tr>`;
   }
@@ -21572,52 +21572,189 @@ async function nlEnviarParaTodos(kv, resendKey, edition) {
 function nlRenderLanding(edIndex) {
   const sentEditions = (edIndex || []).filter(e => e.status === 'sent').slice(0, 6);
   const archiveHtml = sentEditions.length
-    ? '<div class="nl-archive"><span class="nl-sec-titulo">Edições anteriores</span><div class="nl-ed-list">' +
-      sentEditions.map(e => '<a class="nl-ed-item" href="/newsletter/edicao/' + escaparHTML(e.slug) + '"><span class="nl-ed-titulo">' + escaparHTML(e.title) + '</span><span class="nl-ed-data">' + nlFormatDate(e.sent_at || e.period_end) + '</span></a>').join('') +
-      '</div></div>'
-    : '';
+    ? '<section class="nl-archive" aria-label="Edições anteriores">' +
+      '<span class="nl-sec-titulo">Edições anteriores</span>' +
+      '<div class="nl-ed-list">' +
+      sentEditions.map(e =>
+        '<a class="nl-ed-item" href="/newsletter/edicao/' + escaparHTML(e.slug) + '">' +
+        '<span class="nl-ed-titulo">' + escaparHTML(e.title) + '</span>' +
+        '<span class="nl-ed-data">' + nlFormatDate(e.sent_at || e.period_end) + '</span>' +
+        '</a>'
+      ).join('') +
+      '</div></section>'
+    : '<section class="nl-archive">' +
+      '<span class="nl-sec-titulo">Edições anteriores</span>' +
+      '<p class="nl-archive-empty">A primeira edição está chegando em breve.</p>' +
+      '</section>';
 
-  const conteudo =
+  const nlCss =
+    '<style>' +
+    '.hub-main:has(.nl-landing) .compartilhar-bloco{display:none}' +
+    '.nl-vhide{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}' +
+    '.nl-hero-grid{display:grid;grid-template-columns:1fr;gap:0;margin:28px 0 0}' +
+    '.nl-hero{padding:8px 0 0}' +
+    '.nl-tagline{font-size:18px;color:var(--muted);margin:10px 0 0;line-height:1.5;font-weight:500}' +
+    '.nl-desc{font-size:14px;color:var(--muted-dim);margin:14px 0 30px;line-height:1.65;max-width:46ch}' +
+    '.nl-row{display:flex;max-width:480px;height:50px}' +
+    '.nl-input{min-width:0;flex:1;padding:0 16px;border:1.5px solid var(--line-soft);border-right:0;border-radius:8px 0 0 8px;background:var(--navy-800);color:var(--white);font-family:inherit;font-size:16px;outline:none;transition:border-color .2s}' +
+    '.nl-input:focus{border-color:var(--cyan)}' +
+    '.nl-input::placeholder{color:var(--muted-dim)}' +
+    '.nl-cta{border:0;background:var(--cyan);color:#061c2b;font-weight:800;padding:0 22px;border-radius:0 8px 8px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap;transition:background .15s;letter-spacing:.04em}' +
+    '.nl-cta:hover:not(:disabled){background:#0fc3ff}' +
+    '.nl-cta:disabled{opacity:.6;cursor:wait}' +
+    '.nl-trust{font-size:12px;color:var(--muted-dim);margin:10px 0 0}' +
+    '.nl-consent{font-size:11px;color:var(--muted-dim);margin:14px 0 0;line-height:1.6;max-width:480px}' +
+    '.nl-msg{font-size:13px;margin:12px 0 0;padding:10px 14px;border-radius:6px;line-height:1.5;display:none}' +
+    '.nl-msg.visible{display:block}' +
+    '.nl-msg.ok{background:rgba(13,232,200,.1);color:var(--cyan);border:1px solid rgba(13,232,200,.25)}' +
+    '.nl-msg.err{background:rgba(220,50,50,.08);color:#e86060;border:1px solid rgba(220,50,50,.2)}' +
+    '.nl-preview-wrap{display:none}' +
+    '.nl-preview{background:#0d2c40;border:1px solid #1e4a65;border-radius:12px;padding:20px;font-size:13px;color:#7aa0b4;max-width:360px;box-shadow:0 4px 32px rgba(0,0,0,.4)}' +
+    '.nl-preview-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #1b3e55}' +
+    '.nl-preview-brand{font-family:var(--ui);font-size:14px;font-weight:800;color:#fff}' +
+    '.nl-preview-brand em{color:var(--cyan);font-style:normal}' +
+    '.nl-preview-badge{font-family:var(--ui);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#3a6a7a}' +
+    '.nl-preview-eye{font-family:var(--ui);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);margin:0 0 8px}' +
+    '.nl-sk{background:#1b3a52;border-radius:3px;height:10px;margin-bottom:6px}' +
+    '.nl-sk-lg{height:14px;width:80%}' +
+    '.nl-sk-md{width:65%}' +
+    '.nl-sk-sm{width:45%}' +
+    '.nl-preview-cta-sk{background:rgba(13,232,200,.22);border-radius:3px;height:22px;width:90px;margin:10px 0 4px}' +
+    '.nl-preview-divhr{border:0;border-top:1px solid #1b3e55;margin:12px 0}' +
+    '.nl-preview-buddy{background:#071e2e;border-left:2px solid var(--cyan);border-radius:0 4px 4px 0;padding:8px 10px;margin-top:10px;font-size:10px;color:#4a7090;line-height:1.4}' +
+    '.nl-benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:44px 0 0}' +
+    '.nl-benefit{background:var(--navy-900);border:1px solid var(--line-hair);border-radius:10px;padding:18px 16px}' +
+    '.nl-benefit-title{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);display:block;margin:0 0 5px}' +
+    '.nl-benefit-desc{font-size:13px;color:var(--muted);line-height:1.45;margin:0}' +
+    '.nl-sections-wrap{margin:52px 0 0}' +
+    '.nl-sections-titulo,.nl-archive-titulo,.nl-como-titulo,.nl-sec-titulo{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 20px;display:block}' +
+    '.nl-sections-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}' +
+    '.nl-sec-card{background:var(--navy-900);border:1px solid var(--line-hair);border-radius:10px;padding:16px 14px}' +
+    '.nl-sec-card-title{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--white);display:block;margin:0 0 6px}' +
+    '.nl-sec-card-desc{font-size:12px;color:var(--muted);line-height:1.45;margin:0}' +
+    '.nl-sections-note{font-size:11px;color:var(--muted-dim);margin:14px 0 0;line-height:1.5}' +
+    '.nl-buddy-strip{display:flex;gap:20px;align-items:center;margin:52px 0 0;background:var(--navy-900);border:1px solid var(--line-hair);border-radius:10px;padding:20px 24px}' +
+    '.nl-buddy-img{flex-shrink:0;width:52px;height:54px;object-fit:contain}' +
+    '.nl-buddy-tag{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);display:block;margin:0 0 6px}' +
+    '.nl-buddy-text{font-size:14px;color:var(--muted);line-height:1.6;margin:0}' +
+    '.nl-como-wrap{margin:52px 0 0}' +
+    '.nl-como-steps{display:flex;flex-direction:column;gap:16px}' +
+    '.nl-como-step{display:flex;align-items:flex-start;gap:14px}' +
+    '.nl-como-num{font-family:var(--ui);font-size:26px;font-weight:800;color:var(--cyan);opacity:.28;line-height:1;flex-shrink:0;width:34px}' +
+    '.nl-como-h{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white);margin:0 0 3px}' +
+    '.nl-como-p{font-size:13px;color:var(--muted);line-height:1.5;margin:0}' +
+    '.nl-archive{margin:52px 0 0}' +
+    '.nl-archive-empty{font-size:14px;color:var(--muted-dim);padding:20px 0;border-top:1px solid var(--line-hair);border-bottom:1px solid var(--line-hair)}' +
+    '.nl-ed-list{display:flex;flex-direction:column;gap:4px}' +
+    '.nl-ed-item{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:12px 16px;border:1px solid var(--line-hair);border-radius:8px;text-decoration:none;color:inherit;background:transparent;transition:background .15s}' +
+    '.nl-ed-item:hover{background:var(--navy-900)}' +
+    '.nl-ed-titulo{font-size:14px;color:var(--white);font-weight:500}' +
+    '.nl-ed-data{font-size:11px;color:var(--muted-dim);white-space:nowrap;flex-shrink:0}' +
+    '@media(min-width:900px){.nl-hero-grid{grid-template-columns:55fr 45fr;gap:48px;align-items:center}.nl-preview-wrap{display:block}}' +
+    '@media(min-width:640px){.nl-sections-grid{grid-template-columns:repeat(4,1fr)}.nl-como-steps{flex-direction:row;gap:0}.nl-como-step{flex:1;padding-right:20px}}' +
+    '@media(max-width:540px){.nl-benefits{grid-template-columns:1fr}.nl-row{flex-direction:column;height:auto}.nl-input{border-right:1.5px solid var(--line-soft);border-bottom:0;border-radius:8px 8px 0 0;height:50px}.nl-cta{border-radius:0 0 8px 8px;padding:14px 20px}}' +
+    'html[data-theme="light"] .nl-preview{background:#e4edf7;border-color:#bdd0e3}' +
+    'html[data-theme="light"] .nl-preview-top{border-bottom-color:#ccdaeb}' +
+    'html[data-theme="light"] .nl-sk{background:#ccdaeb}' +
+    'html[data-theme="light"] .nl-preview-cta-sk{background:rgba(10,102,179,.18)}' +
+    'html[data-theme="light"] .nl-preview-buddy{background:#e8f3fc;color:#3a607a}' +
+    'html[data-theme="light"] .nl-benefit,html[data-theme="light"] .nl-sec-card,html[data-theme="light"] .nl-buddy-strip{box-shadow:0 1px 2px rgba(11,35,64,.05),0 4px 14px rgba(11,35,64,.05)}' +
+    '</style>';
+
+  const previewHtml =
+    '<div class="nl-preview-wrap" aria-hidden="true">' +
+    '<div class="nl-preview">' +
+    '<div class="nl-preview-top">' +
+    '<span class="nl-preview-brand">OW<em>News</em></span>' +
+    '<span class="nl-preview-badge">Radar da Semana</span>' +
+    '</div>' +
+    '<div class="nl-preview-eye">O QUE MARCOU A SEMANA</div>' +
+    '<div class="nl-sk nl-sk-lg"></div>' +
+    '<div class="nl-sk nl-sk-md"></div>' +
+    '<div class="nl-sk nl-sk-sm"></div>' +
+    '<div class="nl-preview-cta-sk"></div>' +
+    '<hr class="nl-preview-divhr">' +
+    '<div class="nl-preview-eye">DESTAQUES DA SEMANA</div>' +
+    '<div class="nl-sk nl-sk-md"></div>' +
+    '<div class="nl-sk nl-sk-sm"></div>' +
+    '<div class="nl-sk nl-sk-md"></div>' +
+    '<div class="nl-sk nl-sk-sm"></div>' +
+    '<div class="nl-preview-buddy">Buddy te explica o assunto mais importante da semana</div>' +
+    '</div>' +
+    '</div>';
+
+  const conteudo = nlCss +
+    '<div class="nl-landing">' +
+    '<div class="nl-hero-grid">' +
     '<div class="nl-hero">' +
     '<span class="eyebrow">Newsletter Semanal</span>' +
     '<h1>Radar da Semana</h1>' +
     '<p class="nl-tagline">O que movimentou o offshore, em poucos minutos.</p>' +
-    '</div>' +
-    '<div class="nl-card">' +
-    '<p class="nl-desc">Toda semana, uma seleção cuidadosa do que realmente importou no offshore: notícias, mercado e contexto. Sem urgência — só o essencial.</p>' +
+    '<p class="nl-desc">Uma seleção do que realmente importou no offshore durante a semana — notícias, mercado, unidades e oportunidades.</p>' +
     '<form id="nlForm" class="nl-form" novalidate>' +
+    '<label for="nlEmail" class="nl-vhide">Endereço de e-mail</label>' +
     '<div class="nl-row">' +
-    '<input type="email" id="nlEmail" name="email" placeholder="Seu melhor e-mail" required autocomplete="email" class="nl-input" aria-label="E-mail">' +
-    '<button type="submit" id="nlBtn" class="nl-cta">Quero receber</button>' +
+    '<input type="email" id="nlEmail" name="email" placeholder="Seu melhor e-mail" required autocomplete="email" inputmode="email" class="nl-input">' +
+    '<button type="submit" id="nlBtn" class="nl-cta">QUERO RECEBER</button>' +
     '</div>' +
-    '<p class="nl-consent">Ao se inscrever, você concorda em receber o Radar da Semana por e-mail. Cancele quando quiser. Conforme a LGPD.</p>' +
-    '<p id="nlMsg" class="nl-msg" hidden></p>' +
+    '<p id="nlMsg" class="nl-msg" role="status" aria-live="polite"></p>' +
+    '<p class="nl-consent">Ao se inscrever, você concorda em receber o Radar da Semana por e-mail. Conforme a LGPD. Cancele quando quiser.</p>' +
     '</form>' +
+    '<p class="nl-trust">Gratuito · Todo domingo · Cancele quando quiser</p>' +
     '</div>' +
+    previewHtml +
+    '</div>' +
+    '<div class="nl-benefits">' +
+    '<div class="nl-benefit"><span class="nl-benefit-title">Todo Domingo</span><p class="nl-benefit-desc">Às 18h, direto na sua caixa de entrada.</p></div>' +
+    '<div class="nl-benefit"><span class="nl-benefit-title">Curadoria Editorial</span><p class="nl-benefit-desc">Só o que realmente importou na semana.</p></div>' +
+    '<div class="nl-benefit"><span class="nl-benefit-title">Gratuito</span><p class="nl-benefit-desc">Sem limite de edições. Cancele quando quiser.</p></div>' +
+    '</div>' +
+    '<section class="nl-sections-wrap">' +
+    '<span class="nl-sections-titulo">O que você recebe</span>' +
+    '<div class="nl-sections-grid">' +
+    '<div class="nl-sec-card"><span class="nl-sec-card-title">Notícias</span><p class="nl-sec-card-desc">Os acontecimentos mais importantes da semana.</p></div>' +
+    '<div class="nl-sec-card"><span class="nl-sec-card-title">Mercado</span><p class="nl-sec-card-desc">Contratos e movimentos que merecem atenção.</p></div>' +
+    '<div class="nl-sec-card"><span class="nl-sec-card-title">Radar Offshore</span><p class="nl-sec-card-desc">Movimentações relevantes de unidades quando confirmadas.</p></div>' +
+    '<div class="nl-sec-card"><span class="nl-sec-card-title">Oportunidades</span><p class="nl-sec-card-desc">Vagas selecionadas quando disponíveis.</p></div>' +
+    '</div>' +
+    '<p class="nl-sections-note">As seções variam conforme o que realmente aconteceu na semana.</p>' +
+    '</section>' +
+    '<div class="nl-buddy-strip">' +
+    '<img src="/icons/buddy-head.png" alt="" class="nl-buddy-img" width="52" height="54" loading="lazy" aria-hidden="true">' +
+    '<div>' +
+    '<span class="nl-buddy-tag">Buddy te explica</span>' +
+    '<p class="nl-buddy-text">O assunto mais importante da semana, explicado de forma direta — para você entender o contexto mesmo que não tenha acompanhado o dia a dia.</p>' +
+    '</div>' +
+    '</div>' +
+    '<section class="nl-como-wrap">' +
+    '<span class="nl-como-titulo">Como funciona</span>' +
+    '<div class="nl-como-steps">' +
+    '<div class="nl-como-step"><span class="nl-como-num">01</span><div><p class="nl-como-h">Você se cadastra.</p><p class="nl-como-p">Grátis, sem compromisso.</p></div></div>' +
+    '<div class="nl-como-step"><span class="nl-como-num">02</span><div><p class="nl-como-h">O OWNews seleciona.</p><p class="nl-como-p">O que realmente importou no offshore durante a semana.</p></div></div>' +
+    '<div class="nl-como-step"><span class="nl-como-num">03</span><div><p class="nl-como-h">Domingo você recebe.</p><p class="nl-como-p">O Radar da Semana chega às 18h.</p></div></div>' +
+    '</div>' +
+    '</section>' +
     archiveHtml +
-    '<div class="nl-info-boxes">' +
-    '<div class="nl-info-box"><span class="nl-info-titulo">Toda semana</span><span class="nl-info-desc">Publicado todo domingo às 18h</span></div>' +
-    '<div class="nl-info-box"><span class="nl-info-titulo">Curado</span><span class="nl-info-desc">Seleção editorial, não automação</span></div>' +
-    '<div class="nl-info-box"><span class="nl-info-titulo">Gratuito</span><span class="nl-info-desc">Sem limite de edições</span></div>' +
-    '</div>' +
-    '<script>(function(){' +
+    '<scr' + 'ipt>(function(){' +
     'var f=document.getElementById("nlForm");' +
     'var inp=document.getElementById("nlEmail");' +
     'var btn=document.getElementById("nlBtn");' +
     'var msg=document.getElementById("nlMsg");' +
-    'function show(t,ok){msg.textContent=t;msg.className="nl-msg "+(ok?"ok":"err");msg.hidden=false;}' +
+    'function show(t,ok){msg.textContent=t;msg.className="nl-msg visible "+(ok?"ok":"err");}' +
     'f.addEventListener("submit",function(e){e.preventDefault();' +
     'var em=inp.value.trim();' +
     'if(!em||em.indexOf("@")<1||em.split("@")[1].indexOf(".")<0){show("E-mail inválido.",false);return;}' +
     'btn.disabled=true;btn.textContent="Aguarde…";' +
     'fetch("/api/newsletter/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})})' +
     '.then(function(r){return r.json();})' +
-    '.then(function(d){if(d.ok){show("✓ Inscrito! O próximo Radar da Semana chegará no seu e-mail.",true);f.style.display="none";}' +
-    'else{show(d.erro||"Ocorreu um erro. Tente novamente.",false);}' +
-    'btn.disabled=false;btn.textContent="Quero receber";})' +
-    '.catch(function(){show("Ocorreu um erro. Tente novamente.",false);btn.disabled=false;btn.textContent="Quero receber";});' +
+    '.then(function(d){' +
+    'btn.disabled=false;btn.textContent="QUERO RECEBER";' +
+    'if(d.ok){f.style.display="none";show(d.ja_inscrito?"Você já está inscrito. O próximo Radar da Semana chegará no seu e-mail.":d.reativado?"Inscrição reativada. Bom ter você de volta!":"Inscrito! O próximo Radar da Semana chegará no seu e-mail.",true);}' +
+    'else{show(d.erro||"Ocorreu um erro. Tente novamente.",false);}})' +
+    '.catch(function(){show("Ocorreu um erro. Tente novamente.",false);btn.disabled=false;btn.textContent="QUERO RECEBER";});' +
     '});' +
-    '})();</scr' + 'ipt>';
+    '})();</scr' + 'ipt>' +
+    '</div>';
 
   return paginaChrome(
     'OWNews | Radar da Semana',
@@ -23260,6 +23397,29 @@ export default {
     }
 
     // ── /newsletter/ fim ──────────────────────────────────────────────────
+
+    // Envio de teste direto (sem CC auth) — protegido por token one-time via KV
+    if (url.pathname === "/api/newsletter/debug-test-send" && request.method === "POST") {
+      if (!env.RESEND_API_KEY) return _jsonResp({ ok: false, erro: "RESEND_API_KEY não configurada" });
+      let body; try { body = await request.json(); } catch { return _jsonResp({ ok: false, erro: "json inválido" }, 400); }
+      const { token, to, edition_id } = body || {};
+      if (!token || !to || to.indexOf("@") < 1) return _jsonResp({ ok: false, erro: "token e to obrigatórios" }, 400);
+      const tokenVal = await env.PERGUNTE_IA_KV.get("nl_test_token:" + token);
+      if (!tokenVal) return _jsonResp({ ok: false, erro: "token inválido ou expirado" }, 401);
+      await env.PERGUNTE_IA_KV.delete("nl_test_token:" + token);
+      let edId = edition_id;
+      if (!edId) {
+        const idx = await nlGetEdIndex(env.PERGUNTE_IA_KV);
+        const latest = idx.find(e => e.status === "draft" || e.status === "ready" || e.status === "approved");
+        if (!latest) return _jsonResp({ ok: false, erro: "nenhum draft disponível" }, 404);
+        edId = latest.id;
+      }
+      const edition = await nlGetEdition(env.PERGUNTE_IA_KV, edId);
+      if (!edition) return _jsonResp({ ok: false, erro: "edição não encontrada no KV" }, 404);
+      const unsubUrl = "https://ownews.com.br/newsletter/cancelar?token=TEST";
+      const r = await nlEnviarEmail(env, to, "[TESTE] " + edition.subject, nlEmailHtml(edition, unsubUrl));
+      return _jsonResp({ ...r, edition_id: edId, subject: edition.subject, to: to.replace(/(?<=.{3}).(?=.*@)/g,'*'), from: "OWNews Radar <radar@ownews.com.br>", status_edicao: edition.status });
+    }
 
     return pagina404();
   }
