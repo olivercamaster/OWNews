@@ -783,6 +783,158 @@ test("batch dedupe: todas duplicatas → Set completo", () => {
   assertEq(resultado.size, 2);
 });
 
+// ── Camada Editorial — Buddy + Impacto Offshore (P0 Editorial 1.0) ───────────
+
+// Inlined from shrill-pond-a915-fix/worker.js (gerarCamadaEditorialParaArtigo)
+const BUDDY_FRASES_PROIBIDAS_T = [
+  'em um movimento estratégico', 'num movimento estratégico',
+  'reforça seu compromisso', 'reforça o compromisso',
+  'marca um novo capítulo', 'novo capítulo',
+  'promete revolucionar', 'vai revolucionar',
+  'vai gerar novas vagas', 'vai gerar vagas', 'deve gerar vagas', 'gerar milhares de vagas',
+  'isso vai gerar', 'abre caminho para', 'é um divisor de águas',
+  'pode afetar produção, logística, contratos ou mobilização',
+  'o impacto operacional depende dos desdobramentos',
+  'nesta edição', 'foto: divulgação', 'foto: reprodução'
+];
+
+function _validarTextoCamadaEditorial(texto) {
+  if (typeof texto !== 'string') return { ok: false, motivo: 'nao_string' };
+  const t = texto.trim();
+  if (t.length < 40) return { ok: false, motivo: 'curto' };
+  if (t.endsWith('...') || t.endsWith('…') || /\w\.{2,}$/.test(t)) return { ok: false, motivo: 'truncado' };
+  if (t.length > 600) return { ok: false, motivo: 'longo' };
+  if (/<[a-z!\/][^>]*>/i.test(t)) return { ok: false, motivo: 'html' };
+  const frases = t.split(/(?<=[.!?])\s+/).filter((f) => f.trim().length > 0);
+  if (frases.length < 1 || frases.length > 4) return { ok: false, motivo: 'frases' };
+  const baixo = t.toLowerCase();
+  const proibida = BUDDY_FRASES_PROIBIDAS_T.find((p) => baixo.includes(p));
+  if (proibida) return { ok: false, motivo: 'frase_proibida:' + proibida };
+  return { ok: true, motivo: null };
+}
+
+function _ehCopiaDoLead(gerado, resumoOriginal) {
+  if (!gerado || !resumoOriginal) return false;
+  var norm = function(s) {
+    return s.toLowerCase().replace(/[^a-zà-ü\s]/g, ' ').split(/\s+/).filter(function(w) { return w.length > 4; });
+  };
+  var gW = norm(String(gerado).slice(0, 200));
+  var rW = norm(String(resumoOriginal).slice(0, 200));
+  if (!gW.length || !rW.length) return false;
+  var rSet = {};
+  rW.forEach(function(w) { rSet[w] = true; });
+  var overlap = gW.filter(function(w) { return rSet[w]; }).length;
+  return overlap / Math.max(gW.length, 1) > 0.70;
+}
+
+function _validarImpactoOffshore(texto) {
+  if (!texto || typeof texto !== 'string') return { ok: false, motivo: 'vazio' };
+  const t = texto.trim();
+  if (t.length < 40) return { ok: false, motivo: 'muito_curto' };
+  const PROIBIDOS = [
+    { re: /pode\s+gerar\s+(novas?\s+)?vagas/i, label: 'vagas_sem_base' },
+    { re: /mercado\s+offshore\s+continua\s+aquecido/i, label: 'boilerplate_aquecido' },
+    { re: /importante\s+avan[çc]o\s+para\s+o\s+setor/i, label: 'boilerplate_avanco' },
+    { re: /aumento\s+de\s+sal[aá]rios/i, label: 'salarios_sem_base' },
+  ];
+  for (let i = 0; i < PROIBIDOS.length; i++) {
+    if (PROIBIDOS[i].re.test(t)) return { ok: false, motivo: PROIBIDOS[i].label };
+  }
+  return { ok: true };
+}
+
+function _gerarBuddySummaryFallback(artigo) {
+  const titulo = String((artigo && artigo.title) || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo  = String((artigo && artigo.content) || '').trim();
+  const base = (corpo.length > resumo.length && corpo !== resumo) ? corpo : resumo;
+  if (!base || base.length < 80) return null;
+  const textoNorm = base.replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').replace(/  +/g, ' ');
+  const todas = (textoNorm.match(/[^.!?]+[.!?]+/g) || []).map((f) => f.trim()).filter((f) => f.length >= 28 && f.length <= 300);
+  if (!todas.length) return null;
+  const tWords = titulo.toLowerCase().replace(/[^\wà-ú\s]/g, '').split(/\s+/).filter((w) => w.length > 4);
+  const maxOverlap = Math.min(4, Math.max(2, Math.ceil(tWords.length * 0.65)));
+  const filtradas = todas.filter((f) => {
+    const fl = f.toLowerCase();
+    const overlap = tWords.filter((w) => fl.includes(w)).length;
+    return overlap < maxOverlap;
+  });
+  const filtradas2 = filtradas.filter((f) => !_ehCopiaDoLead(f, resumo));
+  const candidatas = (filtradas2.length >= 1 ? filtradas2 : filtradas.length >= 1 ? filtradas : todas).slice(0, 3);
+  for (let n = Math.min(3, candidatas.length); n >= 1; n--) {
+    const t = candidatas.slice(0, n).join(' ').trim();
+    if (_validarTextoCamadaEditorial(t).ok && !_ehCopiaDoLead(t, resumo)) return t;
+  }
+  return null;
+}
+
+console.log("\nCamada Editorial — gerarBuddySummaryFallback");
+
+test("artigo sem conteúdo → null", () => {
+  assertEq(_gerarBuddySummaryFallback({ title: "Teste", summary: "", content: "" }), null);
+});
+
+test("artigo com resumo curto (<80) → null", () => {
+  assertEq(_gerarBuddySummaryFallback({ title: "Teste", summary: "Texto curto.", content: "" }), null);
+});
+
+test("artigo com conteúdo válido → string não nula", () => {
+  const artigo = {
+    title: "Petrobras anuncia novo contrato de FPSO",
+    summary: "A Petrobras fechou acordo com a SBM Offshore para operar o FPSO Almirante Barroso no campo de Búzios, no pré-sal da Bacia de Santos.",
+    content: "A Petrobras fechou um contrato de longa duração com a SBM Offshore para a operação do FPSO Almirante Barroso no campo de Búzios, no pré-sal da Bacia de Santos. O FPSO tem capacidade para 225 mil barris de óleo por dia e 12 milhões de metros cúbicos de gás. O início das operações está previsto para 2027."
+  };
+  const resultado = _gerarBuddySummaryFallback(artigo);
+  assert(resultado !== null, "deve retornar string não nula");
+  assert(typeof resultado === "string", "deve ser string");
+  assert(resultado.length >= 40, "deve ter ao menos 40 chars");
+  assert(!resultado.includes("<"), "sem HTML");
+});
+
+test("buddy_summary gerado não deve ser cópia do lead", () => {
+  const resumo = "A Petrobras anunciou investimento de R$ 5 bilhões em novos contratos de FPSO para o pré-sal da Bacia de Santos no próximo ano.";
+  const artigo = {
+    title: "Petrobras investe R$ 5 bilhões em FPSO",
+    summary: resumo,
+    content: "A Petrobras formalizou novos contratos FPSO para o campo de Búzios, com capacidade total de 450 mil barris. Os equipamentos serão fabricados no Brasil e na Ásia. A operadora prevê cinco novas unidades até 2030, cada uma com contrato de 20 anos."
+  };
+  const resultado = _gerarBuddySummaryFallback(artigo);
+  if (resultado !== null) {
+    assert(!_ehCopiaDoLead(resultado, resumo), "buddy_summary não deve ser cópia >70% do lead");
+  }
+});
+
+test("texto com frase proibida → validador rejeita", () => {
+  const resultado = _validarTextoCamadaEditorial("Isso vai gerar novas vagas e marca um novo capítulo para o setor offshore.");
+  assert(!resultado.ok, "deve rejeitar frase proibida");
+});
+
+test("texto válido → validador aceita", () => {
+  const resultado = _validarTextoCamadaEditorial("A Petrobras contratou a SBM Offshore para operar o FPSO Almirante Barroso no campo de Búzios a partir de 2027.");
+  assert(resultado.ok, "deve aceitar texto válido — motivo: " + resultado.motivo);
+});
+
+test("validarImpactoOffshore: boilerplate 'pode gerar vagas' → rejeitado", () => {
+  const r = _validarImpactoOffshore("Este contrato pode gerar novas vagas no setor offshore nos próximos meses.");
+  assert(!r.ok, "deve rejeitar 'pode gerar novas vagas'");
+});
+
+test("validarImpactoOffshore: texto técnico específico → aceito", () => {
+  const r = _validarImpactoOffshore("A informação envolve unidades FPSO, com participação de Petrobras. O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.");
+  assert(r.ok, "deve aceitar texto técnico específico — motivo: " + r.motivo);
+});
+
+test("gerarBuddySummaryFallback com artigo de FPSO retorna texto sobre operação", () => {
+  const artigo = {
+    title: "FPSO Almirante Barroso inicia produção no campo de Búzios",
+    summary: "A unidade flutuante de produção entrou em operação no campo de Búzios, no pré-sal da Bacia de Santos.",
+    content: "O FPSO Almirante Barroso iniciou a produção no campo de Búzios, no pré-sal da Bacia de Santos, com capacidade nominal de 225 mil barris de óleo por dia. A unidade é operada pela Petrobras em parceria com a SBM Offshore. O primeiro óleo foi alcançado após 36 meses de comissionamento. A plataforma conta com 225 trabalhadores a bordo durante as operações normais."
+  };
+  const resultado = _gerarBuddySummaryFallback(artigo);
+  assert(resultado !== null, "deve retornar resultado para artigo de FPSO com conteúdo rico");
+  assert(typeof resultado === "string", "deve ser string");
+});
+
 // ── Resultado ──────────────────────────────────────────────────────────────────
 
 const total = passed + failed;

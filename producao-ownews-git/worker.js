@@ -20371,6 +20371,7 @@ async function ccColetarEditorial(env) {
       scan: saude.agenda_scan || null
     },
     revisao_pendente: saude.revisao_pendente || 0,
+    buddy_cobertura: saude.buddy_cobertura || null,
     instagram: igFrag ? {
       habilitado: igFrag.habilitado,
       dry_run: igFrag.dry_run,
@@ -20990,6 +20991,15 @@ function renderCCDashboard() {
     'if(e.artigos6h!=null)html+=card("Publicadas 6h",e.artigos6h);' +
     'if(e.artigos48h!=null)html+=card("Publicadas 48h",e.artigos48h);' +
     'html+=\'</div>\';' +
+    // Buddy + Impacto coverage
+    'if(e.buddy_cobertura){var bc=e.buddy_cobertura;' +
+    'var buddyOk=bc.pct_buddy>=80;var impactoOk=bc.pct_impacto>=60;' +
+    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Buddy + Impacto Offshore (últimos 7d)</div>\';' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+(buddyOk&&impactoOk?"var(--green)":"var(--yellow)")+\'">\'+(buddyOk&&impactoOk?"✓ Cobertura OK":"⚠ Cobertura incompleta")+\'</div>\';' +
+    'html+=\'<div class="cc-tg-sub">Buddy: \'+fmtNum(bc.pct_buddy)+"% ("+fmtNum(bc.com_buddy)+"/"+fmtNum(bc.total)+")</div>";' +
+    'html+=\'<div class="cc-tg-sub" style="color:\'+(bc.pct_buddy<80?"var(--yellow)":"var(--muted-dim)")+\'">Impacto Offshore: \'+fmtNum(bc.pct_impacto)+"% ("+fmtNum(bc.com_impacto)+"/"+fmtNum(bc.total)+")</div>";' +
+    'if(!buddyOk||!impactoOk)html+=\'<div class="cc-tg-sub" style="color:var(--yellow)">Execute /retroprocessar-buddy-impact para corrigir</div>\';' +
+    'html+=\'</div>\';}' +
     // Automação stats
     'html+=\'<div class="cc-secao"><h2>Última execução do coletor</h2>\';' +
     'if(e.automacao){var a=e.automacao;' +

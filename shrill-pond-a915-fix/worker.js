@@ -528,6 +528,88 @@ if (url.pathname === "/teste-materia") {
   return new Response(resp.body, { headers: { "Content-Type": "application/json" } });
 }
 
+ if (url.pathname === "/retroprocessar-buddy-impact") {
+  // Retroprocessa artigos publicados sem buddy_summary ou why_it_matters.
+  // GET /retroprocessar-buddy-impact?limite=50
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
+  const limite = Math.min(parseInt(url.searchParams.get("limite") || "50", 10), 200);
+  try {
+    const resp = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&buddy_summary=is.null&order=published_at.desc&limit=${limite}`,
+      { headers: supabaseHeaders(env) }
+    );
+    if (!resp.ok) {
+      const eText = await resp.text().catch(() => '');
+      const migPendente = eText.includes('42703') || eText.includes('does not exist');
+      return Response.json({ ok: false, migracao_pendente: migPendente, instrucao: migPendente ? 'Aplique docs/MIGRATION-BUDDY-EXPLICA.sql no Supabase SQL Editor.' : 'Erro Supabase.', detalhe: eText.slice(0,300) });
+    }
+    const artigos = await resp.json();
+    let atualizados = 0, semMaterial = 0, erros = 0;
+    for (const artigo of artigos) {
+      try {
+        const camada = gerarCamadaEditorialParaArtigo(artigo);
+        if (!camada.buddy_summary && !camada.why_it_matters) { semMaterial++; continue; }
+        const patch = {};
+        if (camada.buddy_summary) patch.buddy_summary = camada.buddy_summary;
+        if (camada.why_it_matters) patch.why_it_matters = camada.why_it_matters;
+        const pr = await fetch(
+          `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(artigo.id)}`,
+          { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch) }
+        );
+        if (pr.ok) atualizados++; else erros++;
+      } catch { erros++; }
+    }
+    return Response.json({ ok: true, consultados: artigos.length, atualizados, sem_material: semMaterial, erros });
+  } catch(e) {
+    return Response.json({ ok: false, erro: e.message }, { status: 500 });
+  }
+}
+
+ if (url.pathname === "/audit-buddy-coverage") {
+  // Retorna cobertura de buddy_summary e why_it_matters nos últimos 30 dias.
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
+  try {
+    const d30 = new Date(Date.now() - 30 * 86400000).toISOString();
+    const d7  = new Date(Date.now() - 7  * 86400000).toISOString();
+    const [r30, r7] = await Promise.all([
+      fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d30)}&limit=500`, { headers: supabaseHeaders(env) }),
+      fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d7)}&limit=200`, { headers: supabaseHeaders(env) }),
+    ]);
+    if (!r30.ok || !r7.ok) {
+      const eText = await (!r30.ok ? r30 : r7).text().catch(() => '');
+      const migracao_pendente = eText.includes('42703') || eText.includes('does not exist');
+      return Response.json({
+        ok: false,
+        migracao_pendente,
+        instrucao: migracao_pendente ? 'Aplique docs/MIGRATION-BUDDY-EXPLICA.sql no Supabase SQL Editor antes de retroprocessar.' : 'Erro Supabase inesperado.',
+        detalhe: eText.slice(0, 300)
+      });
+    }
+    const a30 = await r30.json();
+    const a7  = await r7.json();
+    const calc = (arr) => ({
+      total: arr.length,
+      com_buddy: arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length,
+      com_impacto: arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length,
+      pct_buddy: arr.length ? Math.round(arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length / arr.length * 100) : 0,
+      pct_impacto: arr.length ? Math.round(arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length / arr.length * 100) : 0,
+    });
+    return Response.json({ ok: true, ultimos_30d: calc(a30), ultimos_7d: calc(a7) });
+  } catch(e) {
+    return Response.json({ ok: false, erro: e.message }, { status: 500 });
+  }
+}
+
+ if (url.pathname === "/gerar-draft-newsletter") {
+  if (!env.PERGUNTE_IA_KV) return Response.json({ ok: false, erro: "PERGUNTE_IA_KV não disponível" });
+  try {
+    const resultado = await gerarDraftNewsletter(env);
+    return Response.json(resultado);
+  } catch(e) {
+    return Response.json({ ok: false, erro: e.message, stack: e.stack }, { status: 500 });
+  }
+}
+
  if (url.pathname === "/debug-agendador" || url.pathname === "/reset-agendador-alarm") {
   if (!env.TELEGRAM_AGENDADOR_DO) return Response.json({ ok: false, erro: "TELEGRAM_AGENDADOR_DO não disponível" });
   const id = env.TELEGRAM_AGENDADOR_DO.idFromName("global");
@@ -2465,8 +2547,32 @@ async function avaliarSaudeEditorial(env) {
     jobs_sources_error: [],
     jobs_blocked: "Tabela jobs dedicada ausente; migration DDL preparada em docs/MIGRATION-JOBS-TABLE.sql.",
     agenda_scan: await obterAgendaScan(env),
-    revisao_pendente: await contarArtigosEmRevisao(env)
+    revisao_pendente: await contarArtigosEmRevisao(env),
+    buddy_cobertura: await obterBuddyCobertura(env)
   };
+}
+
+async function obterBuddyCobertura(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const d7 = new Date(Date.now() - 7 * 86400000).toISOString();
+    const resp = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/articles?select=buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d7)}&limit=200`,
+      { headers: supabaseHeaders(env) }
+    );
+    if (!resp.ok) return null;
+    const arr = await resp.json();
+    if (!arr.length) return { total: 0, pct_buddy: 0, pct_impacto: 0 };
+    const comBuddy = arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length;
+    const comImpacto = arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length;
+    return {
+      total: arr.length,
+      com_buddy: comBuddy,
+      com_impacto: comImpacto,
+      pct_buddy: Math.round(comBuddy / arr.length * 100),
+      pct_impacto: Math.round(comImpacto / arr.length * 100)
+    };
+  } catch { return null; }
 }
 
 // Stale guard (2026-09-19, Missão Contínua — Home precisa parecer viva):
@@ -2865,6 +2971,215 @@ function calcularEditorialScore(artigo) {
   };
 }
 
+/* =========================================================================
+   CAMADA EDITORIAL — Buddy + Impacto Offshore
+   Funções copiadas de producao-ownews-git/worker.js (Impacto Offshore 1.0,
+   2026-10-06). Geram buddy_summary e why_it_matters no momento da inserção
+   para que 100% dos artigos publicados tenham esses campos no banco.
+   Mantidas sincronizadas manualmente entre os dois workers.
+======================================================================== */
+
+const BUDDY_FRASES_PROIBIDAS = [
+  'em um movimento estratégico', 'num movimento estratégico',
+  'reforça seu compromisso', 'reforça o compromisso',
+  'marca um novo capítulo', 'novo capítulo',
+  'promete revolucionar', 'vai revolucionar',
+  'vai gerar novas vagas', 'vai gerar vagas', 'deve gerar vagas', 'gerar milhares de vagas',
+  'isso vai gerar', 'abre caminho para', 'é um divisor de águas',
+  'pode afetar produção, logística, contratos ou mobilização',
+  'o impacto operacional depende dos desdobramentos',
+  'nesta edição', 'foto: divulgação', 'foto: reprodução'
+];
+
+function validarTextoCamadaEditorial(texto) {
+  if (typeof texto !== 'string') return { ok: false, motivo: 'nao_string' };
+  const t = texto.trim();
+  if (t.length < 40) return { ok: false, motivo: 'curto' };
+  if (t.endsWith('...') || t.endsWith('…') || /\w\.{2,}$/.test(t)) return { ok: false, motivo: 'truncado' };
+  if (t.length > 600) return { ok: false, motivo: 'longo' };
+  if (/<[a-z!\/][^>]*>/i.test(t)) return { ok: false, motivo: 'html' };
+  const frases = t.split(/(?<=[.!?])\s+/).filter((f) => f.trim().length > 0);
+  if (frases.length < 1 || frases.length > 4) return { ok: false, motivo: 'frases' };
+  const baixo = t.toLowerCase();
+  const proibida = BUDDY_FRASES_PROIBIDAS.find((p) => baixo.includes(p));
+  if (proibida) return { ok: false, motivo: 'frase_proibida:' + proibida };
+  return { ok: true, motivo: null };
+}
+
+function ehCopiaDoLead(gerado, resumoOriginal) {
+  if (!gerado || !resumoOriginal) return false;
+  var norm = function(s) {
+    return s.toLowerCase().replace(/[^a-zà-ü\s]/g, ' ').split(/\s+/).filter(function(w) { return w.length > 4; });
+  };
+  var gW = norm(String(gerado).slice(0, 200));
+  var rW = norm(String(resumoOriginal).slice(0, 200));
+  if (!gW.length || !rW.length) return false;
+  var rSet = {};
+  rW.forEach(function(w) { rSet[w] = true; });
+  var overlap = gW.filter(function(w) { return rSet[w]; }).length;
+  return overlap / Math.max(gW.length, 1) > 0.70;
+}
+
+function validarImpactoOffshore(texto) {
+  if (!texto || typeof texto !== 'string') return { ok: false, motivo: 'vazio' };
+  const t = texto.trim();
+  if (t.length < 40) return { ok: false, motivo: 'muito_curto' };
+  const PROIBIDOS = [
+    { re: /pode\s+gerar\s+(novas?\s+)?vagas/i,              label: 'vagas_sem_base' },
+    { re: /novas?\s+oportunidades\s+para\s+profissionais/i, label: 'oportunidades_vagas' },
+    { re: /mercado\s+offshore\s+continua\s+aquecido/i,      label: 'boilerplate_aquecido' },
+    { re: /refor[çc]a\s+a\s+import[aâ]ncia\s+do\s+setor/i, label: 'boilerplate_importancia' },
+    { re: /importante\s+avan[çc]o\s+para\s+o\s+setor/i,    label: 'boilerplate_avanco' },
+    { re: /pode\s+impactar\s+toda\s+a\s+cadeia/i,           label: 'boilerplate_cadeia' },
+    { re: /aumento\s+de\s+sal[aá]rios/i,                    label: 'salarios_sem_base' },
+    { re: /com base no conte[uú]do dispon[ií]vel[\s\S]{0,40}n[aã]o [eé] poss[ií]vel afirmar/i, label: 'boilerplate_limitacao_generica' },
+  ];
+  for (let i = 0; i < PROIBIDOS.length; i++) {
+    if (PROIBIDOS[i].re.test(t)) return { ok: false, motivo: PROIBIDOS[i].label };
+  }
+  return { ok: true };
+}
+
+function gerarBuddySummaryFallback(artigo) {
+  const titulo = String((artigo && artigo.title) || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo  = String((artigo && artigo.content) || '').trim();
+  const base = (corpo.length > resumo.length && corpo !== resumo) ? corpo : resumo;
+  if (!base || base.length < 80) return null;
+  const textoNorm = base.replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').replace(/  +/g, ' ');
+  const todas = (textoNorm.match(/[^.!?]+[.!?]+/g) || []).map((f) => f.trim()).filter((f) => f.length >= 28 && f.length <= 300);
+  if (!todas.length) return null;
+  const tWords = titulo.toLowerCase().replace(/[^\wà-ú\s]/g, '').split(/\s+/).filter((w) => w.length > 4);
+  const maxOverlap = Math.min(4, Math.max(2, Math.ceil(tWords.length * 0.65)));
+  const filtradas = todas.filter((f) => {
+    const fl = f.toLowerCase();
+    const overlap = tWords.filter((w) => fl.includes(w)).length;
+    return overlap < maxOverlap;
+  });
+  const filtradas2 = filtradas.filter((f) => !ehCopiaDoLead(f, resumo));
+  const candidatas = (filtradas2.length >= 1 ? filtradas2 : filtradas.length >= 1 ? filtradas : todas).slice(0, 3);
+  for (let n = Math.min(3, candidatas.length); n >= 1; n--) {
+    const t = candidatas.slice(0, n).join(' ').trim();
+    if (validarTextoCamadaEditorial(t).ok && !ehCopiaDoLead(t, resumo)) return t;
+  }
+  return null;
+}
+
+function gerarImpactoOffshoreFallback(artigo) {
+  const titulo = String((artigo && artigo.title)   || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo  = String((artigo && artigo.content) || '').trim();
+  const base   = [titulo, resumo, corpo].filter(Boolean).join(' ');
+
+  const ENTIDADES = [
+    { re: /\bpetrobras\b/i,                          nome: 'Petrobras' },
+    { re: /\bppsa\b/i,                               nome: 'PPSA' },
+    { re: /\banp\b/i,                                nome: 'ANP' },
+    { re: /\bequinor\b/i,                            nome: 'Equinor' },
+    { re: /\bshell\b/i,                              nome: 'Shell' },
+    { re: /\bsbm\s+offshore\b|\bsbm\b/i,             nome: 'SBM Offshore' },
+    { re: /\bmodec\b/i,                              nome: 'MODEC' },
+    { re: /\bsaipem\b/i,                             nome: 'Saipem' },
+    { re: /\bsubsea\s*7\b/i,                         nome: 'Subsea 7' },
+    { re: /\bschlumberger\b|\bslb\b/i,               nome: 'SLB' },
+    { re: /\bhalliburton\b/i,                        nome: 'Halliburton' },
+    { re: /\btransocean\b/i,                         nome: 'Transocean' },
+    { re: /\bvalaris\b/i,                            nome: 'Valaris' },
+    { re: /\bocyan\b/i,                              nome: 'Ocyan' },
+    { re: /\bchevron\b/i,                            nome: 'Chevron' },
+    { re: /\btotalenergies\b|\btotal\s+energies\b/i, nome: 'TotalEnergies' },
+    { re: /\bbp\b/i,                                 nome: 'BP' },
+    { re: /\bbrava\s+energia\b/i,                    nome: 'Brava Energia' },
+    { re: /\benauta\b/i,                             nome: 'Enauta' },
+    { re: /\bprio\b/i,                               nome: 'PRIO' },
+    { re: /\bocean\s*rig\b/i,                        nome: 'Ocean Rig' },
+    { re: /\bodfjell\b/i,                            nome: 'Odfjell' },
+  ];
+  const TEMAS = [
+    { re: /\bfpso\b/i,                        desc: 'unidades FPSO' },
+    { re: /\bsemisubmers/i,                   desc: 'plataformas semissubmersíveis' },
+    { re: /\bjack.?up\b/i,                    desc: 'sondas jack-up' },
+    { re: /\bdrillship\b|\bnavio.?sonda\b/i,  desc: 'navios-sonda' },
+    { re: /\bsubsea\b/i,                      desc: 'tecnologia subsea' },
+    { re: /\bmanifold\b/i,                    desc: 'manifolds submarinos' },
+    { re: /\briser\b/i,                       desc: 'risers' },
+    { re: /\bumbilical\b/i,                   desc: 'umbilicais' },
+    { re: /\bflowline\b/i,                    desc: 'flowlines' },
+    { re: /\bperfura[çc]/i,                   desc: 'perfuração de poços' },
+    { re: /\bcomple[çt][aã]o\b/i,             desc: 'completação de poços' },
+    { re: /\bpré.sal|pre.sal\b/i,             desc: 'pré-sal' },
+    { re: /\bbúzios\b|\bbuzios\b/i,           desc: 'campo de Búzios' },
+    { re: /\bcampo\s+de\s+lula\b/i,           desc: 'campo de Lula' },
+    { re: /\blibra\b/i,                       desc: 'campo de Libra' },
+    { re: /\bbacia\s+de\s+santos\b/i,         desc: 'Bacia de Santos' },
+    { re: /\bbacia\s+de\s+campos\b/i,         desc: 'Bacia de Campos' },
+    { re: /\brov\b/i,                         desc: 'ROVs submarinos' },
+    { re: /\báguas?\s+profundas?\b/i,         desc: 'águas profundas' },
+    { re: /\bultraprofund/i,                  desc: 'águas ultraprofundas' },
+    { re: /\blng\b|\bgnl\b/i,                 desc: 'GNL' },
+  ];
+  const TIPOS = [
+    { re: /\bcontrat[aoa]\b|\badjudic|\baward\b/i,              tipo: 'contrato' },
+    { re: /\blicita[çc][aã]o\b/i,                               tipo: 'licitacao' },
+    { re: /\binvestimento\b|\baporte\b/i,                        tipo: 'investimento' },
+    { re: /\bregula[çc][aã]o\b|\bportaria\b|\bresolu[çc][aã]o\b/i, tipo: 'regulacao' },
+    { re: /\bconcess[aã]o\b/i,                                  tipo: 'concessao' },
+    { re: /\bprodução\b|\bextração\b/i,                         tipo: 'producao' },
+    { re: /\bdescomiss/i,                                       tipo: 'descomissionamento' },
+    { re: /\btecnologia\b|\binovação\b/i,                       tipo: 'tecnologia' },
+    { re: /\bacidente\b|\bincidente\b|\bvazamento\b/i,          tipo: 'seguranca' },
+    { re: /\bfase\s+(?:inicial|de\s+estudo|explorat)/i,         tipo: 'fase_inicial' },
+  ];
+  const LIMITACOES = {
+    contrato:            'O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.',
+    licitacao:           'O resultado não implica, neste momento, contratação de pessoal ou início de operações.',
+    investimento:        'O comunicado não especifica, neste momento, cronograma de operações, contratações ou expansão de frota.',
+    regulacao:           'O texto regulatório não determina, neste momento, impactos diretos em empregos ou operações em campo.',
+    concessao:           'A concessão de blocos é etapa inicial; exploração, desenvolvimento e produção dependem de decisões e investimentos futuros.',
+    producao:            'Os dados refletem o estado atual das operações e não implicam, por si só, novas contratações ou expansões.',
+    descomissionamento:  'O processo pode resultar em redução gradual de atividades nessas instalações ao longo do tempo.',
+    tecnologia:          'O comunicado não especifica contratos, aplicações ou contratações derivadas neste momento.',
+    seguranca:           'Incidentes em operações offshore têm impacto direto na segurança dos trabalhadores e podem resultar em paralisações ou revisões operacionais.',
+    fase_inicial:        'Trata-se de etapa inicial; não é possível afirmar, neste momento, impacto direto em vagas ou operações.',
+  };
+
+  const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
+  const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
+  const tipoMatch = TIPOS.find((t) => t.re.test(base));
+  const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
+  const limitacao = LIMITACOES[tipo] || 'Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações, vagas ou contratos específicos neste momento.';
+
+  if (!entidades.length && !temas.length) return null;
+
+  const principaisEntidades = entidades.slice(0, 2).join(' e ');
+  const principaisTemas = temas.slice(0, 2).join(' e ');
+
+  let parte1 = '';
+  if (principaisTemas && principaisEntidades) {
+    parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
+  } else if (principaisTemas) {
+    parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
+  } else {
+    return null;
+  }
+
+  const texto = (parte1 + ' ' + limitacao).trim();
+  if (!validarImpactoOffshore(texto).ok) return null;
+  return texto;
+}
+
+/* gerarCamadaEditorialParaArtigo — gera buddy_summary e why_it_matters para
+   um artigo com base no seu conteúdo. Retorna { buddy_summary, why_it_matters }.
+   Nunca inventa dados: usa apenas o que está no artigo. */
+function gerarCamadaEditorialParaArtigo(artigo) {
+  const buddy = gerarBuddySummaryFallback(artigo);
+  const impacto = gerarImpactoOffshoreFallback(artigo);
+  return {
+    buddy_summary: buddy || null,
+    why_it_matters: impacto || null
+  };
+}
+
 async function processarNoticiasComDedupe(env, fonte, noticias, contexto = {}) {
   const recentes = await buscarTitulosRecentes(env, 5);
   const filtradas = [];
@@ -3155,7 +3470,28 @@ slug: criarSlug(tituloPublicado),
         ? '[RETIDO:' + risco.motivo + '] ' + score_reason
         : score_reason;
 
-      await inserirArtigo(env, artigo);
+      // P0 Editorial: gerar buddy_summary e why_it_matters antes de inserir.
+      // Ativa somente quando as colunas existem no Supabase (migration aplicada).
+      // Se a migration não foi aplicada, insere sem esses campos — sem erro.
+      const camadaEditorial = gerarCamadaEditorialParaArtigo(artigo);
+      if (camadaEditorial.buddy_summary !== null) artigo.buddy_summary = camadaEditorial.buddy_summary;
+      if (camadaEditorial.why_it_matters !== null) artigo.why_it_matters = camadaEditorial.why_it_matters;
+
+      let erroInsercao = null;
+      try {
+        await inserirArtigo(env, artigo);
+      } catch(e) {
+        if (String(e.message).includes('42703') || String(e.message).includes('does not exist')) {
+          // Colunas buddy_summary/why_it_matters ausentes: insere sem elas.
+          delete artigo.buddy_summary;
+          delete artigo.why_it_matters;
+          await inserirArtigo(env, artigo);
+          erroInsercao = 'migracao_pendente';
+        } else {
+          throw e;
+        }
+      }
+      if (erroInsercao) resultado.migracao_pendente = true;
 
       if (artigo.is_sensitive) {
         resultado.retidas = (resultado.retidas || 0) + 1;
@@ -3164,11 +3500,15 @@ slug: criarSlug(tituloPublicado),
       }
 
       resultado.inseridas++;
+      if (artigo.buddy_summary) resultado.com_buddy = (resultado.com_buddy || 0) + 1;
+      if (artigo.why_it_matters) resultado.com_impacto = (resultado.com_impacto || 0) + 1;
 
       resultado.noticias.push({
         titulo: artigo.title,
         status: "inserida",
-        imagem_descartada_por_repeticao: imagemDescartadaPorRepeticao || undefined
+        imagem_descartada_por_repeticao: imagemDescartadaPorRepeticao || undefined,
+        tem_buddy: !!artigo.buddy_summary,
+        tem_impacto: !!artigo.why_it_matters
       });
 
     } catch (erro) {
