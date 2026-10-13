@@ -612,13 +612,20 @@ if (url.pathname === "/teste-materia") {
 
  if (url.pathname === "/retroprocessar-buddy-impact") {
   // Retroprocessa artigos publicados sem buddy_summary ou why_it_matters.
-  // GET /retroprocessar-buddy-impact?limite=50
+  // Modos: ?limite=N, ?incluir_sem_material=1, ?incluir_parcial=1 (fallback com campo ausente)
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
   const limite = Math.min(parseInt(url.searchParams.get("limite") || "50", 10), 200);
   const incluirSemMaterial = url.searchParams.get("incluir_sem_material") === "1";
-  const filtroSource = incluirSemMaterial
-    ? 'or=(buddy_source.is.null,buddy_source.eq.sem_material)'
-    : 'buddy_source=is.null';
+  const incluirParcial = url.searchParams.get("incluir_parcial") === "1";
+  let filtroSource;
+  if (incluirParcial) {
+    // buddy_source=fallback mas com um ou os dois campos null (parcialmente completo)
+    filtroSource = 'buddy_source=eq.fallback&or=(buddy_summary.is.null,why_it_matters.is.null)';
+  } else if (incluirSemMaterial) {
+    filtroSource = 'or=(buddy_source.is.null,buddy_source.eq.sem_material)';
+  } else {
+    filtroSource = 'buddy_source=is.null';
+  }
   try {
     const resp = await fetch(
       `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtroSource}&order=published_at.desc&limit=${limite}`,
@@ -643,9 +650,14 @@ if (url.pathname === "/teste-materia") {
         if (camada.why_it_matters) patch.why_it_matters = camada.why_it_matters;
         if (!camada.buddy_summary && !camada.why_it_matters) {
           patch.buddy_source = 'sem_material';
-          // Ao reclassificar como sem_material, zera campos para evitar valores obsoletos
           patch.buddy_summary = null;
           patch.why_it_matters = null;
+        } else if (incluirParcial) {
+          // fallback_partial: gerou apenas 1 dos 2 campos — reavaliado mas incompleto.
+          // Impede reprocessamento infinito sem ganho; campo faltante é zerado se era entity-only.
+          if (!camada.buddy_summary) patch.buddy_summary = null;
+          if (!camada.why_it_matters) patch.why_it_matters = null;
+          patch.buddy_source = 'fallback_partial';
         }
         totalPatches++;
         const pr = await fetch(
@@ -699,13 +711,24 @@ if (url.pathname === "/teste-materia") {
     }
     const a30 = await r30.json();
     const a7  = await r7.json();
-    const calc = (arr) => ({
-      total: arr.length,
-      com_buddy: arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length,
-      com_impacto: arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length,
-      pct_buddy: arr.length ? Math.round(arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length / arr.length * 100) : 0,
-      pct_impacto: arr.length ? Math.round(arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length / arr.length * 100) : 0,
-    });
+    const calc = (arr) => {
+      const comBuddy   = arr.filter(a => a.buddy_summary   && a.buddy_summary.length   > 30).length;
+      const comImpacto = arr.filter(a => a.why_it_matters  && a.why_it_matters.length  > 30).length;
+      const ambos      = arr.filter(a => a.buddy_summary   && a.buddy_summary.length   > 30 &&
+                                         a.why_it_matters  && a.why_it_matters.length  > 30).length;
+      return {
+        total: arr.length,
+        ambos_validos: ambos,
+        so_buddy:      comBuddy - ambos,
+        so_impacto:    comImpacto - ambos,
+        nenhum:        arr.length - comBuddy - comImpacto + ambos,
+        com_buddy: comBuddy,
+        com_impacto: comImpacto,
+        pct_ambos:   arr.length ? Math.round(ambos / arr.length * 100)      : 0,
+        pct_buddy:   arr.length ? Math.round(comBuddy / arr.length * 100)   : 0,
+        pct_impacto: arr.length ? Math.round(comImpacto / arr.length * 100) : 0,
+      };
+    };
     return Response.json({ ok: true, ultimos_30d: calc(a30), ultimos_7d: calc(a7) });
   } catch(e) {
     return Response.json({ ok: false, erro: e.message }, { status: 500 });
@@ -2674,14 +2697,18 @@ async function obterBuddyCobertura(env) {
     );
     if (!resp.ok) return null;
     const arr = await resp.json();
-    if (!arr.length) return { total: 0, pct_buddy: 0, pct_impacto: 0 };
-    const comBuddy = arr.filter(a => a.buddy_summary && a.buddy_summary.length > 30).length;
+    if (!arr.length) return { total: 0, pct_ambos: 0, pct_buddy: 0, pct_impacto: 0 };
+    const comBuddy   = arr.filter(a => a.buddy_summary  && a.buddy_summary.length  > 30).length;
     const comImpacto = arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length;
+    const ambos      = arr.filter(a => a.buddy_summary  && a.buddy_summary.length  > 30 &&
+                                       a.why_it_matters && a.why_it_matters.length > 30).length;
     return {
       total: arr.length,
+      ambos_validos: ambos,
       com_buddy: comBuddy,
       com_impacto: comImpacto,
-      pct_buddy: Math.round(comBuddy / arr.length * 100),
+      pct_ambos:   Math.round(ambos / arr.length * 100),
+      pct_buddy:   Math.round(comBuddy / arr.length * 100),
       pct_impacto: Math.round(comImpacto / arr.length * 100)
     };
   } catch { return null; }
@@ -3152,10 +3179,19 @@ function validarImpactoOffshore(texto) {
   return { ok: true };
 }
 
+function decodeHtmlEntities(s) {
+  return s.replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"')
+    .replace(/&apos;/gi,"'").replace(/&atilde;/gi,'ã').replace(/&otilde;/gi,'õ')
+    .replace(/&eacute;/gi,'é').replace(/&ecirc;/gi,'ê').replace(/&oacute;/gi,'ó')
+    .replace(/&ocirc;/gi,'ô').replace(/&aacute;/gi,'á').replace(/&iacute;/gi,'í')
+    .replace(/&uacute;/gi,'ú').replace(/&ccedil;/gi,'ç').replace(/&Ccedil;/gi,'Ç')
+    .replace(/&Atilde;/gi,'Ã').replace(/&Otilde;/gi,'Õ').replace(/&Eacute;/gi,'É')
+    .replace(/&#\d+;/g,' ').replace(/&[a-z]+;/gi,' ');
+}
 function gerarBuddySummaryFallback(artigo) {
   const titulo = String((artigo && artigo.title) || '').trim();
   const resumo = String((artigo && artigo.summary) || '').trim();
-  const corpo  = String((artigo && artigo.content) || '').trim();
+  const corpo  = decodeHtmlEntities(String((artigo && artigo.content) || '').trim());
   const base = (corpo.length > resumo.length && corpo !== resumo) ? corpo : resumo;
   if (!base || base.length < 80) return null;
   const textoNorm = base.replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').replace(/  +/g, ' ');
@@ -3257,6 +3293,11 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bembarca[çc][aã]o\b|\bvess[e]l\b/i, desc: 'embarcações de suporte' },
     { re: /\bpoço\s+(?:explorat|produt|inject)/i, desc: 'poços offshore' },
     { re: /\bduto\b|\bpipeline\b/i,           desc: 'dutos submarinos' },
+    { re: /\bbrent\b|\bwti\b|\bbarril\s+(?:de\s+)?(?:petróleo|crude|óleo)\b|\bcotação\s+(?:do\s+)?(?:petróleo|barril)\b|\bpreço\s+(?:do\s+)?petróleo\b/i, desc: 'preço do petróleo', tipo: 'preco_petroleo' },
+    { re: /\bprodução\s+(?:de\s+)?(?:petróleo|gás|óleo)\b/i,   desc: 'produção de petróleo e gás', tipo: 'producao_petroleo' },
+    { re: /\bexplora[çc][aã]o\s+(?:de\s+)?(?:petróleo|gás|óleo|bloco|bacia)\b/i, desc: 'exploração offshore', tipo: 'exploracao' },
+    { re: /\bgás\s+natural\b/i,               desc: 'gás natural offshore', tipo: 'gas_natural' },
+    { re: /\bE&P\b|\bexplora[çc][aã]o\s+e\s+produ[çc][aã]o\b/i, desc: 'exploração e produção', tipo: 'ep' },
   ];
   const TIPOS = [
     { re: /\bcontrat[aoa]\b|\badjudic|\baward\b/i,              tipo: 'contrato' },
@@ -3290,15 +3331,23 @@ function gerarImpactoOffshoreFallback(artigo) {
     aquisicao:           'Mudanças de controle societário podem afetar contratos em vigor, fornecedores e mobilizações de pessoal.',
     parceria:            'A parceria define responsabilidades operacionais e pode influenciar contratações e fornecimento no setor.',
     geral:               'Acompanhe os desdobramentos para avaliar impactos operacionais, contratos ou mobilizações específicas no setor offshore.',
+    preco_petroleo:      'O nível de preço do barril afeta diretamente a equação econômica de projetos offshore: rentabilidade dos contratos, decisões de afretamento e cronograma de mobilizações.',
+    producao_petroleo:   'Os dados de produção refletem o desempenho real das instalações offshore em operação.',
+    exploracao:          'Resultados exploratórios determinam a viabilidade de futuros projetos de desenvolvimento offshore.',
+    gas_natural:         'O gás natural é produzido associado ao petróleo em plataformas offshore, afetando diretamente a operação das unidades de produção.',
+    ep:                  'Decisões de exploração e produção afetam diretamente o volume de trabalho offshore, o calendário de mobilizações e o nível de contratações no setor.',
   };
 
   const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
-  const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
+  const temasMatched = TEMAS.filter((t) => t.re.test(base));
+  const temas = temasMatched.map((t) => t.desc);
   const tipoMatch = TIPOS.find((t) => t.re.test(base));
-  const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
-  const limitacao = LIMITACOES[tipo];
+  const temaComTipo = temasMatched.find((t) => t.tipo);
+  const tipo = tipoMatch ? tipoMatch.tipo : (temaComTipo ? temaComTipo.tipo : 'geral');
+  const limitacao = LIMITACOES[tipo] || LIMITACOES.geral;
 
-  if (!entidades.length && !temas.length) return null;
+  // Requer ao menos um tema offshore explícito; entidade sozinha não é impacto.
+  if (!temas.length) return null;
 
   const principaisEntidades = entidades.slice(0, 2).join(' e ');
   const principaisTemas = temas.slice(0, 2).join(' e ');
@@ -3308,8 +3357,6 @@ function gerarImpactoOffshoreFallback(artigo) {
     parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
   } else if (principaisTemas) {
     parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
-  } else if (principaisEntidades) {
-    parte1 = 'A notícia envolve ' + principaisEntidades + ', empresa atuante no mercado de exploração e produção de óleo e gás offshore.';
   } else {
     return null;
   }
@@ -3621,12 +3668,22 @@ slug: criarSlug(tituloPublicado),
         ? '[RETIDO:' + risco.motivo + '] ' + score_reason
         : score_reason;
 
-      // P0 Editorial: gerar buddy_summary e why_it_matters antes de inserir.
-      // Ativa somente quando as colunas existem no Supabase (migration aplicada).
-      // Se a migration não foi aplicada, insere sem esses campos — sem erro.
+      // P0.1 Editorial Gate: ambos os campos obrigatórios para publicação normal.
+      // Artigos sem buddy_summary E why_it_matters não entram como matéria editorial.
       const camadaEditorial = gerarCamadaEditorialParaArtigo(artigo);
       if (camadaEditorial.buddy_summary !== null) artigo.buddy_summary = camadaEditorial.buddy_summary;
       if (camadaEditorial.why_it_matters !== null) artigo.why_it_matters = camadaEditorial.why_it_matters;
+
+      if (!artigo.buddy_summary || !artigo.why_it_matters) {
+        resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
+        resultado.noticias.push({
+          titulo: artigo.title,
+          status: 'editorial_incomplete',
+          motivo: !artigo.buddy_summary ? 'sem_buddy_summary' : 'sem_why_it_matters',
+          fonte
+        });
+        continue;
+      }
 
       let erroInsercao = null;
       try {

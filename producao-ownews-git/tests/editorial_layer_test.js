@@ -320,10 +320,21 @@ test("gerarImpactoOffshoreFallback: artigo com FPSO e subsea retorna texto com e
   expect(r !== null, "retornou null para artigo offshore relevante");
   expect(mod.validarImpactoOffshore(r).ok, "texto gerado não passa no validador: " + r);
 });
-test("gerarImpactoOffshoreFallback: artigo com apenas entidade offshore retorna texto genérico com entidade", () => {
+test("gerarImpactoOffshoreFallback: entidade sem tema offshore retorna null (sem boilerplate genérico)", () => {
   const artigo = { title: "SLB reporta resultados financeiros", summary: "SLB divulgou seu relatório trimestral de resultados.", content: "A companhia reportou receita de US$ 9 bilhões no trimestre, superando estimativas do mercado." };
   const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(typeof r === 'string' && r.includes('SLB'), "esperado texto com entidade SLB: " + r);
+  expect(r === null, "esperado null — entidade sem tema offshore não gera impacto: " + r);
+});
+test("gerarImpactoOffshoreFallback: artigo sobre preço do petróleo retorna impacto específico", () => {
+  const artigo = { title: "Petróleo Brent fecha em alta", summary: "O barril de petróleo Brent fechou em alta nesta terça-feira.", content: "O barril de petróleo Brent subiu 2,3% e fechou a US$ 82,50. O movimento reflete tensões no Oriente Médio e redução de estoques nos EUA." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null, "esperado impacto para artigo sobre preço do petróleo: null retornado");
+  if (r) expect(mod.validarImpactoOffshore(r).ok, "impacto de preço não passa validador: " + r);
+});
+test("gerarImpactoOffshoreFallback: artigo sobre produção de petróleo retorna impacto específico", () => {
+  const artigo = { title: "Produção de petróleo do Brasil atinge 4 milhões de barris", summary: "A produção de petróleo do Brasil atingiu recorde.", content: "A produção de petróleo e gás natural do Brasil atingiu 4,1 milhões de barris por dia em setembro, novo recorde histórico." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null, "esperado impacto para artigo sobre produção de petróleo: null retornado");
 });
 test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna null (sem card genérico)", () => {
   const artigo = { title: "Banco Central sobe taxa de juros", summary: "O Banco Central decidiu elevar a taxa Selic em reunião de outubro.", content: "O Comitê de Política Monetária decidiu elevar a taxa Selic de 10,5% para 10,75% ao ano." };
@@ -416,6 +427,26 @@ test("resolverCamadaEditorial: curadoria aceita mesmo que pareça lead (curadori
   const artigo = { id: idCurado, title: "T", summary: curada.buddy_summary, content: curada.buddy_summary.repeat(5) };
   const c = mod.resolverCamadaEditorial(artigo);
   expect(c !== null && c.fonte === 'curadoria', "curadoria deve ser aceita independente de similaridade: " + (c && c.fonte));
+});
+
+console.log("\n== P0.1 GATE E NOVOS PADRÕES ==");
+test("gerarImpactoOffshoreFallback: entidade sozinha sem tema não gera impacto (sem entity-only boilerplate)", () => {
+  const artigo = { title: "Transocean anuncia resultados do trimestre", summary: "Transocean Ltd. divulgou resultados do terceiro trimestre.", content: "A companhia reportou receita de US$ 1,1 bilhão. O CEO citou demanda sólida por sondas de águas profundas." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  if (r !== null) {
+    expect(!r.includes('empresa atuante no mercado de exploração'), "entity-only boilerplate ainda presente: " + r);
+  }
+});
+test("gerarImpactoOffshoreFallback: artigo sobre E&P retorna impacto", () => {
+  const artigo = { title: "Decisões de E&P no Brasil", summary: "O setor de exploração e produção no Brasil passa por transformações.", content: "A exploração e produção offshore no Brasil concentra investimentos de mais de US$ 50 bilhões até 2030." };
+  const r = mod.gerarImpactoOffshoreFallback(artigo);
+  expect(r !== null, "esperado impacto para artigo sobre E&P: null retornado");
+});
+test("gerarBuddySummaryFallback: decodifica HTML entities antes de extrair frases", () => {
+  const artigo = { title: "Porto do Açu", summary: "Porto do Açu e empresa assinam acordo.", content: "O Porto do A&ccedil;u e a companhia de energia assinaram um acordo hist&oacute;rico para eletrifica&ccedil;&atilde;o de plataformas. A parceria prev&ecirc; invers&atilde;o de R$ 500 milh&otilde;es nos pr&oacute;ximos anos." };
+  const r = mod.gerarBuddySummaryFallback(artigo);
+  expect(r !== null, "esperado buddy_summary para artigo com HTML entities: null retornado");
+  if (r) expect(!r.includes('&ccedil;') && !r.includes('&atilde;'), "HTML entities não decodificadas no buddy_summary: " + r);
 });
 
 console.log("\n" + "─".repeat(50));

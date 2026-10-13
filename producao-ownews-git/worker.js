@@ -5842,10 +5842,19 @@ function explicaRelacionadosParaNoticia(artigo, camada) {
    - Retorna null se não houver material suficiente para um texto válido.
    - NÃO gera vagas, salários, datas ou valores inventados.
    - Texto curto e correto > texto completo fabricado. */
+function decodeHtmlEntities(s) {
+  return s.replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"')
+    .replace(/&apos;/gi,"'").replace(/&atilde;/gi,'ã').replace(/&otilde;/gi,'õ')
+    .replace(/&eacute;/gi,'é').replace(/&ecirc;/gi,'ê').replace(/&oacute;/gi,'ó')
+    .replace(/&ocirc;/gi,'ô').replace(/&aacute;/gi,'á').replace(/&iacute;/gi,'í')
+    .replace(/&uacute;/gi,'ú').replace(/&ccedil;/gi,'ç').replace(/&Ccedil;/gi,'Ç')
+    .replace(/&Atilde;/gi,'Ã').replace(/&Otilde;/gi,'Õ').replace(/&Eacute;/gi,'É')
+    .replace(/&#\d+;/g,' ').replace(/&[a-z]+;/gi,' ');
+}
 function gerarBuddySummaryFallback(artigo) {
   const titulo = String((artigo && artigo.title) || '').trim();
   const resumo = String((artigo && artigo.summary) || '').trim();
-  const corpo  = String((artigo && artigo.content) || '').trim();
+  const corpo  = decodeHtmlEntities(String((artigo && artigo.content) || '').trim());
 
   // Base: texto mais substancial disponível
   const base = (corpo.length > resumo.length && corpo !== resumo) ? corpo : resumo;
@@ -6059,6 +6068,11 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bembarca[çc][aã]o\b|\bvess[e]l\b/i, desc: 'embarcações de suporte' },
     { re: /\bpoço\s+(?:explorat|produt|inject)/i, desc: 'poços offshore' },
     { re: /\bduto\b|\bpipeline\b/i,           desc: 'dutos submarinos' },
+    { re: /\bbrent\b|\bwti\b|\bbarril\s+(?:de\s+)?(?:petróleo|crude|óleo)\b|\bcotação\s+(?:do\s+)?(?:petróleo|barril)\b|\bpreço\s+(?:do\s+)?petróleo\b/i, desc: 'preço do petróleo', tipo: 'preco_petroleo' },
+    { re: /\bprodução\s+(?:de\s+)?(?:petróleo|gás|óleo)\b/i,   desc: 'produção de petróleo e gás', tipo: 'producao_petroleo' },
+    { re: /\bexplora[çc][aã]o\s+(?:de\s+)?(?:petróleo|gás|óleo|bloco|bacia)\b/i, desc: 'exploração offshore', tipo: 'exploracao' },
+    { re: /\bgás\s+natural\b/i,               desc: 'gás natural offshore', tipo: 'gas_natural' },
+    { re: /\bE&P\b|\bexplora[çc][aã]o\s+e\s+produ[çc][aã]o\b/i, desc: 'exploração e produção', tipo: 'ep' },
   ];
 
   const TIPOS = [
@@ -6094,15 +6108,23 @@ function gerarImpactoOffshoreFallback(artigo) {
     aquisicao:           'Mudanças de controle societário podem afetar contratos em vigor, fornecedores e mobilizações de pessoal.',
     parceria:            'A parceria define responsabilidades operacionais e pode influenciar contratações e fornecimento no setor.',
     geral:               'Acompanhe os desdobramentos para avaliar impactos operacionais, contratos ou mobilizações específicas no setor offshore.',
+    preco_petroleo:      'O nível de preço do barril afeta diretamente a equação econômica de projetos offshore: rentabilidade dos contratos, decisões de afretamento e cronograma de mobilizações.',
+    producao_petroleo:   'Os dados de produção refletem o desempenho real das instalações offshore em operação.',
+    exploracao:          'Resultados exploratórios determinam a viabilidade de futuros projetos de desenvolvimento offshore.',
+    gas_natural:         'O gás natural é produzido associado ao petróleo em plataformas offshore, afetando diretamente a operação das unidades de produção.',
+    ep:                  'Decisões de exploração e produção afetam diretamente o volume de trabalho offshore, o calendário de mobilizações e o nível de contratações no setor.',
   };
 
   const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
-  const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
+  const temasMatched = TEMAS.filter((t) => t.re.test(base));
+  const temas = temasMatched.map((t) => t.desc);
   const tipoMatch = TIPOS.find((t) => t.re.test(base));
-  const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
-  const limitacao = LIMITACOES[tipo];
+  const temaComTipo = temasMatched.find((t) => t.tipo);
+  const tipo = tipoMatch ? tipoMatch.tipo : (temaComTipo ? temaComTipo.tipo : 'geral');
+  const limitacao = LIMITACOES[tipo] || LIMITACOES.geral;
 
-  if (!entidades.length && !temas.length) return null;
+  // Requer ao menos um tema offshore explícito; entidade sozinha não é impacto.
+  if (!temas.length) return null;
 
   const principaisEntidades = entidades.slice(0, 2).join(' e ');
   const principaisTemas = temas.slice(0, 2).join(' e ');
@@ -6112,8 +6134,6 @@ function gerarImpactoOffshoreFallback(artigo) {
     parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
   } else if (principaisTemas) {
     parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
-  } else if (principaisEntidades) {
-    parte1 = 'A notícia envolve ' + principaisEntidades + ', empresa atuante no mercado de exploração e produção de óleo e gás offshore.';
   } else {
     return null;
   }

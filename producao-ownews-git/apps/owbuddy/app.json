@@ -23,6 +23,8 @@
       },
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
       ]
     },
@@ -41,6 +43,12 @@
       "eas": {
         "projectId": "6dd5c107-84cf-4e90-a05c-71697c9d9b2f"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6dd5c107-84cf-4e90-a05c-71697c9d9b2f"
     }
   }
 }
