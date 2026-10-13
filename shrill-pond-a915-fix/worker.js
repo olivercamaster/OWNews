@@ -735,6 +735,14 @@ if (url.pathname === "/teste-materia") {
   }
 }
 
+ if (url.pathname === "/api/gate-editorial" && request.method === "GET") {
+  if (request.headers.get('X-OWNews-Internal') !== '1') {
+    return new Response(JSON.stringify({ erro: "não autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  }
+  const stats = await obterGateEditorialStats(env);
+  return new Response(JSON.stringify(stats || {}), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
+}
+
  if (url.pathname === "/gerar-draft-newsletter") {
   if (!env.PERGUNTE_IA_KV) return Response.json({ ok: false, erro: "PERGUNTE_IA_KV não disponível" });
   try {
@@ -767,7 +775,13 @@ if (url.pathname === "/teste-materia") {
 }
 
     if (url.pathname === "/run") {
-      return executarTeste(() => executarAtualizacaoPrincipal(env));
+      try {
+        const resultado = await executarAtualizacaoPrincipal(env);
+        await acumularGateEditorial(env, resultado.resultados);
+        return Response.json(resultado);
+      } catch (e) {
+        return Response.json({ ok: false, erro: e.message }, { status: 500 });
+      }
     }
 
     if (url.pathname === "/agenda/scan-agora") {
@@ -973,6 +987,7 @@ if (url.pathname === "/teste-materia") {
         funil: resultado ? resultado.funil : null,
         erro
       });
+      if (resultado) await acumularGateEditorial(env, resultado.resultados);
 
       // Telegram roda DEPOIS da coleta (pra ver os artigos recém-inseridos
       // nesta mesma execução), sempre, mesmo que a coleta principal tenha
@@ -2313,6 +2328,10 @@ function resumirFontesDaExecucao(execucao) {
         descartados++;
         somarMotivo(item.erro || "erro desconhecido ao processar");
       }
+      if (item.status === "editorial_incomplete") {
+        descartados++;
+        somarMotivo("gate editorial: " + (item.motivo || "incompleto"));
+      }
     }
   }
 
@@ -2683,33 +2702,109 @@ async function avaliarSaudeEditorial(env) {
     jobs_blocked: "Tabela jobs dedicada ausente; migration DDL preparada em docs/MIGRATION-JOBS-TABLE.sql.",
     agenda_scan: await obterAgendaScan(env),
     revisao_pendente: await contarArtigosEmRevisao(env),
-    buddy_cobertura: await obterBuddyCobertura(env)
+    buddy_cobertura: await obterBuddyCobertura(env),
+    gate_editorial: await obterGateEditorialStats(env)
   };
 }
 
 async function obterBuddyCobertura(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
   try {
-    const d7 = new Date(Date.now() - 7 * 86400000).toISOString();
-    const resp = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/articles?select=buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d7)}&limit=200`,
-      { headers: supabaseHeaders(env) }
-    );
-    if (!resp.ok) return null;
-    const arr = await resp.json();
-    if (!arr.length) return { total: 0, pct_ambos: 0, pct_buddy: 0, pct_impacto: 0 };
-    const comBuddy   = arr.filter(a => a.buddy_summary  && a.buddy_summary.length  > 30).length;
-    const comImpacto = arr.filter(a => a.why_it_matters && a.why_it_matters.length > 30).length;
-    const ambos      = arr.filter(a => a.buddy_summary  && a.buddy_summary.length  > 30 &&
-                                       a.why_it_matters && a.why_it_matters.length > 30).length;
+    const d7  = new Date(Date.now() - 7 * 86400000).toISOString();
+    const d1  = new Date(Date.now() - 86400000).toISOString();
+    const [resp7d, resp24h] = await Promise.all([
+      fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d7)}&limit=200`, { headers: supabaseHeaders(env) }),
+      fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=buddy_summary,why_it_matters&status=eq.published&published_at=gte.${encodeURIComponent(d1)}&limit=100`, { headers: supabaseHeaders(env) })
+    ]);
+    if (!resp7d.ok) return null;
+    const arr = await resp7d.json();
+    const arr24h = resp24h.ok ? await resp24h.json() : [];
+    const calc = (a) => {
+      if (!a.length) return { total: 0, ambos_validos: 0, com_buddy: 0, com_impacto: 0, pct_ambos: 0, pct_buddy: 0, pct_impacto: 0, sem_ambos: 0 };
+      const comBuddy   = a.filter(x => x.buddy_summary  && x.buddy_summary.length  > 30).length;
+      const comImpacto = a.filter(x => x.why_it_matters && x.why_it_matters.length > 30).length;
+      const ambos      = a.filter(x => x.buddy_summary  && x.buddy_summary.length  > 30 &&
+                                       x.why_it_matters && x.why_it_matters.length > 30).length;
+      return {
+        total: a.length, ambos_validos: ambos, com_buddy: comBuddy, com_impacto: comImpacto,
+        sem_ambos: a.length - ambos,
+        pct_ambos:   Math.round(ambos / a.length * 100),
+        pct_buddy:   Math.round(comBuddy / a.length * 100),
+        pct_impacto: Math.round(comImpacto / a.length * 100)
+      };
+    };
+    const r7d  = calc(arr);
+    const r24h = calc(arr24h);
+    return { ...r7d, '24h': r24h };
+  } catch { return null; }
+}
+
+async function acumularGateEditorial(env, resultados) {
+  if (!env.SAUDE_KV || !resultados) return;
+  try {
+    const raw = await env.SAUDE_KV.get('gate_acum', 'json');
+    const acum = Array.isArray(raw) ? raw : [];
+    const agora = Date.now();
+    const entrada = { ts: agora, fontes: {} };
+    for (const [nome, r] of Object.entries(resultados)) {
+      if (!r || r.ok === false) continue;
+      const p = r.inseridas || 0;
+      const ei = r.editorial_incomplete || 0;
+      const cs = r.content_summary_count || 0;
+      const motivos = {};
+      for (const item of r.noticias || []) {
+        if (item.status === 'editorial_incomplete') {
+          const m = item.motivo || 'desconhecido';
+          motivos[m] = (motivos[m] || 0) + 1;
+        }
+      }
+      if (p || ei) entrada.fontes[nome] = { p, ei, cs, motivos };
+    }
+    if (Object.keys(entrada.fontes).length) acum.push(entrada);
+    const limite = agora - 7 * 86400000;
+    const final = acum.filter(e => e.ts >= limite).slice(-500);
+    await env.SAUDE_KV.put('gate_acum', JSON.stringify(final), { expirationTtl: 8 * 86400 });
+  } catch { /* observabilidade nunca pode quebrar o coletor */ }
+}
+
+async function obterGateEditorialStats(env) {
+  if (!env.SAUDE_KV) return null;
+  try {
+    const acum = await env.SAUDE_KV.get('gate_acum', 'json') || [];
+    const agora = Date.now();
+    function agregar(entradas) {
+      const fontes = {};
+      let totalP = 0, totalEI = 0;
+      const motivos = {};
+      for (const e of entradas) {
+        for (const [nome, f] of Object.entries(e.fontes || {})) {
+          if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
+          fontes[nome].p += f.p || 0;
+          fontes[nome].ei += f.ei || 0;
+          fontes[nome].cs += f.cs || 0;
+          totalP += f.p || 0;
+          totalEI += f.ei || 0;
+          for (const [m, n] of Object.entries(f.motivos || {})) {
+            motivos[m] = (motivos[m] || 0) + n;
+            fontes[nome].motivos[m] = (fontes[nome].motivos[m] || 0) + n;
+          }
+        }
+      }
+      const total = totalP + totalEI;
+      return {
+        publicadas: totalP,
+        editorial_incomplete: totalEI,
+        taxa_publicacao: total ? Math.round(totalP / total * 100) : null,
+        motivos,
+        fontes
+      };
+    }
+    const e24h = acum.filter(e => e.ts >= agora - 86400000);
+    const e7d  = acum.filter(e => e.ts >= agora - 7 * 86400000);
     return {
-      total: arr.length,
-      ambos_validos: ambos,
-      com_buddy: comBuddy,
-      com_impacto: comImpacto,
-      pct_ambos:   Math.round(ambos / arr.length * 100),
-      pct_buddy:   Math.round(comBuddy / arr.length * 100),
-      pct_impacto: Math.round(comImpacto / arr.length * 100)
+      '24h': agregar(e24h),
+      '7d':  agregar(e7d),
+      entradas_total: acum.length
     };
   } catch { return null; }
 }
@@ -3676,10 +3771,22 @@ slug: criarSlug(tituloPublicado),
 
       if (!artigo.buddy_summary || !artigo.why_it_matters) {
         resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
+        const _corpo = String(artigo.content || '').trim();
+        const _resumo = String(artigo.summary || '').trim();
+        const _isCS = !_corpo || _corpo === _resumo || _corpo.length <= _resumo.length + 20;
+        let _motivoGate;
+        if (!artigo.buddy_summary && !artigo.why_it_matters) {
+          _motivoGate = _isCS ? 'content=summary' : 'sem_material_completo';
+        } else if (!artigo.buddy_summary) {
+          _motivoGate = _isCS ? 'content=summary' : 'conteudo_insuficiente';
+        } else {
+          _motivoGate = 'sem_why_it_matters';
+        }
+        if (_isCS) resultado.content_summary_count = (resultado.content_summary_count || 0) + 1;
         resultado.noticias.push({
           titulo: artigo.title,
           status: 'editorial_incomplete',
-          motivo: !artigo.buddy_summary ? 'sem_buddy_summary' : 'sem_why_it_matters',
+          motivo: _motivoGate,
           fonte
         });
         continue;
@@ -5748,6 +5855,7 @@ export class EditorialPoller {
       resultados: resultado ? resultado.resultados : null,
       erro
     });
+    if (resultado) await acumularGateEditorial(this.env, resultado.resultados);
 
     // Stale guard (P0.3/P0.4, Missão Contínua — "Home precisa estar viva"):
     // a rotação normal já cobre cada grupo pelo menos a cada ~4h, mas isso

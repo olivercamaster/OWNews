@@ -20370,6 +20370,7 @@ async function ccColetarEditorial(env) {
   }));
 
   const igFrag = await ccFetchComTimeout(INSTAGRAM_PUBLISHER_URL + '/saude-fragment', 5000);
+  const gateStats = await ccFetchComTimeout(SHRILL_POND_URL + '/api/gate-editorial', 6000, { headers: { 'X-OWNews-Internal': '1' } });
 
   return {
     freshness: saude.HOME_FRESHNESS || "DESCONHECIDO",
@@ -20427,6 +20428,7 @@ async function ccColetarEditorial(env) {
     },
     revisao_pendente: saude.revisao_pendente || 0,
     buddy_cobertura: saude.buddy_cobertura || null,
+    gate_editorial: gateStats || null,
     instagram: igFrag ? {
       habilitado: igFrag.habilitado,
       dry_run: igFrag.dry_run,
@@ -21046,14 +21048,51 @@ function renderCCDashboard() {
     'if(e.artigos6h!=null)html+=card("Publicadas 6h",e.artigos6h);' +
     'if(e.artigos48h!=null)html+=card("Publicadas 48h",e.artigos48h);' +
     'html+=\'</div>\';' +
-    // Buddy + Impacto coverage
-    'if(e.buddy_cobertura){var bc=e.buddy_cobertura;' +
+    // Gate Editorial panel
+    'if(e.gate_editorial){var ge=e.gate_editorial;var g24=ge["24h"]||{};var g7d=ge["7d"]||{};' +
+    'var gPub=g24.publicadas||0;var gEI=g24.editorial_incomplete||0;var gTotal=gPub+gEI;' +
+    'var gTaxa=g24.taxa_publicacao!=null?g24.taxa_publicacao:(gTotal?Math.round(gPub/gTotal*100):null);' +
+    'var gSemDados=ge.entradas_total===0;var gTudoBloqueado=!gSemDados&&gTotal>0&&gPub===0&&gEI>2;' +
+    'var gCorBorda=gSemDados?"var(--muted)":gTudoBloqueado?"var(--red)":"var(--green)";' +
+    'html+=\'<div class="cc-tg-card" style="border-left:3px solid \'+gCorBorda+\'">\';' +
+    'html+=\'<div class="cc-tg-titulo">Gate Editorial — 24h</div>\';' +
+    'var gValLabel=gSemDados?"Aguardando dados (próximo ciclo do cron)":gTudoBloqueado?"🔴 ALERTA: gate bloqueando tudo sem publicar":"✓ Gate ativo";' +
+    'var gValCor=gSemDados?"var(--muted)":gTudoBloqueado?"var(--red)":"var(--green)";' +
+    'html+=\'<div class="cc-tg-val" style="color:\'+gValCor+\'">\'+gValLabel+"</div>";' +
+    'if(!gSemDados){' +
+    'html+=\'<div class="cc-tg-sub">Coletadas→publicadas: \'+fmtNum(gTotal)+"→"+fmtNum(gPub)+(gTaxa!=null?" ("+gTaxa+"%)")+"</div>";' +
+    'html+=\'<div class="cc-tg-sub">Editorial incompleto: \'+fmtNum(gEI)+(gTotal?" de "+fmtNum(gTotal):"")+"</div>";' +
+    'var gMot=g24.motivos||{};var gMotKeys=Object.keys(gMot).sort(function(a,b){return gMot[b]-gMot[a];});' +
+    'if(gMotKeys.length){html+=\'<div class="cc-tg-sub" style="margin-top:4px;color:var(--muted-dim)">Motivos (24h):</div>\';' +
+    'gMotKeys.forEach(function(m){html+=\'<div class="cc-tg-sub">&rsaquo; \'+esc(m)+": "+fmtNum(gMot[m])+"</div>";});}' +
+    'var g7Pub=g7d.publicadas||0;var g7EI=g7d.editorial_incomplete||0;var g7Tot=g7Pub+g7EI;' +
+    'var g7Taxa=g7d.taxa_publicacao!=null?g7d.taxa_publicacao:(g7Tot?Math.round(g7Pub/g7Tot*100):null);' +
+    'html+=\'<div class="cc-tg-sub" style="margin-top:6px;border-top:1px solid var(--line-hair);padding-top:4px">7d: \'+fmtNum(g7Tot)+" coletadas → "+fmtNum(g7Pub)+" publicadas"+(g7Taxa!=null?" ("+g7Taxa+"%)":"")+"</div>";' +
+    '}' +
+    'html+=\'</div>\';}' +
+    // Saude por fonte (gate)
+    'if(e.gate_editorial&&e.gate_editorial["24h"]){var gf=e.gate_editorial["24h"].fontes||{};var gfKeys=Object.keys(gf).filter(function(k){return gf[k].p||gf[k].ei;}).sort(function(a,b){return (gf[b].ei||0)-(gf[a].ei||0);});' +
+    'if(gfKeys.length){html+=\'<div class="cc-secao"><h2>Saúde por fonte — Gate (24h)</h2>\';' +
+    'gfKeys.forEach(function(k){var f=gf[k];var ft=( f.p||0)+(f.ei||0);var ftx=ft?Math.round((f.p||0)/ft*100):100;var fOk=(f.ei||0)===0;' +
+    'var fMotDest=Object.keys(f.motivos||{}).sort(function(a,b){return (f.motivos[b]||0)-(f.motivos[a]||0);})[0]||null;' +
+    'html+=\'<div class="cc-fonte-linha">\';' +
+    'html+=\'<span><span class="cc-fonte-dot \'+(fOk?"ok":"atencao")+\'"></span><span class="cc-fonte-nome">\'+esc(k)+"</span></span>";' +
+    'html+=\'<span class="cc-fonte-status \'+(fOk?"ok":"atencao")+\'">\'+fmtNum(f.p||0)+"/"+fmtNum(ft)+" ("+ftx+"%)</span>";' +
+    'html+=\'</div>\';' +
+    'if(!fOk&&fMotDest)html+=\'<div style="padding:0 0 4px 16px;font-size:11px;color:var(--muted-dim)">\'+esc(fMotDest)+"</div>";' +
+    '});' +
+    'html+=\'</div>\';}}' +
+    // Buddy + Impacto coverage (with regression alert)
+    'if(e.buddy_cobertura){var bc=e.buddy_cobertura;var bc24=bc["24h"]||null;' +
+    'var gateRodou=e.gate_editorial&&e.gate_editorial.entradas_total>0;' +
     'var buddyOk=bc.pct_buddy>=80;var impactoOk=bc.pct_impacto>=60;' +
-    'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Buddy + Impacto Offshore (últimos 7d)</div>\';' +
-    'html+=\'<div class="cc-tg-val" style="color:\'+(buddyOk&&impactoOk?"var(--green)":"var(--yellow)")+\'">\'+(buddyOk&&impactoOk?"✓ Cobertura OK":"⚠ Cobertura incompleta")+\'</div>\';' +
-    'html+=\'<div class="cc-tg-sub">Buddy: \'+fmtNum(bc.pct_buddy)+"% ("+fmtNum(bc.com_buddy)+"/"+fmtNum(bc.total)+")</div>";' +
-    'html+=\'<div class="cc-tg-sub" style="color:\'+(bc.pct_buddy<80?"var(--yellow)":"var(--muted-dim)")+\'">Impacto Offshore: \'+fmtNum(bc.pct_impacto)+"% ("+fmtNum(bc.com_impacto)+"/"+fmtNum(bc.total)+")</div>";' +
-    'if(!buddyOk||!impactoOk)html+=\'<div class="cc-tg-sub" style="color:var(--yellow)">Execute /retroprocessar-buddy-impact para corrigir</div>\';' +
+    'html+=\'<div class="cc-tg-card" style="border-left:3px solid \'+(buddyOk&&impactoOk?"var(--green)":"var(--yellow)")+\'">\';' +
+    'html+=\'<div class="cc-tg-titulo">Buddy + Impacto — Cobertura</div>\';' +
+    'if(buddyOk&&impactoOk){html+=\'<div class="cc-tg-val" style="color:var(--green)">✓ Cobertura OK (7d)</div>\';}' +
+    'else{html+=\'<div class="cc-tg-val" style="color:var(--yellow)">⚠ Cobertura histórica incompleta — gate ativo para novos artigos</div>\';}' +
+    'html+=\'<div class="cc-tg-sub">7d — Ambos válidos: \'+fmtNum(bc.pct_ambos)+"% ("+fmtNum(bc.ambos_validos||0)+"/"+fmtNum(bc.total)+")</div>";' +
+    'html+=\'<div class="cc-tg-sub" style="color:\'+(bc.pct_buddy<80?"var(--yellow)":"var(--muted-dim)")+\'">Buddy: \'+fmtNum(bc.pct_buddy)+"% &nbsp;·&nbsp; Impacto: "+fmtNum(bc.pct_impacto)+"%</div>";' +
+    'if(bc24){html+=\'<div class="cc-tg-sub" style="margin-top:4px;border-top:1px solid var(--line-hair);padding-top:4px">24h — \'+fmtNum(bc24.total)+" artigos publicados: "+fmtNum(bc24.ambos_validos||0)+" com ambos ("+fmtNum(bc24.pct_ambos||0)+"%)</div>";}' +
     'html+=\'</div>\';}' +
     // Automação stats
     'html+=\'<div class="cc-secao"><h2>Última execução do coletor</h2>\';' +
