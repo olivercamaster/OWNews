@@ -6007,6 +6007,27 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bprio\b/i,                               nome: 'PRIO' },
     { re: /\bocean\s*rig\b/i,                        nome: 'Ocean Rig' },
     { re: /\bodfjell\b/i,                            nome: 'Odfjell' },
+    { re: /\bseadrill\b/i,                           nome: 'Seadrill' },
+    { re: /\bdof\s+(?:group|subsea|asl)?\b/i,        nome: 'DOF Group' },
+    { re: /\beni\b/i,                                nome: 'Eni' },
+    { re: /\bnoble\s+(?:corp|drill|offshore)?\b/i,   nome: 'Noble' },
+    { re: /\bborr\s+drilling\b/i,                    nome: 'Borr Drilling' },
+    { re: /\bshelf\s+drilling\b/i,                   nome: 'Shelf Drilling' },
+    { re: /\bpacific\s+drilling\b/i,                 nome: 'Pacific Drilling' },
+    { re: /\brepsol\b/i,                             nome: 'Repsol' },
+    { re: /\bconoco\s*phillips\b/i,                  nome: 'ConocoPhillips' },
+    { re: /\bqatar\s*energy\b/i,                     nome: 'QatarEnergy' },
+    { re: /\bbakerh\w+\b|\bbaker\s+hughes\b/i,       nome: 'Baker Hughes' },
+    { re: /\btechnip\w*\b/i,                         nome: 'TechnipFMC' },
+    { re: /\bwoodside\b/i,                           nome: 'Woodside' },
+    { re: /\btgs\b/i,                                nome: 'TGS' },
+    { re: /\bpgs\b/i,                                nome: 'PGS' },
+    { re: /\bcgx?\b|\bcgg\b/i,                       nome: 'CGG' },
+    { re: /\bsapura\b/i,                             nome: 'Sapura' },
+    { re: /\bdiamond\s+offshore\b/i,                 nome: 'Diamond Offshore' },
+    { re: /\bmaersk\s+drilling\b/i,                  nome: 'Maersk Drilling' },
+    { re: /\bstena\s+drilling\b/i,                   nome: 'Stena Drilling' },
+    { re: /\bvantage\s+drilling\b/i,                 nome: 'Vantage Drilling' },
   ];
 
   const TEMAS = [
@@ -6014,7 +6035,7 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bsemisubmers/i,                   desc: 'plataformas semissubmersíveis' },
     { re: /\bjack.?up\b/i,                    desc: 'sondas jack-up' },
     { re: /\bdrillship\b|\bnavio.?sonda\b/i,  desc: 'navios-sonda' },
-    { re: /\bsubsea\b/i,                      desc: 'tecnologia subsea' },
+    { re: /\bsubsea\b|\bsubmar[i]/i,          desc: 'tecnologia subsea' },
     { re: /\bmanifold\b/i,                    desc: 'manifolds submarinos' },
     { re: /\briser\b/i,                       desc: 'risers' },
     { re: /\bumbilical\b/i,                   desc: 'umbilicais' },
@@ -6031,6 +6052,13 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\báguas?\s+profundas?\b/i,         desc: 'águas profundas' },
     { re: /\bultraprofund/i,                  desc: 'águas ultraprofundas' },
     { re: /\blng\b|\bgnl\b/i,                 desc: 'GNL' },
+    { re: /\bsísmic[ao]\b|\bseismic\b/i,      desc: 'pesquisa sísmica' },
+    { re: /\bdesmantel/i,                     desc: 'desmantelamento' },
+    { re: /\bmopu\b/i,                        desc: 'unidades MOPU' },
+    { re: /\bplataform/i,                     desc: 'plataformas offshore' },
+    { re: /\bembarca[çc][aã]o\b|\bvess[e]l\b/i, desc: 'embarcações de suporte' },
+    { re: /\bpoço\s+(?:explorat|produt|inject)/i, desc: 'poços offshore' },
+    { re: /\bduto\b|\bpipeline\b/i,           desc: 'dutos submarinos' },
   ];
 
   const TIPOS = [
@@ -6040,10 +6068,14 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bregula[çc][aã]o\b|\bportaria\b|\bresolu[çc][aã]o\b/i, tipo: 'regulacao' },
     { re: /\bconcess[aã]o\b/i,                                  tipo: 'concessao' },
     { re: /\bprodução\b|\bextração\b/i,                         tipo: 'producao' },
-    { re: /\bdescomiss/i,                                       tipo: 'descomissionamento' },
+    { re: /\bdescomiss|\bdesmantel/i,                           tipo: 'descomissionamento' },
     { re: /\btecnologia\b|\binovação\b/i,                       tipo: 'tecnologia' },
     { re: /\bacidente\b|\bincidente\b|\bvazamento\b/i,          tipo: 'seguranca' },
     { re: /\bfase\s+(?:inicial|de\s+estudo|explorat)/i,         tipo: 'fase_inicial' },
+    { re: /\bconvers[aã]o\b/i,                                  tipo: 'conversao' },
+    { re: /\bmobiliza[çc][aã]o\b/i,                             tipo: 'mobilizacao' },
+    { re: /\baquisi[çc][aã]o\b/i,                               tipo: 'aquisicao' },
+    { re: /\bparceria\b|\bjoint\s+venture\b|\bjv\b/i,           tipo: 'parceria' },
   ];
 
   const LIMITACOES = {
@@ -6057,18 +6089,20 @@ function gerarImpactoOffshoreFallback(artigo) {
     tecnologia:          'O comunicado não especifica contratos, aplicações ou contratações derivadas neste momento.',
     seguranca:           'Incidentes em operações offshore têm impacto direto na segurança dos trabalhadores e podem resultar em paralisações ou revisões operacionais.',
     fase_inicial:        'Trata-se de etapa inicial; não é possível afirmar, neste momento, impacto direto em vagas ou operações.',
+    conversao:           'O processo de conversão altera a configuração operacional da unidade, podendo afetar escalas e equipes envolvidas.',
+    mobilizacao:         'A mobilização representa o início concreto de atividades de campo com potencial impacto em contratações locais.',
+    aquisicao:           'Mudanças de controle societário podem afetar contratos em vigor, fornecedores e mobilizações de pessoal.',
+    parceria:            'A parceria define responsabilidades operacionais e pode influenciar contratações e fornecimento no setor.',
+    geral:               'Acompanhe os desdobramentos para avaliar impactos operacionais, contratos ou mobilizações específicas no setor offshore.',
   };
 
   const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
   const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
   const tipoMatch = TIPOS.find((t) => t.re.test(base));
   const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
-  const limitacao = LIMITACOES[tipo] || 'Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações, vagas ou contratos específicos neste momento.';
+  const limitacao = LIMITACOES[tipo];
 
-  if (!entidades.length && !temas.length) {
-    // Sem entidade offshore específica nem tema técnico: sem contexto real para o card.
-    return null;
-  }
+  if (!entidades.length && !temas.length) return null;
 
   const principaisEntidades = entidades.slice(0, 2).join(' e ');
   const principaisTemas = temas.slice(0, 2).join(' e ');
@@ -6078,8 +6112,9 @@ function gerarImpactoOffshoreFallback(artigo) {
     parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
   } else if (principaisTemas) {
     parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
+  } else if (principaisEntidades) {
+    parte1 = 'A notícia envolve ' + principaisEntidades + ', empresa atuante no mercado de exploração e produção de óleo e gás offshore.';
   } else {
-    // Apenas entidade sem tema offshore específico — insuficiente para contexto genuíno.
     return null;
   }
 

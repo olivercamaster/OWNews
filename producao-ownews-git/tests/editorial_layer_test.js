@@ -320,10 +320,10 @@ test("gerarImpactoOffshoreFallback: artigo com FPSO e subsea retorna texto com e
   expect(r !== null, "retornou null para artigo offshore relevante");
   expect(mod.validarImpactoOffshore(r).ok, "texto gerado não passa no validador: " + r);
 });
-test("gerarImpactoOffshoreFallback: artigo com apenas entidade sem tema offshore retorna null", () => {
+test("gerarImpactoOffshoreFallback: artigo com apenas entidade offshore retorna texto genérico com entidade", () => {
   const artigo = { title: "SLB reporta resultados financeiros", summary: "SLB divulgou seu relatório trimestral de resultados.", content: "A companhia reportou receita de US$ 9 bilhões no trimestre, superando estimativas do mercado." };
   const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r === null, "esperado null para entidade sem tema offshore: " + r);
+  expect(typeof r === 'string' && r.includes('SLB'), "esperado texto com entidade SLB: " + r);
 });
 test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna null (sem card genérico)", () => {
   const artigo = { title: "Banco Central sobe taxa de juros", summary: "O Banco Central decidiu elevar a taxa Selic em reunião de outubro.", content: "O Comitê de Política Monetária decidiu elevar a taxa Selic de 10,5% para 10,75% ao ano." };

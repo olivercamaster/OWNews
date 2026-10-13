@@ -528,14 +528,100 @@ if (url.pathname === "/teste-materia") {
   return new Response(resp.body, { headers: { "Content-Type": "application/json" } });
 }
 
+ if (url.pathname === "/apply-migration-buddy") {
+  // Tenta aplicar MIGRATION-BUDDY-EXPLICA.sql via Supabase exec_sql RPC.
+  // Endpoint seguro: só executa ADD COLUMN IF NOT EXISTS (idempotente).
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: 'Supabase não configurado' });
+  const SQL = `ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS buddy_summary text, ADD COLUMN IF NOT EXISTS why_it_matters text, ADD COLUMN IF NOT EXISTS buddy_source text, ADD COLUMN IF NOT EXISTS buddy_reviewed_at timestamptz`;
+  const tentativas = [];
+
+  // Tentativa 1: /rest/v1/rpc/exec_sql
+  try {
+    const r1 = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql: SQL })
+    });
+    const t1 = await r1.text().catch(() => '');
+    tentativas.push({ via: 'rpc/exec_sql', status: r1.status, body: t1.slice(0,200) });
+    if (r1.ok) return Response.json({ ok: true, via: 'rpc/exec_sql', status: r1.status });
+  } catch(e) { tentativas.push({ via: 'rpc/exec_sql', erro: e.message }); }
+
+  // Tentativa 2: /rest/v1/rpc/query (alias em alguns projetos)
+  try {
+    const r2 = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/query`, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: SQL })
+    });
+    const t2 = await r2.text().catch(() => '');
+    tentativas.push({ via: 'rpc/query', status: r2.status, body: t2.slice(0,200) });
+    if (r2.ok) return Response.json({ ok: true, via: 'rpc/query', status: r2.status });
+  } catch(e) { tentativas.push({ via: 'rpc/query', erro: e.message }); }
+
+  // Tentativa 3: endpoint pg admin (versões mais novas do Supabase)
+  const projectRef = env.SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+  if (projectRef) {
+    try {
+      const r3 = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: SQL })
+      });
+      const t3 = await r3.text().catch(() => '');
+      tentativas.push({ via: 'api.supabase.com/database/query', status: r3.status, body: t3.slice(0,200) });
+      if (r3.ok) return Response.json({ ok: true, via: 'api.supabase.com', status: r3.status });
+    } catch(e) { tentativas.push({ via: 'api.supabase.com', erro: e.message }); }
+  }
+
+  return Response.json({
+    ok: false,
+    instrucao: 'Nenhuma das tentativas automáticas funcionou. Aplique docs/MIGRATION-BUDDY-EXPLICA.sql manualmente no Supabase SQL Editor.',
+    tentativas
+  }, { status: 503 });
+}
+
+ if (url.pathname === "/debug-patch-buddy") {
+  // Testa PATCH real: busca um artigo, patcha buddy_summary, lê de volta para confirmar.
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: 'Supabase não configurado' });
+  const fetchR = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,buddy_summary,why_it_matters&status=eq.published&buddy_summary=is.null&limit=1`,
+    { headers: supabaseHeaders(env) }
+  );
+  if (!fetchR.ok) return Response.json({ ok: false, passo: 'fetch', status: fetchR.status, body: await fetchR.text().catch(()=>'') });
+  const [artigo] = await fetchR.json();
+  if (!artigo) return Response.json({ ok: false, passo: 'sem_artigos' });
+
+  const testVal = 'TESTE_PATCH_' + Date.now();
+  const patchR = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(artigo.id)}`,
+    { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify({ buddy_summary: testVal }) }
+  );
+  const patchStatus = patchR.status;
+  const patchBody = await patchR.text().catch(() => '');
+
+  // Lê de volta para confirmar
+  const confirmR = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,buddy_summary&id=eq.${encodeURIComponent(artigo.id)}`,
+    { headers: supabaseHeaders(env) }
+  );
+  const confirmBody = await confirmR.text().catch(() => '');
+
+  return Response.json({ ok: patchR.ok, artigo_id: artigo.id, patch_status: patchStatus, patch_body: patchBody.slice(0,300), confirm_body: confirmBody.slice(0,300) });
+}
+
  if (url.pathname === "/retroprocessar-buddy-impact") {
   // Retroprocessa artigos publicados sem buddy_summary ou why_it_matters.
   // GET /retroprocessar-buddy-impact?limite=50
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
   const limite = Math.min(parseInt(url.searchParams.get("limite") || "50", 10), 200);
+  const incluirSemMaterial = url.searchParams.get("incluir_sem_material") === "1";
+  const filtroSource = incluirSemMaterial
+    ? 'or=(buddy_source.is.null,buddy_source.eq.sem_material)'
+    : 'buddy_source=is.null';
   try {
     const resp = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&buddy_summary=is.null&order=published_at.desc&limit=${limite}`,
+      `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtroSource}&order=published_at.desc&limit=${limite}`,
       { headers: supabaseHeaders(env) }
     );
     if (!resp.ok) {
@@ -544,25 +630,51 @@ if (url.pathname === "/teste-materia") {
       return Response.json({ ok: false, migracao_pendente: migPendente, instrucao: migPendente ? 'Aplique docs/MIGRATION-BUDDY-EXPLICA.sql no Supabase SQL Editor.' : 'Erro Supabase.', detalhe: eText.slice(0,300) });
     }
     const artigos = await resp.json();
-    let atualizados = 0, semMaterial = 0, erros = 0;
+    // Plano Free: limite de 50 subrequests por invocação (1 já gasto no SELECT).
+    // Nunca ultrapassa 40 PATCHes totais (incluindo sem_material) para ter margem.
+    const MAX_PATCHES = 40;
+    let atualizados = 0, semMaterial = 0, erros = 0, limitado = 0, totalPatches = 0;
     for (const artigo of artigos) {
+      if (totalPatches >= MAX_PATCHES) { limitado++; continue; }
       try {
         const camada = gerarCamadaEditorialParaArtigo(artigo);
-        if (!camada.buddy_summary && !camada.why_it_matters) { semMaterial++; continue; }
-        const patch = {};
+        const patch = { buddy_source: 'fallback' };
         if (camada.buddy_summary) patch.buddy_summary = camada.buddy_summary;
         if (camada.why_it_matters) patch.why_it_matters = camada.why_it_matters;
+        if (!camada.buddy_summary && !camada.why_it_matters) {
+          patch.buddy_source = 'sem_material';
+          // Ao reclassificar como sem_material, zera campos para evitar valores obsoletos
+          patch.buddy_summary = null;
+          patch.why_it_matters = null;
+        }
+        totalPatches++;
         const pr = await fetch(
           `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(artigo.id)}`,
           { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch) }
         );
-        if (pr.ok) atualizados++; else erros++;
-      } catch { erros++; }
+        if (pr.ok) {
+          if (camada.buddy_summary || camada.why_it_matters) atualizados++;
+          else semMaterial++;
+        } else { erros++; }
+      } catch { erros++; totalPatches--; }
     }
-    return Response.json({ ok: true, consultados: artigos.length, atualizados, sem_material: semMaterial, erros });
+    return Response.json({ ok: true, consultados: artigos.length, atualizados, sem_material: semMaterial, erros, limitado });
   } catch(e) {
     return Response.json({ ok: false, erro: e.message }, { status: 500 });
   }
+}
+
+ if (url.pathname === "/limpar-buddy-invalido") {
+  // Zera buddy_summary/why_it_matters de artigo específico com valor inválido/teste.
+  // GET /limpar-buddy-invalido?id=<uuid>
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
+  const artigoId = url.searchParams.get("id");
+  if (!artigoId) return Response.json({ ok: false, erro: "id obrigatório" });
+  const pr = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(artigoId)}&buddy_source=eq.sem_material`,
+    { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify({ buddy_summary: null, why_it_matters: null }) }
+  );
+  return Response.json({ ok: pr.ok, status: pr.status });
 }
 
  if (url.pathname === "/audit-buddy-coverage") {
@@ -3094,13 +3206,34 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bprio\b/i,                               nome: 'PRIO' },
     { re: /\bocean\s*rig\b/i,                        nome: 'Ocean Rig' },
     { re: /\bodfjell\b/i,                            nome: 'Odfjell' },
+    { re: /\bseadrill\b/i,                           nome: 'Seadrill' },
+    { re: /\bdof\s+(?:group|subsea|asl)?\b/i,        nome: 'DOF Group' },
+    { re: /\beni\b/i,                                nome: 'Eni' },
+    { re: /\bnoble\s+(?:corp|drill|offshore)?\b/i,   nome: 'Noble' },
+    { re: /\bborr\s+drilling\b/i,                    nome: 'Borr Drilling' },
+    { re: /\bshelf\s+drilling\b/i,                   nome: 'Shelf Drilling' },
+    { re: /\bpacific\s+drilling\b/i,                 nome: 'Pacific Drilling' },
+    { re: /\brepsol\b/i,                             nome: 'Repsol' },
+    { re: /\bconoco\s*phillips\b/i,                  nome: 'ConocoPhillips' },
+    { re: /\bqatar\s*energy\b/i,                     nome: 'QatarEnergy' },
+    { re: /\bbakerh\w+\b|\bbaker\s+hughes\b/i,       nome: 'Baker Hughes' },
+    { re: /\btechnip\w*\b/i,                         nome: 'TechnipFMC' },
+    { re: /\bwoodside\b/i,                           nome: 'Woodside' },
+    { re: /\btgs\b/i,                                nome: 'TGS' },
+    { re: /\bpgs\b/i,                                nome: 'PGS' },
+    { re: /\bcgx?\b|\bcgg\b/i,                       nome: 'CGG' },
+    { re: /\bsapura\b/i,                             nome: 'Sapura' },
+    { re: /\bdiamond\s+offshore\b/i,                 nome: 'Diamond Offshore' },
+    { re: /\bmaersk\s+drilling\b/i,                  nome: 'Maersk Drilling' },
+    { re: /\bstena\s+drilling\b/i,                   nome: 'Stena Drilling' },
+    { re: /\bvantage\s+drilling\b/i,                 nome: 'Vantage Drilling' },
   ];
   const TEMAS = [
     { re: /\bfpso\b/i,                        desc: 'unidades FPSO' },
     { re: /\bsemisubmers/i,                   desc: 'plataformas semissubmersíveis' },
     { re: /\bjack.?up\b/i,                    desc: 'sondas jack-up' },
     { re: /\bdrillship\b|\bnavio.?sonda\b/i,  desc: 'navios-sonda' },
-    { re: /\bsubsea\b/i,                      desc: 'tecnologia subsea' },
+    { re: /\bsubsea\b|\bsubmar[i]/i,          desc: 'tecnologia subsea' },
     { re: /\bmanifold\b/i,                    desc: 'manifolds submarinos' },
     { re: /\briser\b/i,                       desc: 'risers' },
     { re: /\bumbilical\b/i,                   desc: 'umbilicais' },
@@ -3117,6 +3250,13 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\báguas?\s+profundas?\b/i,         desc: 'águas profundas' },
     { re: /\bultraprofund/i,                  desc: 'águas ultraprofundas' },
     { re: /\blng\b|\bgnl\b/i,                 desc: 'GNL' },
+    { re: /\bsísmic[ao]\b|\bseismic\b/i,      desc: 'pesquisa sísmica' },
+    { re: /\bdesmantel/i,                     desc: 'desmantelamento' },
+    { re: /\bmopu\b/i,                        desc: 'unidades MOPU' },
+    { re: /\bplataform/i,                     desc: 'plataformas offshore' },
+    { re: /\bembarca[çc][aã]o\b|\bvess[e]l\b/i, desc: 'embarcações de suporte' },
+    { re: /\bpoço\s+(?:explorat|produt|inject)/i, desc: 'poços offshore' },
+    { re: /\bduto\b|\bpipeline\b/i,           desc: 'dutos submarinos' },
   ];
   const TIPOS = [
     { re: /\bcontrat[aoa]\b|\badjudic|\baward\b/i,              tipo: 'contrato' },
@@ -3125,10 +3265,14 @@ function gerarImpactoOffshoreFallback(artigo) {
     { re: /\bregula[çc][aã]o\b|\bportaria\b|\bresolu[çc][aã]o\b/i, tipo: 'regulacao' },
     { re: /\bconcess[aã]o\b/i,                                  tipo: 'concessao' },
     { re: /\bprodução\b|\bextração\b/i,                         tipo: 'producao' },
-    { re: /\bdescomiss/i,                                       tipo: 'descomissionamento' },
+    { re: /\bdescomiss|\bdesmantel/i,                           tipo: 'descomissionamento' },
     { re: /\btecnologia\b|\binovação\b/i,                       tipo: 'tecnologia' },
     { re: /\bacidente\b|\bincidente\b|\bvazamento\b/i,          tipo: 'seguranca' },
     { re: /\bfase\s+(?:inicial|de\s+estudo|explorat)/i,         tipo: 'fase_inicial' },
+    { re: /\bconvers[aã]o\b/i,                                  tipo: 'conversao' },
+    { re: /\bmobiliza[çc][aã]o\b/i,                             tipo: 'mobilizacao' },
+    { re: /\baquisi[çc][aã]o\b/i,                               tipo: 'aquisicao' },
+    { re: /\bparceria\b|\bjoint\s+venture\b|\bjv\b/i,           tipo: 'parceria' },
   ];
   const LIMITACOES = {
     contrato:            'O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.',
@@ -3141,13 +3285,18 @@ function gerarImpactoOffshoreFallback(artigo) {
     tecnologia:          'O comunicado não especifica contratos, aplicações ou contratações derivadas neste momento.',
     seguranca:           'Incidentes em operações offshore têm impacto direto na segurança dos trabalhadores e podem resultar em paralisações ou revisões operacionais.',
     fase_inicial:        'Trata-se de etapa inicial; não é possível afirmar, neste momento, impacto direto em vagas ou operações.',
+    conversao:           'O processo de conversão altera a configuração operacional da unidade, podendo afetar escalas e equipes envolvidas.',
+    mobilizacao:         'A mobilização representa o início concreto de atividades de campo com potencial impacto em contratações locais.',
+    aquisicao:           'Mudanças de controle societário podem afetar contratos em vigor, fornecedores e mobilizações de pessoal.',
+    parceria:            'A parceria define responsabilidades operacionais e pode influenciar contratações e fornecimento no setor.',
+    geral:               'Acompanhe os desdobramentos para avaliar impactos operacionais, contratos ou mobilizações específicas no setor offshore.',
   };
 
   const entidades = ENTIDADES.filter((e) => e.re.test(base)).map((e) => e.nome);
   const temas = TEMAS.filter((t) => t.re.test(base)).map((t) => t.desc);
   const tipoMatch = TIPOS.find((t) => t.re.test(base));
   const tipo = tipoMatch ? tipoMatch.tipo : 'geral';
-  const limitacao = LIMITACOES[tipo] || 'Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações, vagas ou contratos específicos neste momento.';
+  const limitacao = LIMITACOES[tipo];
 
   if (!entidades.length && !temas.length) return null;
 
@@ -3159,6 +3308,8 @@ function gerarImpactoOffshoreFallback(artigo) {
     parte1 = 'A informação envolve ' + principaisTemas + ', com participação de ' + principaisEntidades + '.';
   } else if (principaisTemas) {
     parte1 = 'O assunto está diretamente relacionado a ' + principaisTemas + ', segmento central para as operações offshore.';
+  } else if (principaisEntidades) {
+    parte1 = 'A notícia envolve ' + principaisEntidades + ', empresa atuante no mercado de exploração e produção de óleo e gás offshore.';
   } else {
     return null;
   }
