@@ -244,6 +244,34 @@ test("blocoBuddyExplica: segundo card visível apenas quando why_it_matters pree
 test("blocoBuddyExplica vazio sem camada", () => {
   expect(mod.blocoBuddyExplica(null) === "");
 });
+test("blocoBuddyExplica vazio quando ambos os campos são null", () => {
+  expect(mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: null }) === "", "deve retornar '' quando ambos null");
+});
+test("blocoBuddyExplica impacto-only: renderiza card de impacto quando só why_it_matters válido", () => {
+  const html = mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: "Isso representa mudança direta nas operações offshore.", revisado_em: null, fonte: 'banco' });
+  expect(html.includes("O que isso representa para o offshore?"), "título do card de impacto ausente");
+  expect(html.includes("mudança direta nas operações offshore"), "texto do impacto ausente");
+  expect(!html.includes('src="/icons/buddy-head.png"'), "mascote não deve aparecer no impacto-only");
+  expect(!html.includes("OWBuddy te explica"), "título do buddy não deve aparecer no impacto-only");
+  expect(html.includes('buddy-explica-porque-card--standalone'), "classe standalone ausente");
+});
+test("resolverCamadaEditorial: retorna impacto-only para artigo com why_it_matters no banco e buddy_summary null", () => {
+  const artigo = {
+    id: "id-impacto-only-9999",
+    title: "Petrobras assina contrato FPSO",
+    summary: "Petrobras assina FPSO.",
+    content: "Petrobras assinou FPSO.",  // conteúdo muito curto → gerarBuddySummaryFallback retorna null
+    buddy_summary: null,
+    why_it_matters: "Isso representa aumento de 15% na capacidade de produção offshore, afetando diretamente as contratações de operadores de planta."
+  };
+  const c = mod.resolverCamadaEditorial(artigo);
+  expect(c !== null, "camada não deve ser null quando DB tem why_it_matters válido");
+  if (c) {
+    expect(c.buddy_summary === null, "buddy_summary deve ser null no impacto-only");
+    expect(c.why_it_matters !== null && c.why_it_matters.length > 40, "why_it_matters ausente no impacto-only");
+    expect(c.fonte === 'banco', "fonte deve ser 'banco' no impacto-only: " + c.fonte);
+  }
+});
 test("blocoBuddyExplica linka a política editorial (#buddy-te-explica)", () => {
   const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
   expect(html.includes("/politica-editorial#buddy-te-explica"));
