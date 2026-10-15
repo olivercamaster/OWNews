@@ -7877,23 +7877,29 @@ const PERGUNTE_IA_SYSTEM_PROMPT = [
 
 async function registrarUsoDiarioIA(env) {
   const chave = 'budget:' + new Date().toISOString().slice(0, 10);
-  const atualStr = await env.PERGUNTE_IA_KV.get(chave);
-  const atual = atualStr ? parseInt(atualStr, 10) || 0 : 0;
-  await env.PERGUNTE_IA_KV.put(chave, String(atual + 1), { expirationTtl: 172800 });
-  return atual + 1;
+  try {
+    const atualStr = await env.PERGUNTE_IA_KV.get(chave);
+    const atual = atualStr ? parseInt(atualStr, 10) || 0 : 0;
+    await env.PERGUNTE_IA_KV.put(chave, String(atual + 1), { expirationTtl: 172800 });
+    return atual + 1;
+  } catch { return 0; /* KV bloqueado (429) — não derruba o Buddy */ }
 }
 async function usoDiarioIAAtual(env) {
   const chave = 'budget:' + new Date().toISOString().slice(0, 10);
-  const atualStr = await env.PERGUNTE_IA_KV.get(chave);
-  return atualStr ? parseInt(atualStr, 10) || 0 : 0;
+  try {
+    const atualStr = await env.PERGUNTE_IA_KV.get(chave);
+    return atualStr ? parseInt(atualStr, 10) || 0 : 0;
+  } catch { return 0; }
 }
 async function limiteHoraPorIPExcedido(env, ip) {
   const chave = 'rl:' + hashSimplesServidor(ip || 'sem-ip') + ':' + new Date().toISOString().slice(0, 13);
-  const atualStr = await env.PERGUNTE_IA_KV.get(chave);
-  const atual = atualStr ? parseInt(atualStr, 10) || 0 : 0;
-  if (atual >= PERGUNTE_IA_LIMITE_HORA_POR_IP) return true;
-  await env.PERGUNTE_IA_KV.put(chave, String(atual + 1), { expirationTtl: 3600 });
-  return false;
+  try {
+    const atualStr = await env.PERGUNTE_IA_KV.get(chave);
+    const atual = atualStr ? parseInt(atualStr, 10) || 0 : 0;
+    if (atual >= PERGUNTE_IA_LIMITE_HORA_POR_IP) return true;
+    await env.PERGUNTE_IA_KV.put(chave, String(atual + 1), { expirationTtl: 3600 });
+    return false;
+  } catch { return false; /* KV bloqueado (429) — fail open: não bloqueia usuário legítimo */ }
 }
 
 async function responderPerguntaIA(env, perguntaBruta, ip) {
