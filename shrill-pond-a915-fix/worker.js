@@ -2760,10 +2760,16 @@ async function acumularGateEditorial(env, resultados) {
       }
       if (p || ei) entrada.fontes[nome] = { p, ei, cs, motivos };
     }
-    if (Object.keys(entrada.fontes).length) acum.push(entrada);
+    const teveDados = Object.keys(entrada.fontes).length > 0;
+    if (teveDados) acum.push(entrada);
     const limite = agora - 7 * 86400000;
     const final = acum.filter(e => e.ts >= limite).slice(-500);
-    await env.SAUDE_KV.put('gate_acum', JSON.stringify(final), { expirationTtl: 8 * 86400 });
+    // Só escreve se houve dados novos OU se a poda removeu entradas antigas.
+    // Ciclos sem artigos editoriais (ex: madrugada, fontes sem novidade)
+    // não geram PUT — economiza ~15-20 writes/dia no SAUDE_KV.
+    if (teveDados || final.length < acum.length) {
+      await env.SAUDE_KV.put('gate_acum', JSON.stringify(final), { expirationTtl: 8 * 86400 });
+    }
   } catch { /* observabilidade nunca pode quebrar o coletor */ }
 }
 
@@ -5746,8 +5752,18 @@ async function coletarTodosOffVoos(env) {
     atualizado_em: new Date().toISOString(),
     aeroportos: resultados
   };
+  // Write-if-changed: só persiste quando os dados de voo mudam.
+  // Exclui fetched_at/source_updated_at (variam a cada ciclo, mesmo sem mudança real)
+  // para não gerar 288 puts/dia desnecessários. Adiciona 1 GET/ciclo (desprezível
+  // vs. cota de 100K leituras/dia do plano Free).
   try {
-    if (env.SAUDE_KV) await env.SAUDE_KV.put("offvoos_snapshot", JSON.stringify(registro));
+    if (env.SAUDE_KV) {
+      const _fp = arr => JSON.stringify((arr || []).map(({ fetched_at, source_updated_at, ...d }) => d));
+      const existente = await obterSnapshotOffVoosDoKV(env);
+      if (_fp(registro.aeroportos) !== _fp(existente && existente.aeroportos)) {
+        await env.SAUDE_KV.put("offvoos_snapshot", JSON.stringify(registro));
+      }
+    }
   } catch { /* nunca derruba o coletor */ }
 
   return registro;
@@ -5959,12 +5975,11 @@ export class OffVoosPoller {
     // Sempre reagenda — mesmo se a coleta falhou (o próprio backoff interno
     // de coletarTodosOffVoos já cuida de não martelar o OffVoos durante uma
     // indisponibilidade; aqui só garantimos que o loop nunca morre).
-    // Intervalo subiu de 3min pra 5min em 2026-09-19 (auditoria de
-    // orçamento KV — docs/KV-BUDGET.md): sozinho, 3min gerava ~480
-    // writes/dia no namespace compartilhado; dado de aeroporto não perde
-    // utilidade real por atualizar a cada 5min em vez de 3min, e isso
-    // libera ~192 writes/dia de margem contra a cota de 1000/dia do plano
-    // Free (mesma cota que já estourou uma vez no Instagram publisher).
+    // Intervalo: 3min→5min em 2026-09-19 (auditoria KV). Mantido em 5min
+    // porque write-if-changed (implementado em coletarTodosOffVoos na mesma
+    // auditoria de 2026-10-15) já elimina a maioria dos PUTs — só escreve
+    // quando os dados reais de voo mudam, reduzindo de ~288/dia para ~30-80/dia.
+    // O intervalo de 5min preserva o label "ao vivo" (threshold: 10min).
     await this.state.storage.setAlarm(Date.now() + 5 * 60000);
   }
 }
@@ -6244,7 +6259,11 @@ export class MercadoPoller {
     } catch (e) {
       console.error("[Mercado DO] erro na coleta, será tentado de novo no próximo ciclo:", e.message);
     }
-    await this.state.storage.setAlarm(Date.now() + 5 * 60000);
+    // Intervalo subiu de 5min para 10min em 2026-10-15 (auditoria KV):
+    // preços de commodities não mudam mais de uma vez por minuto, e 10min
+    // reduz de ~288 para ~144 writes/dia sem impacto perceptível na UX
+    // (o threshold de "fresco" do mercado é de vários minutos).
+    await this.state.storage.setAlarm(Date.now() + 10 * 60000);
   }
 }
 
