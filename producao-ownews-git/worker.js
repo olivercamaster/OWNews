@@ -4570,13 +4570,20 @@ function renderTudo(noticias){
     return escolhidos;
   }
   const mercadoHoje = selecionarEditorial(poolElegivelHoje, 'mercado', 4);
+  const mercado = mercadoHoje.length >= 4
+    ? mercadoHoje
+    : mercadoHoje.concat(selecionarEditorial(poolResiliencia48h, 'mercado', 4 - mercadoHoje.length));
+
   const operacoesHoje = selecionarEditorial(poolElegivelHoje, 'operacoes', 5);
+  const operacoes = operacoesHoje.length >= 5
+    ? operacoesHoje
+    : operacoesHoje.concat(selecionarEditorial(poolResiliencia48h, 'operacoes', 5 - operacoesHoje.length));
 
   renderHero(hero);
   renderHighlights(destaques);
   renderUltimas(ultimas);
-  renderMercado(mercadoHoje, false);
-  renderOperacoes(operacoesHoje, false);
+  renderMercado(mercado, !mercadoHoje.length);
+  renderOperacoes(operacoes, !operacoesHoje.length);
 
   /* Corrigido em 2026-09-17 (regra editorial C, P0 frescor da Home): Giro
      24h NUNCA pode repetir a manchete principal — o pool inteiro (noticias)

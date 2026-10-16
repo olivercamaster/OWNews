@@ -477,6 +477,147 @@ test("gerarBuddySummaryFallback: decodifica HTML entities antes de extrair frase
   if (r) expect(!r.includes('&ccedil;') && !r.includes('&atilde;'), "HTML entities não decodificadas no buddy_summary: " + r);
 });
 
+// ── P0.2 Dedup editorial + fallback progressivo (2026-10-16) ─────────────────
+
+console.log("\n== P0.2 DEDUP EDITORIAL + FALLBACK PROGRESSIVO ==");
+
+// Inlined logic from worker.js (renderTudo inline script section)
+const PALAVRAS_OPERACOES_T = ["plataforma","navio-plataforma","fpso","sonda","poço","poco","perfuração","perfuracao","descomissionamento","pré-sal","pre-sal","margem equatorial","búzios","buzios","campo","águas profundas","aguas profundas","uep","mero","tupi"];
+const PALAVRAS_MERCADO_T = ["royalties","participação especial","participacao especial","licitação","licitacao","leilão","leilao","concessão","concessao","oferta permanente","bloco","bacia","gás natural","gas natural","eólica offshore","eolica offshore","exportação","exportacao","hidrocarbonetos","gasoduto","mercado","petróleo","petroleo","brent","wti","diesel","gasolina","combustível","combustivel","opep"];
+function classificarT(n) {
+  const t = ((n.title||'') + ' ' + (n.summary||'')).toLowerCase();
+  for (const p of PALAVRAS_OPERACOES_T) if (t.includes(p)) return 'operacoes';
+  for (const p of PALAVRAS_MERCADO_T) if (t.includes(p)) return 'mercado';
+  return 'geral';
+}
+function chavesHomeT(n) {
+  const ks = [];
+  if (n.id) ks.push('id:' + n.id);
+  if (n.slug) ks.push('slug:' + n.slug);
+  if (n.original_url) ks.push('url:' + n.original_url);
+  return ks;
+}
+function makeArtigo(overrides) {
+  return { id: overrides.id||'x', slug: overrides.id||'x', original_url: 'https://t.st/'+overrides.id, image_url: overrides.img||null, title: overrides.title||'Sem título', summary: '', published_at: overrides.ts||new Date().toISOString(), editorial_score: overrides.score||50, ...overrides };
+}
+function simularDistribuicao(artigos, nHoje) {
+  const now = Date.now();
+  const pool24h = artigos.filter(a => (now - new Date(a.published_at).getTime())/3600000 <= 24);
+  const pool48h = artigos.filter(a => (now - new Date(a.published_at).getTime())/3600000 <= 48);
+  const sorted = [...artigos].sort((a,b) => b.editorial_score - a.editorial_score);
+  const hero = sorted[0];
+  const destaques = sorted.slice(1, 4);
+  const usados = new Set([hero, ...destaques].flatMap(chavesHomeT));
+  const imagensUsadas = new Set([hero.image_url, ...destaques.map(n=>n.image_url)].filter(Boolean));
+  const imagensUltimas = new Set([hero.image_url].filter(Boolean));
+  function proximosUltimas(pool, n) {
+    const r = [];
+    for (const c of pool) {
+      if (r.length >= n) break;
+      if (chavesHomeT(c).some(k=>usados.has(k))) continue;
+      if (c.image_url && imagensUltimas.has(c.image_url)) continue;
+      r.push(c); chavesHomeT(c).forEach(k=>usados.add(k)); if (c.image_url) imagensUltimas.add(c.image_url);
+    }
+    return r;
+  }
+  const pool24hOrdered = [...pool24h].sort((a,b) => new Date(b.published_at) - new Date(a.published_at));
+  const ultimasHoje = proximosUltimas(pool24hOrdered, 6);
+  const ultimas = ultimasHoje.length >= 2 ? ultimasHoje : ultimasHoje.concat(proximosUltimas(pool48h, 6 - ultimasHoje.length));
+  function selecionarEditorial(pool, cat, qty) {
+    const escolhidos = [];
+    for (const n of pool) {
+      if (escolhidos.length >= qty || classificarT(n) !== cat) continue;
+      if (chavesHomeT(n).some(k=>usados.has(k))) continue;
+      if (n.image_url && imagensUsadas.has(n.image_url)) continue;
+      escolhidos.push(n); chavesHomeT(n).forEach(k=>usados.add(k)); if (n.image_url) imagensUsadas.add(n.image_url);
+    }
+    return escolhidos;
+  }
+  const mercadoHoje = selecionarEditorial(pool24h, 'mercado', 4);
+  const mercado = mercadoHoje.length >= 4 ? mercadoHoje : mercadoHoje.concat(selecionarEditorial(pool48h, 'mercado', 4 - mercadoHoje.length));
+  const operacoesHoje = selecionarEditorial(pool24h, 'operacoes', 5);
+  const operacoes = operacoesHoje.length >= 5 ? operacoesHoje : operacoesHoje.concat(selecionarEditorial(pool48h, 'operacoes', 5 - operacoesHoje.length));
+  return { hero, destaques, ultimas, mercado, operacoes, usados };
+}
+
+const agora = Date.now();
+const ts24h = t => new Date(agora - t * 3600000).toISOString();
+
+test("artigo usado em Últimas não reaparece em Mercado (strict dedup)", () => {
+  const artigos = [
+    makeArtigo({ id:'h', title:'Plataforma FPSO Búzios inicia produção', summary:'Campo de Búzios.', img:'http://img/h.jpg', score:100, published_at: ts24h(2) }),
+    makeArtigo({ id:'d1', title:'Petrobras aumenta produção pre-sal', summary:'Pre-sal crescimento.', img:'http://img/d1.jpg', score:85, published_at: ts24h(4) }),
+    makeArtigo({ id:'d2', title:'Sonda poço exploratório Brava', summary:'Perfuração poço.', img:'http://img/d2.jpg', score:80, published_at: ts24h(5) }),
+    makeArtigo({ id:'d3', title:'Petróleo Brent sobe US$100', summary:'Mercado petróleo.', img:'http://img/d3.jpg', score:75, published_at: ts24h(6) }),
+    makeArtigo({ id:'u1', title:'Mercado petróleo conflitos oriente médio', summary:'Petróleo oriente médio.', img:'http://img/u1.jpg', score:70, published_at: ts24h(8) }),
+    makeArtigo({ id:'u2', title:'ANTAQ gasoduto transporte maritimo', summary:'Gasoduto.', img:'http://img/u2.jpg', score:65, published_at: ts24h(10) }),
+  ];
+  const { ultimas, mercado, usados } = simularDistribuicao(artigos);
+  const ultimasIds = ultimas.map(a=>a.id);
+  const mercadoIds = mercado.map(a=>a.id);
+  const intersect = ultimasIds.filter(id => mercadoIds.includes(id));
+  expect(intersect.length === 0, `Artigo repetido: ${intersect} aparece em Últimas E Mercado`);
+});
+
+test("imagem usada em Destaques não reaparece em Mercado quando há alternativa", () => {
+  const IMG_REPETIDA = 'http://img/shared.jpg';
+  const artigos = [
+    makeArtigo({ id:'h', title:'Plataforma FPSO Búzios', summary:'Campo Búzios.', img:'http://img/h.jpg', score:100, published_at: ts24h(2) }),
+    makeArtigo({ id:'d1', title:'Petrobras destaque mercado petroleo', summary:'Petróleo destaque.', img:IMG_REPETIDA, score:85, published_at: ts24h(4) }),
+    makeArtigo({ id:'d2', title:'Sonda poço exploratório', summary:'Perfuração poço.', img:'http://img/d2.jpg', score:80, published_at: ts24h(5) }),
+    makeArtigo({ id:'d3', title:'ANP leilão bloco offshore', summary:'Leilão bloco.', img:'http://img/d3.jpg', score:75, published_at: ts24h(6) }),
+    makeArtigo({ id:'m1_rep', title:'Brent petróleo royalties leilão', summary:'Petróleo brent royalties.', img:IMG_REPETIDA, score:70, published_at: ts24h(8) }),
+    makeArtigo({ id:'m2_ok', title:'Combustível gasolina diesel preços', summary:'Combustível preço diesel.', img:'http://img/m2.jpg', score:65, published_at: ts24h(9) }),
+  ];
+  const { mercado } = simularDistribuicao(artigos);
+  const imgsMercado = mercado.map(a=>a.image_url);
+  expect(!imgsMercado.includes(IMG_REPETIDA), `Imagem repetida apareceu em Mercado mesmo havendo alternativa. mercado ids: ${mercado.map(a=>a.id)}`);
+});
+
+test("editorial aceita 48h quando 24h pool está esgotado pelo heroi+destaques+últimas", () => {
+  const _48h = ts24h(30); // 30h atrás = dentro de 48h
+  const artigos = [
+    makeArtigo({ id:'h', title:'Plataforma FPSO sonda perfuração poço', summary:'FPSO campos.', img:'http://img/h.jpg', score:100, published_at: ts24h(2) }),
+    makeArtigo({ id:'d1', title:'Petrobras investimentos pre-sal', summary:'Pre-sal.', img:'http://img/d1.jpg', score:85, published_at: ts24h(4) }),
+    makeArtigo({ id:'d2', title:'ANP licitação bloco bacia', summary:'Licitação.', img:'http://img/d2.jpg', score:80, published_at: ts24h(5) }),
+    makeArtigo({ id:'d3', title:'Combustível diesel royalties', summary:'Diesel combustível.', img:'http://img/d3.jpg', score:75, published_at: ts24h(6) }),
+    makeArtigo({ id:'u1', title:'Petróleo Brent mercado brent', summary:'Brent petróleo.', img:'http://img/u1.jpg', score:65, published_at: ts24h(8) }),
+    makeArtigo({ id:'u2', title:'Gasoduto gás natural exportação', summary:'Gás exportação.', img:'http://img/u2.jpg', score:60, published_at: ts24h(10) }),
+    // 48h pool: artigos de ontem para preencher editorias
+    makeArtigo({ id:'m48', title:'Petróleo royalties brent ontem', summary:'Petróleo mercado.', img:'http://img/m48.jpg', score:70, published_at: _48h }),
+    makeArtigo({ id:'o48', title:'FPSO plataforma poço sonda ontem', summary:'FPSO operacoes.', img:'http://img/o48.jpg', score:70, published_at: _48h }),
+  ];
+  const { mercado, operacoes, ultimas } = simularDistribuicao(artigos);
+  expect(mercado.length >= 1, `Mercado deve ter pelo menos 1 artigo (fallback 48h): got ${mercado.length}`);
+  expect(operacoes.length >= 1, `Operações deve ter pelo menos 1 artigo (fallback 48h): got ${operacoes.length}`);
+  // Artigos 48h em editorias NÃO devem estar em Últimas (strict dedup)
+  const ultimasIds = new Set(ultimas.map(a=>a.id));
+  const mercadoIds = mercado.map(a=>a.id);
+  const operacoesIds = operacoes.map(a=>a.id);
+  const dupesMercado = mercadoIds.filter(id=>ultimasIds.has(id));
+  const dupesOps = operacoesIds.filter(id=>ultimasIds.has(id));
+  expect(dupesMercado.length === 0, `Mercado repete artigos de Últimas: ${dupesMercado}`);
+  expect(dupesOps.length === 0, `Operações repete artigos de Últimas: ${dupesOps}`);
+});
+
+test("Últimas usa ordem temporal (mais recente primeiro)", () => {
+  const artigos = [
+    makeArtigo({ id:'h', title:'Plataforma FPSO sonda poço perfuração', summary:'FPSO.', img:'http://img/h.jpg', score:100, published_at: ts24h(2) }),
+    makeArtigo({ id:'d1', title:'Petrobras resultados', summary:'Resultado Petrobras.', img:'http://img/d1.jpg', score:85, published_at: ts24h(4) }),
+    makeArtigo({ id:'d2', title:'ANP licitação bloco', summary:'Licitação.', img:'http://img/d2.jpg', score:80, published_at: ts24h(6) }),
+    makeArtigo({ id:'d3', title:'Combustível gasolina preço', summary:'Combustível.', img:'http://img/d3.jpg', score:75, published_at: ts24h(8) }),
+    makeArtigo({ id:'u_new', title:'Operações navios apoio porto offshore', summary:'Navios porto.', img:'http://img/un.jpg', score:30, published_at: ts24h(3) }),
+    makeArtigo({ id:'u_old', title:'Mercado petróleo cotações preço', summary:'Cotações.', img:'http://img/uo.jpg', score:90, published_at: ts24h(22) }),
+  ];
+  const { ultimas } = simularDistribuicao(artigos);
+  if (ultimas.length >= 2) {
+    const times = ultimas.map(a=>new Date(a.published_at).getTime());
+    let ordemOk = true;
+    for (let i=1; i<times.length; i++) if (times[i] > times[i-1]) { ordemOk = false; break; }
+    expect(ordemOk, `Últimas fora de ordem temporal: ${ultimas.map(a=>a.id+'/'+a.published_at)}`);
+  }
+});
+
 console.log("\n" + "─".repeat(50));
 console.log("TOTAL: " + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);
