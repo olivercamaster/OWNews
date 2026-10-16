@@ -4089,8 +4089,6 @@ function renderMercado(lista, fallbackEditorial){
   // espaço vazio abaixo dela) e "3 secundárias" (preenche bem). Teto
   // agora acompanha o real (até 4: 1 principal + 3 secundárias).
   el.className = 'market-body market-count-' + Math.min(lista.length, 4);
-  const titulo = section.querySelector('.ed-head h2');
-  if (titulo) titulo.textContent = fallbackEditorial ? 'Últimas da editoria' : 'Mercado & Energia';
   const [destaque, ...resto] = lista;
   const img = imagemDe(destaque);
   el.innerHTML = \`
@@ -4112,8 +4110,6 @@ function renderOperacoes(lista, fallbackEditorial){
   if (!lista.length) { section.hidden = true; return; }
   section.hidden = false;
   el.className = 'ops-rail ops-count-' + Math.min(lista.length, 5);
-  const titulo = section.querySelector('.ed-head h2');
-  if (titulo) titulo.textContent = fallbackEditorial ? 'Últimas da editoria' : 'Operações Offshore';
   if (lista.length === 1) {
     const n = lista[0];
     const img = imagemDe(n);
