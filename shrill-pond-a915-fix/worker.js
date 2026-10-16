@@ -3771,7 +3771,25 @@ slug: criarSlug(tituloPublicado),
 
       // P0.1 Editorial Gate: ambos os campos obrigatórios para publicação normal.
       // Artigos sem buddy_summary E why_it_matters não entram como matéria editorial.
-      const camadaEditorial = gerarCamadaEditorialParaArtigo(artigo);
+      //
+      // Fontes EN (FONTES_IDIOMA_EN): o campo artigo.content é intencionalmente
+      // o resumo PT traduzido (body em inglês não é armazenado). Para o gate,
+      // passamos o body EN bruto como material — gerarImpactoOffshoreFallback
+      // reconhece termos técnicos em inglês (FPSO, subsea, drillship, etc.) e
+      // gerarBuddySummaryFallback extrai frases inglesas que então traduzimos.
+      // O artigo armazenado continua com content=resumo PT (comportamento inalterado).
+      const corpoEnParaGate = FONTES_IDIOMA_EN.has(fonte)
+        ? (detalhes.content && detalhes.content.length > (artigo.summary || '').length + 50 ? detalhes.content : null)
+        : null;
+      const artigoParaGate = corpoEnParaGate
+        ? { ...artigo, content: corpoEnParaGate }
+        : artigo;
+      const camadaEditorial = gerarCamadaEditorialParaArtigo(artigoParaGate);
+      // Traduz buddy_summary EN → PT quando gerado a partir do corpo EN
+      if (corpoEnParaGate && camadaEditorial.buddy_summary) {
+        const ptBuddy = await traduzirResumoParaPT(env, camadaEditorial.buddy_summary);
+        if (ptBuddy) camadaEditorial.buddy_summary = ptBuddy;
+      }
       if (camadaEditorial.buddy_summary !== null) artigo.buddy_summary = camadaEditorial.buddy_summary;
       if (camadaEditorial.why_it_matters !== null) artigo.why_it_matters = camadaEditorial.why_it_matters;
 

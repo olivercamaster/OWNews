@@ -935,6 +935,47 @@ test("gerarBuddySummaryFallback com artigo de FPSO retorna texto sobre operaçã
   assert(typeof resultado === "string", "deve ser string");
 });
 
+// ── EN body para gate (P0.2 Full Article Fetch) ──────────────────────────────
+
+console.log("\nEN body gate — gerarBuddySummaryFallback com corpo em inglês");
+
+test("EN body: extrai frases inglesas quando content é EN e differ from summary", () => {
+  // Simula offshore-energy.biz: content é EN body, summary é PT traduzido
+  const artigoEN = {
+    title: "Subsea7 Delivers New FPSO Mooring System Offshore Brazil",
+    summary: "Subsea 7 entregou sistema de ancoragem para FPSO offshore Brasil.",
+    content: "Subsea7 has successfully delivered a new FPSO mooring system for deployment offshore Brazil. The system will support a 300,000 barrel-per-day unit in the Santos Basin pre-salt region. The mooring system uses advanced polyester ropes designed for 3,000-meter water depth operations."
+  };
+  const resultado = _gerarBuddySummaryFallback(artigoEN);
+  assert(resultado !== null, "deve gerar buddy_summary a partir de corpo EN quando diferente do summary");
+  assert(typeof resultado === "string" && resultado.length >= 40, "buddy_summary deve ter conteúdo");
+});
+
+test("EN body gate: artigo EN sem corpo rico (content == summary) retorna null ou usa summary", () => {
+  const artigoSemCorpo = {
+    title: "New FPSO Contract Awarded",
+    summary: "A new contract was awarded for FPSO operations.",
+    content: "A new contract was awarded for FPSO operations." // content == summary
+  };
+  // Quando content == summary, usa summary como base; se summary for curto, retorna null
+  const resultado = _gerarBuddySummaryFallback(artigoSemCorpo);
+  // Com summary de 1 frase curta, o validador pode aceitar (1 frase é válida)
+  // O ponto é que NÃO deve lançar exceção
+  assert(resultado === null || typeof resultado === "string", "deve retornar null ou string válida, nunca lançar exceção");
+});
+
+test("EN body: buddy extrai de corpo EN longo mesmo com summary PT diferente", () => {
+  // Artigo com corpo EN de 3 frases — mais rico que o summary PT
+  const artigoEN = {
+    title: "Equinor Contracts Odfjell Drilling Platform for North Sea",
+    summary: "Equinor contratou plataforma Odfjell para perfuração no Mar do Norte.",
+    content: "Equinor has contracted the Odfjell Drilling platform for a 24-month campaign in the North Sea. The drilling program targets four exploration wells in the Barents Sea. The operation is expected to begin in Q1 2027 and will employ approximately 160 offshore workers."
+  };
+  const resultado = _gerarBuddySummaryFallback(artigoEN);
+  assert(resultado !== null, "corpo EN de 3 frases deve gerar buddy_summary");
+  assert(!resultado.includes("Equinor"), "frases extraídas não devem ser mera repetição do título");
+});
+
 // ── Resultado ──────────────────────────────────────────────────────────────────
 
 const total = passed + failed;
