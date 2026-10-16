@@ -4511,6 +4511,11 @@ function renderTudo(noticias){
      nesse rastreio: não dá pra saber a foto de fallback antes de renderizar.
   */
   const imagensUsadas = new Set([hero.image_url, ...destaques.map(n => n.image_url)].filter(Boolean));
+  // Snapshot antes de Últimas preencher usados — editorias usam isso para
+  // poder mostrar conteúdo de hoje mesmo que já apareça em Últimas.
+  // (P0 2026-10-16: com ~11 artigos/dia, Últimas consumia tudo e editorias
+  // ficavam com fallback de 48h = "ontem".)
+  const usadosSemUltimas = new Set(usados);
   function proximosSemImagemRepetida(pool, quantidade) {
     const disponiveis = pool.filter(n => !chavesHome(n).some(k => usados.has(k)));
     const semRepeticao = disponiveis.filter(n => !n.image_url || !imagensUsadas.has(n.image_url));
@@ -4564,7 +4569,7 @@ function renderTudo(noticias){
     const escolhidos = [];
     for (const n of pool) {
       if (escolhidos.length >= quantidade || classificar(n) !== categoria) continue;
-      if (chavesHome(n).some(k => usados.has(k))) continue;
+      if (chavesHome(n).some(k => usadosSemUltimas.has(k))) continue;
       escolhidos.push(n);
       chavesHome(n).forEach(k => usados.add(k));
     }
