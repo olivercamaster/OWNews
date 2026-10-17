@@ -3750,7 +3750,7 @@ function validarMateriaOWNews(mat, artigo, fonte) {
   if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
   // Impacto que só diz que "não afeta o offshore" não é impacto útil: a
   // nota não tem relevância offshore suficiente para ser publicada.
-  if (impacto && /^\s*(n[aã]o|nada|sem) (afeta|altera|toca|envolve|muda|mexe|atinge|interfere)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
+  if (impacto && /^[^;:.]{0,80}?\b(n[aã]o|nada|sem)\s+(\S+\s+){0,2}?(afeta|altera|alcan[çc]a|toca|envolve|muda|mexe|atinge|interfere|impacta|chega)\b[^;.]{0,40}\b(offshore|opera[çc][aã]o|opera[çc][oõ]es|plataformas?|produ[çc][aã]o|mar)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
   return { ok: motivos.length === 0, motivos, buddy_summary: buddy, why_it_matters: impacto, corpo };
 }
 /* Título em inglês (press release publicado sem tradução): sem acento do

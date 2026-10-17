@@ -223,6 +223,8 @@ test("NOINDEX: nota duplicada (mesmo fato de outra fonte) mantém texto mas sai 
 test("impacto 'não afeta o offshore' é reprovado na geração (sem relevância offshore)", () => {
   const r = M.validarMateriaOWNews(Object.assign({ buddy_summary: BUDDY_IA_OK, corpo: CORPO_OWNEWS }, { why_it_matters: "Não altera operações offshore; a ANP só divulgou os 5,851 milhões de boe/d de julho." }), ARTIGO_ANP, ARTIGO_ANP.content);
   expect(!r.ok && r.motivos.includes("impacto:sem_relevancia_offshore"), JSON.stringify(r.motivos));
+  const r2 = M.validarMateriaOWNews({ buddy_summary: BUDDY_IA_OK, corpo: CORPO_OWNEWS, why_it_matters: "A regra não alcança a operação offshore; vale para os 5,851 milhões de boe/d informados pela ANP." }, ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(r2.motivos.includes("impacto:sem_relevancia_offshore"), "negação no meio da oração: " + JSON.stringify(r2.motivos));
 });
 test("título em inglês (release sem tradução) não é indexável", () => {
   const a = Object.assign({}, MAT_OWNEWS, { title: "Transocean Ltd. Announces Contract Awards Totaling $185 Million" });
