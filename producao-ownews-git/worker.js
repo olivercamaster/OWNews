@@ -23007,6 +23007,12 @@ export default {
       // a página mostrava a MESMA frase duas vezes (lead + corpo). O lead só
       // entra quando o corpo realmente acrescenta texto além do resumo.
       const corpoIgualResumo = String(artigo.content || '').trim() === String(artigo.summary || '').trim();
+      // Amostra humana 2.1: algumas fontes entregam como "resumo" o texto
+      // institucional do site ("Revista fundada em 1958", "Informação
+      // publicada pela Agência Petrobras..."). Não é lead: não aparece como
+      // subtítulo nem vira meta description.
+      const leadEhBoilerplate = /revista fundada em \d{4}|^informa[çc][ãa]o publicada (pela|por)\b|^not[ií]cias sobre portos, marinha mercante/i.test(String(artigo.summary || '').trim());
+      const descricaoNoticia = descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || (!leadEhBoilerplate && artigo.summary) || artigo.title || '', 160);
       const jsonLdArtigo = {
         "@context": "https://schema.org",
         "@type": "NewsArticle",
@@ -23084,7 +23090,7 @@ export default {
         (dataExibida ? ' · <time datetime="' + escaparHTML(artigo.published_at || '') + '" title="' + escaparHTML(horaCompleta) + '">' + escaparHTML(dataExibida) + '</time>' : '') +
         '</span>' +
         '<h1>' + escaparHTML(artigo.title) + '</h1>' +
-        (artigo.summary && !corpoIgualResumo ? '<p class="hub-lead" style="margin-top:14px">' + escaparHTML(artigo.summary) + '</p>' : '') +
+        (artigo.summary && !corpoIgualResumo && !leadEhBoilerplate ? '<p class="hub-lead" style="margin-top:14px">' + escaparHTML(artigo.summary) + '</p>' : '') +
         '<button type="button" class="compartilhar-link" id="btnSalvarNoticia" style="margin-top:12px" data-id="' + escaparHTML(artigo.id) + '" data-title="' + escaparHTML(artigo.title) + '" data-image="' + escaparHTML(imagemArtigo.src) + '" data-published="' + escaparHTML(artigo.published_at || '') + '">☆ Salvar notícia</button>' +
         '</div>' +
         '<img class="noticia-imagem" src="' + escaparHTML(imagemArtigo.src) + '" alt="' + escaparHTML(imagemArtigo.ilustrativa ? 'Imagem ilustrativa' : 'Imagem da matéria: ' + artigo.title) + '" width="1200" height="675" decoding="async" referrerpolicy="no-referrer"' +
@@ -23133,7 +23139,7 @@ export default {
       return new Response(
         paginaChrome(
           artigo.title,
-          descricaoMetaSegura(artigo.summary || artigo.title || '', 160),
+          descricaoNoticia,
           conteudoNoticia,
           urlArtigo,
           { tipo: 'article', imagemUrl: imagemArtigo.src, eventoAbertura: 'noticia_aberta', robots: robotsNoticia }
