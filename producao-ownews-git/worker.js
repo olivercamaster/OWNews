@@ -147,7 +147,6 @@ function classificarPaginaParaAds(caminho) {
    ========================================================================= */
 // Home 3.0: resumo institucional da fonte nunca vira deck (Home, /noticia).
 const RE_LEAD_INSTITUCIONAL = /[Rr]evista fundada em [0-9]{4}|^[Ii]nforma[çc][ãa]o publicada (pela|por) |^[Nn]ot[ií]cias sobre [Pp]ortos, [Mm]arinha [Mm]ercante|^[a-zà-ú][a-zà-ú ]*(, [a-zà-ú ]+){2,}\.?$/;
-const deckEditorial = (s, max) => { const t = String(s || '').trim(); return !t || RE_LEAD_INSTITUCIONAL.test(t) ? '' : t.length > max ? t.slice(0, max).trim() + '…' : t; };
 // S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
 const AEROPORTOS_COLLECTOR_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
 const AEROPORTOS_LISTA_SERVIDOR = [
@@ -3856,7 +3855,8 @@ function truncar(texto, max){
   return t.length > max ? t.slice(0, max).trim() + '…' : t;
 }
 const RE_LEAD_INST = new RegExp(${JSON.stringify(RE_LEAD_INSTITUCIONAL.source)});
-function deckDe(n, max){ const t = String(n.summary || '').trim(); return !t || RE_LEAD_INST.test(t) ? '' : truncar(t, max); }
+// Deck = 1ª frase do Buddy de matéria OWNews (Missão Editorial Original 4.0); nunca o lead da fonte.
+function deckDe(n, max){ if (!n || n.buddy_source !== 'ownews' || !n.buddy_summary) return ''; const t = String(n.buddy_summary).trim().split(/(?<=[.!?])\\s+/)[0] || ''; return RE_LEAD_INST.test(t) ? '' : truncar(t, max); }
 function dataPublicacaoReal(iso){
   const d = new Date(iso);
   return Number.isFinite(d.getTime()) ? d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : 'Data não informada';
@@ -4465,7 +4465,7 @@ async function carregarNoticiasAoVivo(tentativa){
       try { const r = await fetch('/api/home-selecao'); if (r.ok) window.__HOME_SEL__ = await r.json(); } catch (e) {}
     }
     homeSelecaoDoHtml = false;
-    const url = SUPABASE_URL + '/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,editorial_score,score_reason&status=eq.published&order=published_at.desc&limit=40';
+    const url = SUPABASE_URL + '/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,editorial_score,score_reason,buddy_summary,buddy_source&status=eq.published&order=published_at.desc&limit=40';
     const resposta = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!resposta.ok) throw new Error('Supabase ' + resposta.status);
     const noticias = await resposta.json();
@@ -5368,35 +5368,17 @@ function editoriaDeServidor(n) {
   return 'BRASIL';
 }
 /* ==== CAMADA EDITORIAL: INICIO ====
-   Missão AdSense Recovery 1.0 (2026-10-06) — "Buddy te explica".
-
-   Substitui a antiga caixa "ENTENDA O IMPACTO" (caixaImpactoServidor), que
-   era boilerplate: repetia o resumo da matéria e emendava uma frase genérica
-   igual em centenas de páginas ("Pode afetar produção, logística, contratos
-   ou mobilização..."). Texto repetido em escala é exatamente o que um
-   avaliador humano lê como "conteúdo de baixo valor" — foi removido, não
-   reformulado.
-
-   O que entra no lugar é uma camada editorial REAL, por matéria:
-   - buddy_summary: 2–4 frases em português adulto, explicando o que a
-     notícia significa para quem trabalha (ou quer trabalhar) offshore.
-     Nunca repete o primeiro parágrafo; nunca inventa fato que não está na
-     fonte.
-   - why_it_matters: "O que isso representa para o offshore?" — presente em
-     notícias com consequência offshore concreta. Sem texto válido, o bloco
-     não aparece (Missão AdSense 2.1).
-   - explica: verbetes do OWNews Explica relacionados (links internos reais).
-
-   Fontes da camada, em ordem de prioridade:
-   1. CAMADA_EDITORIAL_CURADA — texto escrito para a matéria e registrado
-      aqui no código, por id de matéria (reversível via git).
-   2. Colunas articles.buddy_summary / why_it_matters no Supabase; desde a
-      2.1 escritas pelo collector com IA e revalidadas na exibição pelo gate
-      QUALIDADE EDITORIAL 2.1.
-   Sem texto aprovado → a página não exibe o bloco correspondente.
-
-   Os mesmos campos alimentam /api/buddy/feed (OWBuddy): UMA produção
-   editorial, DOIS produtos. */
+   Missão Editorial Original 4.0 (2026-10-17). A página de notícia é texto
+   do OWNews, não a matéria da fonte. Três blocos, funções diferentes:
+   - buddy_summary — BUDDY RESUME: "Em poucas palavras, o que aconteceu?";
+   - articles.content — CORPO EDITORIAL OWNEWS: fatos e contexto, síntese
+     própria (buddy_source='ownews'; o texto coletado da fonte fica no
+     arquivo interno do collector e nunca é exibido);
+   - why_it_matters — O QUE ISSO IMPACTA PARA O OFFSHORE.
+   Os três são escritos no pipeline (collector/backfill) e aprovados pelo
+   gate validarMateriaOWNews; aqui só são revalidados (forma, clichê,
+   repetição). Nada é gerado em tempo de requisição.
+   Os mesmos campos alimentam /api/buddy/feed (OWBuddy). */
 
 // Feature-detect das colunas da camada no Supabase (null = ainda não testado,
 // true = existem, false = PostgREST devolveu 400). Memorizado por isolate.
@@ -5436,161 +5418,6 @@ function validarTextoCamadaEditorial(texto) {
   return { ok: true, motivo: null };
 }
 
-
-/* Curadoria editorial por matéria (id = articles.id no Supabase).
-   Cada entrada foi escrita lendo a matéria inteira e a fonte primária.
-   Regra: tudo que está em buddy_summary/why_it_matters precisa estar
-   sustentado pelo texto da própria matéria (ou pela fonte oficial citada
-   nela). "revisado_em" é a data da revisão editorial desta camada. */
-const CAMADA_EDITORIAL_CURADA = {
-  // PPSA — 9º Leilão Spot, cargas remanescentes (7/10/2026)
-  '7964a7fa-081d-40d3-b441-014195ea2879': {
-    buddy_summary: 'A União recebe petróleo como pagamento nos contratos de partilha do pré-sal, e a PPSA é quem vende esse óleo. Neste 9º Leilão Spot, parte das cargas de Búzios não encontrou comprador na primeira rodada, em 30 de setembro, e volta a ser ofertada em cinco lotes. As cargas saem de FPSOs conhecidos do campo: P-74, P-75, P-76, P-77 e Almirante Barroso.',
-    why_it_matters: 'O calendário de carregamento, entre novembro e dezembro de 2026, é operação real a bordo dessas unidades: cada lote é um offloading programado para navio aliviador.',
-    explica: ['leilao-spot-ppsa', 'fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — opinião, Margem Equatorial (Daniel Oliveira, Falconi)
-  '6f770be8-9274-4ed6-8cc0-7c17106faa5c': {
-    buddy_summary: 'Este é um artigo de opinião, assinado por um consultor do setor, e não uma notícia factual. O argumento central é que a descoberta no poço Morpho só vira resultado se toda a cadeia funcionar bem: sondas, embarcações de apoio, terminais e unidades de produção. O texto cita o plano da Petrobras de perfurar 15 poços na Margem Equatorial, com US$ 2,5 bilhões previstos para a região.',
-    why_it_matters: null,
-    explica: ['margem-equatorial', 'bacias-sedimentares'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — Foz do Amazonas: sonda NS-42 segue para a bacia Potiguar
-  '1cde1ee5-e4d4-43cb-b4f5-88d655999250': {
-    buddy_summary: 'A perfuração do poço Morpho está na fase final e a sonda NS-42 deve ser desmobilizada até o fim do mês, seguindo para o poço Mãe de Ouro, na bacia Potiguar. Os outros três poços do bloco FZA-M-59, já autorizados pelo Ibama, ficam para o primeiro trimestre do ano que vem. A presidente da Petrobras repetiu que ainda não dá para afirmar viabilidade comercial sem os poços de delimitação.',
-    why_it_matters: 'Para quem acompanha a sonda, isso define o próximo trecho de trabalho: término de poço, testes, perfilagem e mobilização da unidade para outra bacia, com nova campanha no Amapá só em 2027.',
-    explica: ['margem-equatorial', 'sonda-de-perfuracao'],
-    revisado_em: '2026-10-06'
-  },
-  // PetroNotícias — coletiva Morpho (Magda Chambriard)
-  '514bac39-ce72-4022-b5e9-c721c4f89e7f': {
-    buddy_summary: 'Em coletiva, a presidente da Petrobras disse que os resultados do poço Morpho indicam uma possível nova fronteira exploratória, mas ponderou que ainda não é uma descoberta comercial pronta para desenvolvimento. A companhia já tem licença ambiental para três novos poços no bloco FZA-M-59, que servirão para delimitar a área. Dados como coluna de óleo e net pay seguem confidenciais por dois anos.',
-    why_it_matters: null,
-    explica: ['margem-equatorial', 'sonda-de-perfuracao'],
-    revisado_em: '2026-10-06'
-  },
-  // Agência Petrobras — nova descoberta no poço Morpho
-  '900c9fc0-7324-43cd-9f7c-152cb111fdfb': {
-    buddy_summary: 'A Petrobras encontrou um segundo intervalo com petróleo no mesmo poço Morpho, em lâmina d\'água de 2.886 metros, na costa do Amapá. A primeira descoberta no poço havia sido anunciada em agosto de 2026; a continuação da perfuração teve justamente o objetivo de avaliar intervalos mais profundos. A identificação veio por perfis elétricos, indícios em rocha e amostras de fluido.',
-    why_it_matters: 'Lâmina d\'água de 2.886 metros é operação de águas ultraprofundas: isso explica por que a campanha usa navio-sonda e por que a avaliação continua por meses, com análises de laboratório antes de qualquer decisão de desenvolvimento.',
-    explica: ['margem-equatorial', 'sonda-de-perfuracao', 'bacias-sedimentares'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — ANP aprova 501 blocos na Margem Equatorial
-  '5dea7c51-876f-4a9f-86be-ce70a9cb53c0': {
-    buddy_summary: 'A ANP aprovou o desenho de 501 novos blocos em 11 setores da Margem Equatorial, todos em lâmina d\'água acima de 3 mil metros. Aprovar a configuração não significa colocar os blocos em leilão: para entrar na Oferta Permanente, cada área ainda precisa de avaliação do Ibama e de manifestação conjunta dos ministérios de Minas e Energia e do Meio Ambiente. A própria diretora relatora chamou essa etapa de principal desafio.',
-    why_it_matters: null,
-    explica: ['oferta-permanente', 'margem-equatorial', 'bacias-sedimentares'],
-    revisado_em: '2026-10-06'
-  },
-  // MegaWhat — leilão spot vende um terço
-  'fbb9f186-9371-4023-8af3-b5f0b967a162': {
-    buddy_summary: 'Dos cerca de 6 milhões de barris ofertados pela PPSA, só duas cargas foram vendidas: uma de Bacalhau, para a ExxonMobil, e uma de Búzios (FPSO Almirante Barroso), para a TotalEnergies. O restante, cerca de 4 milhões de barris de Búzios, voltou a leilão em 7 de outubro. Nos leilões spot, o preço final só é divulgado 15 dias depois do embarque das cargas.',
-    why_it_matters: null,
-    explica: ['leilao-spot-ppsa', 'fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // ANP — 11 novos setores exploratórios (release oficial)
-  '52e90d92-536e-4e5f-9722-994040d4c437': {
-    buddy_summary: 'Esta é a decisão oficial da ANP: 11 novos setores e 501 blocos nas bacias de Barreirinhas, Ceará, Foz do Amazonas, Potiguar e Pará-Maranhão, cobrindo cerca de 380 mil km². A área só entrou no mapa porque a ONU reconheceu, em março de 2025, a ampliação da plataforma continental brasileira, após o levantamento LEPLAC coordenado pela Marinha. Os setores foram classificados como nova fronteira exploratória e não entram automaticamente em leilão.',
-    why_it_matters: 'Toda a área fica em lâmina d\'água superior a 3 mil metros, ou seja, qualquer atividade futura ali será de águas ultraprofundas, com navios-sonda e logística de longa distância, nos moldes do que já acontece no bloco FZA-M-59.',
-    explica: ['oferta-permanente', 'margem-equatorial', 'bacias-sedimentares'],
-    revisado_em: '2026-10-06'
-  },
-  // MegaWhat — Petrobras anuncia nova descoberta
-  '509323b6-d862-4fb4-b324-24ae0026a8e8': {
-    buddy_summary: 'É a segunda ocorrência de petróleo no poço Morpho, perfurado a 2.886 metros de lâmina d\'água no bloco FZA-M-59. A etapa extra de perfuração foi feita para avaliar intervalos mais profundos, depois da primeira descoberta comunicada em agosto de 2026. A Petrobras não divulgou volumes estimados; as amostras ainda passam por análise de laboratório.',
-    why_it_matters: null,
-    explica: ['margem-equatorial', 'sonda-de-perfuracao'],
-    revisado_em: '2026-10-06'
-  },
-  // PetroNotícias — FLNG (Wood Mackenzie)
-  '49f56514-2eed-4953-aeaa-1501ed04a610': {
-    buddy_summary: 'FLNG é um navio que liquefaz gás natural no mar, resfriando-o a -162 °C e reduzindo o volume em 600 vezes. Segundo a Wood Mackenzie, sete projetos desse tipo foram aprovados desde 2023, somando 18 milhões de toneladas por ano, em resposta à restrição de oferta de GNL do Golfo Pérsico. A consultoria destaca que só uma empresa oferece FLNG como serviço de afretamento no mundo, o que limita a expansão.',
-    why_it_matters: null,
-    explica: ['fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // PPSA — ExxonMobil e TotalEnergies vencem o 9º Leilão Spot
-  '9a2e4c68-785c-4571-9aab-10a39b793da0': {
-    buddy_summary: 'O leilão spot é a forma como a União vende o petróleo que recebe nos contratos de partilha. Desta vez, a ExxonMobil levou uma carga de Bacalhau e a TotalEnergies uma carga de Búzios, no FPSO Almirante Barroso, com carregamentos previstos para novembro de 2026. Oito empresas participaram e as cargas não vendidas voltam a leilão em 7 de outubro.',
-    why_it_matters: null,
-    explica: ['leilao-spot-ppsa', 'fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // PPSA — reunião com indústria de cerâmica (leilão de gás)
-  'e56d9432-e387-4bcb-9bd1-de4f7b992055': {
-    buddy_summary: 'Além do petróleo, a União também recebe gás natural nos contratos de partilha, e o 1º Leilão de Gás da União, previsto para 22 de outubro, vai ofertar 1,1 milhão de metros cúbicos por dia para fornecimento entre março e dezembro de 2027. A PPSA está reunindo os setores industriais habilitados para explicar as regras; a cerâmica é um dos cinco segmentos contemplados nesta primeira rodada.',
-    why_it_matters: null,
-    explica: ['leilao-spot-ppsa'],
-    revisado_em: '2026-10-06'
-  },
-  // MegaWhat — MME quer segundo leilão de gás sem a Petrobras
-  '21aade5e-8836-4977-aec5-0655995d4a83': {
-    buddy_summary: 'No primeiro leilão de gás da União, a Petrobras funciona como intermediária: a PPSA vende a ela o gás não processado e recompra a molécula já tratada, que é o que vai a leilão. O MME quer que, a partir do ano que vem, a PPSA venda diretamente, sem essa etapa. O acordo de acesso à infraestrutura de escoamento e processamento da Petrobras levou cerca de quatro anos para ser fechado.',
-    why_it_matters: null,
-    explica: ['leilao-spot-ppsa'],
-    revisado_em: '2026-10-06'
-  },
-  // PetroNotícias — Brava inicia produção do PPT-52 (Papa-Terra)
-  '90af914e-db83-46be-af95-0c3b3f52756d': {
-    buddy_summary: 'A Brava Energia colocou em produção o poço PPT-52, em Papa-Terra, na Bacia de Campos, depois de autorização do Ibama. É um dos quatro novos poços produtores da campanha da empresa em Papa-Terra e Atlanta. O poço ainda está em fase de estabilização e a companhia não divulgou vazão.',
-    why_it_matters: 'Campanha de perfuração em campo já produtor significa sonda contratada e operando próximo das unidades de produção; a Brava afirma que o cronograma está dentro do previsto.',
-    explica: ['sonda-de-perfuracao', 'completacao'],
-    revisado_em: '2026-10-06'
-  },
-  // MegaWhat — EPE: Bacia de Pelotas
-  'a7fb4ca3-cc05-47b6-9cb4-4ad06262904c': {
-    buddy_summary: 'A EPE estima que a Bacia de Pelotas, no sul do país, pode ter 9,7 bilhões de barris de óleo equivalente recuperáveis, sendo mais de 1 trilhão de metros cúbicos de gás. A própria EPE avisa que os números têm risco e incerteza elevados: o último poço exploratório na bacia foi perfurado em 2021. Hoje são 47 blocos sob concessão, 15 da Chevron e 32 da Petrobras.',
-    why_it_matters: null,
-    explica: ['bacias-sedimentares', 'oferta-permanente'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — P-80 sai de Singapura
-  '1dad04f3-7042-4164-9075-15d71b1dd53f': {
-    buddy_summary: 'A P-80 é a primeira das seis plataformas gigantes encomendadas pela Petrobras a deixar o estaleiro, em Singapura, rumo a Búzios, no pré-sal da Bacia de Santos. Capacidade: 225 mil barris de óleo e 12 milhões de metros cúbicos de gás por dia, com produção prevista para 2027. Os módulos de processo foram fabricados no Brasil; outros módulos vieram da China, de Singapura e da Indonésia.',
-    why_it_matters: 'Uma viagem de estaleiro até o campo é a transição entre construção e operação: ancoragem, interligação de risers e comissionamento ainda acontecem antes do primeiro óleo.',
-    explica: ['fpso', 'diferenca-plataforma-sonda-fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // PetroNotícias — CHC: contrato de crew change em Búzios
-  '59991d8d-23ef-4d66-9701-71b857dd4260': {
-    buddy_summary: 'A Petrobras concedeu à CHC um contrato de cinco anos para troca de equipes no campo de Búzios, com uma aeronave S-92 que já opera a partir da base da empresa no Aeroporto de Maricá. O início está previsto para junho de 2027. A CHC também foi reconhecida pela Petrobras como melhor fornecedora de logística aérea.',
-    why_it_matters: 'Para quem embarca em Búzios, a notícia diz de onde e com qual aeronave parte da troca de turma deve acontecer a partir de 2027: Maricá, com S-92.',
-    explica: ['transporte-aereo-offshore', 'troca-de-turma-offshore'],
-    revisado_em: '2026-10-06'
-  },
-  // Agência Petrobras — P-80 (Búzios 9) inicia viagem
-  '724edd6b-97a4-42d5-9579-58702f86a0f5': {
-    buddy_summary: 'A P-80 tem 345,3 metros de comprimento, 60 de largura e pesa mais de 100 mil toneladas. Deixou o estaleiro em Singapura em 30 de setembro, rumo a Búzios, com previsão de primeiro óleo em 2027; a próxima da série, P-82, está em fase final de construção. As demais, P-83, P-84 e P-85, vão para Búzios, Atapu e Sépia.',
-    why_it_matters: 'A Petrobras informa que a plataforma viaja com tripulação a bordo, estratégia que, segundo a companhia, contribui para a prontidão dos sistemas: parte da equipe começa o trabalho antes de a unidade chegar ao campo.',
-    explica: ['fpso', 'diferenca-plataforma-sonda-fpso'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — newsletter: EPE e Pelotas
-  '13a1147e-249a-44c8-8b19-172b0c706471': {
-    buddy_summary: 'Esta edição da newsletter da Eixos reúne vários assuntos. O principal é a estimativa da EPE para a Bacia de Pelotas, 9,7 bilhões de barris de óleo equivalente recuperáveis, a maior parte em gás. Também registra a ação do Instituto Arayara contra a oferta da bacia do Recôncavo no leilão de 7 de outubro e o novo poço da Brava em Papa-Terra.',
-    why_it_matters: null,
-    explica: ['bacias-sedimentares', 'oferta-permanente'],
-    revisado_em: '2026-10-06'
-  },
-  // PetroNotícias — ExxonMobil, 1 bilhão de barris na Guiana
-  '10a0a883-99dd-4983-9c3e-3389ff44af39': {
-    buddy_summary: 'O bloco Stabroek, na Guiana, chegou a 1 bilhão de barris produzidos menos de sete anos depois do primeiro óleo, em dezembro de 2019. Hoje são quatro FPSOs em operação: Liza Destiny, Liza Unity, Prosperity e ONE GUYANA, com capacidade somada acima de 900 mil barris por dia. O próximo projeto, Uaru, está previsto para o fim de 2026.',
-    why_it_matters: 'A Guiana é vizinha geológica da Margem Equatorial brasileira e virou referência de desenvolvimento rápido em águas profundas com FPSOs, o mesmo modelo usado no pré-sal.',
-    explica: ['fpso', 'margem-equatorial'],
-    revisado_em: '2026-10-06'
-  },
-  // Eixos — leilão da ANP e fracking
-  '79ca025d-6dc6-45c4-b4bd-2d7a06983df6': {
-    buddy_summary: 'O 6º Ciclo da Oferta Permanente de Concessão, marcado para 7 de outubro, oferta 313 blocos em nove bacias, além de 13 áreas do pré-sal na 4ª Oferta Permanente de Partilha. O Instituto Arayara anunciou ação civil pública pedindo a suspensão da oferta da bacia do Recôncavo, por potencial de fraturamento hidráulico, e já havia ajuizado ações sobre Parnaíba, Potiguar, Ceará e Tacutu. O STJ deve retomar o julgamento sobre as regras do fracking.',
-    why_it_matters: null,
-    explica: ['oferta-permanente', 'bacias-sedimentares'],
-    revisado_em: '2026-10-06'
-  }
-};
 
 /* Gatilhos de vocabulário → verbetes do OWNews Explica. Usado SÓ como
    complemento ("Entenda melhor"), nunca como auto-link dentro do texto.
@@ -5647,103 +5474,65 @@ function validarImpactoOffshore(texto) {
   return { ok: true };
 }
 
-/* Missão AdSense 2.1: gerarBuddySummaryFallback (frases copiadas da fonte),
-   gerarImpactoOffshoreFallback (impacto de template) e avaliarQualidadeMateria
-   foram removidos do frontend — a exibição usa só curadoria ou campos do
-   banco aprovados pelo gate QUALIDADE EDITORIAL 2.1 (geração com IA no
-   collector). */
-
-/* Resolve a camada editorial de uma matéria (Missão AdSense 2.1, 2026-10-17).
-   Prioridade:
-   1. CAMADA_EDITORIAL_CURADA — texto escrito especificamente para a matéria,
-      registrado em código com data de revisão.
-   2. Colunas articles.buddy_summary / why_it_matters no Supabase. Desde a
-      2.1 o collector gera esses campos com IA (buddy_source='ia') e só grava
-      o que passa no gate de QUALIDADE EDITORIAL 2.1. Dados antigos
-      (extração literal da fonte, impacto de template) são revalidados aqui
-      e ocultados quando reprovam.
-   NÃO há mais geração em tempo de requisição: o antigo fallback extrativo
-   (frases copiadas da fonte) e o impacto de template ("segmento central
-   para as operações offshore") foram removidos da exibição — melhor sem
-   bloco do que bloco sem valor. Impacto só aparece quando válido. */
+/* Resolve a camada editorial de uma matéria (Missão Editorial Original 4.0).
+   - buddy_source='ownews': matéria OWNews — Buddy, corpo (articles.content)
+     e impacto escritos no pipeline e aprovados pelo gate; aqui revalidados
+     sem a fonte (forma, clichê, repetição entre blocos).
+   - buddy_source='ia' (acervo 2.1 ainda não convertido): só Buddy/impacto,
+     SEM corpo — o content desse acervo é texto da fonte e nunca é exibido.
+   - qualquer outro valor: null (sem bloco editorial). */
 function resolverCamadaEditorial(artigo) {
   if (!artigo || !artigo.id) return null;
-  const curada = CAMADA_EDITORIAL_CURADA[artigo.id] || null;
-  if (curada) {
-    const okB = validarBuddyPublicavel(curada.buddy_summary, artigo, { curadoria: true }).ok;
-    const okI = curada.why_it_matters && validarImpactoPublicavel(curada.why_it_matters, artigo, curada.buddy_summary, { curadoria: true }).ok;
-    if (okB) {
-      return {
-        buddy_summary: curada.buddy_summary.trim(),
-        why_it_matters: okI ? curada.why_it_matters.trim() : null,
-        explica: Array.isArray(curada.explica) ? curada.explica.slice() : [],
-        revisado_em: curada.revisado_em || null,
-        fonte: 'curadoria'
-      };
-    }
-  }
-  // Só texto escrito pela IA e aprovado no gate entra pela via do banco.
-  // buddy_source null/'fallback'/'fallback_partial' = extração literal da
-  // fonte (pipeline antigo): nunca é exibido, mesmo que pareça válido.
-  if (artigo.buddy_source !== 'ia') return null;
+  const ownews = artigo.buddy_source === MATERIA_OWNEWS;
+  if (!ownews && artigo.buddy_source !== 'ia') return null;
+  const opc = ownews ? { semFonte: true } : {};
   const resumo = artigo.buddy_summary ? sanearTextoPublicacao(artigo.buddy_summary) : null;
-  if (!resumo || !validarBuddyPublicavel(resumo, artigo).ok) return null;
+  if (!resumo || !validarBuddyPublicavel(resumo, artigo, opc).ok) return null;
   const porqueBruto = artigo.why_it_matters ? sanearTextoPublicacao(artigo.why_it_matters) : null;
-  const porque = porqueBruto && validarImpactoPublicavel(porqueBruto, artigo, resumo).ok ? porqueBruto : null;
+  const porque = porqueBruto && validarImpactoPublicavel(porqueBruto, artigo, resumo, opc).ok ? porqueBruto : null;
+  let corpo = null;
+  if (ownews) {
+    const txt = paragrafosCorpo(artigo.content).join('\n\n');
+    corpo = validarCorpoOWNews(txt, artigo, resumo, porque).ok ? txt : null;
+  }
   return {
     buddy_summary: resumo,
     why_it_matters: porque,
+    corpo,
     explica: [],
     revisado_em: artigo.buddy_reviewed_at ? String(artigo.buddy_reviewed_at).slice(0, 10) : null,
-    fonte: 'ia'
+    fonte: ownews ? 'ownews' : 'ia'
   };
 }
 
-/* Rodapé honesto conforme a origem real do texto (Política Editorial). */
-function rodapeCamadaEditorial(camada) {
-  if (camada.fonte === 'curadoria') {
-    return 'Texto escrito pelo OWNews para esta matéria' + (camada.revisado_em ? ', revisado em ' + escaparHTML(formatarDataCurtaServidor(camada.revisado_em)) : '') + '. <a href="/politica-editorial#buddy-te-explica">Como produzimos</a>';
-  }
-  if (camada.fonte === 'ia') {
-    return 'Resumo escrito por inteligência artificial a partir da matéria original e conferido por regras automáticas do OWNews (sem cópia da fonte, sem texto genérico). Pode conter imprecisões: confira a fonte. <a href="/politica-editorial#buddy-te-explica">Como produzimos</a>';
-  }
-  return 'Resumo gerado automaticamente pelo OWNews a partir do conteúdo publicado. <a href="/politica-editorial#buddy-te-explica">Como produzimos</a>';
-}
-
-/* Bloco visual "Buddy te explica" + "O que isso representa para o offshore?".
-   Dois cartões por notícia: (1) Buddy com resumo objetivo do fato;
-   (2) segundo card com impacto editorial, visualmente secundário, sem mascote.
-   Missão Impacto Offshore 1.0 (2026-10-06). */
+/* BUDDY RESUME — "Em poucas palavras, o que aconteceu?". Card compacto
+   (Buddy oficial pequeno, saindo pela lateral). Semântica: só H2 (seção). */
 function blocoBuddyExplica(camada) {
-  if (!camada || (!camada.buddy_summary && !camada.why_it_matters)) return '';
-  // Identidade Premium (2026-10-06): Buddy OFICIAL pequeno, saindo pela
-  // lateral do card (cabeça: capacete + óculos), chamada em duas linhas e
-  // "O que isso representa para o offshore?" em card próprio. Semântica:
-  // matéria; aqui só H2 (seção) e H3 (subseção) — nada compete com o H1.
-  if (!camada.buddy_summary) {
-    // Impacto-only: artigo com why_it_matters válido mas sem buddy_summary
-    return '<section class="buddy-explica" aria-label="O que isso representa para o offshore?">' +
-      '<div class="buddy-explica-porque-card buddy-explica-porque-card--standalone">' +
-      '<h2 class="buddy-explica-sub">O que isso representa para o offshore?</h2>' +
-      '<p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p>' +
-      '</div>' +
-      '<footer class="buddy-explica-rodape">' + rodapeCamadaEditorial(camada) + '</footer>' +
-      '</section>';
-  }
+  if (!camada || !camada.buddy_summary) return '';
   return '<section class="buddy-explica" aria-labelledby="buddyExplicaTitulo">' +
     '<div class="buddy-explica-card">' +
     '<img class="buddy-explica-buddy" src="/icons/buddy-head.png" width="214" height="223" alt="" aria-hidden="true" loading="lazy" decoding="async">' +
     '<div class="buddy-explica-conteudo">' +
-    '<h2 id="buddyExplicaTitulo" class="buddy-explica-titulo"><span class="buddy-explica-marca" aria-hidden="true">OW</span>Buddy te explica</h2>' +
-    '<p class="buddy-explica-chamada">Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong></p>' +
+    '<h2 id="buddyExplicaTitulo" class="buddy-explica-titulo"><span class="buddy-explica-marca" aria-hidden="true">OW</span>Buddy resume</h2>' +
+    '<p class="buddy-explica-chamada">Em poucas palavras, o que aconteceu?</p>' +
     '<p class="buddy-explica-texto">' + escaparHTML(camada.buddy_summary) + '</p>' +
     '</div></div>' +
-    (camada.why_it_matters
-      ? '<div class="buddy-explica-porque-card"><h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3><p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p></div>'
-      : '') +
-    '<footer class="buddy-explica-rodape">' + rodapeCamadaEditorial(camada) +
-    '</footer>' +
     '</section>';
+}
+
+/* O QUE ISSO IMPACTA PARA O OFFSHORE — depois do corpo, sem mascote. */
+function blocoImpactoOffshore(camada) {
+  if (!camada || !camada.why_it_matters) return '';
+  return '<section class="buddy-explica-porque-card" aria-labelledby="impactoOffshoreTitulo">' +
+    '<h2 id="impactoOffshoreTitulo" class="buddy-explica-sub">O que isso impacta para o offshore</h2>' +
+    '<p class="buddy-explica-texto buddy-explica-porque">' + escaparHTML(camada.why_it_matters) + '</p>' +
+    '</section>';
+}
+
+/* Corpo editorial OWNews em parágrafos (texto puro, escapado). */
+function blocoCorpoOWNews(camada) {
+  if (!camada || !camada.corpo) return '';
+  return '<div class="noticia-corpo">' + paragrafosCorpo(camada.corpo).map((p) => '<p>' + escaparHTML(p) + '</p>').join('') + '</div>';
 }
 
 function formatarDataCurtaServidor(iso) {
@@ -5763,9 +5552,6 @@ function blocoEntendaMelhor(slugs) {
     '</nav>';
 }
 
-/* Proveniência: quem publicou, de onde veio, quando. Transparência real,
-   sem "Redação" fictícia — o OWNews é um produto editorial da OffshoreWorks
-   com produção automatizada e camada de revisão identificada. */
 /* Fonte primária x fonte consultada: só rotula como "primária" o que é
    verificável pelo domínio (órgão público, operadora/empresa citada,
    entidade do setor). Qualquer outro caso recebe o rótulo neutro "Fonte". */
@@ -5783,52 +5569,53 @@ function classificarOrigemFonte(urlFonte) {
   return 'consultada';
 }
 
+/* FONTE / ORIGEM: de onde vieram os fatos e o que o OWNews fez com eles.
+   Honesto: não há apuração própria além da fonte citada; o texto é do
+   OWNews, escrito com apoio de IA e checagens automáticas. */
 function blocoProvenienciaNoticia(artigo, camada) {
-  const fonte = artigo.image_credit ? escaparHTML(artigo.image_credit) : null;
-  const rotuloFonte = classificarOrigemFonte(artigo.original_url) === 'primaria' ? 'Fonte primária (oficial)' : 'Fonte';
+  const nome = artigo.image_credit ? escaparHTML(artigo.image_credit) : null;
+  const rotulo = classificarOrigemFonte(artigo.original_url) === 'primaria' ? 'Fonte primária (oficial)' : 'Fonte';
+  const link = artigo.original_url ? '<a href="' + escaparHTML(artigo.original_url) + '" target="_blank" rel="noopener nofollow">' + (nome || 'publicação original') + ' ↗</a>' : (nome || 'não informada');
   const publicado = artigo.published_at ? formatarDataCurtaServidor(artigo.published_at) : null;
-  return '<section class="noticia-proveniencia" aria-label="Sobre esta matéria">' +
-    '<p><strong>Publicado por OWNews</strong> (OffshoreWorks)' + (publicado ? ' · ' + escaparHTML(publicado) : '') + '</p>' +
-    (fonte ? '<p>' + rotuloFonte + ': ' + (artigo.original_url ? '<a href="' + escaparHTML(artigo.original_url) + '" target="_blank" rel="noopener nofollow">' + fonte + ' ↗</a>' : fonte) + '</p>' : (artigo.original_url ? '<p><a href="' + escaparHTML(artigo.original_url) + '" target="_blank" rel="noopener nofollow">Fonte original ↗</a></p>' : '')) +
-    '<p>Texto-base coletado e processado automaticamente a partir da fonte citada' + (!camada ? '; sem camada editorial própria nesta matéria' : camada.fonte === 'curadoria' ? '; camada "Buddy te explica" escrita pelo OWNews' + (camada.revisado_em ? ' (revisada em ' + escaparHTML(formatarDataCurtaServidor(camada.revisado_em)) + ')' : '') : '; resumo "Buddy te explica" escrito por IA e conferido por regras automáticas') + '. ' +
-    '<a href="/politica-editorial">Política Editorial</a> · <a href="/correcoes">Reportar erro</a></p>' +
+  const ownews = camada && camada.fonte === 'ownews' && camada.corpo;
+  return '<section class="noticia-proveniencia" aria-label="Fonte e origem">' +
+    '<p class="noticia-proveniencia-fonte"><strong>' + rotulo + ':</strong> ' + link + '</p>' +
+    (ownews
+      ? '<p>Os fatos desta nota foram publicados originalmente por ' + (nome || 'a fonte acima') + '. O OWNews selecionou o assunto e escreveu o resumo, o texto e a análise de impacto, com apoio de inteligência artificial e checagens automáticas (sem reproduzir o texto original; números conferidos com a fonte). Não houve apuração própria além da fonte citada.</p>'
+      : '<p>Esta nota não tem texto editorial do OWNews. Para não reproduzir a publicação de terceiros, mostramos só o título e a referência: leia a matéria completa na fonte.</p>') +
+    '<p>' + (publicado ? 'Publicado no OWNews em ' + escaparHTML(publicado) + ' · ' : '') + '<a href="/politica-editorial">Como produzimos</a> · <a href="/correcoes">Reportar erro</a></p>' +
     '</section>';
 }
 
-/* Matéria "thin": sem camada editorial E com corpo que não acrescenta nada
-   ao resumo (fontes em inglês guardam só o resumo traduzido como content).
-   Essas páginas continuam acessíveis (atribuição, link para fonte), mas
-   saem do índice e dos sitemaps até ganharem camada ou corpo real. */
+/* Matéria "thin" (Home/feed): tudo que não é matéria OWNews com corpo
+   próprio. Página thin continua acessível, mas fora do índice e da Home. */
 function ehMateriaThin(artigo, _camada) {
-  // Recovery 2.0: thin é determinado exclusivamente pelo corpo editorial.
-  // A presença de buddy_summary NÃO retira o noindex de uma matéria thin:
-  // Buddy é camada de compreensão, não mecanismo para mascarar conteúdo
-  // insuficiente. O parâmetro _camada foi mantido para compatibilidade de
-  // chamada mas não é mais consultado.
-  const corpo = String((artigo && artigo.content) || '').trim();
-  const resumo = String((artigo && artigo.summary) || '').trim();
-  if (corpo.length < 400) return true;
-  if (resumo && corpo === resumo) return true;
-  return false;
+  if (!artigo || artigo.buddy_source !== MATERIA_OWNEWS) return true;
+  const corpo = String(artigo.content || '').trim();
+  return corpo.length < 320 || paragrafosCorpo(corpo).length < 2;
+}
+
+/* Deck da Home: primeira frase do Buddy de matéria OWNews — nunca o lead
+   da fonte (texto de terceiros/institucional). */
+function deckNoticiaOWNews(n, max) {
+  if (!n || n.buddy_source !== MATERIA_OWNEWS || !n.buddy_summary) return '';
+  const f = q21Frases(sanearTextoPublicacao(n.buddy_summary))[0] || '';
+  return f.length > max ? f.slice(0, max).replace(/\s+\S*$/, '') + '…' : f;
 }
 
 const CSS_CAMADA_EDITORIAL =
-  '.buddy-explica{margin:26px 0 8px}' +
+  '.buddy-explica{margin:24px 0 4px}' +
   '.buddy-explica-card{position:relative;display:flex;align-items:flex-start;gap:12px;padding:16px 18px 16px 6px;border-left:3px solid var(--cyan);border-radius:0 10px 10px 0;background-color:var(--buddy-card-bg);background-image:var(--wm-bati);background-repeat:no-repeat;background-size:300px auto;background-position:right -90px bottom -100px;overflow:hidden}' +
   '.buddy-explica-buddy{flex:none;width:64px;height:auto;margin-left:-14px;margin-top:2px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}' +
   '.buddy-explica-conteudo{min-width:0;flex:1}' +
   '.buddy-explica-marca{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--navy-950);background:var(--cyan-dim);border-radius:4px;padding:3px 5px;line-height:1}' +
   '.buddy-explica-titulo{display:flex;align-items:center;gap:8px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);margin:0 0 8px}' +
-  '.buddy-explica-chamada{font-family:var(--ui);font-size:17px;line-height:1.3;font-weight:700;letter-spacing:-.01em;color:var(--white);margin:0 0 10px}' +
-  '.buddy-explica-chamada strong{display:block;color:var(--cyan-dim)}' +
+  '.buddy-explica-chamada{font-family:var(--ui);font-size:14px;line-height:1.35;font-weight:700;color:var(--white);margin:0 0 6px}' +
   '.buddy-explica-texto{font-family:var(--editorial);font-size:16.5px;line-height:1.6;color:var(--white);margin:0}' +
-  '.buddy-explica-porque-card{margin-top:10px;padding:14px 18px;border-radius:10px;background:var(--porque-bg);border:1px solid var(--porque-line)}' +
-  '.buddy-explica-porque-card--standalone{margin-top:0}' +
+  '.buddy-explica-porque-card{margin:8px 0 0;padding:14px 18px;border-radius:0 10px 10px 0;background:var(--porque-bg);border-left:3px solid var(--porque-line)}' +
   '.buddy-explica-sub{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}' +
   '.buddy-explica-porque{font-size:15.5px}' +
-  '@media(min-width:720px){.buddy-explica-card{gap:18px;padding:20px 24px 20px 8px}.buddy-explica-buddy{width:118px;margin-left:-30px;margin-top:0}.buddy-explica-chamada{font-size:20px}}' +
-  '.buddy-explica-rodape{margin-top:12px;font-family:var(--ui);font-size:11px;color:var(--muted-dim)}' +
-  '.buddy-explica-rodape a{color:var(--muted);text-decoration:underline}' +
+  '@media(min-width:720px){.buddy-explica-card{gap:16px;padding:18px 22px 18px 8px}.buddy-explica-buddy{width:84px;margin-left:-22px;margin-top:0}.buddy-explica-chamada{font-size:15px}}' +
   '.entenda-melhor{margin-top:26px;padding-top:16px;border-top:1px solid var(--line-hair);display:flex;flex-direction:column;gap:8px}' +
   '.entenda-melhor-label{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}' +
   '.entenda-melhor-item{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:8px;background:var(--navy-900)}' +
@@ -5836,7 +5623,8 @@ const CSS_CAMADA_EDITORIAL =
   '.entenda-melhor-titulo{font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--white)}' +
   '.entenda-melhor-resumo{font-family:var(--ui);font-size:12px;line-height:1.45;color:var(--muted-dim)}' +
   '.noticia-proveniencia{margin-top:22px;padding:12px 14px;border:1px solid var(--line-hair);border-radius:8px;font-family:var(--ui);font-size:12px;line-height:1.55;color:var(--muted-dim)}' +
-  '.noticia-proveniencia p{margin:0 0 4px}.noticia-proveniencia strong{color:var(--muted)}.noticia-proveniencia a{color:var(--muted);text-decoration:underline}' +
+  '.noticia-proveniencia p{margin:0 0 6px}.noticia-proveniencia strong{color:var(--white)}.noticia-proveniencia a{color:var(--muted);text-decoration:underline}' +
+  '.noticia-proveniencia-fonte{font-size:14px;color:var(--white)}.noticia-proveniencia .noticia-proveniencia-fonte a{color:var(--cyan-dim);font-weight:700;text-decoration:none}' +
   '@media(min-width:720px){.entenda-melhor{flex-direction:row;flex-wrap:wrap}.entenda-melhor-label{width:100%}.entenda-melhor-item{flex:1 1 200px}}';
 /* ==== CAMADA EDITORIAL: FIM ==== */
 
@@ -5940,13 +5728,13 @@ const IMPACTO_GENERICO_RE = [
   /acompanhe os desdobramentos/i, /neste momento/i, /por si s[oó]/i,
   /\bisso (pode|significa|importa|mostra|demonstra|refor[çc]a)\b/i, /\b[eé] importante porque\b/i,
   /\bpode(m)? (afetar|impactar|levar|influenciar|contribuir|gerar|atrair|abrir|impulsionar|beneficiar)\b/i,
-  /\b(vagas|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i,
   /crescimento da economia|desenvolvimento econ[oô]mico|seguran[çc]a energ[eé]tica nacional/i,
   /refor[çc]a (a|o|seu|sua)/i, /import[aâ]ncia (do|para o) setor/i, /setor offshore como um todo/i,
   /equa[çc][aã]o econ[oô]mica de projetos offshore/i, /desempenho real das instala[çc][õo]es/i,
   /produzido associado ao petr[oó]leo/i, /afetam diretamente o volume de trabalho/i,
   /pode(m)? resultar em/i, /potencial(mente)? (impacto|influenciar)/i
 ];
+const IMPACTO_EMPREGO_RE = /\b(vagas?|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i;
 function q21Frasesbase(texto) {
   const v = validarTextoCamadaEditorial(texto);
   if (!v.ok) return [v.motivo];
@@ -5974,7 +5762,9 @@ function validarBuddyPublicavel(texto, artigo, opcoes) {
   if (sl.bigramas >= 0.45 || sl.contencao >= 0.9) m.push('copia_lead');
   if (similaridadeTextos(t, titulo).contencao >= 0.9) m.push('copia_titulo');
   if (!o.curadoria) {
-    const corpo = String((artigo && (o.fonte || artigo.content)) || '');
+    // semFonte: matéria OWNews 4.0 — content é o corpo OWNews, não a fonte;
+    // a checagem anti-cópia contra a fonte já foi feita na geração.
+    const corpo = o.semFonte ? '' : String((artigo && (o.fonte || artigo.content)) || '');
     if (trechoCopiadoDaFonte(t, corpo) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
   }
   return { ok: m.length === 0, motivos: m };
@@ -5990,6 +5780,11 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   if (!o.curadoria) {
     const g = IMPACTO_GENERICO_RE.find((re) => re.test(t));
     if (g) m.push('generico');
+    // Emprego/vagas/salário só quando a própria matéria trata disso
+    // (concurso, contratação anunciada); senão é especulação.
+    const emp = t.match(IMPACTO_EMPREGO_RE);
+    const baseEmp = [artigo && artigo.title, artigo && artigo.summary, o.fonte || (artigo && artigo.content)].join(' ');
+    if (emp && !new RegExp(emp[0].slice(0, 4), 'i').test(baseEmp)) m.push('emprego_sem_base');
   }
   const lead = String((artigo && artigo.summary) || '');
   const sl = similaridadeTextos(t, lead);
@@ -6000,7 +5795,7 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   }
   if (!o.curadoria) {
     const corpo = String((artigo && (o.fonte || artigo.content)) || '');
-    if (trechoCopiadoDaFonte(t, corpo)) m.push('copia_fonte');
+    if (!o.semFonte && trechoCopiadoDaFonte(t, corpo)) m.push('copia_fonte');
     // ancoragem: ao menos um nome próprio/número do impacto existe na matéria
     const base = q21Tokens([artigo && artigo.title, lead, corpo].join(' '));
     const setBase = new Set(base);
@@ -6010,11 +5805,112 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   }
   return { ok: m.length === 0, motivos: m };
 }
+/* ---- MATÉRIA OWNEWS 4.0 (Missão Editorial Original, 2026-10-17) ----
+   A notícia publicada é texto do OWNews, não a matéria da fonte:
+   - buddy_source = 'ownews': articles.content guarda o CORPO EDITORIAL
+     OWNEWS (síntese própria dos fatos, 2+ parágrafos), buddy_summary o
+     "Buddy resume" e why_it_matters o impacto para o offshore. O texto
+     coletado da fonte fica arquivado no storage do BuddyIAPoller
+     (collector, chave 'fonte:<id>') para auditoria e reprocessamento.
+   - buddy_source = 'insuficiente': a fonte não traz fatos para uma matéria
+     própria — página continua acessível (registro + link), fora do índice.
+   - qualquer outro valor = acervo legado ainda não convertido: o corpo da
+     fonte NUNCA é exibido e a página fica fora do índice. */
+const MATERIA_OWNEWS = 'ownews';
+// Construções de "texto de IA" vetadas pela regra editorial OWNews. Não é
+// lista de palavras: são fórmulas de abertura/conclusão que se repetem.
+const Q4_CLICHES = [
+  /\bem um movimento que\b/i, /\beste (desenvolvimento|movimento|an[uú]ncio) (representa|marca|refor[çc]a)\b/i,
+  /\bvale (destacar|ressaltar|lembrar|mencionar)\b/i, /\bem (resumo|suma)\b/i, /\bo cen[aá]rio evidencia\b/i,
+  /^para o setor offshore,/im, /\bisso refor[çc]a\b/i, /\b[eé] importante (notar|destacar|ressaltar)\b/i,
+  /\bdesempenha(r)? um papel (crucial|fundamental|importante|central)\b/i, /\bmarco (importante|significativo|hist[oó]rico)\b/i,
+  /\bpasso (importante|significativo|crucial)\b/i, /\bcen[aá]rio (desafiador|promissor)\b/i, /\bnesse contexto\b/i,
+  /\bconsolida (sua|a) posi[çc][aã]o\b/i, /\bem um cen[aá]rio de\b/i, /\bfica claro que\b/i
+];
+// TODO/XXX só em maiúsculas: "todo" e "Método" são português legítimo.
+const Q4_PLACEHOLDER = /lorem ipsum|\[(inserir|fonte|link|data|nome)[^\]]*\]|\bplaceholder\b|n[aã]o h[aá] informa[çc][oõ]es dispon[ií]veis/i;
+const Q4_MARCADOR = /(^|[^A-Za-zÀ-ú])(TODO|XXX|TBD)([^A-Za-zÀ-ú]|$)/;
+function paragrafosCorpo(corpo) {
+  return String(corpo || '').split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+/* Todo número citado no texto gerado precisa existir na matéria (normaliza
+   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
+function numerosSustentadosPelaFonte(texto, fonte) {
+  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
+  const daFonte = new Set(nums(fonte));
+  return nums(texto).every((n) => daFonte.has(n));
+}
+function clicheIA(texto) {
+  const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));
+  return re ? String(texto).match(re)[0].toLowerCase() : null;
+}
+/* Corpo editorial OWNews: fatos e contexto, organizados pelo OWNews.
+   opcoes.fonte (geração/backfill): material da fonte — ativa anti-cópia,
+   anti-paráfrase rasa, conferência de números e teto de tamanho.
+   Sem fonte (exibição): só forma, clichê e repetição entre os 3 blocos. */
+function validarCorpoOWNews(corpo, artigo, buddy, impacto, opcoes) {
+  const o = opcoes || {};
+  if (!corpo || typeof corpo !== 'string' || !corpo.trim()) return { ok: false, motivos: ['vazio'] };
+  const t = corpo.trim();
+  const pars = paragrafosCorpo(t);
+  const m = [];
+  if (pars.length < 2) m.push('paragrafos_' + pars.length);
+  if (pars.length > 7) m.push('paragrafos_' + pars.length);
+  if (t.length < 320) m.push('curto');
+  if (t.length > 4200) m.push('longo');
+  if (Q4_PLACEHOLDER.test(t) || Q4_MARCADOR.test(t)) m.push('placeholder');
+  const erros = detectarErrosTexto(pars.join(' ')).filter((e) => e !== 'espaco_antes_pontuacao');
+  if (erros.length) m.push(erros[0]);
+  if (pars.some((p) => !/[.!?"”»)]$/.test(p))) m.push('paragrafo_incompleto');
+  if (pareceIngles(t)) m.push('ingles');
+  const c = clicheIA(t);
+  if (c) m.push('cliche_ia:' + c);
+  const fr = q21Frases(pars.join(' '));
+  for (let i = 1; i < fr.length; i++) {
+    if (q21Tokens(fr[i]).length >= 5 && similaridadeTextos(fr[i], fr.slice(0, i).join(' ')).contencao >= 0.85) { m.push('frase_redundante'); break; }
+  }
+  const titulo = String((artigo && artigo.title) || '');
+  if (titulo && similaridadeTextos(fr[0] || '', titulo).contencao >= 0.95 && q21Tokens(fr[0]).length <= q21Tokens(titulo).length + 2) m.push('repete_titulo');
+  // Os três blocos têm funções diferentes: Buddy (o que aconteceu, curto),
+  // corpo (fatos e contexto), impacto (por que interessa ao offshore).
+  if (buddy && trechoCopiadoDaFonte(buddy, t)) m.push('repete_buddy');
+  if (impacto && trechoCopiadoDaFonte(impacto, t)) m.push('repete_impacto');
+  if (o.fonte) {
+    const fonte = String(o.fonte);
+    const lead = String((artigo && artigo.summary) || '');
+    if (trechoCopiadoDaFonte(t, fonte) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
+    if (similaridadeTextos(t, fonte).bigramas >= 0.4) m.push('parafrase_rasa');
+    if (!numerosSustentadosPelaFonte(t, [titulo, lead, fonte].join(' '))) m.push('numero_sem_fonte');
+    if (t.length > Math.max(fonte.length * 1.15 + 250, 700)) m.push('maior_que_fonte');
+  }
+  return { ok: m.length === 0, motivos: m };
+}
+/* Gate completo da matéria OWNews (geração, backfill e testes). Os três
+   blocos são obrigatórios: sem Buddy, sem impacto ou sem corpo válidos a
+   matéria não é publicada (editorial_incomplete). */
+function validarMateriaOWNews(mat, artigo, fonte) {
+  const f = String(fonte || '');
+  const base = [artigo && artigo.title, artigo && artigo.summary, f].join(' ');
+  const buddy = mat && mat.buddy_summary ? sanearTextoPublicacao(mat.buddy_summary) : '';
+  const impacto = mat && mat.why_it_matters ? sanearTextoPublicacao(mat.why_it_matters) : '';
+  const corpo = mat && mat.corpo ? String(mat.corpo).split(/\n\s*\n/).map(sanearTextoPublicacao).filter(Boolean).join('\n\n') : '';
+  const vb = buddy ? validarBuddyPublicavel(buddy, artigo, { fonte: f }) : { motivos: ['vazio'] };
+  const vi = impacto ? validarImpactoPublicavel(impacto, artigo, buddy, { fonte: f }) : { motivos: ['vazio'] };
+  const vc = validarCorpoOWNews(corpo, artigo, buddy, impacto, { fonte: f });
+  const motivos = vb.motivos.map((x) => 'buddy:' + x)
+    .concat(vi.motivos.map((x) => 'impacto:' + x), vc.motivos.map((x) => 'corpo:' + x));
+  if (buddy && !numerosSustentadosPelaFonte(buddy, base)) motivos.push('buddy:numero_sem_fonte');
+  if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
+  if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
+  if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  return { ok: motivos.length === 0, motivos, buddy_summary: buddy, why_it_matters: impacto, corpo };
+}
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
-   - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo (IA: 'nenhuma').
-   - NOINDEX: corpo thin (ehMateriaThin) — Buddy não "reindexa" corpo insuficiente.
-   - EDITORIAL_INCOMPLETE: corpo ok, mas sem Buddy próprio válido.
-   - INDEXABLE: corpo ok + Buddy válido (impacto só quando válido; nunca obrigatório). */
+   - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
+   - NOINDEX: fonte sem material para matéria própria ('insuficiente').
+   - EDITORIAL_INCOMPLETE: não é matéria OWNews, ou falta Buddy, impacto ou
+     corpo OWNews válido.
+   - INDEXABLE: matéria OWNews com os três blocos válidos. */
 function classificarIndexacaoNoticia(artigo, camada) {
   const motivos = [];
   const titulo = String((artigo && artigo.title) || '').trim();
@@ -6026,8 +5922,12 @@ function classificarIndexacaoNoticia(artigo, camada) {
   if (resumo.length + corpo.length < 80) motivos.push('sem_material');
   if (artigo && artigo.buddy_source === 'ia_fora_escopo') motivos.push('fora_escopo');
   if (motivos.length) return { estado: 'DESCARTAR', motivos };
-  if (typeof ehMateriaThin === 'function' ? ehMateriaThin(artigo, camada) : corpo.length < 400) return { estado: 'NOINDEX', motivos: ['thin'] };
-  if (!camada || !camada.buddy_summary) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_buddy_valido'] };
+  if (artigo.buddy_source === 'insuficiente') return { estado: 'NOINDEX', motivos: ['material_insuficiente'] };
+  if (artigo.buddy_source !== MATERIA_OWNEWS) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_materia_ownews'] };
+  if (!camada || !camada.buddy_summary) motivos.push('sem_buddy_valido');
+  if (!camada || !camada.why_it_matters) motivos.push('sem_impacto_valido');
+  if (!camada || !camada.corpo) motivos.push('sem_corpo_ownews');
+  if (motivos.length) return { estado: 'EDITORIAL_INCOMPLETE', motivos };
   return { estado: 'INDEXABLE', motivos: [] };
 }
 /* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */
@@ -6056,7 +5956,7 @@ function descricaoMetaSegura(texto, max) {
    por cima (com rotação de imagens, modo embarcado etc.) — nada do
    comportamento atual muda; só deixa de haver um "buraco" no HTML inicial.
    Falha de rede → Home estática de sempre (nunca 500). */
-const NOTICIAS_HOME_SELECT_SERVIDOR = 'id,title,summary,content,image_url,image_credit,original_url,published_at,editorial_score';
+const NOTICIAS_HOME_SELECT_SERVIDOR = 'id,title,summary,content,image_url,image_credit,original_url,published_at,editorial_score,buddy_summary,buddy_source';
 const PALAVRAS_BREAKING_SERVIDOR = ['acidente', 'explosão', 'explosao', 'vazamento', 'greve', 'parada de produção', 'parada de producao', 'interdição', 'interdicao', 'morte', 'fatal', 'resgate', 'incêndio', 'incendio'];
 
 async function obterNoticiasHomeServidor() {
@@ -6139,7 +6039,7 @@ function homeSsrMarkup(selecao, agora) {
     '<div class="lead-copy"><div class="card-copy-inner">' +
     '<span class="eyebrow">' + escaparHTML(editoriaDeServidor(h)) + ' · Destaque</span>' +
     '<h1>' + escaparHTML(h.title) + '</h1>' +
-    (deckEditorial(h.summary, 130) ? '<p>' + escaparHTML(deckEditorial(h.summary, 130)) + '</p>' : '') +
+    (deckNoticiaOWNews(h, 130) ? '<p>' + escaparHTML(deckNoticiaOWNews(h, 130)) + '</p>' : '') +
     '<span class="byline">' + tempo(h) + '</span>' +
     '</div></div></a>';
   const laterais = selecao.laterais.map((n) =>
@@ -6158,7 +6058,7 @@ function homeSsrMarkup(selecao, agora) {
       homeSsrCapa(d, 'thumb') +
       '<span class="eyebrow">' + escaparHTML(editoriaDeServidor(d)) + '</span>' +
       '<h3>' + escaparHTML(d.title) + '</h3>' +
-      (deckEditorial(d.summary, 400) ? '<p>' + escaparHTML(deckEditorial(d.summary, 400)) + '</p>' : '') +
+      (deckNoticiaOWNews(d, 400) ? '<p>' + escaparHTML(deckNoticiaOWNews(d, 400)) + '</p>' : '') +
       '<span class="byline">' + tempo(d) + '</span></a></article>' +
       '<div class="row-list">' +
       resto.map((n) =>
@@ -16590,7 +16490,7 @@ function renderSobre() {
     "<h2>O que fazemos</h2>" +
     '<ul class="hub-lista">' +
     '<li><strong>Notícias</strong> do setor, com fonte primária identificada e link para a origem em cada matéria.</li>' +
-    '<li><strong>Buddy te explica</strong>: em parte das notícias, um bloco curto — escrito pela redação ou por inteligência artificial com checagens automáticas, sempre identificado — que diz o que a notícia significa e, quando há base para isso, por que importa para quem trabalha offshore.</li>' +
+    '<li><strong>Notícias com texto próprio</strong>: cada nota publicada tem Buddy resume (o que aconteceu, em poucas palavras), texto do OWNews com fatos e contexto e o que isso impacta para o offshore — escritos com apoio de inteligência artificial a partir da fonte, conferidos por checagens automáticas e sempre com a fonte original identificada.</li>' +
     '<li><strong><a href="/explica">OWNews Explica</a></strong> e <a href="/guias">Guias</a>: textos originais sobre como o offshore funciona — FPSO, sonda, escala, embarque, Margem Equatorial, Oferta Permanente.</li>' +
     '<li><strong>Referência</strong>: <a href="/funcoes">Funções a bordo</a>, <a href="/carreiras/sonda-de-perfuracao">Carreiras</a>, <a href="/glossario">Glossário</a>, <a href="/certificados-offshore">Certificados</a> e o <a href="/radar">Radar Offshore</a>, diretório de unidades que operam no Brasil.</li>' +
     '<li><strong>Ferramentas</strong> gratuitas: <a href="/minha-escala">Minha Escala</a>, <a href="/meus-certificados">Meus Certificados</a>, <a href="/meus-alertas">Meus Alertas</a> e <a href="/vagas">Vagas</a> agregadas de fontes públicas.</li>' +
@@ -16598,7 +16498,7 @@ function renderSobre() {
     "</div>" +
     '<div class="area-group">' +
     "<h2>Como trabalhamos</h2>" +
-    '<p class="area-desc">Somos uma equipe pequena e usamos software em parte do processo — a coleta, a triagem e a maior parte dos resumos "Buddy te explica" das notícias são automatizadas (os resumos são escritos por inteligência artificial e só aparecem se passarem em checagens automáticas de qualidade); a seleção de fontes, todo o conteúdo explicativo e de referência, os textos de curadoria e as correções são feitos por pessoa. Damos prioridade a fontes oficiais e verificáveis: dados técnicos no Radar Offshore só são publicados com fonte pública citável; quando não há confirmação, o dado não aparece. Não inventamos relatos, números nem procedimentos. Tudo isso está detalhado na <a href="/politica-editorial">Política Editorial</a> e na <a href="/correcoes">Política de Correções</a>.</p>' +
+    '<p class="area-desc">Somos uma equipe pequena e usamos software em parte do processo — a coleta, a triagem e a redação das notas de notícia são automatizadas (os textos são escritos por inteligência artificial a partir da fonte e só são publicados se passarem em checagens automáticas de qualidade); a seleção de fontes, o conteúdo explicativo e de referência e as correções são feitos por pessoa. Damos prioridade a fontes oficiais e verificáveis: dados técnicos no Radar Offshore só são publicados com fonte pública citável; quando não há confirmação, o dado não aparece. Não inventamos relatos, números nem procedimentos. Tudo isso está detalhado na <a href="/politica-editorial">Política Editorial</a> e na <a href="/correcoes">Política de Correções</a>.</p>' +
     "</div>" +
     '<div class="area-group">' +
     "<h2>Quem faz</h2>" +
@@ -16713,7 +16613,7 @@ function renderPoliticaEditorial() {
     "<h2>O que publicamos</h2>" +
     '<p class="area-desc">O OWNews cobre o setor offshore brasileiro: óleo e gás, plataformas, FPSOs, sondas, embarcações de apoio, portos, regulação (ANP, PPSA, MME, EPE, Ibama), empresas, vagas e vida a bordo. Publicamos quatro tipos de conteúdo, e cada um é identificado como tal na própria página:</p>' +
     '<ul class="hub-lista">' +
-    '<li><strong>Notícia</strong> — fato do setor coletado de uma fonte identificada, com data e link para a origem. Fica na página /noticia e na Home.</li>' +
+    '<li><strong>Notícia</strong> — nota do OWNews sobre um fato do setor publicado por uma fonte identificada (órgão oficial, empresa, imprensa especializada, sindicato), com data, crédito e link para a origem. O texto é do OWNews; os fatos são da fonte. Fica na página /noticia e na Home.</li>' +
     '<li><strong>Explicativo</strong> (OWNews Explica, Guias) — texto original e atemporal sobre como algo funciona. Não noticia; explica. Fica em /explica e /guias.</li>' +
     '<li><strong>Referência</strong> (Funções, Carreiras, Glossário, Radar Offshore, Certificados) — dados estruturados sobre funções, unidades e termos, com fonte por dado.</li>' +
     '<li><strong>Ferramenta</strong> (Minha Escala, Meus Certificados, Checklist de Embarque, Meus Alertas) — utilitários que rodam no seu navegador. Não têm pretensão editorial.</li>' +
@@ -16728,17 +16628,17 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="fontes">' +
     "<h2>Fontes e atribuição</h2>" +
-    '<p class="area-desc">O OWNews organiza, filtra e contextualiza notícias do setor offshore publicadas por fontes identificadas. <strong>O texto-base de cada notícia é coletado automaticamente da fonte citada</strong> (comunicado oficial ou veículo especializado) e exibido com o nome da fonte e o link para o original, no bloco "Sobre esta matéria" ao final da página, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. O OWNews não reapura nem reescreve o corpo das notícias coletadas. O que o OWNews acrescenta é a seleção, a organização por tema, a camada "Buddy te explica" quando ela passa nos critérios abaixo e links para referências próprias (Explica, Funções, Radar). Imagens: quando a fonte oferece foto utilizável, ela aparece com crédito; quando não oferece (ou bloqueia a exibição em outros sites), usamos uma capa editorial genérica do OWNews, identificada como tal — nunca a foto de outra unidade ou navio como se fosse do fato. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
+    '<p class="area-desc">A fonte é matéria-prima factual; a nota publicada é do OWNews. <strong>O OWNews não republica o texto das matérias de terceiros.</strong> Para cada notícia selecionada, o OWNews escreve três blocos próprios a partir dos fatos da fonte: o <strong>Buddy resume</strong> (o que aconteceu, em poucas palavras), o <strong>texto da nota</strong> (fatos e contexto, organizados e redigidos pelo OWNews) e <strong>O que isso impacta para o offshore</strong>. O texto coletado da fonte é guardado internamente só para produção, conferência e auditoria — não é exibido ao leitor. Citação direta da fonte, quando usada, é curta, entre aspas e atribuída. Ao final de cada notícia, o bloco "Fonte" diz quem publicou os fatos originalmente, com link para a matéria original, e distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. O OWNews não faz apuração própria das notícias: quando um fato vem de uma fonte, a nota diz de onde veio — não se apresenta como reportagem própria. Imagens: quando a fonte oferece foto utilizável, ela aparece com crédito; quando não oferece (ou bloqueia a exibição em outros sites), usamos uma capa editorial genérica do OWNews, identificada como tal — nunca a foto de outra unidade ou navio como se fosse do fato. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha.</p>' +
     "</div>" +
 
     '<div class="area-group" id="producao-automatizada">' +
     "<h2>Produção automatizada e revisão humana</h2>" +
-    '<p class="area-desc">Somos transparentes sobre isso: o OWNews é operado por uma equipe pequena e boa parte do processo é automatizada. <strong>É automatizado</strong>: a coleta das notícias nas fontes monitoradas; a extração de título, resumo, corpo e imagem; a tradução de títulos de fontes em inglês; a pontuação editorial e a montagem da Home; a redação do resumo "Buddy te explica" da maioria das notícias, feita por um modelo de inteligência artificial (Workers AI, da Cloudflare) a partir da matéria original; as checagens automáticas de qualidade descritas abaixo; e a geração dos sitemaps. <strong>Não há revisão humana matéria a matéria</strong> das notícias coletadas nem dos resumos escritos por IA. Os verbetes do OWNews Explica, os Guias, as fichas de Funções, Radar e Certificados e os textos de curadoria do Buddy registrados para matérias específicas são escritos e mantidos pelo OWNews — não são gerados automaticamente a partir das notícias. Correções reportadas pelos leitores são tratadas pela equipe (veja <a href="/correcoes">Correções</a>).</p>' +
+    '<p class="area-desc">Somos transparentes sobre isso: o OWNews é operado por uma equipe pequena e boa parte do processo é automatizada. <strong>É automatizado</strong>: o monitoramento das fontes; a extração de título, imagem e texto da fonte; a tradução de títulos de fontes em inglês; a pontuação editorial e a montagem da Home; a <strong>redação das notas</strong> (Buddy resume, texto e impacto), feita por modelos de inteligência artificial a partir do material da fonte, seguindo as regras editoriais do OWNews; as checagens automáticas descritas abaixo; e a geração dos sitemaps. <strong>Não há revisão humana nota a nota</strong>: uma nota só é publicada se passar em todas as checagens automáticas; se reprovar, não é publicada. Os verbetes do OWNews Explica, os Guias e as fichas de Funções, Radar e Certificados são mantidos pelo OWNews e não são gerados a partir das notícias. Correções reportadas pelos leitores são tratadas pela equipe (veja <a href="/correcoes">Correções</a>).</p>' +
     "</div>" +
 
     '<div class="area-group" id="buddy-te-explica">' +
-    '<h2>A camada "Buddy te explica"</h2>' +
-    '<p class="area-desc">Abaixo da imagem de parte das notícias aparece o bloco <strong>Buddy te explica</strong>, que responde em linguagem direta "o que aconteceu?". O texto tem duas origens possíveis, sempre informadas no rodapé do bloco: (1) <strong>texto escrito pelo OWNews</strong> para aquela matéria, com data de revisão; ou (2) <strong>resumo escrito por inteligência artificial</strong> a partir da matéria original. Antes de aparecer, todo resumo passa por regras automáticas: 2 a 4 frases completas; sem cópia do primeiro parágrafo nem de trechos da fonte (teste de similaridade); sem texto truncado, entidades HTML ou restos de página; em português; sem frases promocionais ou genéricas. O resumo que reprova não é exibido — a notícia fica sem o bloco. <strong>"O que isso representa para o offshore?"</strong> só aparece quando há uma consequência concreta para quem trabalha ou acompanha o setor sustentada pela própria matéria; não é exibido em notícias sem relação direta com operações offshore, e nunca traz especulação sobre vagas, salários ou "oportunidades". Resumos escritos por IA podem conter imprecisões: a fonte original está sempre linkada. O mesmo texto alimenta o aplicativo OWBuddy.</p>' +
+    '<h2>Como cada nota é escrita e conferida</h2>' +
+    '<p class="area-desc"><strong>Buddy resume</strong> responde "em poucas palavras, o que aconteceu?" em 2 a 4 frases. <strong>O texto da nota</strong> reúne, em 2 a 5 parágrafos, o que aconteceu, quem está envolvido, onde, quando, números, estágio e próximo passo — só o que a fonte sustenta; fonte curta gera nota curta. <strong>O que isso impacta para o offshore</strong> explica por que o fato interessa a quem trabalha ou acompanha o setor (operação, campanha, cronograma, logística, fornecedores, produção, regulação); quando o efeito é indireto, a nota diz isso, sem especular sobre vagas, salários ou "oportunidades". Antes de publicar, regras automáticas conferem: nenhum trecho longo igual ao texto da fonte e nenhuma paráfrase colada a ela; todo número citado existe na fonte; frases completas, em português, sem restos de página; sem fórmulas genéricas ou de "texto de IA"; e os três blocos não repetem uns aos outros. Se qualquer bloco reprova, a notícia não é publicada. Quando a fonte não traz fatos suficientes para uma nota própria, a página antiga continua acessível só com título e link para a origem, fora dos buscadores. Textos escritos com IA podem conter imprecisões: a fonte original está sempre linkada e erros podem ser reportados em <a href="/correcoes">Correções</a>.</p>' +
     "</div>" +
 
     '<div class="area-group" id="conteudo-original">' +
@@ -16748,7 +16648,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="indexacao">' +
     "<h2>O que entra nos mecanismos de busca</h2>" +
-    '<p class="area-desc">Usamos uma regra única e automática, aplicada tanto à marcação de cada página quanto aos sitemaps. <strong>Notícias</strong>: só são indexáveis quando têm corpo próprio suficiente (não apenas o resumo da fonte) e um resumo "Buddy te explica" aprovado nas checagens acima; as demais continuam acessíveis, com fonte e link, mas marcadas com noindex e fora dos sitemaps. <strong>Salários</strong>: a área está fora do ar enquanto é refeita com dados mais confiáveis; as páginas antigas continuam acessíveis por link, com noindex, fora dos sitemaps e dos menus. <strong>Funções, Radar, Empresas e Agenda</strong>: fichas com pouco conteúdo próprio ficam fora do índice até serem enriquecidas com informação verificável — nunca com texto genérico. Formulários (como o envio de eventos para a Agenda) não são indexados.</p>' +
+    '<p class="area-desc">Usamos uma regra única e automática, aplicada tanto à marcação de cada página quanto aos sitemaps. <strong>Notícias</strong>: só são indexáveis quando têm os três blocos do OWNews aprovados (Buddy resume, texto próprio e impacto para o offshore); as demais continuam acessíveis por link, com a fonte, mas marcadas com noindex, fora dos sitemaps e sem anúncios. <strong>Salários</strong>: a área está fora do ar enquanto é refeita com dados mais confiáveis; as páginas antigas continuam acessíveis por link, com noindex, fora dos sitemaps e dos menus. <strong>Funções, Radar, Empresas e Agenda</strong>: fichas com pouco conteúdo próprio ficam fora do índice até serem enriquecidas com informação verificável — nunca com texto genérico. Formulários (como o envio de eventos para a Agenda) não são indexados.</p>' +
     "</div>" +
 
     '<div class="area-group" id="autoria">' +
@@ -16820,7 +16720,7 @@ function renderOWBuddyLanding() {
     '<li><strong>Meus Certificados</strong><span>Registro das validades dos seus certificados para não ser surpreendido perto do embarque. <a href="/meus-certificados">Abrir Meus Certificados →</a></span></li>' +
     '<li><strong>Checklist de Embarque</strong><span>Lista de conferência antes de sair de casa, do documento à mala. <a href="/checklist-embarque">Abrir o checklist →</a></span></li>' +
     '<li><strong>Central de Alertas</strong><span>Avisos no navegador para o que você escolher acompanhar. <a href="/meus-alertas">Configurar alertas →</a></span></li>' +
-    '<li><strong>Buddy te explica</strong><span>Nas notícias com camada editorial, o Buddy resume o fato e, quando há base concreta, diz por que importa para quem trabalha offshore. <a href="/politica-editorial#buddy-te-explica">Como produzimos →</a></span></li>' +
+    '<li><strong>Buddy resume</strong><span>Em toda notícia publicada, o Buddy resume o fato em poucas palavras; o texto do OWNews traz o contexto e o bloco final diz o que aquilo impacta para o offshore. <a href="/politica-editorial#buddy-te-explica">Como produzimos →</a></span></li>' +
     '</ul>' +
     '</div>' +
 
@@ -16862,14 +16762,14 @@ function renderCorrecoes() {
     '<ul class="hub-lista">' +
     '<li><strong>Erro de fato</strong>: número, data, nome, empresa ou local incorretos; atribuição errada de fonte.</li>' +
     '<li><strong>Informação desatualizada</strong> apresentada como atual (por exemplo, uma unidade que mudou de operador).</li>' +
-    '<li><strong>Erro de contexto</strong>: a camada "Buddy te explica" ou um verbete do Explica que leve a uma conclusão não sustentada pela fonte.</li>' +
+    '<li><strong>Erro de contexto</strong>: o Buddy resume, o texto ou o impacto de uma notícia, ou um verbete do Explica, que leve a uma conclusão não sustentada pela fonte.</li>' +
     '<li><strong>Erro técnico</strong>: link quebrado, imagem errada, matéria duplicada.</li>' +
     '</ul>' +
     "</div>" +
 
     '<div class="area-group">' +
     "<h2>Como corrigimos</h2>" +
-    '<p class="area-desc">Corrigimos no próprio texto e registramos a data de revisão — nas notícias com camada editorial, ela aparece no rodapé do bloco "Buddy te explica"; nos verbetes do Explica, no rodapé da página. Quando a correção muda o sentido da matéria, acrescentamos uma nota explicando o que estava errado. Matérias duplicadas ou que não têm conteúdo além do resumo da fonte saem da indexação com redirecionamento para a versão mantida; não apagamos páginas em silêncio. Não temos, hoje, uma redação com múltiplos revisores, e dizemos isso abertamente: por isso cada aviso de leitor é tratado como prioridade.</p>' +
+    '<p class="area-desc">Corrigimos no próprio texto e registramos a data de revisão — nas notícias, a data de publicação aparece no bloco "Fonte"; nos verbetes do Explica, no rodapé da página. Quando a correção muda o sentido da matéria, acrescentamos uma nota explicando o que estava errado. Matérias duplicadas ou que não têm conteúdo além do resumo da fonte saem da indexação com redirecionamento para a versão mantida; não apagamos páginas em silêncio. Não temos, hoje, uma redação com múltiplos revisores, e dizemos isso abertamente: por isso cada aviso de leitor é tratado como prioridade.</p>' +
     "</div>" +
 
     '<div class="area-group">' +
@@ -22705,8 +22605,10 @@ export default {
       const conteudoBasicoNoticia = '<main><p><a href="/">OWNews</a> / Notícia</p>' +
         '<h1>' + escaparHTML(artigo.title || 'Notícia') + '</h1>' +
         (artigo.published_at ? '<time datetime="' + escaparHTML(artigo.published_at) + '">' + escaparHTML(new Date(artigo.published_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })) + '</time>' : '') +
-        (artigo.summary ? '<p>' + escaparHTML(artigo.summary) + '</p>' : '') +
-        '<img src="' + escaparHTML(imgBasicaNoticia) + '" alt="Imagem da notícia"><div><p>' + escaparHTML(artigo.content || artigo.summary || artigo.title || '') + '</p></div>' +
+        (artigo.buddy_source === MATERIA_OWNEWS && artigo.buddy_summary ? '<p>' + escaparHTML(artigo.buddy_summary) + '</p>' : '') +
+        '<img src="' + escaparHTML(imgBasicaNoticia) + '" alt="Imagem da notícia">' +
+        // Missão Editorial Original 4.0: só corpo OWNews; texto da fonte nunca.
+        (artigo.buddy_source === MATERIA_OWNEWS ? '<div><p>' + escaparHTML(artigo.content || '').replace(/\n\n/g, '</p><p>') + '</p></div>' : '') +
         (artigo.image_credit ? '<p>Fonte: ' + escaparHTML(artigo.image_credit) + '</p>' : '') +
         (artigo.original_url ? '<p><a href="' + escaparHTML(artigo.original_url) + '" target="_blank" rel="noopener">Fonte original ↗</a></p>' : '') +
         '<p><a href="/">Voltar para Home →</a></p></main>';
@@ -22717,7 +22619,7 @@ export default {
          identidade visual do site. Corrigido: o fallback só é usado agora
          se o template rico realmente lançar uma exceção (try/catch),
          preservando a intenção original do comentário abaixo. */
-      const respostaFallbackNoticia = new Response('<!doctype html><html lang="pt-BR"><head><meta name="google-adsense-account" content="ca-pub-7540734255466089"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="https://ownews.com.br' + escaparHTML(urlBasicaNoticia) + '"><meta property="og:title" content="' + escaparHTML(artigo.title) + '"><meta property="og:description" content="' + escaparHTML((artigo.summary || artigo.title || '').slice(0, 160)) + '"><meta property="og:image" content="' + escaparHTML(imgBasicaNoticia) + '"><title>' + escaparHTML(artigo.title) + ' | OWNews</title></head><body>' + conteudoBasicoNoticia + '</body></html>', { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+      const respostaFallbackNoticia = new Response('<!doctype html><html lang="pt-BR"><head><meta name="google-adsense-account" content="ca-pub-7540734255466089"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="https://ownews.com.br' + escaparHTML(urlBasicaNoticia) + '"><meta property="og:title" content="' + escaparHTML(artigo.title) + '"><meta name="robots" content="noindex,follow"><meta property="og:description" content="' + escaparHTML(String(artigo.title || '').slice(0, 160)) + '"><meta property="og:image" content="' + escaparHTML(imgBasicaNoticia) + '"><title>' + escaparHTML(artigo.title) + ' | OWNews</title></head><body>' + conteudoBasicoNoticia + '</body></html>', { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 
       try {
       const agoraNoticia = new Date();
@@ -22758,30 +22660,24 @@ export default {
       const imagemArtigo = imagemComFallbackServidor(artigo);
       const vagasEmpresaMencionada = vagasDaEmpresaMencionadaServidor(artigo);
       const empresaMencionada = empresaMencionadaServidor(artigo);
-      // Camada editorial "Buddy te explica" (curadoria em código > colunas do
-      // banco > nada). Sem camada, nenhum bloco é renderizado.
+      // Camada editorial (Buddy resume + corpo OWNews + impacto) — só do
+      // banco, escrita e aprovada no pipeline. Sem camada, nenhum bloco.
       const camadaEditorial = resolverCamadaEditorial(artigo);
       const explicaSlugsNoticia = explicaRelacionadosParaNoticia(artigo, camadaEditorial);
-      const materiaThin = ehMateriaThin(artigo, camadaEditorial);
-      // Critério único (QUALIDADE EDITORIAL 2.1): só INDEXABLE entra no
-      // índice e nos sitemaps; o resto continua acessível com noindex.
+      // Critério único (QUALIDADE EDITORIAL + Matéria OWNews 4.0): só
+      // INDEXABLE (Buddy + corpo OWNews + impacto válidos) entra no índice e
+      // nos sitemaps; o resto continua acessível com noindex e SEM o texto da
+      // fonte (Missão Editorial Original 4.0: fim da republicação integral).
       const indexacaoNoticia = classificarIndexacaoNoticia(artigo, camadaEditorial);
       const robotsNoticia = indexacaoNoticia.estado === 'INDEXABLE' ? null : 'noindex,follow';
-      // Fontes em inglês guardam só o resumo traduzido também em `content`:
-      // a página mostrava a MESMA frase duas vezes (lead + corpo). O lead só
-      // entra quando o corpo realmente acrescenta texto além do resumo.
-      const corpoIgualResumo = String(artigo.content || '').trim() === String(artigo.summary || '').trim();
-      // Amostra humana 2.1: algumas fontes entregam como "resumo" o texto
-      // institucional do site ("Revista fundada em 1958", "Informação
-      // publicada pela Agência Petrobras..."). Não é lead: não aparece como
-      // subtítulo nem vira meta description.
-      const leadEhBoilerplate = RE_LEAD_INSTITUCIONAL.test(String(artigo.summary || '').trim());
-      const descricaoNoticia = descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || (!leadEhBoilerplate && artigo.summary) || artigo.title || '', 160);
+      const materiaOWNews = !!(camadaEditorial && camadaEditorial.corpo);
+      // Meta description: Buddy (texto OWNews) — nunca o lead da fonte.
+      const descricaoNoticia = descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || artigo.title || '', 160);
       const jsonLdArtigo = {
         "@context": "https://schema.org",
         "@type": "NewsArticle",
         headline: artigo.title,
-        description: descricaoMetaSegura(camadaEditorial ? (camadaEditorial.buddy_summary || artigo.summary || '') : (artigo.summary || artigo.title || ''), 200),
+        description: descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || artigo.title || '', 200),
         inLanguage: "pt-BR",
         articleSection: editoriaDeServidor(artigo),
         datePublished: artigo.published_at || undefined,
@@ -22854,19 +22750,20 @@ export default {
         (dataExibida ? ' · <time datetime="' + escaparHTML(artigo.published_at || '') + '" title="' + escaparHTML(horaCompleta) + '">' + escaparHTML(dataExibida) + '</time>' : '') +
         '</span>' +
         '<h1>' + escaparHTML(artigo.title) + '</h1>' +
-        (artigo.summary && !corpoIgualResumo && !leadEhBoilerplate ? '<p class="hub-lead" style="margin-top:14px">' + escaparHTML(artigo.summary) + '</p>' : '') +
         '<button type="button" class="compartilhar-link" id="btnSalvarNoticia" style="margin-top:12px" data-id="' + escaparHTML(artigo.id) + '" data-title="' + escaparHTML(artigo.title) + '" data-image="' + escaparHTML(imagemArtigo.src) + '" data-published="' + escaparHTML(artigo.published_at || '') + '">☆ Salvar notícia</button>' +
         '</div>' +
         '<img class="noticia-imagem" src="' + escaparHTML(imagemArtigo.src) + '" alt="' + escaparHTML(imagemArtigo.ilustrativa ? 'Capa editorial OWNews' : 'Imagem da matéria: ' + artigo.title) + '" width="1200" height="675" decoding="async" referrerpolicy="no-referrer"' +
           (imagemArtigo.ilustrativa ? '' : ' data-fallback="' + escaparHTML(imagemFallbackServidor(artigo).src) + '" onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;this.alt=\'Imagem ilustrativa\';}"') + '>' +
         (!imagemArtigo.ilustrativa && artigo.image_credit ? '<p class="noticia-imagem-legenda">Imagem: ' + escaparHTML(artigo.image_credit) + '</p>' : '') +
         (imagemArtigo.ilustrativa ? '<p class="noticia-imagem-legenda">Capa editorial OWNews — a fonte não disponibilizou foto utilizável.</p>' : '') +
+        // Ordem (Missão Editorial Original 4.0): Buddy resume → corpo OWNews
+        // → impacto → fonte. Sem matéria OWNews: nenhum texto da fonte e
+        // nenhum anúncio (página fora do índice).
         blocoBuddyExplica(camadaEditorial) +
-        // slot adaptativo: só aparece depois da intro em artigo médio/longo —
-        // nunca em artigo curto, nunca entre título e subtítulo/imagem
-        ((artigo.content || artigo.summary || '').length > 900 ? adSlot("article_after_intro") : '') +
-        '<div class="noticia-corpo"><p>' + escaparHTML(artigo.content || artigo.summary).replace(/\n\n/g, '</p><p>') + '</p></div>' +
-        adSlot("article_after_content") +
+        (materiaOWNews && camadaEditorial.corpo.length > 900 ? adSlot("article_after_intro") : '') +
+        blocoCorpoOWNews(camadaEditorial) +
+        blocoImpactoOffshore(camadaEditorial) +
+        (materiaOWNews ? adSlot("article_after_content") : '') +
         // Atribuição correta continua existindo — só não decora o topo
         // visual (regra editorial 2026-09-19). Fonte nunca é escondida,
         // só deslocada pro rodapé da matéria, onde pertence.

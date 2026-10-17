@@ -51,7 +51,7 @@ const metaSrc = funcao(FRONT, "function descricaoMetaSegura(texto, max)");
 const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const M = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
   explicaSrc + "\nfunction explicaPorSlug(s){return EXPLICA_ARTIGOS.find((e)=>e.slug===s)||null;}\n" + camadaSrc + "\n" + qSrc + "\n" + metaSrc +
-  "\nreturn { detectarErrosTexto, sanearTextoPublicacao, similaridadeTextos, trechoCopiadoDaFonte, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia, resolverCamadaEditorial, CAMADA_EDITORIAL_CURADA, descricaoMetaSegura, pareceIngles, blocoBuddyExplica };"
+  "\nreturn { detectarErrosTexto, sanearTextoPublicacao, similaridadeTextos, trechoCopiadoDaFonte, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia, resolverCamadaEditorial, descricaoMetaSegura, pareceIngles, blocoBuddyExplica, blocoImpactoOffshore, blocoCorpoOWNews, blocoProvenienciaNoticia, ehMateriaThin, deckNoticiaOWNews, validarCorpoOWNews, validarMateriaOWNews, numerosSustentadosPelaFonte, MATERIA_OWNEWS };"
 )(esc, (s) => String(s || ""));
 
 let pass = 0, fail = 0;
@@ -80,6 +80,12 @@ const ARTIGO_ANP = {
 };
 // Reescrita real gerada pela IA na calibração (aprovada)
 const BUDDY_IA_OK = "A produção de petróleo e gás natural no Brasil chegou a 5,851 milhões de barris de óleo equivalente por dia em julho. O pré-sal concentrou a maior parte desse volume, e Búzios foi o campo que mais produziu.";
+
+
+// ── Matéria OWNews 4.0 (texto próprio escrito a partir de ARTIGO_ANP) ───────
+const CORPO_OWNEWS = "Os números de julho da ANP mostram o Brasil produzindo 5,851 milhões de barris de óleo equivalente por dia, somando petróleo e gás natural.\n\nO pré-sal respondeu por 4,821 milhões de boe/d, ou 82,4% do total. A produção no mar domina: 98,1% do petróleo e 88,7% do gás saíram de campos marítimos, e Búzios, na Bacia de Santos, liderou o ranking de campos.";
+const IMPACTO_OWNEWS = "Com 98,1% do petróleo vindo de campos marítimos, a escala de produção de julho depende quase inteira de plataformas e FPSOs em operação, com Búzios à frente.";
+const MAT_OWNEWS = Object.assign({}, ARTIGO_ANP, { content: CORPO_OWNEWS, buddy_summary: BUDDY_IA_OK, why_it_matters: IMPACTO_OWNEWS, buddy_source: "ownews", buddy_reviewed_at: "2026-10-17T12:00:00Z" });
 
 console.log("\n== PARIDADE ENTRE WORKERS ==");
 test("bloco QUALIDADE EDITORIAL 2.1 é idêntico no frontend e no collector", () => {
@@ -169,40 +175,151 @@ test("Buddy IA válido é exibido com impacto inválido oculto", () => {
   const c = M.resolverCamadaEditorial(Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, why_it_matters: IMPACTO_TEMPLATE, buddy_source: "ia" }));
   expect(c && c.fonte === "ia" && c.why_it_matters === null, JSON.stringify(c));
 });
-test("rodapé declara IA quando o texto é de IA", () => {
-  const c = M.resolverCamadaEditorial(Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia" }));
-  expect(M.blocoBuddyExplica(c).includes("inteligência artificial"));
-});
 test("matéria marcada fora de escopo pela IA não exibe camada", () => {
   expect(M.resolverCamadaEditorial(Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia_fora_escopo" })) === null);
 });
-test("toda curadoria passa no gate (21+ textos escritos para a matéria)", () => {
-  const ids = Object.keys(M.CAMADA_EDITORIAL_CURADA);
-  expect(ids.length >= 15);
-  ids.forEach((id) => {
-    const c = M.CAMADA_EDITORIAL_CURADA[id];
-    const r = M.validarBuddyPublicavel(c.buddy_summary, { title: "", summary: "" }, { curadoria: true });
-    expect(r.ok, id + " " + JSON.stringify(r));
-  });
+test("acervo 'ia' (2.1) mostra Buddy mas NUNCA corpo (content é texto da fonte)", () => {
+  const c = M.resolverCamadaEditorial(Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia" }));
+  expect(c && c.fonte === "ia" && c.corpo === null, JSON.stringify(c));
+  expect(M.blocoCorpoOWNews(c) === "", "corpo da fonte renderizado");
+});
+test("curadoria em código foi migrada para o banco (resolver só lê o banco)", () => {
+  expect(!FRONT.includes("const CAMADA_EDITORIAL_CURADA"), "curadoria em código voltou");
 });
 
 console.log("\n== CLASSIFICAÇÃO DE INDEXAÇÃO ==");
-test("INDEXABLE: corpo próprio + Buddy válido", () => {
-  const a = Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia" });
-  expect(M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a)).estado === "INDEXABLE");
+test("INDEXABLE: matéria OWNews com Buddy + corpo + impacto válidos", () => {
+  const a = Object.assign({}, MAT_OWNEWS);
+  const c = M.resolverCamadaEditorial(a);
+  expect(c && c.corpo && c.why_it_matters, JSON.stringify(c));
+  expect(M.classificarIndexacaoNoticia(a, c).estado === "INDEXABLE", JSON.stringify(M.classificarIndexacaoNoticia(a, c)));
 });
-test("EDITORIAL_INCOMPLETE: corpo ok sem Buddy válido", () => {
+test("EDITORIAL_INCOMPLETE: acervo da fonte (não é matéria OWNews), mesmo com Buddy IA", () => {
+  const a = Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia" });
+  expect(M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a)).estado === "EDITORIAL_INCOMPLETE");
   expect(M.classificarIndexacaoNoticia(ARTIGO_ANP, null).estado === "EDITORIAL_INCOMPLETE");
 });
-test("NOINDEX: thin (corpo = resumo) mesmo com Buddy", () => {
-  const a = { id: "t", title: "Título suficientemente longo da matéria", summary: "Resumo da fonte com algum texto relevante.", content: "Resumo da fonte com algum texto relevante." };
-  expect(M.classificarIndexacaoNoticia(a, { buddy_summary: BUDDY_IA_OK }).estado === "NOINDEX");
+test("publicado sem Buddy = não indexável", () => {
+  const a = Object.assign({}, MAT_OWNEWS, { buddy_summary: "   " });
+  const r = M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a));
+  expect(r.estado === "EDITORIAL_INCOMPLETE", JSON.stringify(r));
+});
+test("publicado sem Impacto = não indexável", () => {
+  const a = Object.assign({}, MAT_OWNEWS, { why_it_matters: null });
+  const r = M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a));
+  expect(r.estado === "EDITORIAL_INCOMPLETE" && r.motivos.includes("sem_impacto_valido"), JSON.stringify(r));
+});
+test("publicado sem corpo OWNews = não indexável", () => {
+  const a = Object.assign({}, MAT_OWNEWS, { content: "Uma frase só." });
+  const r = M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a));
+  expect(r.estado === "EDITORIAL_INCOMPLETE" && r.motivos.includes("sem_corpo_ownews"), JSON.stringify(r));
+});
+test("NOINDEX: material da fonte insuficiente", () => {
+  const a = Object.assign({}, ARTIGO_ANP, { buddy_source: "insuficiente" });
+  expect(M.classificarIndexacaoNoticia(a, null).estado === "NOINDEX");
 });
 test("DESCARTAR: sem material", () => {
   expect(M.classificarIndexacaoNoticia({ id: "d", title: "Título suficientemente longo", summary: "curto", content: "" }, null).estado === "DESCARTAR");
 });
 test("DESCARTAR: fora de escopo", () => {
   expect(M.classificarIndexacaoNoticia(Object.assign({}, ARTIGO_ANP, { buddy_source: "ia_fora_escopo" }), null).estado === "DESCARTAR");
+});
+
+console.log("\n== MATÉRIA OWNEWS 4.0 (gate de geração/backfill) ==");
+const MAT_OK = { buddy_summary: BUDDY_IA_OK, corpo: CORPO_OWNEWS, why_it_matters: IMPACTO_OWNEWS };
+test("matéria própria válida passa no gate completo", () => {
+  const r = M.validarMateriaOWNews(MAT_OK, ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(r.ok, JSON.stringify(r.motivos));
+});
+test("corpo = texto integral da fonte é proibido (republicação)", () => {
+  const r = M.validarMateriaOWNews(Object.assign({}, MAT_OK, { corpo: ARTIGO_ANP.content.trim().replace(/\. (?=Os campos)/, ".\n\n") }), ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(!r.ok && r.motivos.some((m) => m === "corpo:copia_fonte" || m === "corpo:parafrase_rasa"), JSON.stringify(r.motivos));
+});
+test("Buddy vazio / whitespace é inválido", () => {
+  ["", "   ", null].forEach((b) => { const r = M.validarMateriaOWNews(Object.assign({}, MAT_OK, { buddy_summary: b }), ARTIGO_ANP, ARTIGO_ANP.content); expect(!r.ok && r.motivos.includes("buddy:vazio"), JSON.stringify(r.motivos)); });
+});
+test("Impacto vazio é inválido (obrigatório)", () => {
+  const r = M.validarMateriaOWNews(Object.assign({}, MAT_OK, { why_it_matters: "" }), ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(!r.ok && r.motivos.includes("impacto:vazio"), JSON.stringify(r.motivos));
+});
+test("corpo vazio ou de 1 parágrafo é inválido", () => {
+  expect(M.validarMateriaOWNews(Object.assign({}, MAT_OK, { corpo: "" }), ARTIGO_ANP, ARTIGO_ANP.content).motivos.includes("corpo:vazio"));
+  const r = M.validarCorpoOWNews(CORPO_OWNEWS.replace("\n\n", " "), ARTIGO_ANP, null, null);
+  expect(!r.ok && r.motivos.includes("paragrafos_1"), JSON.stringify(r));
+});
+test("corpo que repete o Buddy é inválido (duplicação entre blocos)", () => {
+  const r = M.validarCorpoOWNews(BUDDY_IA_OK + "\n\n" + CORPO_OWNEWS, ARTIGO_ANP, BUDDY_IA_OK, IMPACTO_OWNEWS);
+  expect(!r.ok && r.motivos.includes("repete_buddy"), JSON.stringify(r));
+});
+test("corpo que repete o Impacto é inválido", () => {
+  const r = M.validarCorpoOWNews(CORPO_OWNEWS + "\n\n" + IMPACTO_OWNEWS, ARTIGO_ANP, BUDDY_IA_OK, IMPACTO_OWNEWS);
+  expect(!r.ok && r.motivos.includes("repete_impacto"), JSON.stringify(r));
+});
+test("placeholder é inválido", () => {
+  const r = M.validarCorpoOWNews(CORPO_OWNEWS + "\n\nLorem ipsum dolor sit amet, texto provisório [inserir fonte].", ARTIGO_ANP, null, null);
+  expect(!r.ok && r.motivos.includes("placeholder"), JSON.stringify(r));
+});
+test("clichê de texto de IA é inválido", () => {
+  const r = M.validarCorpoOWNews("Em um movimento que chamou atenção, a ANP divulgou os dados de julho com 5,851 milhões de boe/d.\n\nVale destacar que o pré-sal respondeu por 82,4% da produção nacional naquele mês.", ARTIGO_ANP, null, null);
+  expect(!r.ok && r.motivos.some((m) => m.startsWith("cliche_ia:")), JSON.stringify(r));
+});
+test("número que não está na fonte é inválido (corpo)", () => {
+  const r = M.validarMateriaOWNews(Object.assign({}, MAT_OK, { corpo: CORPO_OWNEWS + " A ANP projeta 6,2 milhões de boe/d para 2027." }), ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(!r.ok && r.motivos.includes("corpo:numero_sem_fonte"), JSON.stringify(r.motivos));
+});
+test("impacto com 'vagas' só passa quando a fonte trata de contratação", () => {
+  const art = { title: "Petrobras abre concurso com 1.200 vagas para nível técnico", summary: "", content: "A Petrobras abriu concurso com 1.200 vagas para técnicos de operação em plataformas da Bacia de Campos. ".repeat(4) };
+  const ok = M.validarImpactoPublicavel("As 1.200 vagas são para técnicos de operação, função que trabalha embarcada nas plataformas da Bacia de Campos.", art, null);
+  expect(ok.ok, JSON.stringify(ok));
+  const r = M.validarImpactoPublicavel("O contrato da Bacia de Campos abre vagas para técnicos embarcados.", { title: "Contrato na Bacia de Campos", summary: "", content: "A Petrobras assinou contrato de afretamento na Bacia de Campos. ".repeat(6) }, null);
+  expect(!r.ok, JSON.stringify(r));
+});
+
+console.log("\n== SSR / TEMPLATE DA NOTÍCIA ==");
+test("SSR renderiza Buddy resume, corpo OWNews e Impacto (nesta ordem no template)", () => {
+  const c = M.resolverCamadaEditorial(MAT_OWNEWS);
+  expect(M.blocoBuddyExplica(c).includes("Buddy resume") && M.blocoBuddyExplica(c).includes("Em poucas palavras, o que aconteceu?"));
+  expect(M.blocoCorpoOWNews(c).split("<p>").length === 3, M.blocoCorpoOWNews(c));
+  expect(M.blocoImpactoOffshore(c).includes("O que isso impacta para o offshore"));
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  const ib = rota.indexOf("blocoBuddyExplica(camadaEditorial)"), ic = rota.indexOf("blocoCorpoOWNews(camadaEditorial)"), ii = rota.indexOf("blocoImpactoOffshore(camadaEditorial)"), ip = rota.indexOf("blocoProvenienciaNoticia(artigo, camadaEditorial)");
+  expect(ib > 0 && ib < ic && ic < ii && ii < ip, "ordem Buddy → corpo → impacto → fonte");
+});
+test("template NÃO exibe o texto da fonte (content/summary) como corpo nem como deck", () => {
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  expect(!rota.includes("escaparHTML(artigo.content || artigo.summary)"), "corpo da fonte no template rico");
+  expect(!rota.includes('class="hub-lead"'), "lead da fonte como deck");
+  expect(!/escaparHTML\(artigo\.content \|\| artigo\.summary \|\| artigo\.title/.test(rota), "corpo da fonte no fallback");
+  expect(rota.includes("artigo.buddy_source === MATERIA_OWNEWS ? '<div><p>'"), "fallback sem guarda de matéria OWNews");
+});
+test("meta description e JSON-LD usam o Buddy, nunca o lead da fonte", () => {
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  expect(rota.includes("descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || artigo.title || '', 160)"));
+  expect(!/descricaoMetaSegura\([^)]*artigo\.summary/.test(rota), "lead da fonte na descrição");
+});
+test("canonical da notícia é /noticia?id=<uuid>", () => {
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  expect(rota.includes("const urlArtigo = '/noticia?id=' + encodeURIComponent(artigo.id);") && rota.includes("urlArtigo,\n"), "canonical");
+});
+test("fonte preservada: nome, link original e declaração honesta de autoria", () => {
+  const html = M.blocoProvenienciaNoticia({ image_credit: "ANP", original_url: "https://www.gov.br/anp/x", published_at: "2026-10-17T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
+  expect(html.includes('href="https://www.gov.br/anp/x"') && html.includes("ANP ↗") && html.includes("Fonte primária (oficial)"), html);
+  expect(html.includes("Não houve apuração própria") && html.includes("inteligência artificial"), "autoria honesta");
+  const sem = M.blocoProvenienciaNoticia({ image_credit: "Eixos", original_url: "https://eixos.com.br/a" }, null);
+  expect(sem.includes("não tem texto editorial do OWNews"), sem);
+});
+test("cliente não remove nem esconde os blocos editoriais", () => {
+  expect(!/querySelector(All)?\(["']\.(buddy-explica|noticia-corpo|buddy-explica-porque-card)/.test(FRONT), "script mexe nos blocos");
+});
+test("Home: deck vem do Buddy OWNews, nunca do lead da fonte; thin = não-OWNews", () => {
+  expect(M.deckNoticiaOWNews(MAT_OWNEWS, 130).startsWith("A produção de petróleo"));
+  expect(M.deckNoticiaOWNews(Object.assign({}, ARTIGO_ANP, { buddy_summary: BUDDY_IA_OK, buddy_source: "ia" }), 130) === "");
+  expect(M.ehMateriaThin(ARTIGO_ANP) && !M.ehMateriaThin(MAT_OWNEWS));
+  expect(!FRONT.includes("deckEditorial(h.summary") && !FRONT.includes("deckEditorial(d.summary"), "Home usa lead da fonte");
 });
 
 console.log("\n== META DESCRIPTION ==");
@@ -275,7 +392,7 @@ console.log("\n== COLLECTOR ==");
 if (COLLECTOR) {
   const iaSrc = corpoBloco(COLLECTOR, "/* ==== CAMADA IA 2.1: INICIO ====", "/* ==== CAMADA IA 2.1: FIM ==== */")
     .replace(/export class BuddyIAPoller[\s\S]*?\n}\n/, "");
-  const C = new Function(iaSrc + "\nreturn { numerosSustentadosPelaFonte, extrairJsonIA, BUDDY_IA_SISTEMA };")();
+  const C = Object.assign(new Function(iaSrc.replace(/^export /gm, "") + "\nreturn { extrairJsonIA, BUDDY_IA_SISTEMA };").call(null), { numerosSustentadosPelaFonte: M.numerosSustentadosPelaFonte });
   test("número inventado é detectado", () => expect(!C.numerosSustentadosPelaFonte("A campanha começa em 2026 e dura 200 dias.", "campanha de 170 dias a partir de 2027")));
   test("números presentes (com separadores diferentes) são aceitos", () => expect(C.numerosSustentadosPelaFonte("Foram 5,851 milhões de boe/d, 82,4% do total.", "produção de 5.851 milhões boe/d; pré-sal 82,4%")));
   test("parser aceita JSON cercado por ```json", () => {
@@ -299,6 +416,17 @@ if (COLLECTOR) {
     const ini = COLLECTOR.indexOf("async function processarNoticiasComDedupe(");
     const p = COLLECTOR.slice(ini, COLLECTOR.indexOf("\n/* =========================\n   LEITURA DA MATÉRIA", ini));
     expect(p.includes("gerarCamadaEditorialIA(") && !p.includes("gerarCamadaEditorialParaArtigo("), "pipeline ainda usa gerador antigo");
+  });
+  test("collector publica a matéria OWNews: content = corpo próprio, fonte arquivada antes", () => {
+    const ini = COLLECTOR.indexOf("async function processarNoticiasComDedupe(");
+    const p = COLLECTOR.slice(ini, COLLECTOR.indexOf("\n/* =========================\n   LEITURA DA MATÉRIA", ini));
+    const ia = p.indexOf("arquivarMaterialFonte("), ic = p.indexOf("artigo.content = camadaIA.corpo;");
+    expect(ia > 0 && ic > ia && p.includes("artigo.buddy_source = MATERIA_OWNEWS;"), "pipeline não grava matéria OWNews");
+    expect(!p.includes("artigo.buddy_source = 'ia';"), "pipeline ainda grava acervo 'ia'");
+  });
+  test("gate da IA exige Buddy + corpo + impacto (validarMateriaOWNews)", () => {
+    expect(funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa)").includes("validarMateriaOWNews("));
+    expect(funcao(COLLECTOR, "async function aplicarMateriaOWNews(env, a, mat, fonteMaterial)").includes("validarMateriaOWNews(mat, a, fonte)"), "rota admin sem gate");
   });
 }
 

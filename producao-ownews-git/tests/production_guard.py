@@ -284,10 +284,10 @@ def run_static():
 
     test("gerarBuddySummaryFallback definida e exportada no módulo", lambda: _check_fallback_fn())
     test("classificarIndexacaoNoticia definida com os 4 estados (2.1)", lambda: _check_quality_gate_fn())
-    test("resolverCamadaEditorial tem fallback como tier 3/4", lambda: _check_resolver_fallback())
-    test("ehMateriaThin: thin = corpo APENAS, não depende de camada", lambda: _check_thin_no_camada())
-    test("thin continua noindex mesmo com fallback Buddy", lambda: _check_thin_noindex())
-    test("blocoBuddyExplica: footer honesto para fallback (sem 'revisada em')", lambda: _check_buddy_footer_fallback())
+    test("resolverCamadaEditorial: só banco ('ownews' completo; acervo 'ia' sem corpo), sem geração em runtime", lambda: _check_resolver_fallback())
+    test("ehMateriaThin: thin = não é matéria OWNews com corpo próprio (não depende de camada)", lambda: _check_thin_no_camada())
+    test("indexação exige Buddy + corpo OWNews + impacto (Editorial Original 4.0)", lambda: _check_thin_noindex())
+    test("bloco Fonte: autoria honesta (IA declarada, sem apuração própria inventada)", lambda: _check_buddy_footer_fallback())
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
     test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
@@ -300,14 +300,14 @@ def run_static():
     test("2.1: impacto de template removido do frontend", lambda: expect_not_in("function gerarImpactoOffshoreFallback(artigo)", worker(), "gerador de template"))
     test("2.1: resolver valida impacto com validarImpactoPublicavel", lambda: expect_in(
         "validarImpactoPublicavel(", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "gate de impacto"))
-    test("blocoBuddyExplica: título 'O que isso representa para o offshore?'", lambda: expect_in(
-        "O que isso representa para o offshore?",
-        worker().split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0], "título offshore"))
-    test("blocoBuddyExplica: segundo card não contém <img> (sem mascote)", lambda: _check_impacto_no_mascote())
+    test("blocoImpactoOffshore: título 'O que isso impacta para o offshore'", lambda: expect_in(
+        "O que isso impacta para o offshore",
+        worker().split("function blocoImpactoOffshore(camada)", 1)[1].split("\nfunction ", 1)[0], "título offshore"))
+    test("blocoImpactoOffshore: card de impacto não contém <img> (sem mascote)", lambda: _check_impacto_no_mascote())
     test("validarImpactoOffshore: proibido 'pode gerar vagas' nos PROIBIDOS", lambda: expect_in(
         "vagas_sem_base", worker().split("function validarImpactoOffshore(texto)", 1)[1].split("\nfunction ", 1)[0], "vagas_sem_base"))
     test("Política Editorial menciona bloco de impacto offshore", lambda: expect_in(
-        '"O que isso representa para o offshore?"',
+        'O que isso impacta para o offshore',
         worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0], "impacto na política"))
     test("validarTextoCamadaEditorial: rejeita truncado (motivo 'truncado')", lambda: expect_in(
         "motivo: 'truncado'",
@@ -328,7 +328,7 @@ def run_static():
     test("tema claro é paleta própria (não inversão): fundo off-white, texto navy, color-scheme:light", lambda: _check_tema_paleta())
     test("Buddy oficial: constante BUDDY_HEAD_PNG + rota /icons/buddy-head.png imutável", lambda: _check_buddy_asset())
     test("Buddy só onde tem função (≤ 3 usos: Buddy te explica, Ecossistema, /owbuddy) e sem animação", lambda: _check_buddy_usos())
-    test("Buddy te explica: chamada oficial + Buddy pequeno + card offshore (Impacto Offshore 1.0)", lambda: _check_buddy_explica_markup())
+    test("Buddy resume: pergunta oficial + Buddy pequeno + card de impacto separado (Editorial Original 4.0)", lambda: _check_buddy_explica_markup())
     test("Ecossistema: card OWBuddy com copy oficial e CTA para /owbuddy (sem loja/download)", lambda: _check_ecossistema())
     test("rota /owbuddy + renderOWBuddyLanding + sitemap; sem link de loja", lambda: _check_owbuddy_route())
     test("marcas d'água: --wm-rosa/--wm-bati em dark e light, aplicadas por bloco", lambda: _check_watermarks())
@@ -370,7 +370,7 @@ def _check_camada_markers():
     w = worker()
     expect_in("/* ==== CAMADA EDITORIAL: INICIO ====", w, "marcador início")
     expect_in("/* ==== CAMADA EDITORIAL: FIM ==== */", w, "marcador fim")
-    for fn in ("function validarTextoCamadaEditorial", "const CAMADA_EDITORIAL_CURADA", "function resolverCamadaEditorial",
+    for fn in ("function validarTextoCamadaEditorial", "function resolverCamadaEditorial", "function blocoCorpoOWNews", "function blocoImpactoOffshore",
                "function blocoBuddyExplica", "function blocoProvenienciaNoticia", "function ehMateriaThin", "const BUDDY_FRASES_PROIBIDAS"):
         expect_in(fn, w, fn)
 
@@ -447,11 +447,10 @@ def _check_quality_gate_fn():
 def _check_resolver_fallback():
     w = worker()
     fn = w.split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0]
-    idx_curada = fn.index("CAMADA_EDITORIAL_CURADA")
-    idx_banco = fn.index("artigo.buddy_summary")
-    expect(idx_curada < idx_banco, "prioridade: curadoria < banco")
-    expect_in("fonte: 'curadoria'", fn, "marca curadoria")
-    expect_in("'ia'", fn, "marca ia")
+    expect_not_in("CAMADA_EDITORIAL_CURADA", fn, "curadoria em código removida")
+    expect_in("artigo.buddy_source === MATERIA_OWNEWS", fn, "matéria OWNews")
+    expect_in("'ia'", fn, "acervo ia")
+    expect_in("validarCorpoOWNews(", fn, "corpo revalidado")
     expect_not_in("Fallback(", fn, "sem geração em runtime")
 
 
@@ -460,8 +459,8 @@ def _check_thin_no_camada():
     fn = w.split("function ehMateriaThin(artigo,", 1)[1].split("\nfunction ", 1)[0]
     expect_not_in("camada.buddy_summary", fn, "thin NÃO deve consultar camada.buddy_summary")
     expect_not_in("if (camada", fn, "thin NÃO deve fazer if(camada)")
-    expect_in("corpo.length < 400", fn, "verificação de corpo curto")
-    expect_in("corpo === resumo", fn, "verificação corpo==resumo")
+    expect_in("artigo.buddy_source !== MATERIA_OWNEWS", fn, "não-OWNews é thin")
+    expect_in("corpo.length < 320", fn, "corpo OWNews curto é thin")
 
 
 def _check_thin_noindex():
@@ -470,18 +469,17 @@ def _check_thin_noindex():
     expect_in("classificarIndexacaoNoticia(artigo, camadaEditorial)", bloco, "critério único na rota")
     expect_in("robots: robotsNoticia", w, "noindex fora de INDEXABLE")
     q = w.split("function classificarIndexacaoNoticia(artigo, camada)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("ehMateriaThin(artigo, camada)", q, "thin -> NOINDEX mesmo com Buddy")
-    fn_thin = w.split("function ehMateriaThin(artigo,", 1)[1].split("\nfunction ", 1)[0]
-    fn_thin_code = "\n".join(l for l in fn_thin.split("\n") if not l.strip().startswith("//"))
-    expect_not_in("buddy_summary", fn_thin_code, "ehMateriaThin não usa buddy_summary no código (thin = corpo)")
+    for m in ("sem_buddy_valido", "sem_impacto_valido", "sem_corpo_ownews", "sem_materia_ownews", "material_insuficiente"):
+        expect_in(m, q, m)
 
 
 def _check_buddy_footer_fallback():
     w = worker()
-    fn = w.split("function rodapeCamadaEditorial(camada)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("camada.fonte === 'ia'", fn, "footer próprio para IA")
-    expect_in("inteligência artificial", fn, "IA declarada no rodapé")
-    expect_in("Texto escrito pelo OWNews", fn, "texto para curadoria")
+    fn = w.split("function blocoProvenienciaNoticia(artigo, camada)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("inteligência artificial", fn, "IA declarada no bloco Fonte")
+    expect_in("Não houve apuração própria", fn, "sem falsa reportagem própria")
+    expect_in("não tem texto editorial do OWNews", fn, "página sem matéria OWNews explicada")
+    expect_in('rel="noopener nofollow"', fn, "link de origem")
 
 
 def _check_home_thin_filter():
@@ -497,12 +495,12 @@ def _check_politica_buddy_te_explica():
     w = worker()
     bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
     pe_bloco = bloco.split('id="buddy-te-explica"', 1)[1][:3500]
-    expect_in("inteligência artificial", pe_bloco, "IA declarada")
-    expect_in("texto escrito pelo OWNews", pe_bloco, "curadoria")
-    expect_in("similaridade", pe_bloco, "teste anti-cópia descrito")
+    expect_in("inteligência artificial", bloco, "IA declarada")
+    expect_in("O OWNews não republica o texto das matérias de terceiros", bloco, "fim da republicação descrito")
+    expect_in("número citado existe na fonte", pe_bloco, "conferência de números descrita")
     expect_in("noindex", bloco, "indexação descrita")
     expect_not_in("não há geração automática", bloco, "contradição removida")
-    expect_not_in("Toda notícia válida exibe", bloco, "promessa 100% removida")
+    expect_not_in("O texto-base de cada notícia é coletado automaticamente", bloco, "descrição antiga (republicação)")
 
 
 def _chrome_src():
@@ -579,26 +577,22 @@ def _check_buddy_usos():
 def _check_buddy_explica_markup():
     w = worker()
     fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
-    for s in ('class="buddy-explica-card"', 'class="buddy-explica-buddy" src="/icons/buddy-head.png"', 'aria-hidden="true" loading="lazy"',
-              "Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong>", '<h2 id="buddyExplicaTitulo"',
-              '<h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3>',
-              'class="buddy-explica-porque-card"', "rodapeCamadaEditorial(camada)"):
-        expect_in(s, fn, s)
-    expect_in("/politica-editorial#buddy-te-explica", w.split("function rodapeCamadaEditorial(camada)", 1)[1][:2000], "link política no rodapé")
+    for t in ('class="buddy-explica-card"', 'class="buddy-explica-buddy" src="/icons/buddy-head.png"', 'aria-hidden="true" loading="lazy"',
+              "Em poucas palavras, o que aconteceu?", '<h2 id="buddyExplicaTitulo"', "Buddy resume"):
+        expect_in(t, fn, t)
     expect_not_in("<h1", fn, "H1 dentro do bloco")
+    expect_not_in("buddy-explica-porque-card", fn, "impacto separado do Buddy")
     css = w.split("const CSS_CAMADA_EDITORIAL", 1)[1][:8000]
     expect_in(".buddy-explica-buddy{flex:none;width:64px", css, "Buddy pequeno no mobile (64px)")
-    expect_in(".buddy-explica-buddy{width:118px", css, "Buddy proporcional no desktop")
-    expect_in("background:var(--porque-bg)", css, "card 'Por que importa' com fundo próprio")
+    expect_in(".buddy-explica-buddy{width:84px", css, "Buddy compacto no desktop")
+    expect_in("background:var(--porque-bg)", css, "card de impacto com fundo próprio")
 
 
 def _check_impacto_no_mascote():
     w = worker()
-    fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
-    # O segundo card (buddy-explica-porque-card) não deve conter <img
-    card_start = fn.index('class="buddy-explica-porque-card"')
-    card_content = fn[card_start:]
-    expect_not_in("<img", card_content, "segundo card não deve ter <img (sem mascote)")
+    fn = w.split("function blocoImpactoOffshore(camada)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in('class="buddy-explica-porque-card"', fn, "card de impacto")
+    expect_not_in("<img", fn, "card de impacto não deve ter <img (sem mascote)")
 
 
 def _check_ecossistema():
@@ -669,9 +663,9 @@ def _check_hierarquia_headings():
 
 def _check_politica_filosofia():
     bloco = worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
-    expect_in("O texto-base de cada notícia é coletado automaticamente da fonte citada", bloco, "transparência sobre coleta")
-    expect_in("Não há revisão humana matéria a matéria", bloco, "sem revisão humana inventada")
-    expect_in('no bloco "Sobre esta matéria"', bloco, "nome real do bloco")
+    expect_in("A fonte é matéria-prima factual; a nota publicada é do OWNews", bloco, "modelo editorial")
+    expect_in("Não há revisão humana nota a nota", bloco, "sem revisão humana inventada")
+    expect_in('o bloco "Fonte" diz quem publicou os fatos originalmente', bloco, "nome real do bloco")
 
 
 def _check_ads_inalterado():

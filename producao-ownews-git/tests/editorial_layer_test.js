@@ -54,7 +54,7 @@ const mod = new Function(
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
   camadaSrc + "\n" + qualidadeSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, validarImpactoOffshore, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia };"
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoImpactoOffshore, blocoCorpoOWNews, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, validarImpactoOffshore, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -94,35 +94,13 @@ test("validador rejeita não-string / vazio", () => {
   expect(!mod.validarTextoCamadaEditorial(42).ok);
 });
 
-console.log("\n== CAMADA EDITORIAL — curadoria ==");
+console.log("\n== CAMADA EDITORIAL — origem ==");
 
-const ids = Object.keys(mod.CAMADA_EDITORIAL_CURADA);
-test("curadoria tem pelo menos 15 matérias", () => expect(ids.length >= 15, "só " + ids.length));
-test("toda chave da curadoria é UUID", () => {
-  ids.forEach((id) => expect(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id), "chave inválida: " + id));
-});
-test("todo buddy_summary curado passa no validador", () => {
-  ids.forEach((id) => {
-    const r = mod.validarTextoCamadaEditorial(mod.CAMADA_EDITORIAL_CURADA[id].buddy_summary);
-    expect(r.ok, id + ": " + r.motivo);
-  });
-});
-test("todo why_it_matters curado (quando existe) passa no validador", () => {
-  ids.forEach((id) => {
-    const w = mod.CAMADA_EDITORIAL_CURADA[id].why_it_matters;
-    if (w == null) return;
-    const r = mod.validarTextoCamadaEditorial(w);
-    expect(r.ok, id + ": " + r.motivo);
-  });
-});
-test("toda entrada curada tem revisado_em ISO (aaaa-mm-dd)", () => {
-  ids.forEach((id) => expect(/^\d{4}-\d{2}-\d{2}$/.test(mod.CAMADA_EDITORIAL_CURADA[id].revisado_em || ""), id));
-});
-test("slugs do Explica referenciados pela curadoria existem", () => {
-  const existentes = new Set(mod.EXPLICA_ARTIGOS.map((e) => e.slug));
-  ids.forEach((id) => {
-    (mod.CAMADA_EDITORIAL_CURADA[id].explica || []).forEach((s) => expect(existentes.has(s), id + " → /explica/" + s + " não existe"));
-  });
+// Missão Editorial Original 4.0: a curadoria em código (21 matérias) foi
+// reescrita como matéria OWNews completa e gravada no banco; a camada vem
+// só do banco (buddy_source='ownews').
+test("curadoria em código removida (camada vem só do banco)", () => {
+  expect(!src.includes("const CAMADA_EDITORIAL_CURADA"), "CAMADA_EDITORIAL_CURADA voltou ao código");
 });
 test("slugs dos gatilhos existem em EXPLICA_ARTIGOS", () => {
   const existentes = new Set(mod.EXPLICA_ARTIGOS.map((e) => e.slug));
@@ -146,90 +124,64 @@ test("verbetes novos têm fontes e atualizadoEm", () => {
     expect(/^\d{4}-\d{2}-\d{2}$/.test(e.atualizadoEm || ""), s + " sem atualizadoEm");
   });
 });
-test("nenhum texto curado contém frase proibida", () => {
-  ids.forEach((id) => {
-    const c = mod.CAMADA_EDITORIAL_CURADA[id];
-    const t = ((c.buddy_summary || "") + " " + (c.why_it_matters || "")).toLowerCase();
-    mod.BUDDY_FRASES_PROIBIDAS.forEach((f) => expect(!t.includes(f.toLowerCase()), id + " contém '" + f + "'"));
-  });
-});
-
 console.log("\n== CAMADA EDITORIAL — resolução e thin ==");
 
-const idCurado = ids[0];
-test("resolverCamadaEditorial prioriza curadoria sobre banco", () => {
-  const c = mod.resolverCamadaEditorial({ id: idCurado, buddy_summary: "Texto do banco que seria válido se não houvesse curadoria para esta matéria específica." });
-  expect(c && c.fonte === "curadoria", "fonte=" + (c && c.fonte));
-  expect(c.buddy_summary === mod.CAMADA_EDITORIAL_CURADA[idCurado].buddy_summary);
+const CORPO_OK = "A P-80 deixou o estaleiro em Singapura e segue para o campo de Búzios, no pré-sal da Bacia de Santos.\n\nA unidade tem capacidade para 225 mil barris de óleo por dia. A Petrobras prevê o primeiro óleo para 2027, depois da ancoragem e da interligação dos poços. Os módulos de processo foram fabricados no Brasil, segundo a companhia.";
+const BUDDY_OK = "A P-80 saiu de Singapura rumo a Búzios. É a primeira de uma série de seis plataformas da Petrobras e deve começar a produzir em 2027.";
+const IMPACTO_OK = "Até o primeiro óleo em Búzios ainda há ancoragem, interligação de risers e comissionamento da P-80 no campo.";
+const MAT = { id: "00000000-0000-0000-0000-0000000000aa", title: "P-80 deixa estaleiro em Singapura rumo a Búzios", summary: "Plataforma segue para o pré-sal.", content: CORPO_OK, buddy_summary: BUDDY_OK, why_it_matters: IMPACTO_OK, buddy_source: "ownews", buddy_reviewed_at: "2026-10-17T10:00:00Z" };
+test("matéria OWNews resolve os três blocos", () => {
+  const c = mod.resolverCamadaEditorial(MAT);
+  expect(c && c.fonte === "ownews" && c.buddy_summary === BUDDY_OK && c.why_it_matters === IMPACTO_OK && c.corpo === CORPO_OK, JSON.stringify(c));
 });
-test("resolverCamadaEditorial aceita só banco escrito pela IA (legado extrativo oculto)", () => {
+test("resolverCamadaEditorial: legado extrativo (fallback) nunca exibido; acervo 'ia' sem corpo", () => {
   const c = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000000", buddy_summary: "A unidade saiu do estaleiro na China rumo ao Brasil. A chegada ao campo está prevista para o ano que vem.", why_it_matters: null, buddy_reviewed_at: "2026-10-01T00:00:00Z" });
-  // 2.1: texto do banco sem buddy_source='ia' é extração legada — nunca exibido
   expect(c === null, "legado exibido: " + (c && c.fonte));
-  const cIa = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-00000000000a", buddy_source: "ia", buddy_summary: "A unidade saiu do estaleiro na China rumo ao Brasil. A chegada ao campo está prevista para o ano que vem." });
-  expect(cIa && cIa.fonte === "ia", "fonte ia=" + (cIa && cIa.fonte));
+  const cIa = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-00000000000a", buddy_source: "ia", buddy_summary: "A unidade saiu do estaleiro na China rumo ao Brasil. A chegada ao campo está prevista para o ano que vem.", content: "Texto da fonte. ".repeat(60) });
+  expect(cIa && cIa.fonte === "ia" && cIa.corpo === null, "acervo ia: " + JSON.stringify(cIa));
 });
 test("resolverCamadaEditorial rejeita banco inválido (frase proibida)", () => {
-  const c = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000001", buddy_summary: "A empresa reforça seu compromisso com o setor e marca um novo capítulo na história offshore do país." });
+  const c = mod.resolverCamadaEditorial(Object.assign({}, MAT, { buddy_summary: "A empresa reforça seu compromisso com o setor e marca um novo capítulo na história offshore do país." }));
   expect(c === null, "deveria retornar null");
 });
-test("resolverCamadaEditorial retorna null sem nada (sem content/summary para fallback)", () => {
+test("resolverCamadaEditorial retorna null sem nada", () => {
   expect(mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000002" }) === null);
 });
-test("ehMateriaThin: content === summary → thin", () => {
-  const s = "A plataforma P-78 deixou o estaleiro em Singapura rumo ao campo de Búzios.";
-  expect(mod.ehMateriaThin({ content: s, summary: s }, null) === true);
-});
-test("ehMateriaThin: conteúdo curto → thin", () => {
-  expect(mod.ehMateriaThin({ content: "Curto.", summary: "Outro." }, null) === true);
-});
-test("ehMateriaThin: conteúdo longo → não thin", () => {
-  expect(mod.ehMateriaThin({ content: "x".repeat(900), summary: "resumo" }, null) === false);
-});
-test("ehMateriaThin: camada NÃO afeta o resultado — thin = corpo insuficiente APENAS (Recovery 2.0)", () => {
-  const curto = "Frase única.";
-  const longo = "x".repeat(500);
-  // Thin com camada → ainda thin (Buddy ≠ indexação)
-  expect(mod.ehMateriaThin({ content: curto, summary: curto }, { buddy_summary: "ok" }) === true, "curto com camada ainda thin");
-  // Não-thin independente de camada
-  expect(mod.ehMateriaThin({ content: longo, summary: "resumo diferente" }, null) === false);
-  expect(mod.ehMateriaThin({ content: longo, summary: "resumo diferente" }, { buddy_summary: "ok" }) === false);
+test("ehMateriaThin: tudo que não é matéria OWNews é thin (inclusive corpo longo da fonte)", () => {
+  expect(mod.ehMateriaThin({ content: "x ".repeat(900), summary: "resumo" }, null) === true);
+  expect(mod.ehMateriaThin({ content: "Curto.", summary: "Outro.", buddy_source: "ownews" }, null) === true);
+  expect(mod.ehMateriaThin(MAT, null) === false);
 });
 
 console.log("\n== CAMADA EDITORIAL — HTML ==");
 
 test("blocoBuddyExplica escapa HTML do texto", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto <script>alert(1)</script> aqui.", why_it_matters: null, revisado_em: "2026-10-06" });
+  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto <script>alert(1)</script> aqui.", why_it_matters: null });
   expect(!html.includes("<script>"), "script não escapado");
   expect(html.includes("&lt;script&gt;"));
   expect(html.includes('class="buddy-explica"'));
-  expect(html.includes("Buddy te explica"));
+  expect(html.includes("Buddy resume"));
 });
-test("blocoBuddyExplica: segundo card visível apenas quando why_it_matters preenchido", () => {
-  const sem = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
-  const com = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: "Porque muda a escala de quem embarca.", revisado_em: "2026-10-06" });
-  expect(!sem.includes("buddy-explica-porque-card"), "sem why_it_matters → sem card offshore");
-  expect(com.includes("O que isso representa para o offshore?"), "com why_it_matters → card offshore visível");
-});
-test("blocoBuddyExplica vazio sem camada", () => {
+test("blocoBuddyExplica vazio sem camada ou sem Buddy", () => {
   expect(mod.blocoBuddyExplica(null) === "");
+  expect(mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: "x" }) === "");
 });
-test("blocoBuddyExplica vazio quando ambos os campos são null", () => {
-  expect(mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: null }) === "", "deve retornar '' quando ambos null");
-});
-test("blocoBuddyExplica linka a política editorial (#buddy-te-explica)", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
-  expect(html.includes("/politica-editorial#buddy-te-explica"));
-});
-test("blocoBuddyExplica (Identidade Premium): Buddy oficial, chamada em 2 linhas, H2/H3 e card de impacto offshore", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: "Porque muda a escala de quem embarca.", revisado_em: "2026-10-06" });
+test("blocoBuddyExplica (Buddy resume): mascote oficial decorativo, pergunta, só H2, compacto", () => {
+  const html = mod.blocoBuddyExplica({ buddy_summary: BUDDY_OK });
   expect(html.includes('src="/icons/buddy-head.png"'), "sem o mascote oficial");
   expect(html.includes('class="buddy-explica-buddy"') && html.includes('aria-hidden="true"'), "imagem decorativa deve ser aria-hidden");
-  expect(html.includes("Não quer ler a matéria toda?") && html.includes("O Buddy resume e te explica."), "chamada oficial ausente");
-  expect(html.includes('<h2 id="buddyExplicaTitulo"') && html.includes('<h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3>'), "hierarquia H2/H3 e título offshore");
-  expect(!html.includes("<h1"), "bloco não pode competir com o H1 da matéria");
-  expect(html.includes('class="buddy-explica-porque-card"'), "card offshore ausente");
-  expect(html.indexOf('class="buddy-explica-card"') < html.indexOf('class="buddy-explica-porque-card"'), "ordem: resumo antes do impacto");
+  expect(html.includes("Em poucas palavras, o que aconteceu?"), "pergunta do Buddy ausente");
+  expect(html.includes('<h2 id="buddyExplicaTitulo"') && !html.includes("<h1"), "hierarquia");
+  expect(!html.includes("buddy-explica-porque-card"), "impacto não fica dentro do Buddy");
+});
+test("blocoImpactoOffshore: título, sem mascote, vazio sem impacto", () => {
+  const html = mod.blocoImpactoOffshore({ why_it_matters: IMPACTO_OK });
+  expect(html.includes("O que isso impacta para o offshore") && !html.includes("<img"), html);
+  expect(mod.blocoImpactoOffshore({ why_it_matters: null }) === "");
+});
+test("blocoCorpoOWNews: parágrafos escapados", () => {
+  const html = mod.blocoCorpoOWNews({ corpo: "Um <b>a</b>.\n\nDois." });
+  expect(html === '<div class="noticia-corpo"><p>Um &lt;b&gt;a&lt;/b&gt;.</p><p>Dois.</p></div>', html);
 });
 test("classificarOrigemFonte: oficial/empresa citada = primária; imprensa = consultada; inválida = desconhecida", () => {
   expect(mod.classificarOrigemFonte("https://www.gov.br/anp/pt-br/x") === "primaria");
@@ -243,9 +195,9 @@ test("classificarOrigemFonte: oficial/empresa citada = primária; imprensa = con
 test("blocoProvenienciaNoticia só chama de 'Fonte primária' o que é verificável pelo domínio", () => {
   const oficial = mod.blocoProvenienciaNoticia({ image_credit: "Agência Petrobras", original_url: "https://agencia.petrobras.com.br/x", published_at: "2026-10-05T12:00:00Z" }, null);
   const imprensa = mod.blocoProvenienciaNoticia({ image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-05T12:00:00Z" }, null);
-  expect(oficial.includes("Fonte primária (oficial): "), "oficial sem rótulo primária");
+  expect(oficial.includes("Fonte primária (oficial):"), "oficial sem rótulo primária");
   expect(!imprensa.includes("Fonte primária"), "imprensa rotulada como primária");
-  expect(imprensa.includes("<p>Fonte: "), "imprensa sem rótulo neutro");
+  expect(imprensa.includes("<strong>Fonte:</strong>"), "imprensa sem rótulo neutro");
 });
 test("blocoEntendaMelhor gera links /explica/ válidos e vazio sem slugs", () => {
   expect(mod.blocoEntendaMelhor([]) === "");
@@ -258,12 +210,9 @@ test("blocoProvenienciaNoticia cita fonte com nofollow e link para /correcoes", 
   expect(html.includes("/correcoes"));
   expect(html.includes("Agência Petrobras"));
 });
-test("explicaRelacionadosParaNoticia: máximo 3, curados primeiro", () => {
-  const artigo = { id: idCurado, title: "FPSO sonda completação transporte aéreo", summary: "", content: "" };
-  const r = mod.explicaRelacionadosParaNoticia(artigo, mod.CAMADA_EDITORIAL_CURADA[idCurado]);
-  expect(r.length <= 3, "mais de 3");
-  const curados = mod.CAMADA_EDITORIAL_CURADA[idCurado].explica || [];
-  if (curados.length) expect(r[0] === curados[0], "curado não veio primeiro");
+test("explicaRelacionadosParaNoticia: máximo 3 verbetes", () => {
+  const artigo = { id: "x", title: "FPSO sonda completação transporte aéreo helicóptero", summary: "", content: "" };
+  expect(mod.explicaRelacionadosParaNoticia(artigo, null).length <= 3, "mais de 3");
 });
 test("formatarDataCurtaServidor → dd/mm/aaaa", () => {
   expect(mod.formatarDataCurtaServidor("2026-10-06") === "06/10/2026", mod.formatarDataCurtaServidor("2026-10-06"));
@@ -281,28 +230,6 @@ test("validarImpactoOffshore: aceita declaração honesta com limitação", () =
   const r = mod.validarImpactoOffshore("A informação envolve unidades FPSO, com participação de Petrobras. O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.");
   expect(r.ok, "declaração honesta rejeitada: " + (r.motivo || ''));
 });
-test("resolverCamadaEditorial: why_it_matters curado preservado (não substituído por fallback)", () => {
-  const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA).find((id) => mod.CAMADA_EDITORIAL_CURADA[id].why_it_matters);
-  if (!idCurado) { console.log("  (skip: nenhum curado com why_it_matters)"); return; }
-  const curValues = mod.CAMADA_EDITORIAL_CURADA[idCurado];
-  const artigo = { id: idCurado, title: "T", summary: "Lead distinto da matéria original.", content: "Corpo distinto. ".repeat(40) };
-  const c = mod.resolverCamadaEditorial(artigo);
-  expect(c !== null && c.why_it_matters === curValues.why_it_matters.trim(), "curado substituído por fallback: " + (c && c.why_it_matters));
-  expect(c.fonte === 'curadoria', "fonte incorreta: " + (c && c.fonte));
-});
-test("blocoBuddyExplica: segundo card tem título 'O que isso representa para o offshore?'", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto da matéria com fatos offshore.", why_it_matters: "Isso representa impacto nas operações de perfuração.", revisado_em: null, fonte: 'fallback' });
-  expect(html.includes("O que isso representa para o offshore?"), "título offshore ausente");
-  expect(!html.includes("Por que isso importa?"), "título antigo ainda presente");
-});
-test("blocoBuddyExplica: segundo card não contém img (sem mascote)", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: "Texto da matéria com fatos offshore.", why_it_matters: "Envolve tecnologia subsea e FPSO.", revisado_em: null, fonte: 'fallback' });
-  const cardStart = html.indexOf('class="buddy-explica-porque-card"');
-  expect(cardStart > -1, "card offshore ausente");
-  const cardContent = html.slice(cardStart);
-  expect(!cardContent.includes("<img"), "segundo card não deve conter img (sem mascote)");
-});
-
 console.log("\n== QUALIDADE EDITORIAL 1.0 ==");
 test("validarTextoCamadaEditorial: rejeita texto truncado com '...'", () => {
   const r = mod.validarTextoCamadaEditorial("A Petrobras assinou contrato de afretamento para FPSO no campo de Búzios, informou a empresa...");
@@ -326,12 +253,9 @@ test("resolverCamadaEditorial: rejeita DB summary que é cópia do lead (banco t
   const c = mod.resolverCamadaEditorial(artigo);
   expect(c === null, "cópia do lead deve ser ocultada: " + JSON.stringify(c));
 });
-test("resolverCamadaEditorial (2.1): curadoria idêntica ao lead é ocultada (nenhuma origem pode copiar o lead)", () => {
-  const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA)[0];
-  const curada = mod.CAMADA_EDITORIAL_CURADA[idCurado];
-  const artigo = { id: idCurado, title: "T", summary: curada.buddy_summary, content: curada.buddy_summary.repeat(5) };
-  const c = mod.resolverCamadaEditorial(artigo);
-  expect(c === null, "curadoria igual ao lead deveria ser ocultada: " + (c && c.fonte));
+test("resolverCamadaEditorial: matéria OWNews com Buddy idêntico ao lead é ocultada", () => {
+  const c = mod.resolverCamadaEditorial(Object.assign({}, MAT, { summary: BUDDY_OK }));
+  expect(c === null, "Buddy igual ao lead deveria ser ocultado: " + (c && c.fonte));
 });
 
 console.log("\n== P0.1 GATE E NOVOS PADRÕES ==");

@@ -331,6 +331,17 @@ export default {
       return new Response(JSON.stringify({ erro: "não autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
     }
 
+    if (url.pathname === "/admin/materia-ownews") {
+      return rotaAdminMateriaOWNews(request, env);
+    }
+    if (url.pathname === "/admin/arquivo-fonte") {
+      if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
+      const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
+      const h = url.searchParams.get("hash");
+      const r = await stub.fetch(h ? "https://buddy-ia.interno/fonte?hash=" + encodeURIComponent(h) : "https://buddy-ia.interno/arquivo-contagem");
+      return new Response(r.body, { status: r.status, headers: { "Content-Type": "application/json" } });
+    }
+
     if (url.pathname === "/admin/buddy-ia") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
@@ -3560,13 +3571,13 @@ const IMPACTO_GENERICO_RE = [
   /acompanhe os desdobramentos/i, /neste momento/i, /por si s[oó]/i,
   /\bisso (pode|significa|importa|mostra|demonstra|refor[çc]a)\b/i, /\b[eé] importante porque\b/i,
   /\bpode(m)? (afetar|impactar|levar|influenciar|contribuir|gerar|atrair|abrir|impulsionar|beneficiar)\b/i,
-  /\b(vagas|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i,
   /crescimento da economia|desenvolvimento econ[oô]mico|seguran[çc]a energ[eé]tica nacional/i,
   /refor[çc]a (a|o|seu|sua)/i, /import[aâ]ncia (do|para o) setor/i, /setor offshore como um todo/i,
   /equa[çc][aã]o econ[oô]mica de projetos offshore/i, /desempenho real das instala[çc][õo]es/i,
   /produzido associado ao petr[oó]leo/i, /afetam diretamente o volume de trabalho/i,
   /pode(m)? resultar em/i, /potencial(mente)? (impacto|influenciar)/i
 ];
+const IMPACTO_EMPREGO_RE = /\b(vagas?|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i;
 function q21Frasesbase(texto) {
   const v = validarTextoCamadaEditorial(texto);
   if (!v.ok) return [v.motivo];
@@ -3594,7 +3605,9 @@ function validarBuddyPublicavel(texto, artigo, opcoes) {
   if (sl.bigramas >= 0.45 || sl.contencao >= 0.9) m.push('copia_lead');
   if (similaridadeTextos(t, titulo).contencao >= 0.9) m.push('copia_titulo');
   if (!o.curadoria) {
-    const corpo = String((artigo && (o.fonte || artigo.content)) || '');
+    // semFonte: matéria OWNews 4.0 — content é o corpo OWNews, não a fonte;
+    // a checagem anti-cópia contra a fonte já foi feita na geração.
+    const corpo = o.semFonte ? '' : String((artigo && (o.fonte || artigo.content)) || '');
     if (trechoCopiadoDaFonte(t, corpo) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
   }
   return { ok: m.length === 0, motivos: m };
@@ -3610,6 +3623,11 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   if (!o.curadoria) {
     const g = IMPACTO_GENERICO_RE.find((re) => re.test(t));
     if (g) m.push('generico');
+    // Emprego/vagas/salário só quando a própria matéria trata disso
+    // (concurso, contratação anunciada); senão é especulação.
+    const emp = t.match(IMPACTO_EMPREGO_RE);
+    const baseEmp = [artigo && artigo.title, artigo && artigo.summary, o.fonte || (artigo && artigo.content)].join(' ');
+    if (emp && !new RegExp(emp[0].slice(0, 4), 'i').test(baseEmp)) m.push('emprego_sem_base');
   }
   const lead = String((artigo && artigo.summary) || '');
   const sl = similaridadeTextos(t, lead);
@@ -3620,7 +3638,7 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   }
   if (!o.curadoria) {
     const corpo = String((artigo && (o.fonte || artigo.content)) || '');
-    if (trechoCopiadoDaFonte(t, corpo)) m.push('copia_fonte');
+    if (!o.semFonte && trechoCopiadoDaFonte(t, corpo)) m.push('copia_fonte');
     // ancoragem: ao menos um nome próprio/número do impacto existe na matéria
     const base = q21Tokens([artigo && artigo.title, lead, corpo].join(' '));
     const setBase = new Set(base);
@@ -3630,11 +3648,112 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
   }
   return { ok: m.length === 0, motivos: m };
 }
+/* ---- MATÉRIA OWNEWS 4.0 (Missão Editorial Original, 2026-10-17) ----
+   A notícia publicada é texto do OWNews, não a matéria da fonte:
+   - buddy_source = 'ownews': articles.content guarda o CORPO EDITORIAL
+     OWNEWS (síntese própria dos fatos, 2+ parágrafos), buddy_summary o
+     "Buddy resume" e why_it_matters o impacto para o offshore. O texto
+     coletado da fonte fica arquivado no storage do BuddyIAPoller
+     (collector, chave 'fonte:<id>') para auditoria e reprocessamento.
+   - buddy_source = 'insuficiente': a fonte não traz fatos para uma matéria
+     própria — página continua acessível (registro + link), fora do índice.
+   - qualquer outro valor = acervo legado ainda não convertido: o corpo da
+     fonte NUNCA é exibido e a página fica fora do índice. */
+const MATERIA_OWNEWS = 'ownews';
+// Construções de "texto de IA" vetadas pela regra editorial OWNews. Não é
+// lista de palavras: são fórmulas de abertura/conclusão que se repetem.
+const Q4_CLICHES = [
+  /\bem um movimento que\b/i, /\beste (desenvolvimento|movimento|an[uú]ncio) (representa|marca|refor[çc]a)\b/i,
+  /\bvale (destacar|ressaltar|lembrar|mencionar)\b/i, /\bem (resumo|suma)\b/i, /\bo cen[aá]rio evidencia\b/i,
+  /^para o setor offshore,/im, /\bisso refor[çc]a\b/i, /\b[eé] importante (notar|destacar|ressaltar)\b/i,
+  /\bdesempenha(r)? um papel (crucial|fundamental|importante|central)\b/i, /\bmarco (importante|significativo|hist[oó]rico)\b/i,
+  /\bpasso (importante|significativo|crucial)\b/i, /\bcen[aá]rio (desafiador|promissor)\b/i, /\bnesse contexto\b/i,
+  /\bconsolida (sua|a) posi[çc][aã]o\b/i, /\bem um cen[aá]rio de\b/i, /\bfica claro que\b/i
+];
+// TODO/XXX só em maiúsculas: "todo" e "Método" são português legítimo.
+const Q4_PLACEHOLDER = /lorem ipsum|\[(inserir|fonte|link|data|nome)[^\]]*\]|\bplaceholder\b|n[aã]o h[aá] informa[çc][oõ]es dispon[ií]veis/i;
+const Q4_MARCADOR = /(^|[^A-Za-zÀ-ú])(TODO|XXX|TBD)([^A-Za-zÀ-ú]|$)/;
+function paragrafosCorpo(corpo) {
+  return String(corpo || '').split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+/* Todo número citado no texto gerado precisa existir na matéria (normaliza
+   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
+function numerosSustentadosPelaFonte(texto, fonte) {
+  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
+  const daFonte = new Set(nums(fonte));
+  return nums(texto).every((n) => daFonte.has(n));
+}
+function clicheIA(texto) {
+  const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));
+  return re ? String(texto).match(re)[0].toLowerCase() : null;
+}
+/* Corpo editorial OWNews: fatos e contexto, organizados pelo OWNews.
+   opcoes.fonte (geração/backfill): material da fonte — ativa anti-cópia,
+   anti-paráfrase rasa, conferência de números e teto de tamanho.
+   Sem fonte (exibição): só forma, clichê e repetição entre os 3 blocos. */
+function validarCorpoOWNews(corpo, artigo, buddy, impacto, opcoes) {
+  const o = opcoes || {};
+  if (!corpo || typeof corpo !== 'string' || !corpo.trim()) return { ok: false, motivos: ['vazio'] };
+  const t = corpo.trim();
+  const pars = paragrafosCorpo(t);
+  const m = [];
+  if (pars.length < 2) m.push('paragrafos_' + pars.length);
+  if (pars.length > 7) m.push('paragrafos_' + pars.length);
+  if (t.length < 320) m.push('curto');
+  if (t.length > 4200) m.push('longo');
+  if (Q4_PLACEHOLDER.test(t) || Q4_MARCADOR.test(t)) m.push('placeholder');
+  const erros = detectarErrosTexto(pars.join(' ')).filter((e) => e !== 'espaco_antes_pontuacao');
+  if (erros.length) m.push(erros[0]);
+  if (pars.some((p) => !/[.!?"”»)]$/.test(p))) m.push('paragrafo_incompleto');
+  if (pareceIngles(t)) m.push('ingles');
+  const c = clicheIA(t);
+  if (c) m.push('cliche_ia:' + c);
+  const fr = q21Frases(pars.join(' '));
+  for (let i = 1; i < fr.length; i++) {
+    if (q21Tokens(fr[i]).length >= 5 && similaridadeTextos(fr[i], fr.slice(0, i).join(' ')).contencao >= 0.85) { m.push('frase_redundante'); break; }
+  }
+  const titulo = String((artigo && artigo.title) || '');
+  if (titulo && similaridadeTextos(fr[0] || '', titulo).contencao >= 0.95 && q21Tokens(fr[0]).length <= q21Tokens(titulo).length + 2) m.push('repete_titulo');
+  // Os três blocos têm funções diferentes: Buddy (o que aconteceu, curto),
+  // corpo (fatos e contexto), impacto (por que interessa ao offshore).
+  if (buddy && trechoCopiadoDaFonte(buddy, t)) m.push('repete_buddy');
+  if (impacto && trechoCopiadoDaFonte(impacto, t)) m.push('repete_impacto');
+  if (o.fonte) {
+    const fonte = String(o.fonte);
+    const lead = String((artigo && artigo.summary) || '');
+    if (trechoCopiadoDaFonte(t, fonte) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
+    if (similaridadeTextos(t, fonte).bigramas >= 0.4) m.push('parafrase_rasa');
+    if (!numerosSustentadosPelaFonte(t, [titulo, lead, fonte].join(' '))) m.push('numero_sem_fonte');
+    if (t.length > Math.max(fonte.length * 1.15 + 250, 700)) m.push('maior_que_fonte');
+  }
+  return { ok: m.length === 0, motivos: m };
+}
+/* Gate completo da matéria OWNews (geração, backfill e testes). Os três
+   blocos são obrigatórios: sem Buddy, sem impacto ou sem corpo válidos a
+   matéria não é publicada (editorial_incomplete). */
+function validarMateriaOWNews(mat, artigo, fonte) {
+  const f = String(fonte || '');
+  const base = [artigo && artigo.title, artigo && artigo.summary, f].join(' ');
+  const buddy = mat && mat.buddy_summary ? sanearTextoPublicacao(mat.buddy_summary) : '';
+  const impacto = mat && mat.why_it_matters ? sanearTextoPublicacao(mat.why_it_matters) : '';
+  const corpo = mat && mat.corpo ? String(mat.corpo).split(/\n\s*\n/).map(sanearTextoPublicacao).filter(Boolean).join('\n\n') : '';
+  const vb = buddy ? validarBuddyPublicavel(buddy, artigo, { fonte: f }) : { motivos: ['vazio'] };
+  const vi = impacto ? validarImpactoPublicavel(impacto, artigo, buddy, { fonte: f }) : { motivos: ['vazio'] };
+  const vc = validarCorpoOWNews(corpo, artigo, buddy, impacto, { fonte: f });
+  const motivos = vb.motivos.map((x) => 'buddy:' + x)
+    .concat(vi.motivos.map((x) => 'impacto:' + x), vc.motivos.map((x) => 'corpo:' + x));
+  if (buddy && !numerosSustentadosPelaFonte(buddy, base)) motivos.push('buddy:numero_sem_fonte');
+  if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
+  if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
+  if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  return { ok: motivos.length === 0, motivos, buddy_summary: buddy, why_it_matters: impacto, corpo };
+}
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
-   - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo (IA: 'nenhuma').
-   - NOINDEX: corpo thin (ehMateriaThin) — Buddy não "reindexa" corpo insuficiente.
-   - EDITORIAL_INCOMPLETE: corpo ok, mas sem Buddy próprio válido.
-   - INDEXABLE: corpo ok + Buddy válido (impacto só quando válido; nunca obrigatório). */
+   - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
+   - NOINDEX: fonte sem material para matéria própria ('insuficiente').
+   - EDITORIAL_INCOMPLETE: não é matéria OWNews, ou falta Buddy, impacto ou
+     corpo OWNews válido.
+   - INDEXABLE: matéria OWNews com os três blocos válidos. */
 function classificarIndexacaoNoticia(artigo, camada) {
   const motivos = [];
   const titulo = String((artigo && artigo.title) || '').trim();
@@ -3646,8 +3765,12 @@ function classificarIndexacaoNoticia(artigo, camada) {
   if (resumo.length + corpo.length < 80) motivos.push('sem_material');
   if (artigo && artigo.buddy_source === 'ia_fora_escopo') motivos.push('fora_escopo');
   if (motivos.length) return { estado: 'DESCARTAR', motivos };
-  if (typeof ehMateriaThin === 'function' ? ehMateriaThin(artigo, camada) : corpo.length < 400) return { estado: 'NOINDEX', motivos: ['thin'] };
-  if (!camada || !camada.buddy_summary) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_buddy_valido'] };
+  if (artigo.buddy_source === 'insuficiente') return { estado: 'NOINDEX', motivos: ['material_insuficiente'] };
+  if (artigo.buddy_source !== MATERIA_OWNEWS) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_materia_ownews'] };
+  if (!camada || !camada.buddy_summary) motivos.push('sem_buddy_valido');
+  if (!camada || !camada.why_it_matters) motivos.push('sem_impacto_valido');
+  if (!camada || !camada.corpo) motivos.push('sem_corpo_ownews');
+  if (motivos.length) return { estado: 'EDITORIAL_INCOMPLETE', motivos };
   return { estado: 'INDEXABLE', motivos: [] };
 }
 /* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */
@@ -3662,32 +3785,35 @@ function ehMateriaThin(artigo, _camada) {
 }
 
 /* ==== CAMADA IA 2.1: INICIO ====
-   Missão AdSense 2.1 (2026-10-17). Substitui o Buddy extrativo (frases
-   copiadas da fonte) e o impacto de template ("segmento central para as
-   operações offshore") por texto escrito por IA a partir da matéria,
-   aprovado SOMENTE se passar no gate QUALIDADE EDITORIAL 2.1 + checagem de
-   números (todo número citado precisa existir na matéria). Impacto é
-   opcional: null quando a matéria não sustenta consequência concreta.
-   Modelo calibrado em 30 matérias reais (2026-10-17): ~47 neurons/matéria,
-   dentro do free tier de Workers AI (sem cobrança — acima do limite a
-   chamada falha e a matéria é tentada de novo depois).
-   Desligar: BUDDY_IA_ATIVO = false (o gate continua; nada é publicado com
-   texto extrativo/template). */
+   Missão AdSense 2.1 (2026-10-17), ampliada na Missão Editorial Original 4.0
+   (2026-10-17): a IA não escreve mais só o Buddy — escreve a MATÉRIA OWNEWS
+   inteira a partir dos fatos da fonte: Buddy resume + corpo editorial
+   próprio (2+ parágrafos) + impacto para o offshore. Os três são
+   obrigatórios e passam pelo gate validarMateriaOWNews (bloco QUALIDADE
+   EDITORIAL: anti-cópia, anti-paráfrase rasa, números conferidos, clichês
+   de IA, repetição entre blocos). Reprovou = não publica.
+   A matéria publicada guarda o corpo OWNews em articles.content
+   (buddy_source='ownews'); o texto coletado da fonte vai para o arquivo
+   interno do BuddyIAPoller (chave 'fonte:<hash>'), nunca para o leitor.
+   Custo: ~1 chamada llama-3.3-70b por matéria (~230 neurons), dentro do free
+   tier de Workers AI para o volume diário (~15 matérias/dia); acima do
+   limite a chamada falha e a matéria é tentada de novo na próxima coleta.
+   Desligar: BUDDY_IA_ATIVO = false (nada é publicado sem matéria própria). */
 const BUDDY_IA_ATIVO = true;
 const BUDDY_IA_MODELO = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const BUDDY_IA_SISTEMA =
-  'Você é editor do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. Responda SOMENTE com um objeto JSON: ' +
-  '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "buddy": string, "impacto": string|null}.\n\n' +
-  'BUDDY ("O que aconteceu?"): 2 ou 3 frases completas em português do Brasil natural, até 420 caracteres, cada frase com um fato diferente. ' +
-  'Reescreva com suas próprias palavras: não copie frases da matéria, não reproduza o primeiro parágrafo nem reformule só o título. ' +
-  'Use somente fatos explícitos na matéria: não acrescente datas, números, nomes, previsões ou opiniões que não estejam no texto. Sem adjetivos promocionais. ' +
-  'Se a matéria não tiver fatos suficientes para 2 frases, devolva buddy "".\n\n' +
-  'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P no mar, trabalhadores embarcados. ' +
-  '"indireta" = energia em terra, combustíveis, refino, distribuição de gás, política ou economia. "nenhuma" = fora do setor de energia.\n\n' +
-  'IMPACTO ("O que isso muda na prática para o offshore?"): só quando relacao_offshore = "direta" E a própria matéria informa uma consequência operacional concreta: ' +
-  'unidade que entra ou sai de operação, início, fim ou duração de campanha, prazo, volume de produção, área contratada, regra que passa a valer, risco à segurança a bordo. ' +
-  '1 ou 2 frases afirmativas, citando o elemento concreto e a consequência descrita na matéria, sem repetir o buddy. Se a matéria não diz qual é a consequência, impacto = null — não deduza.\n' +
-  'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "isso significa", "isso importa", "oportunidades", "vagas", "empregos", "crescimento da economia", "acompanhe", "segmento central", "reforça".';
+  'Você é redator do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. A matéria recebida é só MATERIAL FACTUAL: o OWNews não republica o texto da fonte, escreve a própria nota. Responda SOMENTE com um objeto JSON: ' +
+  '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
+  'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto. Não repita o título.\n\n' +
+  'CORPO: lista de 2 a 4 parágrafos curtos com os fatos e o contexto: o que aconteceu, quem, onde, quando, números, estágio, próximo passo confirmado — só o que a matéria sustenta. ' +
+  'Sintetize com vocabulário e ordem próprios: nunca copie frases nem troque palavras de frases da matéria; nenhuma sequência de mais de 6 palavras igual ao texto. Atribua declarações ("segundo a Petrobras"). ' +
+  'Mais curto que a matéria; se ela tiver pouca informação, a nota é curta. Não repita frases do buddy. Sem conclusão, sem opinião, sem adjetivos promocionais.\n\n' +
+  'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P, trabalhadores embarcados. ' +
+  '"indireta" = energia em terra, combustíveis, refino, gás, política ou economia do petróleo. "nenhuma" = fora do setor de energia.\n\n' +
+  'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
+  'Se o efeito é indireto, diga concretamente como, sem especular. Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
+  'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. ' +
+  'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "vagas", "empregos", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
 
 function extrairJsonIA(resposta) {
   const r = resposta && (resposta.response !== undefined ? resposta.response : resposta);
@@ -3698,33 +3824,26 @@ function extrairJsonIA(resposta) {
   if (m) { try { return JSON.parse(m[0]); } catch { /* inválido */ } }
   return null;
 }
-/* Todo número citado no texto gerado precisa existir na matéria (normaliza
-   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
-function numerosSustentadosPelaFonte(texto, fonte) {
-  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
-  const daFonte = new Set(nums(fonte));
-  return nums(texto).every((n) => daFonte.has(n));
-}
-/* Gera e valida. Retorna:
-   { ok:true, buddy_summary, why_it_matters|null, relacao }   — aprovado
-   { ok:false, relacao, motivos }                              — reprovado (não publicar)
-   { ok:false, erro }                                          — falha técnica (tentar depois) */
-const BUDDY_IA_MOTIVOS_REESCRITA = new Set(['copia_fonte', 'copia_lead', 'copia_titulo', 'frases_1', 'frase_redundante']);
+/* Gera e valida a matéria OWNews. Retorna:
+   { ok:true, buddy_summary, why_it_matters, corpo, relacao } — aprovado
+   { ok:false, relacao, motivos }                             — reprovado (não publicar)
+   { ok:false, erro }                                         — falha técnica (tentar depois) */
+const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|cliche_ia|generico/;
 async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
-  const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 3500);
-  if (material.length < 120) return { ok: false, relacao: null, motivos: ['sem_material'] };
+  const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
+  if (material.length < 300) return { ok: false, relacao: null, motivos: ['sem_material'] };
   let saida;
   try {
     saida = await env.AI.run(BUDDY_IA_MODELO, {
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
         { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material +
-          (t > 1 ? '\n\nATENÇÃO: a versão anterior copiou trechos da matéria ou ficou curta. Escreva o buddy em 2 ou 3 frases com vocabulário e ordem próprios — nenhuma sequência de mais de 5 palavras igual ao texto.' : '') }
+          (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Reescreva com vocabulário e ordem próprios, sem frases da matéria, sem repetir o buddy no corpo.' : '') }
       ],
-      max_tokens: 450,
-      temperature: t > 1 ? 0.6 : 0.2
+      max_tokens: 1100,
+      temperature: t > 1 ? 0.6 : 0.3
     });
   } catch (e) {
     return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
@@ -3733,75 +3852,140 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa) {
   if (!j) return { ok: false, erro: 'ia_json_invalido' };
   const relacao = ['direta', 'indireta', 'nenhuma'].includes(j.relacao_offshore) ? j.relacao_offshore : null;
   if (relacao === 'nenhuma') return { ok: false, relacao, motivos: ['fora_escopo'] };
-  const fonteCompleta = [artigo.title, artigo.summary, material].join(' ');
-  const buddy = j.buddy ? sanearTextoPublicacao(String(j.buddy)) : '';
-  const vb = buddy ? validarBuddyPublicavel(buddy, artigo, { fonte: material }) : { ok: false, motivos: ['buddy_vazio'] };
-  const motivos = vb.motivos.slice();
-  if (buddy && !numerosSustentadosPelaFonte(buddy, fonteCompleta)) motivos.push('numero_sem_fonte');
-  if (motivos.length) {
-    // Uma única segunda tentativa quando a reprovação é só de forma (cópia
-    // ou nº de frases) — o gate não é afrouxado, só se pede outra redação.
-    if (t === 1 && motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.has(m))) return gerarCamadaEditorialIA(env, artigo, materialFonte, 2);
-    return { ok: false, relacao, motivos, tentativas: t };
+  const corpo = Array.isArray(j.corpo) ? j.corpo.map((p) => String(p || '').trim()).filter(Boolean).join('\n\n') : String(j.corpo || '');
+  const v = validarMateriaOWNews({ buddy_summary: String(j.buddy || ''), why_it_matters: String(j.impacto || ''), corpo }, artigo, material);
+  if (!v.ok) {
+    // Uma segunda redação quando a reprovação é de forma — o gate não é
+    // afrouxado, só se pede outro texto.
+    if (t === 1 && v.motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.test(m))) {
+      return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: v.motivos.join(',') }), materialFonte, 2);
+    }
+    return { ok: false, relacao, motivos: v.motivos, tentativas: t };
   }
-  let impacto = null;
-  if (relacao === 'direta' && j.impacto) {
-    const imp = sanearTextoPublicacao(String(j.impacto));
-    const vi = validarImpactoPublicavel(imp, artigo, buddy, { fonte: material });
-    if (vi.ok && numerosSustentadosPelaFonte(imp, fonteCompleta)) impacto = imp;
-  }
-  return { ok: true, buddy_summary: buddy, why_it_matters: impacto, relacao, tentativas: t };
+  return { ok: true, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, corpo: v.corpo, relacao, tentativas: t };
 }
 
-/* Retroprocessamento do acervo (BuddyIAPoller e rota admin). Processa as
-   matérias mais recentes ainda sem camada IA; thin (corpo = resumo ou
-   < 400 caracteres) é marcada sem_material — não tem como virar INDEXABLE.
-   Nunca apaga o texto antigo: matéria reprovada recebe buddy_source
-   'ia_rejeitado'/'ia_fora_escopo' e o frontend oculta o bloco. */
-async function retroprocessarCamadaIA(env, limite, incluirRejeitados) {
-  const max = Math.max(1, Math.min(limite || 5, 12));
-  const out = { consultados: 0, aprovados: 0, rejeitados: 0, fora_escopo: 0, thin: 0, erros: 0, interrompido: null, detalhes: [] };
+/* Arquivo interno do material da fonte (storage do BuddyIAPoller, SQLite
+   do Durable Object — zero PUT em KV). Chave 'fonte:<hash da URL>'.
+   Escreve só se ainda não existe: o material original nunca é sobrescrito
+   pelo texto OWNews. Uso: auditoria, rastreabilidade e reprocessamento. */
+async function arquivarMaterialFonte(env, hash, dados) {
+  if (!env.BUDDY_IA_DO || !hash || !dados || !dados.material) return false;
+  try {
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/arquivar', {
+      method: 'POST', body: JSON.stringify(Object.assign({ hash }, dados))
+    });
+    return r.ok;
+  } catch { return false; }
+}
+async function lerMaterialFonte(env, hash) {
+  if (!env.BUDDY_IA_DO || !hash) return null;
+  try {
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/fonte?hash=' + encodeURIComponent(hash));
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+/* Converte uma matéria do acervo em matéria OWNews (ou a marca como
+   insuficiente/fora de escopo). Usado pelo retroprocessamento (IA) e pela
+   rota admin /admin/materia-ownews (textos escritos fora do Worker —
+   passam pelo MESMO gate antes de gravar). Nunca grava texto reprovado.
+   Ordem: arquiva a fonte ANTES de sobrescrever articles.content. */
+async function aplicarMateriaOWNews(env, a, mat, fonteMaterial) {
+  const fonte = String(fonteMaterial || '').trim();
+  let patch;
+  if (mat.acao === 'insuficiente') patch = { buddy_source: 'insuficiente' };
+  else if (mat.acao === 'fora_escopo') patch = { buddy_source: 'ia_fora_escopo' };
+  else {
+    const v = validarMateriaOWNews(mat, a, fonte);
+    if (!v.ok) return { ok: false, motivos: v.motivos };
+    if (!(await arquivarMaterialFonte(env, a.hash, { id: a.id, url: a.original_url || null, material: fonte, conteudo_banco: a.content || null, lead: a.summary || null, em: new Date().toISOString() }))) {
+      return { ok: false, motivos: ['arquivo_fonte_falhou'] };
+    }
+    patch = { content: v.corpo, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, buddy_source: MATERIA_OWNEWS, buddy_reviewed_at: new Date().toISOString() };
+  }
+  const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(a.id)}`, {
+    method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
+  });
+  return pr.ok ? { ok: true, estado: patch.buddy_source } : { ok: false, motivos: ['patch_http_' + pr.status] };
+}
+
+/* Retroprocessamento do acervo com IA (BuddyIAPoller e rota admin): matérias
+   publicadas que ainda não são matéria OWNews. Material curto demais vira
+   'insuficiente' (fora do índice, sem inventar). */
+async function retroprocessarCamadaIA(env, limite) {
+  const max = Math.max(1, Math.min(limite || 3, 8));
+  const out = { consultados: 0, aprovados: 0, rejeitados: 0, fora_escopo: 0, insuficiente: 0, erros: 0, interrompido: null, detalhes: [] };
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) { out.interrompido = 'supabase_nao_configurado'; return out; }
-  const filtro = incluirRejeitados
-    ? 'buddy_source=eq.ia_rejeitado'
-    : 'or=(buddy_source.is.null,buddy_source.not.in.(ia,ia_rejeitado,ia_fora_escopo,sem_material))';
-  const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtro}&order=published_at.desc&limit=40`, { headers: supabaseHeaders(env) });
+  const filtro = 'or=(buddy_source.is.null,buddy_source.not.in.(ownews,insuficiente,ia_fora_escopo,ownews_rejeitado))';
+  const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,hash,original_url&status=eq.published&${filtro}&order=published_at.desc&limit=20`, { headers: supabaseHeaders(env) });
   if (!resp.ok) { out.interrompido = 'select_http_' + resp.status; return out; }
   const artigos = await resp.json();
   out.consultados = artigos.length;
-  let processados = 0, subreq = 1; // limite Free: 50 subrequests/invocação — margem: <= 35
+  let processados = 0, subreq = 1; // limite Free: 50 subrequests/invocação
   for (const a of artigos) {
-    if (processados >= max || subreq >= 33) break;
+    if (processados >= max || subreq >= 40) break;
     const corpo = String(a.content || '').trim(), resumo = String(a.summary || '').trim();
-    let patch;
-    if (corpo.length < 400 || corpo === resumo) {
-      patch = { buddy_source: 'sem_material' };
-      out.thin++;
+    let r;
+    if (corpo.length < 300 || corpo === resumo) {
+      r = await aplicarMateriaOWNews(env, a, { acao: 'insuficiente' }, corpo); subreq += 1;
+      if (r.ok) out.insuficiente++;
     } else {
       processados++;
-      const r = await gerarCamadaEditorialIA(env, a, corpo);
-      subreq += r.tentativas || 1;
-      if (r.erro) { out.erros++; out.interrompido = r.erro; break; }
-      if (r.ok) { patch = { buddy_summary: r.buddy_summary, why_it_matters: r.why_it_matters, buddy_source: 'ia' }; out.aprovados++; }
-      else if (r.relacao === 'nenhuma') { patch = { buddy_source: 'ia_fora_escopo' }; out.fora_escopo++; }
-      else { patch = { buddy_source: 'ia_rejeitado' }; out.rejeitados++; }
-      out.detalhes.push({ id: a.id, ok: !!r.ok, relacao: r.relacao || null, motivos: r.motivos || [], impacto: !!(r.ok && r.why_it_matters) });
+      const g = await gerarCamadaEditorialIA(env, a, corpo);
+      subreq += g.tentativas || 1;
+      if (g.erro) { out.erros++; out.interrompido = g.erro; break; }
+      if (g.ok) { r = await aplicarMateriaOWNews(env, a, { acao: 'publicar', buddy_summary: g.buddy_summary, why_it_matters: g.why_it_matters, corpo: g.corpo }, corpo); subreq += 2; if (r.ok) out.aprovados++; }
+      else if (g.relacao === 'nenhuma') { r = await aplicarMateriaOWNews(env, a, { acao: 'fora_escopo' }, corpo); subreq += 1; if (r.ok) out.fora_escopo++; }
+      else {
+        // Reprovado: marca para não gastar IA de novo; continua fora do índice.
+        const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(a.id)}`, {
+          method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify({ buddy_source: 'ownews_rejeitado' })
+        });
+        subreq += 1; r = { ok: pr.ok }; out.rejeitados++;
+      }
+      out.detalhes.push({ id: a.id, ok: !!g.ok, relacao: g.relacao || null, motivos: g.motivos || [] });
     }
-    subreq++;
-    const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(a.id)}`, {
-      method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
-    });
-    if (!pr.ok) { out.erros++; out.interrompido = 'patch_http_' + pr.status; break; }
+    if (r && !r.ok) { out.erros++; out.interrompido = (r.motivos || []).join(',') || 'patch'; break; }
   }
   return out;
+}
+
+/* Rota admin: grava matérias OWNews escritas fora do Worker (backfill do
+   acervo), SEMPRE passando pelo gate validarMateriaOWNews contra o material
+   da fonte. Corpo: { itens: [{ id, acao, buddy_summary, corpo, why_it_matters,
+   fonte_material? }] } — fonte_material = texto da fonte quando o banco só
+   tem o resumo (ex.: fontes em inglês). Até 12 itens por chamada. */
+async function rotaAdminMateriaOWNews(request, env) {
+  if (request.method !== 'POST') return Response.json({ ok: false, erro: 'use POST' }, { status: 405 });
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: 'Supabase não configurado' });
+  let corpo;
+  try { corpo = await request.json(); } catch { return Response.json({ ok: false, erro: 'json inválido' }, { status: 400 }); }
+  const itens = Array.isArray(corpo && corpo.itens) ? corpo.itens.slice(0, 12) : [];
+  const resultados = [];
+  for (const it of itens) {
+    if (!it || !/^[0-9a-f-]{36}$/i.test(String(it.id || ''))) { resultados.push({ id: it && it.id, ok: false, motivos: ['id_invalido'] }); continue; }
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,hash,original_url,buddy_source&id=eq.${encodeURIComponent(it.id)}`, { headers: supabaseHeaders(env) });
+    const a = r.ok ? (await r.json())[0] : null;
+    if (!a) { resultados.push({ id: it.id, ok: false, motivos: ['nao_encontrado'] }); continue; }
+    // Matéria já convertida: a fonte está no arquivo, não em content.
+    let fonte = it.fonte_material || null;
+    if (!fonte && a.buddy_source === MATERIA_OWNEWS) { const arq = await lerMaterialFonte(env, a.hash); fonte = arq && arq.material; }
+    if (!fonte) fonte = a.content;
+    if (!fonte && it.acao === 'publicar') { resultados.push({ id: it.id, ok: false, motivos: ['fonte_indisponivel'] }); continue; }
+    const res = await aplicarMateriaOWNews(env, a, it, fonte);
+    resultados.push(Object.assign({ id: it.id }, res));
+  }
+  return Response.json({ ok: resultados.every((x) => x.ok), resultados });
 }
 
 /* BuddyIAPoller — Durable Object com Alarm próprio (invocação separada da
    coleta: não disputa o limite de subrequests do EditorialPoller e não usa
    cron trigger — conta está em 5/5). Teto diário guardado no storage do
-   próprio DO (quota separada do Workers KV: zero PUT em KV). */
-const BUDDY_IA_POR_ALARME = 5;
-const BUDDY_IA_TETO_DIA = 60;
+   próprio DO (quota separada do Workers KV: zero PUT em KV). Também guarda
+   o arquivo do material da fonte (chaves 'fonte:<hash>'). */
+const BUDDY_IA_POR_ALARME = 3;
+const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {
   constructor(state, env) {
@@ -3813,24 +3997,39 @@ export class BuddyIAPoller {
     const alarme = await this.state.storage.getAlarm();
     if (!alarme) await this.state.storage.setAlarm(Date.now() + 60000);
   }
-  async rodar(limite, ignorarTeto, incluirRejeitados) {
+  async rodar(limite, ignorarTeto) {
     const dia = new Date().toISOString().slice(0, 10);
     const chave = 'feitos:' + dia;
     const feitos = (await this.state.storage.get(chave)) || 0;
     const restante = ignorarTeto ? limite : Math.min(limite, BUDDY_IA_TETO_DIA - feitos);
     if (restante <= 0) return { pulado: 'teto_diario', feitos };
-    const r = await retroprocessarCamadaIA(this.env, restante, incluirRejeitados);
+    const r = await retroprocessarCamadaIA(this.env, restante);
     const gastos = r.aprovados + r.rejeitados + r.fora_escopo;
-    await this.state.storage.put(chave, feitos + gastos);
-    await this.state.storage.put('ultimo', { em: new Date().toISOString(), aprovados: r.aprovados, rejeitados: r.rejeitados, fora_escopo: r.fora_escopo, thin: r.thin, erros: r.erros, interrompido: r.interrompido });
+    if (gastos) await this.state.storage.put(chave, feitos + gastos);
+    await this.state.storage.put('ultimo', { em: new Date().toISOString(), aprovados: r.aprovados, rejeitados: r.rejeitados, fora_escopo: r.fora_escopo, insuficiente: r.insuficiente, erros: r.erros, interrompido: r.interrompido });
     return Object.assign({ feitos_hoje: feitos + gastos }, r);
   }
   async fetch(request) {
     await this.pronto;
     const url = new URL(request.url);
+    if (url.pathname === '/arquivar' && request.method === 'POST') {
+      const d = await request.json();
+      if (!d || !d.hash || !d.material) return Response.json({ ok: false }, { status: 400 });
+      const k = 'fonte:' + d.hash;
+      if (!(await this.state.storage.get(k))) await this.state.storage.put(k, d);
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === '/fonte') {
+      const v = await this.state.storage.get('fonte:' + (url.searchParams.get('hash') || ''));
+      return v ? Response.json(v) : Response.json({ ok: false }, { status: 404 });
+    }
+    if (url.pathname === '/arquivo-contagem') {
+      const m = await this.state.storage.list({ prefix: 'fonte:' });
+      return Response.json({ arquivadas: m.size });
+    }
     if (url.pathname === '/rodar') {
-      const limite = Math.min(parseInt(url.searchParams.get('limite') || '5', 10) || 5, 12);
-      return Response.json(await this.rodar(limite, url.searchParams.get('ignorar_teto') === '1', url.searchParams.get('rejeitados') === '1'));
+      const limite = Math.min(parseInt(url.searchParams.get('limite') || '3', 10) || 3, 8);
+      return Response.json(await this.rodar(limite, url.searchParams.get('ignorar_teto') === '1'));
     }
     return Response.json({ ok: true, ultimo: (await this.state.storage.get('ultimo')) || null, feitos_hoje: (await this.state.storage.get('feitos:' + new Date().toISOString().slice(0, 10))) || 0 });
   }
@@ -4158,11 +4357,19 @@ slug: criarSlug(tituloPublicado),
       // Sem Buddy válido -> não publica (editorial_incomplete). Falha técnica
       // da IA -> não publica agora; a matéria segue no feed e é tentada de
       // novo na próxima coleta (dedupe é pelo banco). Fora do escopo -> descarta.
-      const camadaIA = await gerarCamadaEditorialIA(env, artigo, corpoEnParaGate || artigo.content || artigo.summary);
+      // Missão Editorial Original 4.0: a IA escreve a matéria OWNews inteira
+      // (Buddy + corpo próprio + impacto). O texto da fonte é arquivado no
+      // storage do BuddyIAPoller e NÃO vai para articles.content.
+      const materialFonte = corpoEnParaGate || artigo.content || artigo.summary;
+      const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte);
       if (camadaIA.ok) {
+        const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
+        if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
+        artigo.content = camadaIA.corpo;
         artigo.buddy_summary = camadaIA.buddy_summary;
         artigo.why_it_matters = camadaIA.why_it_matters;
-        artigo.buddy_source = 'ia';
+        artigo.buddy_source = MATERIA_OWNEWS;
+        artigo.buddy_reviewed_at = new Date().toISOString();
       }
 
       if (!camadaIA.ok) {
@@ -4194,6 +4401,7 @@ slug: criarSlug(tituloPublicado),
           delete artigo.buddy_summary;
           delete artigo.why_it_matters;
           delete artigo.buddy_source;
+          delete artigo.buddy_reviewed_at;
           await inserirArtigo(env, artigo);
           erroInsercao = 'migracao_pendente';
         } else {
