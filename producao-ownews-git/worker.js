@@ -1478,6 +1478,7 @@ html.embarcado header{backdrop-filter:none}
 /* Home 3.0: mobile segue a ordem do DOM, igual ao desktop — Utilidades →
    Giro 24h → Aeroportos → Mercado Agora → Aconteceu no Offshore. */
 @media(max-width:759px){#conteudo{display:flex;flex-direction:column}}
+html[data-theme="light"] .central-home-cta{background:var(--navy-900);border-color:var(--line-soft)}
 /* Aconteceu no Offshore: entrada editorial do bloco principal */
 .aconteceu-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px;margin:26px 0 14px;padding:0 0 10px;border-bottom:1px solid var(--line)}
 .aconteceu-head h2{margin:0;font:800 15px/1.25 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--white)}
