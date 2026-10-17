@@ -1,3 +1,33 @@
+# Atualização 2026-10-17 — Missão AdSense 2.1 (substitui as estimativas abaixo)
+
+**Medição real** (Cloudflare GraphQL `kvOperationsAdaptiveGroups`, writes, conta inteira):
+08/10 1.121 · 09/10 1.064 · 10/10 1.071 · 14/10 1.024 · 15/10 851 · 16/10 774.
+Em 16/10: SAUDE_KV (collector) 457 · KV do Instagram 268 · PERGUNTE_IA_KV 49.
+
+**Correção de premissa:** o limite Free de 1.000 PUTs/dia é **por conta**
+(docs atuais da Cloudflare; o incidente de 19/09 também se explica assim).
+A seção antiga dizia "por Worker" — está errada. Todos os Workers somam.
+
+**Mudanças (commits b5d1eb0, f468c40 e o desta atualização):**
+- Instagram `instagram_ultimo_heartbeat_vps`: 5 → 60 min (~255 → ~24/dia).
+- `mercado_snapshot` e `offvoos_snapshot`: saíram do KV — vivem no storage
+  do MercadoPoller/OffVoosPoller (quota de Durable Object). Leitores pedem
+  ao DO; a chave KV antiga só é lida como fallback. (~144 + ~120-200 → 0).
+- `/aeroportos`: snapshot só é regravado se o salvo tem > 30 min (antes:
+  1 PUT por requisição de navegador; ≤ 48/dia, independente do tráfego).
+- `offvoos_backoff`: bug corrigido — o registro de reset era regravado a
+  cada 5 min para sempre depois de uma falha total (+288/dia latente).
+- `gate_acum`: grava só com dado novo (poda acontece junto; leitura filtra 7d).
+- Vagas (ownews-git): fim do cache por vaga em KV (até 11 PUTs/refresh).
+- Buddy IA (novo): contador diário no storage do BuddyIAPoller — 0 PUT em KV.
+
+**Estimativa depois:** SAUDE_KV ~100-120/dia (ultima_execucao 36-48,
+aeroportos ≤ 48, gate_acum ~10-15, Telegram/agenda ~9) · Instagram ~35 ·
+PERGUNTE_IA ~10-25 → **conta ~150-180 PUTs/dia** (antes 774 medidos; pico 1.121).
+Verificar com a mesma query GraphQL após 24h.
+
+---
+
 # Orçamento de escrita — Cloudflare Workers KV
 
 Auditoria completa em 2026-09-19, motivada por um incidente real em

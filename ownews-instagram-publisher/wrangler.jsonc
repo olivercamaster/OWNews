@@ -45,6 +45,8 @@
   // "KV put() limit exceeded for the day." Corrigido em duas frentes: (1)
   // heartbeat agora só grava a cada 5min, não a cada chamada (ver
   // /render-jobs/pending no worker.js); (2) namespace PRÓPRIO aqui —
+  // [CORREÇÃO 2026-10-17: a cota Free de 1.000 PUTs/dia é POR CONTA, não por
+  //  namespace — ver docs/KV-BUDGET.md. O namespace próprio só isola dados.]
   // como a cota é por namespace, cada Worker com seu próprio namespace
   // multiplica a cota total disponível, de graça, sem upgrade de plano.
   // Efeito colateral aceito: o histórico de "instagram_ultima_execucao"

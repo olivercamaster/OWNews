@@ -6111,7 +6111,7 @@ async function gravarBackoffOffVoosNoKV(env, dados) {
 // (item 30/16) — mesmo autorizados, não geramos rajada simultânea de 11
 // requisições. Backoff exponencial (até 15min) se TODOS os hubs falharem
 // em sequência, pra nunca martelar o OffVoos durante uma indisponibilidade.
-async function coletarTodosOffVoos(env) {
+async function coletarTodosOffVoos(env, anteriorConhecido, persistir) {
   const backoff = await obterBackoffOffVoosDoKV(env);
   if (backoff && backoff.ate && Date.now() < backoff.ate) {
     return { pulou_por_backoff: true, motivo: backoff.motivo, ate: backoff.ate };
@@ -6146,20 +6146,28 @@ async function coletarTodosOffVoos(env) {
   // Exclui fetched_at/source_updated_at (variam a cada ciclo, mesmo sem mudança real)
   // para não gerar 288 puts/dia desnecessários. Adiciona 1 GET/ciclo (desprezível
   // vs. cota de 100K leituras/dia do plano Free).
+  // KV Budget 2.1: o snapshot vive no storage do próprio OffVoosPoller
+  // (quota de Durable Object, separada do Workers KV — era o 2º maior
+  // consumidor de PUTs da conta). Write-if-changed mantido.
   try {
-    if (env.SAUDE_KV) {
+    if (typeof persistir === "function") {
       const _fp = arr => JSON.stringify((arr || []).map(({ fetched_at, source_updated_at, ...d }) => d));
-      const existente = await obterSnapshotOffVoosDoKV(env);
-      if (_fp(registro.aeroportos) !== _fp(existente && existente.aeroportos)) {
-        await env.SAUDE_KV.put("offvoos_snapshot", JSON.stringify(registro));
-      }
+      if (_fp(registro.aeroportos) !== _fp(anteriorConhecido && anteriorConhecido.aeroportos)) await persistir(registro);
     }
   } catch { /* nunca derruba o coletor */ }
 
   return registro;
 }
 
+// Leitura: pergunta ao OffVoosPoller; se o DO não responder, cai no último
+// snapshot legado em KV (só leitura — ninguém mais grava essa chave).
 async function obterSnapshotOffVoosDoKV(env) {
+  try {
+    if (env.OFFVOOS_DO) {
+      const r = await env.OFFVOOS_DO.get(env.OFFVOOS_DO.idFromName("global")).fetch("https://offvoos-poller.interno/snapshot");
+      if (r.ok) { const j = await r.json(); if (j && j.aeroportos) return j; }
+    }
+  } catch { /* fallback abaixo */ }
   try {
     if (!env.SAUDE_KV) return null;
     const bruto = await env.SAUDE_KV.get("offvoos_snapshot");
@@ -6349,8 +6357,11 @@ export class OffVoosPoller {
     }
   }
 
-  async fetch() {
+  async fetch(request) {
     await this.pronto;
+    if (request && new URL(request.url).pathname === "/snapshot") {
+      return new Response(JSON.stringify((await this.state.storage.get("snapshot")) || null), { headers: { "Content-Type": "application/json" } });
+    }
     return new Response(JSON.stringify({ ok: true, alarme_ativo: true }), {
       headers: { "Content-Type": "application/json" }
     });
@@ -6358,7 +6369,9 @@ export class OffVoosPoller {
 
   async alarm() {
     try {
-      await coletarTodosOffVoos(this.env);
+      let anterior = await this.state.storage.get("snapshot");
+      if (!anterior && this.env.SAUDE_KV) { try { anterior = JSON.parse(await this.env.SAUDE_KV.get("offvoos_snapshot") || "null"); } catch { anterior = null; } }
+      await coletarTodosOffVoos(this.env, anterior || null, (reg) => this.state.storage.put("snapshot", reg));
     } catch (e) {
       console.error("[OffVoos DO] erro na coleta, será tentado de novo no próximo ciclo:", e.message);
     }
@@ -6559,9 +6572,9 @@ const MERCADO_TICKERS_ATIVOS = [
 // real"). O snapshot sempre contém TODOS os tickers: o lote não
 // processado neste ciclo mantém o último valor válido conhecido (mesclado
 // abaixo), nunca desaparece nem vira null por falta de vez.
-async function coletarLoteMercado(env, turno) {
+async function coletarLoteMercado(env, turno, anteriorConhecido) {
   const agora = new Date().toISOString();
-  const anterior = await obterSnapshotMercadoDoKV(env);
+  const anterior = anteriorConhecido !== undefined ? anteriorConhecido : await obterSnapshotMercadoDoKV(env);
   const porId = new Map();
   if (anterior) {
     for (const item of [...(anterior.macro || []), ...(anterior.empresas || [])]) porId.set(item.id, item);
@@ -6600,24 +6613,26 @@ async function coletarLoteMercado(env, turno) {
 // snapshot completo rapidamente em diagnóstico, chame duas vezes (lote
 // alterna sozinho via turno salvo no KV) ou espere os dois ciclos do
 // Alarm (~10min, caminho normal de produção).
-async function coletarTodoMercado(env) {
-  const anterior = await obterSnapshotMercadoDoKV(env);
+async function coletarTodoMercado(env, anteriorConhecido, persistir) {
+  const anterior = anteriorConhecido !== undefined ? anteriorConhecido : await obterSnapshotMercadoDoKV(env);
   const turnoAnterior = anterior && typeof anterior.ultimo_turno === "number" ? anterior.ultimo_turno : 1;
   const turno = turnoAnterior === 0 ? 1 : 0;
-  const registro = await coletarLoteMercado(env, turno);
+  const registro = await coletarLoteMercado(env, turno, anterior);
   registro.ultimo_turno = turno;
-  // KV Budget 2.1: write-if-changed (ignora carimbos de tempo). Com mercado
-  // fechado (noite/fim de semana) as cotações não mudam e não há PUT.
-  const impressao = (o) => JSON.stringify(o, (k, v) => (/(^atualizado_em$|^fetched_at$|_at$|^ultimo_turno$|^hora|^timestamp)/i.test(k) ? undefined : v));
-  try {
-    if (env.SAUDE_KV && (!anterior || impressao(anterior) !== impressao(registro))) {
-      await env.SAUDE_KV.put("mercado_snapshot", JSON.stringify(registro));
-    }
-  } catch { /* nunca derruba o coletor */ }
+  // KV Budget 2.1: o snapshot vive no storage do MercadoPoller (quota de
+  // Durable Object, não Workers KV — eram ~144 PUTs/dia). /run-mercado
+  // (diagnóstico) só coleta e devolve, sem persistir.
+  try { if (typeof persistir === "function") await persistir(registro); } catch { /* nunca derruba o coletor */ }
   return registro;
 }
 
 async function obterSnapshotMercadoDoKV(env) {
+  try {
+    if (env.MERCADO_DO) {
+      const r = await env.MERCADO_DO.get(env.MERCADO_DO.idFromName("global")).fetch("https://mercado-poller.interno/snapshot");
+      if (r.ok) { const j = await r.json(); if (j && (j.macro || j.empresas)) return j; }
+    }
+  } catch { /* fallback abaixo */ }
   try {
     if (!env.SAUDE_KV) return null;
     const bruto = await env.SAUDE_KV.get("mercado_snapshot");
@@ -6643,14 +6658,19 @@ export class MercadoPoller {
     if (!alarmeExiste) await this.state.storage.setAlarm(Date.now() + 2000);
   }
 
-  async fetch() {
+  async fetch(request) {
     await this.pronto;
+    if (request && new URL(request.url).pathname === "/snapshot") {
+      return new Response(JSON.stringify((await this.state.storage.get("snapshot")) || null), { headers: { "Content-Type": "application/json" } });
+    }
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
   }
 
   async alarm() {
     try {
-      await coletarTodoMercado(this.env);
+      let anterior = await this.state.storage.get("snapshot");
+      if (!anterior && this.env.SAUDE_KV) { try { anterior = JSON.parse(await this.env.SAUDE_KV.get("mercado_snapshot") || "null"); } catch { anterior = null; } }
+      await coletarTodoMercado(this.env, anterior || null, (reg) => this.state.storage.put("snapshot", reg));
     } catch (e) {
       console.error("[Mercado DO] erro na coleta, será tentado de novo no próximo ciclo:", e.message);
     }
