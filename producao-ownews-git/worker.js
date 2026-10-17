@@ -974,6 +974,8 @@ html[data-theme="light"] .theme-btn .ico-lua{display:none}
 #glossarioLista .campo-row{scroll-margin-top:90px;display:block;padding:12px 0}#glossarioLista .campo-rotulo{display:block;margin:0 0 2px;font-family:var(--mono,monospace);font-size:14px;color:var(--cyan-dim)}#glossarioLista .dado-valor{margin:0 0 4px}
 @media(min-width:900px){#glossarioLista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
 @media(min-width:760px) and (max-width:1099px){.nav-idioma,.links .nav-meu-ownews{display:none!important}.links .shop-btn .shop-loja{display:none}}
+@media(max-width:759px){.hub-nav .nav-mais{position:static}}
+.hub-main .area-desc{font-size:15px;line-height:1.65;max-width:780px;color:var(--muted)}
 /* ==== TEMA CLARO + MARCAS D'ÁGUA: FIM ==== */
 `;
 
@@ -16588,7 +16590,7 @@ function renderSobre() {
     "<h2>O que fazemos</h2>" +
     '<ul class="hub-lista">' +
     '<li><strong>Notícias</strong> do setor, com fonte primária identificada e link para a origem em cada matéria.</li>' +
-    '<li><strong>Buddy te explica</strong>: em parte das notícias, um bloco curto escrito pelo OWNews que diz o que a notícia significa e, quando há base para isso, por que importa para quem trabalha offshore.</li>' +
+    '<li><strong>Buddy te explica</strong>: em parte das notícias, um bloco curto — escrito pela redação ou por inteligência artificial com checagens automáticas, sempre identificado — que diz o que a notícia significa e, quando há base para isso, por que importa para quem trabalha offshore.</li>' +
     '<li><strong><a href="/explica">OWNews Explica</a></strong> e <a href="/guias">Guias</a>: textos originais sobre como o offshore funciona — FPSO, sonda, escala, embarque, Margem Equatorial, Oferta Permanente.</li>' +
     '<li><strong>Referência</strong>: <a href="/funcoes">Funções a bordo</a>, <a href="/carreiras/sonda-de-perfuracao">Carreiras</a>, <a href="/glossario">Glossário</a>, <a href="/certificados-offshore">Certificados</a> e o <a href="/radar">Radar Offshore</a>, diretório de unidades que operam no Brasil.</li>' +
     '<li><strong>Ferramentas</strong> gratuitas: <a href="/minha-escala">Minha Escala</a>, <a href="/meus-certificados">Meus Certificados</a>, <a href="/meus-alertas">Meus Alertas</a> e <a href="/vagas">Vagas</a> agregadas de fontes públicas.</li>' +
