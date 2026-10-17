@@ -936,8 +936,11 @@ export default {
       try {
         const heartbeatAtual = await env.SAUDE_KV.get('instagram_ultimo_heartbeat_vps');
         const idadeMs = heartbeatAtual ? Date.now() - new Date(heartbeatAtual).getTime() : Infinity;
-        if (idadeMs > 5 * 60000) {
-          await env.SAUDE_KV.put('instagram_ultimo_heartbeat_vps', new Date().toISOString(), { expirationTtl: 3600 });
+        // KV Budget 2.1 (2026-10-17): 5 min -> 60 min. Medido via GraphQL:
+        // este PUT sozinho era ~255/dia (maior item fixo da conta, que divide
+        // 1.000 PUTs/dia entre todos os Workers). Único uso: hora exibida no CC.
+        if (idadeMs > 60 * 60000) {
+          await env.SAUDE_KV.put('instagram_ultimo_heartbeat_vps', new Date().toISOString(), { expirationTtl: 3 * 3600 });
         }
       } catch { /* observabilidade nunca quebra o poller */ }
       const job = await lerJobAtual(env);

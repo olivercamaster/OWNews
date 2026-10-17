@@ -306,9 +306,38 @@ const MARINHA_CATEGORIAS = [
   "transporte-aquaviario"
 ];
 
+const ROTAS_PUBLICAS_COLLECTOR = new Set(["/aeroportos", "/mercado", "/saude", "/offvoos", "/"]);
+function tokenAdminValido(request, env) {
+  const esperado = env && env.OWNEWS_ADMIN_TOKEN;
+  const recebido = request.headers.get("X-OWNews-Token") || "";
+  if (!esperado || typeof esperado !== "string" || esperado.length < 24 || recebido.length !== esperado.length) return false;
+  let dif = 0;
+  for (let i = 0; i < esperado.length; i++) dif |= esperado.charCodeAt(i) ^ recebido.charCodeAt(i);
+  return dif === 0;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Segurança (Missão AdSense 2.1, 2026-10-17): este Worker é público em
+    // *.workers.dev. Antes, rotas como /admin/deletar-artigo, /run e
+    // /retroprocessar-* aceitavam qualquer requisição (ou só o cabeçalho
+    // fixo 'X-OWNews-Internal: 1'). Agora só as leituras públicas usadas
+    // pelo site ficam abertas; todo o resto exige o Worker Secret
+    // OWNEWS_ADMIN_TOKEN no cabeçalho X-OWNews-Token. Sem secret
+    // configurado = tudo fechado (fail closed).
+    if (!ROTAS_PUBLICAS_COLLECTOR.has(url.pathname) && !tokenAdminValido(request, env)) {
+      return new Response(JSON.stringify({ erro: "não autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    }
+
+    if (url.pathname === "/admin/buddy-ia") {
+      if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
+      const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
+      const rota = url.searchParams.get("rodar") === "1" ? "/rodar" + url.search : "/status";
+      const r = await stub.fetch("https://buddy-ia.interno" + rota);
+      return new Response(r.body, { headers: { "Content-Type": "application/json" } });
+    }
 
     if (url.pathname === "/run-anp") {
       return executarTeste(() => coletarANP(env));
@@ -611,69 +640,10 @@ if (url.pathname === "/teste-materia") {
 }
 
  if (url.pathname === "/retroprocessar-buddy-impact") {
-  // Retroprocessa artigos publicados sem buddy_summary ou why_it_matters.
-  // Modos: ?limite=N, ?incluir_sem_material=1, ?incluir_parcial=1 (fallback com campo ausente)
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: "Supabase não configurado" });
-  const limite = Math.min(parseInt(url.searchParams.get("limite") || "50", 10), 200);
-  const incluirSemMaterial = url.searchParams.get("incluir_sem_material") === "1";
-  const incluirParcial = url.searchParams.get("incluir_parcial") === "1";
-  let filtroSource;
-  if (incluirParcial) {
-    // buddy_source=fallback mas com um ou os dois campos null (parcialmente completo)
-    filtroSource = 'buddy_source=eq.fallback&or=(buddy_summary.is.null,why_it_matters.is.null)';
-  } else if (incluirSemMaterial) {
-    filtroSource = 'or=(buddy_source.is.null,buddy_source.eq.sem_material)';
-  } else {
-    filtroSource = 'buddy_source=is.null';
-  }
-  try {
-    const resp = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtroSource}&order=published_at.desc&limit=${limite}`,
-      { headers: supabaseHeaders(env) }
-    );
-    if (!resp.ok) {
-      const eText = await resp.text().catch(() => '');
-      const migPendente = eText.includes('42703') || eText.includes('does not exist');
-      return Response.json({ ok: false, migracao_pendente: migPendente, instrucao: migPendente ? 'Aplique docs/MIGRATION-BUDDY-EXPLICA.sql no Supabase SQL Editor.' : 'Erro Supabase.', detalhe: eText.slice(0,300) });
-    }
-    const artigos = await resp.json();
-    // Plano Free: limite de 50 subrequests por invocação (1 já gasto no SELECT).
-    // Nunca ultrapassa 40 PATCHes totais (incluindo sem_material) para ter margem.
-    const MAX_PATCHES = 40;
-    let atualizados = 0, semMaterial = 0, erros = 0, limitado = 0, totalPatches = 0;
-    for (const artigo of artigos) {
-      if (totalPatches >= MAX_PATCHES) { limitado++; continue; }
-      try {
-        const camada = gerarCamadaEditorialParaArtigo(artigo);
-        const patch = { buddy_source: 'fallback' };
-        if (camada.buddy_summary) patch.buddy_summary = camada.buddy_summary;
-        if (camada.why_it_matters) patch.why_it_matters = camada.why_it_matters;
-        if (!camada.buddy_summary && !camada.why_it_matters) {
-          patch.buddy_source = 'sem_material';
-          patch.buddy_summary = null;
-          patch.why_it_matters = null;
-        } else if (incluirParcial) {
-          // fallback_partial: gerou apenas 1 dos 2 campos — reavaliado mas incompleto.
-          // Impede reprocessamento infinito sem ganho; campo faltante é zerado se era entity-only.
-          if (!camada.buddy_summary) patch.buddy_summary = null;
-          if (!camada.why_it_matters) patch.why_it_matters = null;
-          patch.buddy_source = 'fallback_partial';
-        }
-        totalPatches++;
-        const pr = await fetch(
-          `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(artigo.id)}`,
-          { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch) }
-        );
-        if (pr.ok) {
-          if (camada.buddy_summary || camada.why_it_matters) atualizados++;
-          else semMaterial++;
-        } else { erros++; }
-      } catch { erros++; totalPatches--; }
-    }
-    return Response.json({ ok: true, consultados: artigos.length, atualizados, sem_material: semMaterial, erros, limitado });
-  } catch(e) {
-    return Response.json({ ok: false, erro: e.message }, { status: 500 });
-  }
+  // Missão AdSense 2.1: desativada — gravava Buddy extrativo (frases da
+  // fonte) e impacto de template no banco. Substituída por /admin/buddy-ia
+  // (IA + gate QUALIDADE EDITORIAL 2.1, com teto diário).
+  return Response.json({ ok: false, erro: "rota desativada na Missão AdSense 2.1 — use /admin/buddy-ia?rodar=1&limite=N" }, { status: 410 });
 }
 
  if (url.pathname === "/limpar-buddy-invalido") {
@@ -765,8 +735,14 @@ if (url.pathname === "/teste-materia") {
  if (url.pathname === "/aeroportos") {
   await garantirOffVoosPollerAtivo(env);
   const resultado = await consultarAeroportos(env);
-  // Cache snapshot for CC observability and boletim fallback
-  await salvarSnapshotAeroportosNoKV(env, resultado);
+  // KV Budget 2.1: antes gravava a CADA requisição (cada aba aberta da Home
+  // = ~144 PUTs/dia). Agora só regrava se o snapshot salvo tem > 30 min
+  // (<= 48 PUTs/dia, independente do tráfego). Leitura de KV é barata.
+  try {
+    const salvo = env.SAUDE_KV ? await env.SAUDE_KV.get("aeroportos_snapshot", "json") : null;
+    const idadeMs = salvo && salvo.fetched_at ? Date.now() - new Date(salvo.fetched_at).getTime() : Infinity;
+    if (!(idadeMs < 30 * 60000)) await salvarSnapshotAeroportosNoKV(env, resultado);
+  } catch { /* observabilidade nunca derruba a rota */ }
   return Response.json(resultado, {
     headers: {
       "Access-Control-Allow-Origin": "*"
@@ -956,6 +932,8 @@ if (url.pathname === "/teste-materia") {
   // invocation") antes mesmo de PPSA/EPE conseguirem inserir algo.
   async scheduled(event, env, ctx) {
     const grupo = event.cron === "20 8,11,14,17,20,22 * * *" ? "B" : "A";
+    // Missão AdSense 2.1: garante que o Alarm do BuddyIAPoller existe.
+    ctx.waitUntil(garantirBuddyIAPollerAtivo(env));
 
     // Observabilidade adicionada em 2026-09-17 (P0.3 — /saude precisa provar
     // execução real, não só inferir por data de artigo). Grava em KV
@@ -2767,7 +2745,10 @@ async function acumularGateEditorial(env, resultados) {
     // Só escreve se houve dados novos OU se a poda removeu entradas antigas.
     // Ciclos sem artigos editoriais (ex: madrugada, fontes sem novidade)
     // não geram PUT — economiza ~15-20 writes/dia no SAUDE_KV.
-    if (teveDados || final.length < acum.length) {
+    // KV Budget 2.1: a poda sozinha era verdadeira quase todo ciclo (a
+    // entrada mais antiga sai da janela de 7d a cada hora) — agora só grava
+    // com dado novo; a poda acontece junto da próxima gravação real.
+    if (teveDados) {
       await env.SAUDE_KV.put('gate_acum', JSON.stringify(final), { expirationTtl: 8 * 86400 });
     }
   } catch { /* observabilidade nunca pode quebrar o coletor */ }
@@ -2776,7 +2757,7 @@ async function acumularGateEditorial(env, resultados) {
 async function obterGateEditorialStats(env) {
   if (!env.SAUDE_KV) return null;
   try {
-    const acum = await env.SAUDE_KV.get('gate_acum', 'json') || [];
+    const acum = (await env.SAUDE_KV.get('gate_acum', 'json') || []).filter((e) => e && e.ts >= Date.now() - 7 * 86400000);
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
@@ -3479,6 +3460,382 @@ function gerarCamadaEditorialParaArtigo(artigo) {
   };
 }
 
+/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====
+   Missão AdSense 2.1 (2026-10-17). Bloco IDÊNTICO em ownews-git/worker.js e
+   shrill-pond-a915/worker.js (teste de paridade em tests/qualidade_editorial_test.js).
+   Funções puras, sem dependência externa:
+   - detectarErrosTexto: artefatos de scraping/truncamento/HTML/UI.
+   - sanearTextoPublicacao: correções mecânicas seguras ("..", espaços antes
+     de pontuação, entidades HTML) — nunca reescreve conteúdo.
+   - similaridadeTextos / trechoCopiadoDaFonte: anti-cópia lead↔Buddy,
+     Buddy↔impacto, lead↔impacto e Buddy↔corpo da fonte.
+   - validarBuddyPublicavel / validarImpactoPublicavel: gate único usado na
+     geração (collector) e na exibição (frontend).
+   - classificarIndexacaoNoticia: INDEXABLE | NOINDEX | EDITORIAL_INCOMPLETE | DESCARTAR. */
+const Q21_STOP = new Set(('a o e de da do das dos em no na nos nas um uma uns umas para por com sem que se ao aos as os mais menos como ja foi sao ser esta este essa esse isso isto pela pelo pelas pelos entre sobre apos ate tambem ainda seu sua seus suas nao sim muito mas ou quando onde qual quais the and for with from that this was were has have its are will into than over after said').split(' '));
+function q21Tokens(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !Q21_STOP.has(w));
+}
+function q21Bigramas(tokens) {
+  const r = new Set();
+  for (let i = 0; i < tokens.length - 1; i++) r.add(tokens[i] + ' ' + tokens[i + 1]);
+  return r;
+}
+/* contencao: fração das palavras de A presentes em B. bigramas: fração dos
+   pares consecutivos de A presentes em B (detecta cópia/paráfrase rasa). */
+function similaridadeTextos(a, b) {
+  const ta = q21Tokens(a), tb = q21Tokens(b);
+  if (!ta.length || !tb.length) return { contencao: 0, bigramas: 0 };
+  const sb = new Set(tb);
+  const contencao = ta.filter((w) => sb.has(w)).length / ta.length;
+  const ba = q21Bigramas(ta), bb = q21Bigramas(tb);
+  let c = 0; ba.forEach((x) => { if (bb.has(x)) c++; });
+  return { contencao, bigramas: ba.size ? c / ba.size : 0 };
+}
+function q21Frases(texto) {
+  return String(texto || '').trim().split(/(?<=[.!?])\s+(?=[A-ZÀ-Ú0-9"“(])/).map((f) => f.trim()).filter((f) => f.length > 0);
+}
+/* true se alguma frase do texto reproduz a fonte: sequência contínua de
+   >= 8 palavras úteis idêntica à fonte, ou >= 90% dos pares de palavras de
+   uma frase (>= 6 palavras) presentes na fonte. Calibrado em 2026-10-17:
+   extração literal dá 1.0/frase inteira; reescrita real fica em 3–6. */
+function trechoCopiadoDaFonte(texto, fonte) {
+  if (!texto || !fonte) return false;
+  const tf = q21Tokens(fonte);
+  const bf = q21Bigramas(tf);
+  if (!bf.size) return false;
+  const sf = ' ' + tf.join(' ') + ' ';
+  return q21Frases(texto).some((f) => {
+    const t = q21Tokens(f);
+    if (t.length < 6) return false;
+    for (let i = 0; i + 8 <= t.length; i++) {
+      if (sf.includes(' ' + t.slice(i, i + 8).join(' ') + ' ')) return true;
+    }
+    const bg = q21Bigramas(t);
+    let c = 0; bg.forEach((x) => { if (bf.has(x)) c++; });
+    return c / bg.size >= 0.9;
+  });
+}
+const Q21_UI_VAZAMENTO = /(inscreva-se|assine (a|nossa|já)|cadastre seu e-?mail|receba (as|nossas) (not[ií]cias|novidades)|leia (também|mais)\s*[:>]|clique aqui|compartilhe (esta|no)|teste gr[aá]tis|assista (a |à |às |aos |entrevistas|ao v[ií]deo)|todos os direitos reservados|siga-nos|newsletter (gratuita|di[aá]ria)|powered by|veja mais\s*$|saiba mais\s*$)/i;
+function detectarErrosTexto(texto) {
+  const t = String(texto || '');
+  const e = [];
+  if (/(^|[^.])\.\.(?!\.)/.test(t)) e.push('ponto_duplo');
+  if (/\.{4,}|\s\.\.\.\s*$|…\s*$|\.\.\.\s*$/.test(t.trim())) e.push('reticencias_quebradas');
+  if (/&(#\d{2,5}|#x[0-9a-f]{2,4}|[a-z]{2,8});/i.test(t)) e.push('entidade_html');
+  if (/<[a-z\/!][^>]*>/i.test(t)) e.push('tag_html');
+  if (/[A-Za-zÀ-ú0-9%)"”]\s+[,;:.!?](\s|$)/.test(t)) e.push('espaco_antes_pontuacao');
+  if (/\(\s|\s\)/.test(t)) e.push('parenteses_espacados');
+  if (Q21_UI_VAZAMENTO.test(t)) e.push('vazamento_ui');
+  if (/[�\u0000-\u0008\u000B\u000C\u000E-\u001F]|Ã[\u0080-¿]|â€|Â\s/.test(t)) e.push('caractere_estranho');
+  if (t.trim() && !/[.!?"”»)]$/.test(t.trim())) e.push('frase_incompleta');
+  return e;
+}
+function pareceIngles(texto) {
+  const w = String(texto || '').toLowerCase().match(/[a-zà-ú]+/g) || [];
+  if (w.length < 8) return false;
+  const en = new Set(['the', 'and', 'of', 'to', 'in', 'is', 'was', 'with', 'for', 'on', 'that', 'by', 'has', 'have', 'will', 'its', 'are', 'from', 'announced', 'company', 'which']);
+  const pt = new Set(['de', 'da', 'do', 'que', 'em', 'para', 'com', 'uma', 'um', 'os', 'as', 'no', 'na', 'dos', 'das', 'foi', 'pela', 'pelo', 'não', 'são']);
+  const nen = w.filter((x) => en.has(x)).length, npt = w.filter((x) => pt.has(x)).length;
+  return nen >= 3 && nen > npt;
+}
+/* Correções mecânicas seguras; NÃO reescreve, não completa frase cortada. */
+function sanearTextoPublicacao(texto) {
+  let t = String(texto || '');
+  const ent = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ldquo: '“', rdquo: '”', lsquo: '‘', rsquo: '’', ndash: '–', mdash: '—', hellip: '…', ordm: 'º', ordf: 'ª', deg: '°',
+    aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', atilde: 'ã', otilde: 'õ', acirc: 'â', ecirc: 'ê', ocirc: 'ô', agrave: 'à', ccedil: 'ç', uuml: 'ü',
+    Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú', Atilde: 'Ã', Otilde: 'Õ', Acirc: 'Â', Ecirc: 'Ê', Ocirc: 'Ô', Agrave: 'À', Ccedil: 'Ç' };
+  t = t.replace(/&([a-zA-Z]{2,8});/g, (m, n) => (Object.prototype.hasOwnProperty.call(ent, n) ? ent[n] : m))
+    .replace(/&#(\d{2,5});/g, (m, n) => { const c = parseInt(n, 10); return c >= 32 && c < 65536 ? String.fromCharCode(c) : ' '; })
+    .replace(/&#x([0-9a-f]{2,4});/gi, (m, n) => String.fromCharCode(parseInt(n, 16)));
+  t = t.replace(/([^.\s])\s*\.\.(?!\.)/g, '$1.')
+    .replace(/[ \t]+([,;:.!?])(?=\s|$)/g, '$1')
+    .replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')
+    .replace(/[ \t]{2,}/g, ' ');
+  return t.trim();
+}
+const IMPACTO_GENERICO_RE = [
+  /segmento central/i, /a informa[çc][aã]o envolve .{3,90}, com participa[çc][aã]o de/i,
+  /acompanhe os desdobramentos/i, /neste momento/i, /por si s[oó]/i,
+  /\bisso (pode|significa|importa|mostra|demonstra|refor[çc]a)\b/i, /\b[eé] importante porque\b/i,
+  /\bpode(m)? (afetar|impactar|levar|influenciar|contribuir|gerar|atrair|abrir|impulsionar|beneficiar)\b/i,
+  /\b(vagas|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i,
+  /crescimento da economia|desenvolvimento econ[oô]mico|seguran[çc]a energ[eé]tica nacional/i,
+  /refor[çc]a (a|o|seu|sua)/i, /import[aâ]ncia (do|para o) setor/i, /setor offshore como um todo/i,
+  /equa[çc][aã]o econ[oô]mica de projetos offshore/i, /desempenho real das instala[çc][õo]es/i,
+  /produzido associado ao petr[oó]leo/i, /afetam diretamente o volume de trabalho/i,
+  /pode(m)? resultar em/i, /potencial(mente)? (impacto|influenciar)/i
+];
+function q21Frasesbase(texto) {
+  const v = validarTextoCamadaEditorial(texto);
+  if (!v.ok) return [v.motivo];
+  const m = [];
+  detectarErrosTexto(texto).forEach((e) => m.push(e));
+  if (pareceIngles(texto)) m.push('ingles');
+  // frase redundante: >= 85% das palavras já ditas nas frases anteriores
+  const fr = q21Frases(texto);
+  for (let i = 1; i < fr.length; i++) {
+    if (similaridadeTextos(fr[i], fr.slice(0, i).join(' ')).contencao >= 0.85) { m.push('frase_redundante'); break; }
+  }
+  return m;
+}
+/* Buddy: "O que aconteceu?" — 2 a 4 frases, próprio, não cópia do lead/fonte. */
+function validarBuddyPublicavel(texto, artigo, opcoes) {
+  const o = opcoes || {};
+  if (!texto || typeof texto !== 'string') return { ok: false, motivos: ['vazio'] };
+  const t = texto.trim();
+  const m = q21Frasesbase(t);
+  const nFrases = q21Frases(t).filter((f) => q21Tokens(f).length >= 3).length;
+  if (!o.curadoria && (nFrases < 2 || nFrases > 4)) m.push('frases_' + nFrases);
+  const lead = String((artigo && artigo.summary) || '');
+  const titulo = String((artigo && artigo.title) || '');
+  const sl = similaridadeTextos(t, lead);
+  if (sl.bigramas >= 0.45 || sl.contencao >= 0.9) m.push('copia_lead');
+  if (similaridadeTextos(t, titulo).contencao >= 0.9) m.push('copia_titulo');
+  if (!o.curadoria) {
+    const corpo = String((artigo && (o.fonte || artigo.content)) || '');
+    if (trechoCopiadoDaFonte(t, corpo) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
+  }
+  return { ok: m.length === 0, motivos: m };
+}
+/* Impacto: "Por que isso importa para o offshore?" — específico, sem
+   boilerplate/especulação, não repete Buddy nem lead, ancorado na matéria. */
+function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
+  const o = opcoes || {};
+  if (!texto || typeof texto !== 'string') return { ok: false, motivos: ['vazio'] };
+  const t = texto.trim();
+  const m = q21Frasesbase(t);
+  if (typeof validarImpactoOffshore === 'function' && !validarImpactoOffshore(t).ok) m.push('proibido_impacto');
+  if (!o.curadoria) {
+    const g = IMPACTO_GENERICO_RE.find((re) => re.test(t));
+    if (g) m.push('generico');
+  }
+  const lead = String((artigo && artigo.summary) || '');
+  const sl = similaridadeTextos(t, lead);
+  if (sl.bigramas >= 0.4 || sl.contencao >= 0.85) m.push('copia_lead');
+  if (buddy) {
+    const sb = similaridadeTextos(t, buddy);
+    if (sb.bigramas >= 0.35 || sb.contencao >= 0.8) m.push('repete_buddy');
+  }
+  if (!o.curadoria) {
+    const corpo = String((artigo && (o.fonte || artigo.content)) || '');
+    if (trechoCopiadoDaFonte(t, corpo)) m.push('copia_fonte');
+    // ancoragem: ao menos um nome próprio/número do impacto existe na matéria
+    const base = q21Tokens([artigo && artigo.title, lead, corpo].join(' '));
+    const setBase = new Set(base);
+    const ancoras = (t.match(/\b([A-ZÀ-Ú][\wÀ-ú-]{2,}|\d[\d.,]*)/g) || []).slice(1)
+      .map((x) => q21Tokens(x)[0]).filter(Boolean);
+    if (!ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
+  }
+  return { ok: m.length === 0, motivos: m };
+}
+/* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
+   - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo (IA: 'nenhuma').
+   - NOINDEX: corpo thin (ehMateriaThin) — Buddy não "reindexa" corpo insuficiente.
+   - EDITORIAL_INCOMPLETE: corpo ok, mas sem Buddy próprio válido.
+   - INDEXABLE: corpo ok + Buddy válido (impacto só quando válido; nunca obrigatório). */
+function classificarIndexacaoNoticia(artigo, camada) {
+  const motivos = [];
+  const titulo = String((artigo && artigo.title) || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  const corpo = String((artigo && artigo.content) || '').trim();
+  if (!titulo || titulo.length < 15) motivos.push('titulo_ausente');
+  const errTitulo = detectarErrosTexto(titulo + '.').filter((e) => e !== 'frase_incompleta' && e !== 'espaco_antes_pontuacao');
+  if (errTitulo.length) motivos.push('titulo_' + errTitulo[0]);
+  if (resumo.length + corpo.length < 80) motivos.push('sem_material');
+  if (artigo && artigo.buddy_source === 'ia_fora_escopo') motivos.push('fora_escopo');
+  if (motivos.length) return { estado: 'DESCARTAR', motivos };
+  if (typeof ehMateriaThin === 'function' ? ehMateriaThin(artigo, camada) : corpo.length < 400) return { estado: 'NOINDEX', motivos: ['thin'] };
+  if (!camada || !camada.buddy_summary) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_buddy_valido'] };
+  return { estado: 'INDEXABLE', motivos: [] };
+}
+/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */
+
+/* Mesmo critério de "thin" do frontend (ownews-git ehMateriaThin). */
+function ehMateriaThin(artigo, _camada) {
+  const corpo = String((artigo && artigo.content) || '').trim();
+  const resumo = String((artigo && artigo.summary) || '').trim();
+  if (corpo.length < 400) return true;
+  if (resumo && corpo === resumo) return true;
+  return false;
+}
+
+/* ==== CAMADA IA 2.1: INICIO ====
+   Missão AdSense 2.1 (2026-10-17). Substitui o Buddy extrativo (frases
+   copiadas da fonte) e o impacto de template ("segmento central para as
+   operações offshore") por texto escrito por IA a partir da matéria,
+   aprovado SOMENTE se passar no gate QUALIDADE EDITORIAL 2.1 + checagem de
+   números (todo número citado precisa existir na matéria). Impacto é
+   opcional: null quando a matéria não sustenta consequência concreta.
+   Modelo calibrado em 30 matérias reais (2026-10-17): ~47 neurons/matéria,
+   dentro do free tier de Workers AI (sem cobrança — acima do limite a
+   chamada falha e a matéria é tentada de novo depois).
+   Desligar: BUDDY_IA_ATIVO = false (o gate continua; nada é publicado com
+   texto extrativo/template). */
+const BUDDY_IA_ATIVO = true;
+const BUDDY_IA_MODELO = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const BUDDY_IA_SISTEMA =
+  'Você é editor do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. Responda SOMENTE com um objeto JSON: ' +
+  '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "buddy": string, "impacto": string|null}.\n\n' +
+  'BUDDY ("O que aconteceu?"): 2 ou 3 frases completas em português do Brasil natural, até 420 caracteres, cada frase com um fato diferente. ' +
+  'Reescreva com suas próprias palavras: não copie frases da matéria, não reproduza o primeiro parágrafo nem reformule só o título. ' +
+  'Use somente fatos explícitos na matéria: não acrescente datas, números, nomes, previsões ou opiniões que não estejam no texto. Sem adjetivos promocionais. ' +
+  'Se a matéria não tiver fatos suficientes para 2 frases, devolva buddy "".\n\n' +
+  'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P no mar, trabalhadores embarcados. ' +
+  '"indireta" = energia em terra, combustíveis, refino, distribuição de gás, política ou economia. "nenhuma" = fora do setor de energia.\n\n' +
+  'IMPACTO ("O que isso muda na prática para o offshore?"): só quando relacao_offshore = "direta" E a própria matéria informa uma consequência operacional concreta: ' +
+  'unidade que entra ou sai de operação, início, fim ou duração de campanha, prazo, volume de produção, área contratada, regra que passa a valer, risco à segurança a bordo. ' +
+  '1 ou 2 frases afirmativas, citando o elemento concreto e a consequência descrita na matéria, sem repetir o buddy. Se a matéria não diz qual é a consequência, impacto = null — não deduza.\n' +
+  'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "isso significa", "isso importa", "oportunidades", "vagas", "empregos", "crescimento da economia", "acompanhe", "segmento central", "reforça".';
+
+function extrairJsonIA(resposta) {
+  const r = resposta && (resposta.response !== undefined ? resposta.response : resposta);
+  if (r && typeof r === 'object') return r;
+  const t = String(r || '').replace(/^\s*```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  try { return JSON.parse(t); } catch { /* segue */ }
+  const m = t.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch { /* inválido */ } }
+  return null;
+}
+/* Todo número citado no texto gerado precisa existir na matéria (normaliza
+   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
+function numerosSustentadosPelaFonte(texto, fonte) {
+  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
+  const daFonte = new Set(nums(fonte));
+  return nums(texto).every((n) => daFonte.has(n));
+}
+/* Gera e valida. Retorna:
+   { ok:true, buddy_summary, why_it_matters|null, relacao }   — aprovado
+   { ok:false, relacao, motivos }                              — reprovado (não publicar)
+   { ok:false, erro }                                          — falha técnica (tentar depois) */
+async function gerarCamadaEditorialIA(env, artigo, materialFonte) {
+  if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
+  const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 3500);
+  if (material.length < 120) return { ok: false, relacao: null, motivos: ['sem_material'] };
+  let saida;
+  try {
+    saida = await env.AI.run(BUDDY_IA_MODELO, {
+      messages: [
+        { role: 'system', content: BUDDY_IA_SISTEMA },
+        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material }
+      ],
+      max_tokens: 450,
+      temperature: 0.2
+    });
+  } catch (e) {
+    return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
+  }
+  const j = extrairJsonIA(saida);
+  if (!j) return { ok: false, erro: 'ia_json_invalido' };
+  const relacao = ['direta', 'indireta', 'nenhuma'].includes(j.relacao_offshore) ? j.relacao_offshore : null;
+  if (relacao === 'nenhuma') return { ok: false, relacao, motivos: ['fora_escopo'] };
+  const fonteCompleta = [artigo.title, artigo.summary, material].join(' ');
+  const buddy = j.buddy ? sanearTextoPublicacao(String(j.buddy)) : '';
+  const vb = buddy ? validarBuddyPublicavel(buddy, artigo, { fonte: material }) : { ok: false, motivos: ['buddy_vazio'] };
+  const motivos = vb.motivos.slice();
+  if (buddy && !numerosSustentadosPelaFonte(buddy, fonteCompleta)) motivos.push('numero_sem_fonte');
+  if (motivos.length) return { ok: false, relacao, motivos };
+  let impacto = null;
+  if (relacao === 'direta' && j.impacto) {
+    const imp = sanearTextoPublicacao(String(j.impacto));
+    const vi = validarImpactoPublicavel(imp, artigo, buddy, { fonte: material });
+    if (vi.ok && numerosSustentadosPelaFonte(imp, fonteCompleta)) impacto = imp;
+  }
+  return { ok: true, buddy_summary: buddy, why_it_matters: impacto, relacao };
+}
+
+/* Retroprocessamento do acervo (BuddyIAPoller e rota admin). Processa as
+   matérias mais recentes ainda sem camada IA; thin (corpo = resumo ou
+   < 400 caracteres) é marcada sem_material — não tem como virar INDEXABLE.
+   Nunca apaga o texto antigo: matéria reprovada recebe buddy_source
+   'ia_rejeitado'/'ia_fora_escopo' e o frontend oculta o bloco. */
+async function retroprocessarCamadaIA(env, limite) {
+  const max = Math.max(1, Math.min(limite || 5, 12));
+  const out = { consultados: 0, aprovados: 0, rejeitados: 0, fora_escopo: 0, thin: 0, erros: 0, interrompido: null, detalhes: [] };
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) { out.interrompido = 'supabase_nao_configurado'; return out; }
+  const filtro = 'or=(buddy_source.is.null,buddy_source.not.in.(ia,ia_rejeitado,ia_fora_escopo,sem_material))';
+  const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtro}&order=published_at.desc&limit=40`, { headers: supabaseHeaders(env) });
+  if (!resp.ok) { out.interrompido = 'select_http_' + resp.status; return out; }
+  const artigos = await resp.json();
+  out.consultados = artigos.length;
+  let processados = 0, subreq = 1; // limite Free: 50 subrequests/invocação — margem: <= 35
+  for (const a of artigos) {
+    if (processados >= max || subreq >= 33) break;
+    const corpo = String(a.content || '').trim(), resumo = String(a.summary || '').trim();
+    let patch;
+    if (corpo.length < 400 || corpo === resumo) {
+      patch = { buddy_source: 'sem_material' };
+      out.thin++;
+    } else {
+      processados++;
+      subreq++;
+      const r = await gerarCamadaEditorialIA(env, a, corpo);
+      if (r.erro) { out.erros++; out.interrompido = r.erro; break; }
+      if (r.ok) { patch = { buddy_summary: r.buddy_summary, why_it_matters: r.why_it_matters, buddy_source: 'ia' }; out.aprovados++; }
+      else if (r.relacao === 'nenhuma') { patch = { buddy_source: 'ia_fora_escopo' }; out.fora_escopo++; }
+      else { patch = { buddy_source: 'ia_rejeitado' }; out.rejeitados++; }
+      out.detalhes.push({ id: a.id, ok: !!r.ok, relacao: r.relacao || null, motivos: r.motivos || [], impacto: !!(r.ok && r.why_it_matters) });
+    }
+    subreq++;
+    const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(a.id)}`, {
+      method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
+    });
+    if (!pr.ok) { out.erros++; out.interrompido = 'patch_http_' + pr.status; break; }
+  }
+  return out;
+}
+
+/* BuddyIAPoller — Durable Object com Alarm próprio (invocação separada da
+   coleta: não disputa o limite de subrequests do EditorialPoller e não usa
+   cron trigger — conta está em 5/5). Teto diário guardado no storage do
+   próprio DO (quota separada do Workers KV: zero PUT em KV). */
+const BUDDY_IA_POR_ALARME = 5;
+const BUDDY_IA_TETO_DIA = 60;
+const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
+export class BuddyIAPoller {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.pronto = this.inicializar();
+  }
+  async inicializar() {
+    const alarme = await this.state.storage.getAlarm();
+    if (!alarme) await this.state.storage.setAlarm(Date.now() + 60000);
+  }
+  async rodar(limite, ignorarTeto) {
+    const dia = new Date().toISOString().slice(0, 10);
+    const chave = 'feitos:' + dia;
+    const feitos = (await this.state.storage.get(chave)) || 0;
+    const restante = ignorarTeto ? limite : Math.min(limite, BUDDY_IA_TETO_DIA - feitos);
+    if (restante <= 0) return { pulado: 'teto_diario', feitos };
+    const r = await retroprocessarCamadaIA(this.env, restante);
+    const gastos = r.aprovados + r.rejeitados + r.fora_escopo;
+    await this.state.storage.put(chave, feitos + gastos);
+    await this.state.storage.put('ultimo', { em: new Date().toISOString(), aprovados: r.aprovados, rejeitados: r.rejeitados, fora_escopo: r.fora_escopo, thin: r.thin, erros: r.erros, interrompido: r.interrompido });
+    return Object.assign({ feitos_hoje: feitos + gastos }, r);
+  }
+  async fetch(request) {
+    await this.pronto;
+    const url = new URL(request.url);
+    if (url.pathname === '/rodar') {
+      const limite = Math.min(parseInt(url.searchParams.get('limite') || '5', 10) || 5, 12);
+      return Response.json(await this.rodar(limite, url.searchParams.get('ignorar_teto') === '1'));
+    }
+    return Response.json({ ok: true, ultimo: (await this.state.storage.get('ultimo')) || null, feitos_hoje: (await this.state.storage.get('feitos:' + new Date().toISOString().slice(0, 10))) || 0 });
+  }
+  async alarm() {
+    try { await this.rodar(BUDDY_IA_POR_ALARME, false); }
+    catch (e) { console.error('[BuddyIAPoller] erro, ignorado com segurança:', e && e.message); }
+    await this.state.storage.setAlarm(Date.now() + BUDDY_IA_INTERVALO_MS);
+  }
+}
+async function garantirBuddyIAPollerAtivo(env) {
+  if (!env.BUDDY_IA_DO) return;
+  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/status'); } catch { /* best effort */ }
+}
+/* ==== CAMADA IA 2.1: FIM ==== */
+
 async function processarNoticiasComDedupe(env, fonte, noticias, contexto = {}) {
   const recentes = await buscarTitulosRecentes(env, 5);
   const filtradas = [];
@@ -3784,33 +4141,35 @@ slug: criarSlug(tituloPublicado),
       const artigoParaGate = corpoEnParaGate
         ? { ...artigo, content: corpoEnParaGate }
         : artigo;
-      const camadaEditorial = gerarCamadaEditorialParaArtigo(artigoParaGate);
-      // Traduz buddy_summary EN → PT quando gerado a partir do corpo EN
-      if (corpoEnParaGate && camadaEditorial.buddy_summary) {
-        const ptBuddy = await traduzirResumoParaPT(env, camadaEditorial.buddy_summary);
-        if (ptBuddy) camadaEditorial.buddy_summary = ptBuddy;
+      // Missão AdSense 2.1 — gate editorial com IA + QUALIDADE EDITORIAL 2.1.
+      // Antes: Buddy = frases copiadas da fonte; impacto = template. Agora:
+      // Buddy escrito por IA a partir da matéria e aprovado pelo gate
+      // (sem cópia, sem boilerplate, números conferidos); impacto opcional.
+      // Sem Buddy válido -> não publica (editorial_incomplete). Falha técnica
+      // da IA -> não publica agora; a matéria segue no feed e é tentada de
+      // novo na próxima coleta (dedupe é pelo banco). Fora do escopo -> descarta.
+      const camadaIA = await gerarCamadaEditorialIA(env, artigo, corpoEnParaGate || artigo.content || artigo.summary);
+      if (camadaIA.ok) {
+        artigo.buddy_summary = camadaIA.buddy_summary;
+        artigo.why_it_matters = camadaIA.why_it_matters;
+        artigo.buddy_source = 'ia';
       }
-      if (camadaEditorial.buddy_summary !== null) artigo.buddy_summary = camadaEditorial.buddy_summary;
-      if (camadaEditorial.why_it_matters !== null) artigo.why_it_matters = camadaEditorial.why_it_matters;
 
-      if (!artigo.buddy_summary || !artigo.why_it_matters) {
+      if (!camadaIA.ok) {
         resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
         const _corpo = String(artigo.content || '').trim();
         const _resumo = String(artigo.summary || '').trim();
         const _isCS = !_corpo || _corpo === _resumo || _corpo.length <= _resumo.length + 20;
-        let _motivoGate;
-        if (!artigo.buddy_summary && !artigo.why_it_matters) {
-          _motivoGate = _isCS ? 'content=summary' : 'sem_material_completo';
-        } else if (!artigo.buddy_summary) {
-          _motivoGate = _isCS ? 'content=summary' : 'conteudo_insuficiente';
-        } else {
-          _motivoGate = 'sem_why_it_matters';
-        }
+        const _motivoGate = camadaIA.erro ? 'ia_indisponivel'
+          : (camadaIA.motivos || []).includes('fora_escopo') ? 'fora_escopo'
+          : _isCS && !corpoEnParaGate ? 'content=summary'
+          : 'sem_buddy_valido';
         if (_isCS) resultado.content_summary_count = (resultado.content_summary_count || 0) + 1;
         resultado.noticias.push({
           titulo: artigo.title,
           status: 'editorial_incomplete',
           motivo: _motivoGate,
+          motivos_ia: camadaIA.motivos || (camadaIA.erro ? [camadaIA.erro] : []),
           fonte
         });
         continue;
@@ -3824,6 +4183,7 @@ slug: criarSlug(tituloPublicado),
           // Colunas buddy_summary/why_it_matters ausentes: insere sem elas.
           delete artigo.buddy_summary;
           delete artigo.why_it_matters;
+          delete artigo.buddy_source;
           await inserirArtigo(env, artigo);
           erroInsercao = 'migracao_pendente';
         } else {
@@ -5762,7 +6122,9 @@ async function coletarTodosOffVoos(env) {
       motivo: "todos os aeroportos falharam na última coleta",
       ate: Date.now() + atrasoMs
     });
-  } else if (backoff) {
+  } else if (backoff && ((backoff.falhas_consecutivas || 0) > 0 || (backoff.ate || 0) > Date.now())) {
+    // KV Budget 2.1: o registro de reset {falhas:0, ate:0} continuava "truthy"
+    // e era regravado a cada ciclo (5 min) para sempre (+288 PUTs/dia).
     await gravarBackoffOffVoosNoKV(env, { falhas_consecutivas: 0, motivo: null, ate: 0 });
   }
 
@@ -6234,8 +6596,13 @@ async function coletarTodoMercado(env) {
   const turno = turnoAnterior === 0 ? 1 : 0;
   const registro = await coletarLoteMercado(env, turno);
   registro.ultimo_turno = turno;
+  // KV Budget 2.1: write-if-changed (ignora carimbos de tempo). Com mercado
+  // fechado (noite/fim de semana) as cotações não mudam e não há PUT.
+  const impressao = (o) => JSON.stringify(o, (k, v) => (/(^atualizado_em$|^fetched_at$|_at$|^ultimo_turno$|^hora|^timestamp)/i.test(k) ? undefined : v));
   try {
-    if (env.SAUDE_KV) await env.SAUDE_KV.put("mercado_snapshot", JSON.stringify(registro));
+    if (env.SAUDE_KV && (!anterior || impressao(anterior) !== impressao(registro))) {
+      await env.SAUDE_KV.put("mercado_snapshot", JSON.stringify(registro));
+    }
   } catch { /* nunca derruba o coletor */ }
   return registro;
 }

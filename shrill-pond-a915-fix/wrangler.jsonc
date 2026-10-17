@@ -71,7 +71,11 @@
       { "name": "TELEGRAM_AGENDADOR_DO", "class_name": "TelegramAgendadorPoller" },
       // NEWSLETTER_DO: gera draft todo domingo 20:05 UTC (17:05 BRT) via Alarm
       // (conta no limite 5/5 cron triggers — usa DO alarm como TELEGRAM_AGENDADOR_DO)
-      { "name": "NEWSLETTER_DO", "class_name": "NewsletterAgendadorDO" }
+      { "name": "NEWSLETTER_DO", "class_name": "NewsletterAgendadorDO" },
+      // BUDDY_IA_DO (Missão AdSense 2.1, 2026-10-17): retroprocessa a camada
+      // "Buddy te explica" do acervo com IA, 5 matérias/hora, teto 60/dia
+      // (contador no storage do DO — zero escrita em Workers KV).
+      { "name": "BUDDY_IA_DO", "class_name": "BuddyIAPoller" }
     ]
   },
 
@@ -90,6 +94,7 @@
     { "tag": "v2-mercado-poller", "new_sqlite_classes": ["MercadoPoller"] },
     { "tag": "v3-editorial-poller", "new_sqlite_classes": ["EditorialPoller"] },
     { "tag": "v4-telegram-agendador", "new_sqlite_classes": ["TelegramAgendadorPoller"] },
-    { "tag": "v5-newsletter-agendador", "new_sqlite_classes": ["NewsletterAgendadorDO"] }
+    { "tag": "v5-newsletter-agendador", "new_sqlite_classes": ["NewsletterAgendadorDO"] },
+    { "tag": "v6-buddy-ia", "new_sqlite_classes": ["BuddyIAPoller"] }
   ]
 }
