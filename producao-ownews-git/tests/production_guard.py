@@ -412,8 +412,11 @@ def _check_politica_editorial_secoes():
 def _check_footers_links():
     w = worker()
     alvo = '<a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a>'
-    expect(w.count(alvo) >= 2, f"footer com /correcoes aparece {w.count(alvo)}x (esperado ≥2: home + chrome)")
-    expect(w.count('<a href="/explica">OWNews Explica</a>') >= 2, "footer sem link /explica")
+    # AdSense 3.0: rodapé único (FOOTER_HTML) usado pela Home e por paginaChrome.
+    footer = w.split("const FOOTER_HTML = ", 1)[1].split(";\n", 1)[0]
+    expect(alvo in footer, "FOOTER_HTML sem /politica-editorial + /correcoes")
+    expect('<a href="/explica">OWNews Explica</a>' in footer, "footer sem link /explica")
+    expect("${FOOTER_HTML}" in w and "    FOOTER_HTML +" in w, "FOOTER_HTML não usado na Home e no chrome")
 
 
 def _check_buddy_feed_fields():
@@ -617,7 +620,7 @@ def _check_owbuddy_route():
     expect(w.count("function renderOWBuddyLanding()") == 1, "renderOWBuddyLanding")
     fn = w.split("function renderOWBuddyLanding()", 1)[1].split("\nfunction ", 1)[0]
     expect(fn.count("<h1>") == 1, "exatamente um H1")
-    for s in ("<h2>O que o Buddy já faz hoje, no navegador</h2>", "<h2>Aplicativo</h2>", "<h2>Quem é o Buddy</h2>", 'href="/minha-escala"', 'href="/meu-ownews"', 'href="/meus-certificados"', "em desenvolvimento", '"/owbuddy"\n  );'):
+    for s in ("<h2>O que o Buddy já faz hoje, no navegador</h2>", "<h2>Aplicativo</h2>", "<h2>Quem é o Buddy</h2>", 'href="/minha-escala"', 'href="/meu-ownews"', 'href="/meus-certificados"', "ainda não tem versão pública nas lojas", '"/owbuddy"\n  );'):
         expect_in(s, fn, s)
     for proibido in ("play.google.com", "apps.apple.com", "Baixe agora", "Download"):
         expect_not_in(proibido, fn, f"loja/download falso: {proibido}")
@@ -642,7 +645,7 @@ def _check_watermarks():
 def _check_hierarquia_headings():
     w = worker()
     expect(w.count('<h3 class="footer-col-titulo">') == 0, "rodapé ainda usa <h3>")
-    expect(w.count('<p class="footer-col-titulo">') >= 6, "rodapé sem <p class=footer-col-titulo>")
+    expect(w.split("const FOOTER_HTML = ", 1)[1].split(";\n", 1)[0].count('<p class="footer-col-titulo">') >= 3, "rodapé sem <p class=footer-col-titulo>")
     ex = w.split("function renderExplicaIndex(", 1)[1].split("\nfunction ", 1)[0]
     for s in ("<h2>Comece por aqui</h2>", "<h2>Todos os verbetes</h2>", "<h2>Guias práticos</h2>"):
         expect_in(s, ex, s)
@@ -678,8 +681,10 @@ def _check_ads_inalterado():
     expect_not_in("adsbygoogle.js", w.split("const HTML = `<!doctype html>", 1)[1][:200000], "script de anúncio na Home")
     ads_txt = w.split('url.pathname === "/ads.txt"', 1)[1][:800]
     corpo = ads_txt.split("new Response(", 1)[1].split('"', 2)[1]  # string literal realmente servida (comentários de código não contam)
-    expect(corpo.startswith("# OWNews"), "ads.txt deve ser só comentários enquanto o AdSense não está ativo")
-    expect_not_in("pub-", corpo, "publisher inventado no ads.txt")
+    # AdSense 3.0: ads.txt autoriza o MESMO publisher do meta google-adsense-account
+    # (anúncios seguem desligados). Nunca um pub-id diferente/inventado.
+    meta_pub = w.split('<meta name="google-adsense-account" content="ca-', 1)[1].split('"', 1)[0]
+    expect(corpo.startswith("google.com, " + meta_pub + ", DIRECT, f08c47fec0942fa0"), f"ads.txt não corresponde ao publisher do meta: {corpo[:60]!r}")
 
 
 def _validate_browser_js():

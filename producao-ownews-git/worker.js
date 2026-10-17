@@ -56,7 +56,7 @@ const SCRIPT_VISITAS =
   'var el=document.getElementById("visitasTotal");if(!el)return;' +
   'if(!dados||typeof dados.total!=="number"||dados.total<=0)return;' +
   'var fmt;try{fmt=dados.total.toLocaleString("pt-BR");}catch(e){fmt=String(dados.total);}' +
-  'el.textContent=fmt+(dados.total===1?" visita":" visitas");' +
+  'el.textContent=fmt+(dados.total===1?" visita":" visitas")+(dados.desde?" desde "+dados.desde:"");el.title="Visitas registradas pelo próprio OWNews (1 por navegador por dia; robôs excluídos)";' +
   'el.hidden=false;' +
   '}' +
   'fetch("/api/visitas-total").then(function(r){if(!r.ok)throw new Error("visitas "+r.status);return r.json();}).then(render).catch(function(){});' +
@@ -124,7 +124,7 @@ function classificarPaginaParaAds(caminho) {
   if (caminho.startsWith("/radar")) return null;
   if (caminho.startsWith("/noticia")) return null;
   if (caminho === "/minha-escala") return null;
-  const ELEGIVEIS = ["/guias", "/funcoes", "/empresas", "/salarios", "/pesquisa-salarial", "/cursos", "/comece-aqui", "/agenda"];
+  const ELEGIVEIS = ["/guias", "/funcoes", "/empresas", "/comece-aqui", "/agenda"];
   return ELEGIVEIS.some((p) => caminho === p || caminho.startsWith(p + "/")) ? "content_after_main" : null;
 }
 
@@ -777,6 +777,71 @@ const TEMA_TOGGLE_SCRIPT = '<script>(function(){var b=document.getElementById("t
 const TEMA_BOTAO_ICONES = '<svg class="ico-lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="ico-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>';
 const TEMA_BOTAO_HOME = '<button type="button" class="theme-btn" id="temaBtn" aria-label="Alternar tema claro ou escuro" aria-pressed="false" title="Mudar para o tema claro">' + TEMA_BOTAO_ICONES + '</button>';
 const TEMA_BOTAO_HUB = '<button type="button" class="theme-btn hub-theme-btn" id="temaBtn" aria-label="Alternar tema claro ou escuro" aria-pressed="false" title="Mudar para o tema claro">' + TEMA_BOTAO_ICONES + '</button>';
+/* AdSense Readiness 3.0 (2026-10-17): menu "Mais" enxuto, único para a Home
+   e para paginaChrome. Só produtos fortes, por necessidade (Agora, Carreira,
+   Ferramentas, Aprender). Fora de propósito: Salários, Calculadora,
+   Horários, Conversor e Cursos. O grupo "Portal" só aparece no menu mobile
+   das páginas internas (lá os links do topo ficam ocultos). */
+function menuMaisItens() {
+  const a = (href, nome) => '<a href="' + href + '" role="menuitem">' + nome + '</a>';
+  const g = (rotulo, links, cls) => '<div class="nav-mais-grupo' + (cls ? ' ' + cls : '') + '"><span class="nav-mais-label">' + rotulo + '</span>' + links + '</div>';
+  return g('Portal', a('/', 'Notícias') + a('/mercado', 'Mercado Offshore') + a('/carreiras', 'Carreiras Offshore'), 'nav-mais-portal') +
+    g('Agora', a('/offshore-agora', 'Offshore Agora') + a('/radar', 'Radar Offshore') + a('/aviacao-offshore', 'Aviação Offshore')) +
+    g('Carreira', a('/vagas', 'Vagas Verificadas') + a('/carreiras/cadastre-seu-curriculo', 'Cadastre seu Currículo') + a('/funcoes', 'Funções a Bordo') + a('/empresas', 'Empresas Offshore')) +
+    g('Ferramentas', a('/minha-escala', 'Minha Escala') + a('/meus-certificados', 'Meus Certificados') + a('/checklist-embarque', 'Checklist de Embarque')) +
+    g('Aprender', a('/explica', 'OWNews Explica') + a('/glossario', 'Glossário Offshore')) +
+    '<a class="nav-mais-central" href="/central-offshore" role="menuitem">Central Offshore: tudo por necessidade →</a>';
+}
+const MENU_MAIS_ITENS = menuMaisItens();
+/* Ícone do Instagram (era repetido 9x no arquivo — uma fonte só). */
+const SVG_IG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>';
+/* Rodapé único (Home + paginaChrome). Contadores: medição própria real —
+   presença por heartbeat (Durable Object PresencaOnline, memória, TTL 120s)
+   e visitas deduplicadas 1/sessão/dia (DO PageViews, SQLite), bots e
+   navegador automatizado excluídos. Ver docs/MISSION-STATE.md. */
+const FOOTER_HTML = '<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><a class="footer-logo" href="/" aria-label="OWNews — página inicial">OW<span>News</span></a><p class="footer-tagline">Notícias, contexto e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><a class="footer-by" href="https://www.offshoreworks.com.br" target="_blank" rel="noopener">by OffshoreWorks</a></div><div class="footer-col"><p class="footer-col-titulo">Portal</p><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><p class="footer-col-titulo">Explore</p><a href="/">Notícias</a><a href="/explica">OWNews Explica</a><a href="/vagas">Vagas Verificadas</a><a href="/minha-escala">Minha Escala</a><a href="/central-offshore">Central Offshore</a></div><div class="footer-col"><p class="footer-col-titulo">Acompanhe</p><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">' + SVG_IG + 'Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer">' + SVG_IG + 'Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>';
+/* Central Offshore (AdSense 3.0): hub por necessidade real, só produtos
+   fortes. Mesma fonte na Home (#carreiras) e em /central-offshore. */
+const CENTRAL_OFFSHORE_GRUPOS = [
+  { t: 'Quero entrar no offshore', d: 'Como o setor funciona, quais funções existem a bordo e o caminho até a primeira vaga.',
+    l: [['/comece-aqui', 'Comece Aqui'], ['/funcoes', 'Funções a Bordo'], ['/guias', 'Guias OWNews'], ['/glossario', 'Glossário Offshore']] },
+  { t: 'Procuro oportunidades', d: 'Vagas conferidas em canais oficiais e os caminhos certos para enviar o currículo.',
+    l: [['/vagas', 'Vagas Verificadas'], ['/carreiras/cadastre-seu-curriculo', 'Cadastre seu Currículo'], ['/empresas', 'Empresas Offshore'], ['/carreiras/modelo-curriculo', 'Modelo de currículo']] },
+  { t: 'Já trabalho offshore', d: 'Organize escala, documentos e a preparação para cada embarque.',
+    l: [['/minha-escala', 'Minha Escala'], ['/meus-certificados', 'Meus Certificados'], ['/checklist-embarque', 'Checklist de Embarque'], ['/aeroportos', 'Aeroportos Offshore']] },
+  { t: 'Quero acompanhar o setor', d: 'Operações, mercado, unidades e o contexto por trás das notícias.',
+    l: [['/offshore-agora', 'Offshore Agora'], ['/mercado', 'Mercado Offshore'], ['/radar', 'Radar Offshore'], ['/explica', 'OWNews Explica'], ['/agenda', 'Agenda Offshore']] }
+];
+const CENTRAL_OFFSHORE_INTENCOES = '<div class="cof-grid">' + CENTRAL_OFFSHORE_GRUPOS.map((g) =>
+  '<div class="cof-card"><h3 class="cof-titulo">' + g.t + '</h3><p class="cof-desc">' + g.d + '</p><div class="cof-links">' +
+  g.l.map((x) => '<a href="' + x[0] + '">' + x[1] + ' <span aria-hidden="true">→</span></a>').join('') + '</div></div>').join('') + '</div>';
+/* AdSense 3.0 (2026-10-17) — capa editorial OWNews. Quando a fonte não
+   fornece foto utilizável (ausente, ícone de CMS ou domínio que bloqueia
+   incorporação externa), a capa é uma arte própria, claramente genérica,
+   com a editoria escrita — nunca foto de outra unidade/navio fingindo
+   ilustrar o fato. Gerada aqui uma vez e injetada no script da Home
+   (CAPAS_EDITORIAIS), sem requisição extra. */
+// Fontes que respondem 200 com uma imagem de bloqueio ("This image…") quando
+// o Referer é outro site — verificado em 2026-10-17. Respeitamos o bloqueio.
+const DOMINIOS_IMAGEM_SEM_HOTLINK = ['sindipetronf.org.br'];
+function imagemDeDominioBloqueado(url) {
+  try { const h = new URL(url).hostname; return DOMINIOS_IMAGEM_SEM_HOTLINK.some((d) => h === d || h.endsWith('.' + d)); } catch { return false; }
+}
+const CAPA_EDITORIAL_ROTULOS = {
+  carreiras: 'Carreiras', plataforma_fpso: 'Plataformas & FPSO', sonda_perfuracao: 'Perfuração', subsea_rov: 'Subsea',
+  eolica_offshore: 'Eólica offshore', navio_apoio_maritimo: 'Apoio marítimo', porto_logistica: 'Portos & Logística',
+  petroleo_gas: 'Petróleo & Gás', regulacao_mercado: 'Mercado & Regulação', energia_industria: 'Energia', offshore: 'Offshore'
+};
+function capaEditorialSvg(rotulo) {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d3550"/><stop offset="1" stop-color="#061c2b"/></linearGradient></defs>' +
+    '<rect width="1200" height="675" fill="url(#g)"/><g fill="none" stroke="#5fc4ee" stroke-width="2">' +
+    [[520, 300, .2], [430, 245, .16], [340, 190, .13], [250, 140, .1], [160, 90, .08]].map((e) => '<ellipse cx="600" cy="338" rx="' + e[0] + '" ry="' + e[1] + '" stroke-opacity="' + e[2] + '"/>').join('') +
+    '</g><text x="600" y="318" text-anchor="middle" fill="#5fc4ee" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="700" letter-spacing="6">OWNEWS</text>' +
+    '<text x="600" y="384" text-anchor="middle" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="700">' + rotulo.replace(/&/g, '&amp;') + '</text></svg>';
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+const CAPAS_EDITORIAIS = Object.fromEntries(Object.entries(CAPA_EDITORIAL_ROTULOS).map(([k, v]) => [k, capaEditorialSvg(v)]));
+const OG_IMAGEM_PADRAO = 'https://ownews.com.br/icons/icon-512.png';
 const CSS_TEMA_CLARO = `
 /* ==== TEMA CLARO + MARCAS D'ÁGUA: INICIO ====
    Dark continua padrão. O tema claro NÃO é inversão automática: paleta
@@ -792,7 +857,7 @@ html[data-theme="light"]{
   --wm-rosa:url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20240%20240%22%3E%3Cg%20fill=%22none%22%20stroke=%22%232a4a6b%22%20stroke-opacity=%220.09%22%20stroke-width=%221%22%3E%3Ccircle%20cx=%22120%22%20cy=%22120%22%20r=%22112%22/%3E%3Ccircle%20cx=%22120%22%20cy=%22120%22%20r=%2286%22/%3E%3Ccircle%20cx=%22120%22%20cy=%22120%22%20r=%2212%22/%3E%3Cpath%20d=%22M120%208v224M8%20120h224M41%2041l158%20158M199%2041L41%20199%22/%3E%3Cpath%20d=%22M120%2022l14%2084%2084%2014-84%2014-14%2084-14-84-84-14%2084-14z%22/%3E%3Cpath%20d=%22M120%2062l8%2050%2050%208-50%208-8%2050-8-50-50-8%2050-8z%22%20stroke-opacity=%220.06%22/%3E%3C/g%3E%3C/svg%3E");--wm-bati:url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20400%20300%22%3E%3Cg%20fill=%22none%22%20stroke=%22%232a4a6b%22%20stroke-opacity=%220.085%22%20stroke-width=%221%22%3E%3Cpath%20d=%22M40%20150c0-70%2070-120%20160-120s170%2040%20170%20110-60%20130-160%20130S40%20220%2040%20150z%22/%3E%3Cpath%20d=%22M80%20150c0-50%2050-90%20120-90s130%2030%20130%2080-45%20100-120%20100S80%20200%2080%20150z%22/%3E%3Cpath%20d=%22M120%20152c0-32%2032-58%2080-58s90%2020%2090%2052-30%2070-80%2070-90-32-90-64z%22/%3E%3Cpath%20d=%22M160%20154c0-16%2018-30%2042-30s48%2010%2048%2028-16%2036-42%2036-48-18-48-34z%22/%3E%3Cpath%20d=%22M20%2040c40%2010%2070-10%20110%200M240%20270c40%2010%2070-10%20110%200%22%20stroke-dasharray=%222%206%22/%3E%3C/g%3E%3C/svg%3E");--porque-bg:#fff7e3;--porque-line:#f1dfa8;--buddy-card-bg:#eaf3fd;
   color-scheme:light;
 }
-html[data-theme="light"] body{background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22900%22%20height%3D%22900%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%3E%3Cpath%20d%3D%22M680%20620C640%20560%20560%20540%20500%20580C440%20620%20430%20700%20480%20740C540%20790%20640%20770%20680%20720C710%20680%20710%20650%20680%20620Z%22%20stroke-opacity%3D%220.072%22%2F%3E%3Cpath%20d%3D%22M700%20600C650%20520%20540%20500%20460%20550C380%20600%20370%20710%20440%20760C520%20820%20660%20790%20710%20710C745%20655%20745%20615%20700%20600Z%22%20stroke-opacity%3D%220.056%22%2F%3E%3Cpath%20d%3D%22M730%20580C660%20480%20510%20460%20410%20525C310%20590%20300%20730%20390%20790C490%20860%20670%20820%20735%20715C780%20645%20780%20600%20730%20580Z%22%20stroke-opacity%3D%220.045%22%2F%3E%3Cpath%20d%3D%22M760%20560C670%20440%20480%20415%20355%20495C235%20570%20225%20745%20335%20815C455%20895%20685%20850%20760%20720C815%20630%20815%20580%20760%20560Z%22%20stroke-opacity%3D%220.032%22%2F%3E%3Cpath%20d%3D%22M226%20146h8M230%20142v8%22%20stroke-opacity%3D%220.096%22%20stroke-width%3D%220.8%22%2F%3E%3Cpath%20d%3D%22M116%20476h8M120%20472v8%22%20stroke-opacity%3D%220.096%22%20stroke-width%3D%220.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),,url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cpath%20d%3D%22M0%2060%20C%20100%2020%20200%20100%20300%2060%20S%20500%2020%20600%2060%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.08%22%2F%3E%3Cpath%20d%3D%22M0%20180%20C%20100%20140%20200%20220%20300%20180%20S%20500%20140%20600%20180%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.072%22%2F%3E%3Cpath%20d%3D%22M0%20300%20C%20100%20260%20200%20340%20300%20300%20S%20500%20260%20600%20300%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.064%22%2F%3E%3Cpath%20d%3D%22M0%20420%20C%20100%20380%20200%20460%20300%20420%20S%20500%20380%20600%20420%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.056%22%2F%3E%3Cpath%20d%3D%22M0%20540%20C%20100%20500%20200%20580%20300%20540%20S%20500%20500%20600%20540%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.048%22%2F%3E%3C%2Fsvg%3E"),,url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22764%22%20height%3D%22367%22%20viewBox%3D%220%200%20764%20367%22%3E%3Cpath%20fill%3D%22%232a4a6b%22%20fill-opacity%3D%220.08%22%20fill-rule%3D%22evenodd%22%20d%3D%22M427.8%201.8%20407%202l4%203.6c5.8%205.2%208.2%2011.2%2023.5%2056.9l27.2%2081c11.3%2033.1%2013.3%2040.2%2012.4%2041.8-.7%201-9.2%2011.8-19%2024a690%20690%200%200%200-19.7%2025.5c-1.9%203-2.2%203.1-2.8%201.5L405%20163l-19.3-51.5-27.4-73c-9.4-24.8-9.9-27.5-5.8-32.3a15%2015%200%200%200%202.5-3.6c0-.3-10.6-.6-23.5-.6s-23.5.2-23.5.5%202%202.4%204.7%204.7c6%205.5%204.4%202%2036.3%2086.9%2026.7%2071%2033.8%2090%2036.6%2096.9l8.4%2023c16.3%2044.8%2015.8%2044.2%2035.4%2044.8l10.9.4-.7-2.4c-1.7-6-1.7-8%200-13%202-6%206.3-13%2017.2-26.8%2010-12.6%2018-23.2%2019.2-25%201.3-2.2%201.2-2.5%209.9%2027.8%204.4%2015.6%208.9%2029.7%209.8%2031.3%203.4%205.7%207.5%207.2%2020.2%207.7l11.4.4-.9-3.3c-4.5-17.1%204.6-42.1%2034-93.1%2018.2-31.7%2037.2-69.4%2041.5-82.4%2012-36.2%208.5-66.5-8.8-75.4-20-10.2-41.5.8-55.8%2028.6-24.7%2048.4-24.2%20111.5%201.2%20144.9l3.7%204.8-6.5%2013.1a182%20182%200%200%200-13.8%2034.3q-2%209-3.5%202c-.7-3.5-.5-2.9-12.7-40.7-10-31-23-71.3-26.2-82L463%2058.5c-15.3-47.3-15.6-49-11-54.1%201.3-1.3%202.2-2.5%202-2.5-1.2-.4-7-.4-26.2-.1M267%203.6c-50.6%209.2-93.2%2045.9-107.4%2092.4a128%20128%200%200%200%207.2%2088.5c5.2%2010.5%2015.4%2025%2021.6%2031a141%20141%200%200%200%2041%2029c21.5%2010.4%2039%2014%2063.1%2013.2%2021-.7%2037-5%2057.1-15%2013-6.6%2035.2-23%2036.9-27.5.6-1.6-6.3-22.2-7.5-22.2-.3%200-2.5%203.7-5%208.3a98%2098%200%200%201-77.6%2051.9c-45.8%204.5-87-23-103.7-69.2-24-66.4-.1-142.6%2052.6-168%2013.9-6.6%2021-8.2%2040-8.7%2013.5-.4%2016.7-.8%2016.7-2%200-.7-1.2-1.8-2.6-2.3-3.6-1.4-23.5-1-32.4.6m292.8%2032c-30.9%208-46%2071.8-28.3%20118.5%202.9%207.4%2011.6%2023%2013.2%2023.6.5.2%202.5-2.5%204.3-6%201.8-3.4%205.9-10.5%209-15.7%2019.1-32.2%2029.2-52.5%2033-66.6%203.6-13.3%202.5-32.7-2.4-42.2s-17.4-14.6-28.8-11.7M106%20284.5A30%2030%200%200%200%2092%20303c-.5%202-1.4%202.6-5%203.1l-4.5.6%204.3.2%204.3.1-.3%2028.9-.3%2028.8h9l-.3-28.8L99%20307h28.2l-.3%2029-.3%2029%204.5-.2%204.5-.3-.3-28.7-.3-28.8%2012.8-.2c10-.1%2011.4-.3%206.3-.7l-6.5-.6%203.2-1.7c13.7-7.6%2013.5-22.7-.3-21.6-9.8.8-19%209.2-22%2019.8l-1%203.5-7.2.3c-6.9.3-9.6-.9-5.3-2.3a25%2025%200%200%200%209.7-11.1c2.3-9-8.5-13.6-18.6-7.8m109-1.2c.8%201%201%2012.2.8%2041.3l-.3%2039.8%205.3.1c4.5%200%205.2-.1%204.5-1.5-.4-.9-.8-9-.8-18.1v-16.5l3.4-6.3c10.7-19.7%2029-20%2033.1-.6.9%204%20.9%206.8%200%2010.7-2.8%2012.8-2.3%2031.2.9%2031.8l4.7.4%204%20.3-1.8-5.1c-2-6-2.2-13.1-.7-19.7%204.8-20.2-3.4-34-20.4-34-7.5%200-13.5%204-19%2012.6l-4.2%206.6-.3-20.3c-.3-22.4-.4-22.9-6.4-22.9-3.4%200-3.8.2-2.9%201.4m439%200c.9%201%201.1%2012%20.9%2041.6l-.3%2040.1%205-.5%205.5-.5q.3-.1-.8-1.3c-2-2-1.7-27.8.3-27.8%205%200%209.7%204.9%2016%2016.5%203.9%207.3%208.6%2012.4%2011.4%2012.6l4.4.4c3.3.4%203.4%200%20.1-3.8a55%2055%200%200%201-5.6-9.1c-4-7.9-10.2-16.3-12.8-17.1-3-1-1.6-2.2%203.2-3%2011.5-1.6%2020.8-9.3%2020.8-17%200-7.3-4.8-10.3-13.5-8.5-9%201.9-13.5%205.5-23.7%2019.2-1.6%202.2-1.7%201.3-1.8-19.4%200-24.2.1-23.8-7-23.8-2.7%200-3%20.2-2%201.4m-621.4.7c-11%202.7-22%2011.8-27%2022.4A40.4%2040.4%200%200%200%2035.2%20364c21.5%203.8%2042.4-12.5%2045.2-35.2%203.3-26.3-23-51-47.9-44.7m78-.1c-5.8%201.8-9%206.9-11%2017.7-1%204.2.3%204.7%207.6%202.8%2010-2.5%2016.8-8.3%2016.8-14.3%200-5-6.8-8.3-13.4-6.2m36%200c-5.8%201.8-9.1%207.2-11%2017.8-.8%204.4%201%205%208.5%202.7%2013-4%2019.5-13%2013.4-19-2.5-2.6-5.7-3-10.9-1.5m303.5%202.8c1%202%204.4%2010.7%207.3%2019.2%2021.7%2062.3%2020.3%2059%2025.8%2059%202.4%200%202.8-.4%202.8-2.6%200-2.5%2010.4-18.4%2012-18.4.3%200%201.7%204%203%209%202.5%209.8%204.3%2012.3%208.7%2011.8%202.4-.3%202.8-.7%202.5-3-.5-4%201.7-9.4%2013.2-32.8%2013.7-27.6%2015.5-38%208-44-14.6-11.4-29.6%2028.3-19%2050.3l2.8%205.7-2.8%207.3c-1.5%204-3%207.6-3.4%208s-3.3-8-6.5-18.5L494.3%20304c-2.5-8-4.5-16-4.6-17.7l-.1-3.3h-6c-4.5%200-5.6.3-4.8%201.3%201%201.2%208%2022%2014.7%2044%204%2013.4%204%2013.3-2%2021.3-2.6%203.2-5%206.5-5.5%207.3-1.3%202.5-1.9%201.3-8.5-18.1l-12.3-35.4c-4.2-12-5.6-17.6-5-18.8.8-1.4.1-1.6-5.6-1.6h-6.4zm-416.4-1.4c-23%206.4-32%2042.3-16.4%2065.3a28.4%2028.4%200%200%200%2046.7%201.2c9.3-11.8%2011-34.1%203.7-49-7-14.7-20.2-21.4-34-17.5m487.3%208.9c-6.6%203.4-11%2020.6-8.1%2032.4%201.3%205.6%204.1%2012.3%205%2012.3s8.2-12.8%2011.7-20.5c6.7-14.7%201.5-29.4-8.6-24.2m-353.8%2013.9a31%2031%200%200%200-9.3%204.9c-7.5%207-.6%2018.3%2014%2023%207%202.2%207.8%203.8%202%203.9-9%200-18.9%206.3-18.9%2012%200%204.7%201.5%206.7%207.3%209.7a58%2058%200%200%200%2037.8%200c13.8-7%209.1-17.3-10.1-22.2-18.3-4.6-25.2-8.7-26.6-16-3.3-17.7%2018.1-22.2%2035-7.4l4.4%204%202.1-3c2.7-3.8%202.7-3.7-1.7-6a51%2051%200%200%200-36-2.9m130.8-.9c-13%204.5-20%2014.3-20%2028%20.1%2030.8%2042%2040.6%2056%2013%203.3-6.4%203.5-19.6.5-25.8a32%2032%200%200%200-36.5-15.2m46.6%201.6c1.6%203.2%201.7%2051%20.1%2054.1-.6%201.2.2%201.5%204.5%201.6l5.3.1-.3-18.8-.3-18.9%203.6-5.5c8.7-13%2017.8-15.8%2025.2-7.7l3.3%203.6%202.6-2.6c3.2-3.1%202.6-4.3-3-6.9-9.5-4.3-20-.5-27.6%2010.1-2%202.7-3.8%205-4.1%205-.4%200-.6-3-.5-6.8.1-8.3-1-10.2-6.4-10.2h-3.8zm63.5-1.4c-31.8%2011.2-26%2052.4%207.9%2056.7l4.5.6-4-1.4c-14.8-4.7-22.5-16.4-18-27%202.9-7%209.1-8.7%2022.4-6%2014.4%203%2022.4-2.1%2018.7-12-4-10.2-18.8-15.3-31.5-10.9m148-.5c-13.6%204.4-21.2%2014.5-21.4%2028.1-.3%2031.9%2043.8%2041%2056.9%2011.9a29%2029%200%200%200-14.5-38.2%2039%2039%200%200%200-21-1.8m45%20.5c.7%201%201%209.2.8%2029-.3%2030.8-.9%2028.6%207%2028.6%203%200%203.3-.3%202.6-1.7-.5-1-1-8.7-1.2-17.1-.3-14.7-.2-15.5%202.3-21%207.4-16.2%2020.8-20.9%2028-9.8l1.9%202.8%202.8-3.1c3.3-3.7%203-4.7-2.6-7.2a18%2018%200%200%200-17.7%201%2046%2046%200%200%200-12.9%2013.3q-.1.8-1%20.3c-.5-.3-1-3.7-1-7.4%200-7.8-.9-9.1-6.3-9.1-3.3%200-3.7.2-2.8%201.4m122%20.5c-19.5%206.2-17.2%2021.3%204.3%2028.3%207%202.2%207.4%203.8%201%203.8-8.4%200-19.2%207-19.2%2012.4%200%2013.6%2039%2017.7%2051.4%205.4%202.3-2.4%202.7-3.4%202.2-6-1.3-6.3-5.7-9-21.6-13.3-17-4.5-21.8-7.9-22.7-15.8-1.1-9.6%203.2-14.5%2013.9-15.5%206-.6%2014.6%203.2%2020.6%209.1l4.3%204.2%202-2.5c3-4%202.4-5.6-3.4-7.8q-17.9-7-32.9-2.3m-422.7.3c-18%206-19.3%2043.9-1.8%2053%209.2%204.7%2020%201.7%2025.7-7.1%209-14.3%205.2-38.2-7.2-44.7a29%2029%200%200%200-16.7-1.2M412%20308c-8.3%202.6-12.2%206.7-15.1%2016.3-2.2%207-2.6%2015.7-.6%2012.3a42%2042%200%200%201%204.5-5.4l3.3-3.4%2010.9.7c13.3.9%2016.3-.2%2018-6.3%202.7-10.1-8.8-17.9-21-14.2m143.5%201.5c-18.9%208.7-16.8%2047.3%202.8%2053.1%2015.8%204.7%2027.3-7%2027.2-28-.2-21.2-13.8-32.7-30-25.1M683%20309a38%2038%200%200%200-15.6%2015.1c-4.2%206.8-3.8%207.8%202.4%207.8%2018.4-.2%2033.4-10.2%2030.8-20.5-1.2-4.8-9.8-6-17.6-2.4m-507.5%2031.6c-28.4%204-24%2023.3%205.3%2023.3q19.1%200%2019.2-11c0-3.6-3-9-5.9-10.4a51%2051%200%200%200-18.6-2m552.5.5c-20.2%203.4-23.2%2016.2-5.1%2021.3%2018.8%205.3%2034.6-1%2031.2-12.4q-3.8-12.5-26-8.9m-295.3%2020.4c-.3.3-2.5%201-5%201.4q-5%201-1.3%201c2.8%200%2010.3-2.6%208-2.8q-1.2%200-1.7.4%22%2F%3E%3C%2Fsvg%3E") no-repeat var(--ow-mark-pos, center center) / var(--ow-mark-size, 86vw auto),,radial-gradient(1400px 800px at 50% -220px, #ffffff 0%, rgba(255,255,255,0) 60%),linear-gradient(165deg, #ffffff 0%, var(--navy-950) 45%, #eaf0f5 100%);background-attachment:fixed}
+html[data-theme="light"] body{background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22900%22%20height%3D%22900%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%3E%3Cpath%20d%3D%22M680%20620C640%20560%20560%20540%20500%20580C440%20620%20430%20700%20480%20740C540%20790%20640%20770%20680%20720C710%20680%20710%20650%20680%20620Z%22%20stroke-opacity%3D%220.072%22%2F%3E%3Cpath%20d%3D%22M700%20600C650%20520%20540%20500%20460%20550C380%20600%20370%20710%20440%20760C520%20820%20660%20790%20710%20710C745%20655%20745%20615%20700%20600Z%22%20stroke-opacity%3D%220.056%22%2F%3E%3Cpath%20d%3D%22M730%20580C660%20480%20510%20460%20410%20525C310%20590%20300%20730%20390%20790C490%20860%20670%20820%20735%20715C780%20645%20780%20600%20730%20580Z%22%20stroke-opacity%3D%220.045%22%2F%3E%3Cpath%20d%3D%22M760%20560C670%20440%20480%20415%20355%20495C235%20570%20225%20745%20335%20815C455%20895%20685%20850%20760%20720C815%20630%20815%20580%20760%20560Z%22%20stroke-opacity%3D%220.032%22%2F%3E%3Cpath%20d%3D%22M226%20146h8M230%20142v8%22%20stroke-opacity%3D%220.096%22%20stroke-width%3D%220.8%22%2F%3E%3Cpath%20d%3D%22M116%20476h8M120%20472v8%22%20stroke-opacity%3D%220.096%22%20stroke-width%3D%220.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cpath%20d%3D%22M0%2060%20C%20100%2020%20200%20100%20300%2060%20S%20500%2020%20600%2060%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.08%22%2F%3E%3Cpath%20d%3D%22M0%20180%20C%20100%20140%20200%20220%20300%20180%20S%20500%20140%20600%20180%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.072%22%2F%3E%3Cpath%20d%3D%22M0%20300%20C%20100%20260%20200%20340%20300%20300%20S%20500%20260%20600%20300%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.064%22%2F%3E%3Cpath%20d%3D%22M0%20420%20C%20100%20380%20200%20460%20300%20420%20S%20500%20380%20600%20420%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.056%22%2F%3E%3Cpath%20d%3D%22M0%20540%20C%20100%20500%20200%20580%20300%20540%20S%20500%20500%20600%20540%22%20stroke%3D%22%232a4a6b%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.048%22%2F%3E%3C%2Fsvg%3E"),url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22764%22%20height%3D%22367%22%20viewBox%3D%220%200%20764%20367%22%3E%3Cpath%20fill%3D%22%232a4a6b%22%20fill-opacity%3D%220.055%22%20fill-rule%3D%22evenodd%22%20d%3D%22M427.8%201.8%20407%202l4%203.6c5.8%205.2%208.2%2011.2%2023.5%2056.9l27.2%2081c11.3%2033.1%2013.3%2040.2%2012.4%2041.8-.7%201-9.2%2011.8-19%2024a690%20690%200%200%200-19.7%2025.5c-1.9%203-2.2%203.1-2.8%201.5L405%20163l-19.3-51.5-27.4-73c-9.4-24.8-9.9-27.5-5.8-32.3a15%2015%200%200%200%202.5-3.6c0-.3-10.6-.6-23.5-.6s-23.5.2-23.5.5%202%202.4%204.7%204.7c6%205.5%204.4%202%2036.3%2086.9%2026.7%2071%2033.8%2090%2036.6%2096.9l8.4%2023c16.3%2044.8%2015.8%2044.2%2035.4%2044.8l10.9.4-.7-2.4c-1.7-6-1.7-8%200-13%202-6%206.3-13%2017.2-26.8%2010-12.6%2018-23.2%2019.2-25%201.3-2.2%201.2-2.5%209.9%2027.8%204.4%2015.6%208.9%2029.7%209.8%2031.3%203.4%205.7%207.5%207.2%2020.2%207.7l11.4.4-.9-3.3c-4.5-17.1%204.6-42.1%2034-93.1%2018.2-31.7%2037.2-69.4%2041.5-82.4%2012-36.2%208.5-66.5-8.8-75.4-20-10.2-41.5.8-55.8%2028.6-24.7%2048.4-24.2%20111.5%201.2%20144.9l3.7%204.8-6.5%2013.1a182%20182%200%200%200-13.8%2034.3q-2%209-3.5%202c-.7-3.5-.5-2.9-12.7-40.7-10-31-23-71.3-26.2-82L463%2058.5c-15.3-47.3-15.6-49-11-54.1%201.3-1.3%202.2-2.5%202-2.5-1.2-.4-7-.4-26.2-.1M267%203.6c-50.6%209.2-93.2%2045.9-107.4%2092.4a128%20128%200%200%200%207.2%2088.5c5.2%2010.5%2015.4%2025%2021.6%2031a141%20141%200%200%200%2041%2029c21.5%2010.4%2039%2014%2063.1%2013.2%2021-.7%2037-5%2057.1-15%2013-6.6%2035.2-23%2036.9-27.5.6-1.6-6.3-22.2-7.5-22.2-.3%200-2.5%203.7-5%208.3a98%2098%200%200%201-77.6%2051.9c-45.8%204.5-87-23-103.7-69.2-24-66.4-.1-142.6%2052.6-168%2013.9-6.6%2021-8.2%2040-8.7%2013.5-.4%2016.7-.8%2016.7-2%200-.7-1.2-1.8-2.6-2.3-3.6-1.4-23.5-1-32.4.6m292.8%2032c-30.9%208-46%2071.8-28.3%20118.5%202.9%207.4%2011.6%2023%2013.2%2023.6.5.2%202.5-2.5%204.3-6%201.8-3.4%205.9-10.5%209-15.7%2019.1-32.2%2029.2-52.5%2033-66.6%203.6-13.3%202.5-32.7-2.4-42.2s-17.4-14.6-28.8-11.7M106%20284.5A30%2030%200%200%200%2092%20303c-.5%202-1.4%202.6-5%203.1l-4.5.6%204.3.2%204.3.1-.3%2028.9-.3%2028.8h9l-.3-28.8L99%20307h28.2l-.3%2029-.3%2029%204.5-.2%204.5-.3-.3-28.7-.3-28.8%2012.8-.2c10-.1%2011.4-.3%206.3-.7l-6.5-.6%203.2-1.7c13.7-7.6%2013.5-22.7-.3-21.6-9.8.8-19%209.2-22%2019.8l-1%203.5-7.2.3c-6.9.3-9.6-.9-5.3-2.3a25%2025%200%200%200%209.7-11.1c2.3-9-8.5-13.6-18.6-7.8m109-1.2c.8%201%201%2012.2.8%2041.3l-.3%2039.8%205.3.1c4.5%200%205.2-.1%204.5-1.5-.4-.9-.8-9-.8-18.1v-16.5l3.4-6.3c10.7-19.7%2029-20%2033.1-.6.9%204%20.9%206.8%200%2010.7-2.8%2012.8-2.3%2031.2.9%2031.8l4.7.4%204%20.3-1.8-5.1c-2-6-2.2-13.1-.7-19.7%204.8-20.2-3.4-34-20.4-34-7.5%200-13.5%204-19%2012.6l-4.2%206.6-.3-20.3c-.3-22.4-.4-22.9-6.4-22.9-3.4%200-3.8.2-2.9%201.4m439%200c.9%201%201.1%2012%20.9%2041.6l-.3%2040.1%205-.5%205.5-.5q.3-.1-.8-1.3c-2-2-1.7-27.8.3-27.8%205%200%209.7%204.9%2016%2016.5%203.9%207.3%208.6%2012.4%2011.4%2012.6l4.4.4c3.3.4%203.4%200%20.1-3.8a55%2055%200%200%201-5.6-9.1c-4-7.9-10.2-16.3-12.8-17.1-3-1-1.6-2.2%203.2-3%2011.5-1.6%2020.8-9.3%2020.8-17%200-7.3-4.8-10.3-13.5-8.5-9%201.9-13.5%205.5-23.7%2019.2-1.6%202.2-1.7%201.3-1.8-19.4%200-24.2.1-23.8-7-23.8-2.7%200-3%20.2-2%201.4m-621.4.7c-11%202.7-22%2011.8-27%2022.4A40.4%2040.4%200%200%200%2035.2%20364c21.5%203.8%2042.4-12.5%2045.2-35.2%203.3-26.3-23-51-47.9-44.7m78-.1c-5.8%201.8-9%206.9-11%2017.7-1%204.2.3%204.7%207.6%202.8%2010-2.5%2016.8-8.3%2016.8-14.3%200-5-6.8-8.3-13.4-6.2m36%200c-5.8%201.8-9.1%207.2-11%2017.8-.8%204.4%201%205%208.5%202.7%2013-4%2019.5-13%2013.4-19-2.5-2.6-5.7-3-10.9-1.5m303.5%202.8c1%202%204.4%2010.7%207.3%2019.2%2021.7%2062.3%2020.3%2059%2025.8%2059%202.4%200%202.8-.4%202.8-2.6%200-2.5%2010.4-18.4%2012-18.4.3%200%201.7%204%203%209%202.5%209.8%204.3%2012.3%208.7%2011.8%202.4-.3%202.8-.7%202.5-3-.5-4%201.7-9.4%2013.2-32.8%2013.7-27.6%2015.5-38%208-44-14.6-11.4-29.6%2028.3-19%2050.3l2.8%205.7-2.8%207.3c-1.5%204-3%207.6-3.4%208s-3.3-8-6.5-18.5L494.3%20304c-2.5-8-4.5-16-4.6-17.7l-.1-3.3h-6c-4.5%200-5.6.3-4.8%201.3%201%201.2%208%2022%2014.7%2044%204%2013.4%204%2013.3-2%2021.3-2.6%203.2-5%206.5-5.5%207.3-1.3%202.5-1.9%201.3-8.5-18.1l-12.3-35.4c-4.2-12-5.6-17.6-5-18.8.8-1.4.1-1.6-5.6-1.6h-6.4zm-416.4-1.4c-23%206.4-32%2042.3-16.4%2065.3a28.4%2028.4%200%200%200%2046.7%201.2c9.3-11.8%2011-34.1%203.7-49-7-14.7-20.2-21.4-34-17.5m487.3%208.9c-6.6%203.4-11%2020.6-8.1%2032.4%201.3%205.6%204.1%2012.3%205%2012.3s8.2-12.8%2011.7-20.5c6.7-14.7%201.5-29.4-8.6-24.2m-353.8%2013.9a31%2031%200%200%200-9.3%204.9c-7.5%207-.6%2018.3%2014%2023%207%202.2%207.8%203.8%202%203.9-9%200-18.9%206.3-18.9%2012%200%204.7%201.5%206.7%207.3%209.7a58%2058%200%200%200%2037.8%200c13.8-7%209.1-17.3-10.1-22.2-18.3-4.6-25.2-8.7-26.6-16-3.3-17.7%2018.1-22.2%2035-7.4l4.4%204%202.1-3c2.7-3.8%202.7-3.7-1.7-6a51%2051%200%200%200-36-2.9m130.8-.9c-13%204.5-20%2014.3-20%2028%20.1%2030.8%2042%2040.6%2056%2013%203.3-6.4%203.5-19.6.5-25.8a32%2032%200%200%200-36.5-15.2m46.6%201.6c1.6%203.2%201.7%2051%20.1%2054.1-.6%201.2.2%201.5%204.5%201.6l5.3.1-.3-18.8-.3-18.9%203.6-5.5c8.7-13%2017.8-15.8%2025.2-7.7l3.3%203.6%202.6-2.6c3.2-3.1%202.6-4.3-3-6.9-9.5-4.3-20-.5-27.6%2010.1-2%202.7-3.8%205-4.1%205-.4%200-.6-3-.5-6.8.1-8.3-1-10.2-6.4-10.2h-3.8zm63.5-1.4c-31.8%2011.2-26%2052.4%207.9%2056.7l4.5.6-4-1.4c-14.8-4.7-22.5-16.4-18-27%202.9-7%209.1-8.7%2022.4-6%2014.4%203%2022.4-2.1%2018.7-12-4-10.2-18.8-15.3-31.5-10.9m148-.5c-13.6%204.4-21.2%2014.5-21.4%2028.1-.3%2031.9%2043.8%2041%2056.9%2011.9a29%2029%200%200%200-14.5-38.2%2039%2039%200%200%200-21-1.8m45%20.5c.7%201%201%209.2.8%2029-.3%2030.8-.9%2028.6%207%2028.6%203%200%203.3-.3%202.6-1.7-.5-1-1-8.7-1.2-17.1-.3-14.7-.2-15.5%202.3-21%207.4-16.2%2020.8-20.9%2028-9.8l1.9%202.8%202.8-3.1c3.3-3.7%203-4.7-2.6-7.2a18%2018%200%200%200-17.7%201%2046%2046%200%200%200-12.9%2013.3q-.1.8-1%20.3c-.5-.3-1-3.7-1-7.4%200-7.8-.9-9.1-6.3-9.1-3.3%200-3.7.2-2.8%201.4m122%20.5c-19.5%206.2-17.2%2021.3%204.3%2028.3%207%202.2%207.4%203.8%201%203.8-8.4%200-19.2%207-19.2%2012.4%200%2013.6%2039%2017.7%2051.4%205.4%202.3-2.4%202.7-3.4%202.2-6-1.3-6.3-5.7-9-21.6-13.3-17-4.5-21.8-7.9-22.7-15.8-1.1-9.6%203.2-14.5%2013.9-15.5%206-.6%2014.6%203.2%2020.6%209.1l4.3%204.2%202-2.5c3-4%202.4-5.6-3.4-7.8q-17.9-7-32.9-2.3m-422.7.3c-18%206-19.3%2043.9-1.8%2053%209.2%204.7%2020%201.7%2025.7-7.1%209-14.3%205.2-38.2-7.2-44.7a29%2029%200%200%200-16.7-1.2M412%20308c-8.3%202.6-12.2%206.7-15.1%2016.3-2.2%207-2.6%2015.7-.6%2012.3a42%2042%200%200%201%204.5-5.4l3.3-3.4%2010.9.7c13.3.9%2016.3-.2%2018-6.3%202.7-10.1-8.8-17.9-21-14.2m143.5%201.5c-18.9%208.7-16.8%2047.3%202.8%2053.1%2015.8%204.7%2027.3-7%2027.2-28-.2-21.2-13.8-32.7-30-25.1M683%20309a38%2038%200%200%200-15.6%2015.1c-4.2%206.8-3.8%207.8%202.4%207.8%2018.4-.2%2033.4-10.2%2030.8-20.5-1.2-4.8-9.8-6-17.6-2.4m-507.5%2031.6c-28.4%204-24%2023.3%205.3%2023.3q19.1%200%2019.2-11c0-3.6-3-9-5.9-10.4a51%2051%200%200%200-18.6-2m552.5.5c-20.2%203.4-23.2%2016.2-5.1%2021.3%2018.8%205.3%2034.6-1%2031.2-12.4q-3.8-12.5-26-8.9m-295.3%2020.4c-.3.3-2.5%201-5%201.4q-5%201-1.3%201c2.8%200%2010.3-2.6%208-2.8q-1.2%200-1.7.4%22%2F%3E%3C%2Fsvg%3E") no-repeat var(--ow-mark-pos, center center) / var(--ow-mark-size, 86vw auto),radial-gradient(1400px 800px at 50% -220px, #ffffff 0%, rgba(255,255,255,0) 60%),linear-gradient(165deg, #ffffff 0%, var(--navy-950) 45%, #eaf0f5 100%);background-attachment:fixed}
 html[data-theme="light"] header{background:rgba(255,255,255,.92);border-bottom-color:var(--line)}
 html[data-theme="light"] .tabbar{background:rgba(255,255,255,.96)}
 html[data-theme="light"] .search-bar,html[data-theme="light"] .nav-mais-menu{box-shadow:0 12px 28px rgba(11,35,64,.14)}
@@ -815,6 +880,100 @@ html[data-theme="light"] .theme-btn .ico-lua{display:none}
 .eco-section{background-image:var(--wm-bati);background-repeat:no-repeat;background-size:360px auto;background-position:right -70px top -30px}
 .hub-main{position:relative;z-index:0}
 @media(min-width:1100px){.hub-main::before{content:"";position:absolute;right:-10px;top:-6px;width:230px;height:230px;background:var(--wm-rosa) no-repeat center/contain;pointer-events:none;z-index:-1}}
+/* ==== MENU MAIS 3.0 (AdSense Readiness 3.0) ==== */
+.nav-mais-grupo{display:flex;flex-direction:column;padding:2px 0 6px}
+.nav-mais-portal{display:none}
+.nav-mais-central{margin-top:4px;border-top:1px solid var(--line-hair);border-radius:0!important;color:var(--cyan-dim)!important;font-size:12px!important}
+@media(max-width:759px){.hub-nav .nav-mais-portal{display:flex}}
+@media(min-width:760px){.nav-mais-menu.open{display:grid;grid-template-columns:repeat(2,minmax(190px,1fr));gap:2px 10px;min-width:440px}.nav-mais-central{grid-column:1/-1}}
+/* ==== CENTRAL OFFSHORE 3.0 ==== */
+.cof-grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:700px){.cof-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1100px){.cof-grid{grid-template-columns:repeat(4,1fr)}}
+.cof-card{border:1px solid var(--line-soft);border-radius:10px;padding:16px 16px 12px;background:var(--navy-900)}
+.cof-titulo{margin:0 0 6px;font-family:var(--ui);font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--white)}
+.cof-desc{margin:0 0 10px;font-size:13px;line-height:1.5;color:var(--muted)}
+.cof-links{display:flex;flex-direction:column}
+.cof-links a{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line-hair);font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--white)}
+.cof-links a:hover{color:var(--cyan-dim)}
+/* ==== MERCADO 3.0 ==== */
+.mk-atualizado{margin:6px 0 0;font-family:var(--ui);font-size:12px;color:var(--muted)}
+.mk-ancoras{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:8px;scrollbar-width:none}
+.mk-ancoras a{flex:none;padding:6px 12px;border:1px solid var(--line-soft);border-radius:99px;font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.mk-ancoras a:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}
+.mk-macro{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:26px}
+@media(min-width:900px){.mk-macro{grid-template-columns:repeat(3,1fr)}}
+.mk-grupo{border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;background:var(--navy-900)}
+.mk-grupo h2,.mk-setor-head h2{margin:0 0 10px;font-family:var(--ui);font-size:12.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--white)}
+.mk-ind{display:flex;flex-direction:column}
+.mk-ind-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line-hair)}
+.mk-ctx{margin:10px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.mk-setor{margin:0 0 24px;scroll-margin-top:90px}
+.mk-setor-head p{margin:-4px 0 12px;max-width:760px;font-size:13px;line-height:1.55;color:var(--muted)}
+.mk-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media(min-width:700px){.mk-cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}}
+.mk-card{border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;background:var(--navy-900);min-width:0}
+.mk-card-top{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.mk-nome{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-tag{font-family:var(--mono,monospace);font-size:10.5px;color:var(--cyan-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-preco-row{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap}
+.mk-preco{font-family:var(--mono,monospace);font-size:15px;font-weight:600;color:var(--white);font-variant-numeric:tabular-nums}
+.mk-sem{font-size:11.5px;color:var(--muted-dim)}
+/* ==== OFFSHORE AGORA 3.0 ==== */
+.oa-h{margin:0 0 10px;font-family:var(--ui);font-size:13px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--white)}
+.oa-sub{margin:14px 0 4px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.oa-nota{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--muted-dim)}
+.oa-grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;margin-top:26px}#oaFatosWrap+#oaGiroWrap,#noticias>.hub-cta-secundario{margin-top:14px;display:inline-block}
+@media(min-width:960px){.oa-grid{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:28px}.oa-grid-2{grid-template-columns:1fr 1fr}}
+.oa-col .agora-secao,.oa-grid-2 .agora-secao{margin-top:0}
+.oa-lateral{display:flex;flex-direction:column;gap:16px}
+.oa-box{border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;background:var(--navy-900);scroll-margin-top:90px}
+.oa-horas{display:flex;flex-direction:column}
+.oa-hora{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line-hair)}
+.oa-hora-local{display:flex;flex-direction:column;min-width:0}
+.oa-hora-local strong{font-family:var(--ui);font-size:13px;color:var(--white)}
+.oa-hora-local small{font-size:11.5px;color:var(--muted-dim)}
+.oa-hora-val{font-family:var(--mono,monospace);font-size:14px;font-weight:600;color:var(--white);white-space:nowrap}
+#aeroportos,#noticias,#vagas-agora,#unidades-agora{scroll-margin-top:90px}
+/* ==== HOME: MAIS LIDAS + AGENDA (AdSense 3.0) ==== */
+.ml-ag-grid{display:grid;grid-template-columns:1fr;gap:8px 28px;align-items:start}
+@media(min-width:960px){.ml-ag-grid{grid-template-columns:minmax(0,65fr) minmax(0,35fr)}#maisLidas[hidden]+.home-agenda{grid-column:1/-1}}
+.ha-lista{list-style:none;margin:0;padding:0}
+.ha-item{display:flex;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--line-hair)}
+.ha-data{flex:none;width:52px;height:52px;border:1px solid var(--line-soft);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--cyan-dim);background:var(--navy-900)}
+.ha-data strong{font-size:19px;line-height:1;color:var(--white)}
+.ha-info{display:flex;flex-direction:column;min-width:0}
+.ha-nome{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white);line-height:1.3}
+.ha-local{font-size:12.5px;color:var(--muted)}
+.ha-item:hover .ha-nome{color:var(--cyan-dim)}
+.ha-cta{display:inline-block;margin-top:10px;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim)}
+/* ==== MEUS CERTIFICADOS — onboarding (AdSense 3.0) ==== */
+.cert-onb-vazio{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding:18px;border:1px dashed var(--line);border-radius:10px;text-align:left}
+.cert-onb-vazio strong{font-family:var(--ui);font-size:15px;color:var(--white)}
+.cert-onb-vazio span{font-size:13.5px;line-height:1.55;color:var(--muted)}
+.cert-onb{margin-top:28px}
+.cert-onb h2{font-family:var(--ui);font-size:13px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--white);margin:0 0 12px}
+.cert-onb-grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.cert-onb-grid{grid-template-columns:repeat(2,1fr)}}
+.cert-onb-card{border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;background:var(--navy-900)}
+.cert-onb-card h3{margin:0 0 6px;font-family:var(--ui);font-size:14.5px;color:var(--white)}
+.cert-onb-card p,.cert-onb-ex{margin:0;font-size:13.5px;line-height:1.6;color:var(--muted)}
+.cert-onb-ex{margin-top:14px}
+/* ==== EMPRESAS/CURRÍCULO — grade compacta (AdSense 3.0) ==== */
+@media(min-width:1000px){.empresas-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px}}
+.empresa-card{display:flex;flex-direction:column;gap:8px;padding:14px 16px!important}
+.empresa-card .empresa-segmento-tag{align-self:flex-start;max-width:100%;margin:0}
+.empresa-card .empresa-cta{margin-top:auto}
+/* ==== GLOSSÁRIO 3.0 ==== */
+.glo-letras{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}
+.glo-letras a{min-width:30px;padding:5px 0;text-align:center;border:1px solid var(--line-soft);border-radius:6px;font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--muted)}
+.glo-letras a:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}
+.glo-contagem{margin:0 0 8px;font-family:var(--ui);font-size:12px;color:var(--muted-dim)}
+.glo-cat{font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);margin-left:4px}
+.glo-explica{display:inline-block;margin-top:6px;font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim)}
+#glossarioLista .campo-row{scroll-margin-top:90px;display:block;padding:12px 0}#glossarioLista .campo-rotulo{display:block;margin:0 0 2px;font-family:var(--mono,monospace);font-size:14px;color:var(--cyan-dim)}#glossarioLista .dado-valor{margin:0 0 4px}
+@media(min-width:900px){#glossarioLista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}}
+@media(min-width:760px) and (max-width:1099px){.nav-idioma,.links .nav-meu-ownews{display:none!important}.links .shop-btn .shop-loja{display:none}}
 /* ==== TEMA CLARO + MARCAS D'ÁGUA: FIM ==== */
 `;
 
@@ -2591,12 +2750,10 @@ ${CSS_TEMA_CLARO}
 
 <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
-<div class="topline"><div class="container"><span>OWNews • Informação para quem vive o offshore.</span><span>by OffshoreWorks</span></div></div>
-
 <header>
   <div class="container nav">
     <button class="menu-btn" aria-label="Abrir menu" aria-expanded="false" id="menuBtn">☰</button>
-    <a class="logo" href="#inicio">OW<span>News</span></a>
+    <a class="logo" href="/" id="logoHome" aria-label="OWNews — ir para o início da página inicial">OW<span>News</span></a>
     <button class="search-btn" aria-label="Buscar" aria-expanded="false" id="searchBtn">🔍</button>
     ${TEMA_BOTAO_HOME}
     <p class="nav-subtitle">Informação para quem vive o offshore<span class="nav-by">by OffshoreWorks</span></p>
@@ -2609,43 +2766,11 @@ ${CSS_TEMA_CLARO}
         <a href="#destaque">NOTÍCIAS</a>
         <a class="nav-offshore-agora" href="/offshore-agora">OFFSHORE AGORA</a>
         <a href="/mercado">MERCADO</a>
-        <a href="#carreiras">CARREIRAS</a>
-        <!-- Reestruturado em 2026-09-19 (Missão Contínua — Central Offshore):
-             "MAIS" virava depósito de recursos valiosos escondidos (Mercado,
-             Aeroportos, Radar, Minha Escala...), fazendo o portal parecer só
-             site de notícias. Mercado subiu pra item próprio; o resto virou
-             o menu "CENTRAL OFFSHORE", agora organizado por finalidade em
-             vez de uma lista única — mesmo componente/JS de sempre (só
-             reagrupado), zero link novo/quebrado. -->
+        <a href="/carreiras">CARREIRAS</a>
+        <!-- AdSense 3.0: menu "Mais" único (MENU_MAIS_ITENS). -->
         <div class="nav-mais" id="navMais">
-          <button type="button" class="nav-mais-btn" id="maisBtn" aria-expanded="false" aria-haspopup="true" aria-controls="maisMenu">CENTRAL OFFSHORE <span class="nav-mais-seta">▾</span></button>
-          <div class="nav-mais-menu" id="maisMenu" role="menu" aria-label="Central Offshore">
-            <span class="nav-mais-label">Meu Offshore</span>
-            <a href="/minha-escala" role="menuitem">Minha Escala</a>
-            <div class="nav-mais-sep"></div>
-            <span class="nav-mais-label">Operação</span>
-            <a href="/radar" role="menuitem">Radar Offshore</a>
-            <a href="/aeroportos" role="menuitem">Aeroportos Offshore</a>
-            <a href="/aviacao-offshore" role="menuitem">Aviação Offshore</a>
-            <div class="nav-mais-sep"></div>
-            <span class="nav-mais-label">Utilidades</span>
-            <a href="/ferramentas" role="menuitem">Central de Ferramentas</a>
-            <a href="/conversor" role="menuitem">Conversor Offshore</a>
-            <a href="/calculadora-embarque" role="menuitem">Calculadora de Embarque</a>
-            <a href="/glossario" role="menuitem">Glossário Offshore</a>
-            <a href="/horarios" role="menuitem">Horários Offshore</a>
-            <div class="nav-mais-sep"></div>
-            <span class="nav-mais-label">Carreira</span>
-            <a href="/comece-aqui" role="menuitem">Comece Aqui</a>
-            <a href="/carreiras" role="menuitem">Carreiras Offshore</a>
-            <a href="/funcoes" role="menuitem">Funções a Bordo</a>
-            <a href="/empresas" role="menuitem">Empresas Offshore</a>
-            <a href="/cursos" role="menuitem">Cursos e Escolas</a>
-            <a href="/carreiras/cadastre-seu-curriculo" role="menuitem">Cadastre seu Currículo</a>
-            <a href="/vagas" role="menuitem">Vagas Offshore</a>
-            <a href="/salarios" role="menuitem">Salários Offshore</a>
-            <a href="/guias" role="menuitem">Guias OWNews</a>
-          </div>
+          <button type="button" class="nav-mais-btn" id="maisBtn" aria-expanded="false" aria-haspopup="true" aria-controls="maisMenu">MAIS <span class="nav-mais-seta">▾</span></button>
+          <div class="nav-mais-menu" id="maisMenu" role="menu" aria-label="Mais seções do OWNews">${MENU_MAIS_ITENS}</div>
         </div>
       </div>
       <div class="nav-acoes-cluster">
@@ -2654,8 +2779,8 @@ ${CSS_TEMA_CLARO}
         <span class="nav-idioma" id="navIdioma" title="Idioma: português">🌐 PT</span>
       </div>
       <div class="nav-social">
-        <a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>@ownewsbr</a>
-        <a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>@offshoreworks</a>
+        <a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer">${SVG_IG}@ownewsbr</a>
+        <a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer">${SVG_IG}@offshoreworks</a>
       </div>
     </nav>
   </div>
@@ -2837,7 +2962,7 @@ ${CSS_TEMA_CLARO}
 
   <div class="baia-social baia-social-secundaria" id="baiaSocial">
     <div class="baia-bloco baia-instagram">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>
+      ${SVG_IG}
       <div class="baia-corpo">
         <span class="baia-titulo">Siga o offshore de perto</span>
         <span class="ig-topo-perfis ig-topo-perfis-desktop">
@@ -2865,163 +2990,8 @@ ${CSS_TEMA_CLARO}
   </section>
 
   <section class="ed-section" id="carreiras">
-    <div class="ed-head"><h2>Central Offshore</h2><span class="ed-sub">Tudo pra quem vive ou quer entrar no offshore, num só lugar</span></div>
-    <p class="central-prompt">O QUE VOCÊ PROCURA?</p>
-    <div class="central-intencoes">
-      <a class="central-ic" href="/comece-aqui">
-        <div class="ci-body">
-          <div class="ci-titulo">QUERO ENTRAR NO OFFSHORE</div>
-          <div class="ci-desc">Requisitos, cursos, documentos e o caminho para sua primeira vaga.</div>
-        </div>
-        <span class="ci-arrow">Começar →</span>
-      </a>
-      <a class="central-ic" href="/vagas">
-        <div class="ci-body">
-          <div class="ci-titulo">PROCURO OPORTUNIDADES</div>
-          <div class="ci-desc">Vagas verificadas, canais para currículo e o que as empresas pedem.</div>
-        </div>
-        <span class="ci-arrow">Ver oportunidades →</span>
-      </a>
-      <a class="central-ic" href="/minha-escala">
-        <div class="ci-body">
-          <div class="ci-titulo">JÁ TRABALHO OFFSHORE</div>
-          <div class="ci-desc">Minha Escala, Cruzar Escalas, informações de setor e mercado.</div>
-        </div>
-        <span class="ci-arrow">Acessar →</span>
-      </a>
-      <a class="central-ic" href="/offshore-agora">
-        <div class="ci-body">
-          <div class="ci-titulo">QUERO CONSULTAR O SETOR</div>
-          <div class="ci-desc">Notícias, operações, mercado, plataformas e sondas.</div>
-        </div>
-        <span class="ci-arrow">Explorar →</span>
-      </a>
-    </div>
-    <a class="central-me-cta" href="/minha-escala">
-      <div class="cmec-left">
-        <div class="cmec-titulo">MINHA ESCALA · GRÁTIS</div>
-        <div class="cmec-desc">Calcule seu próximo embarque e desembarque. 14x14, 14x21, 14x28 ou personalizada.</div>
-      </div>
-      <span class="cmec-cta">Acessar →</span>
-    </a>
-    <div class="central-acesso-rapido">
-      <span class="car-titulo">ACESSO RÁPIDO</span>
-      <div class="car-links">
-        <a class="car-link" href="/vagas">Vagas →</a>
-        <a class="car-link" href="/aeroportos">Aeroportos →</a>
-        <a class="car-link" href="/agenda">Agenda →</a>
-        <a class="car-link" href="/radar">Plataformas &amp; Sondas →</a>
-        <a class="car-link" href="/carreiras">Carreiras →</a>
-      </div>
-    </div>
-    <details class="central-mais">
-      <summary>MAIS FERRAMENTAS E CONTEÚDOS</summary>
-      <div class="central-grid">
-      <!-- ── Intenção 1: Entrar no Setor ── -->
-      <div class="central-grupo-div"><span class="central-grupo-label">Entrar no setor</span></div>
-      <a class="central-tile destaque" href="/comece-aqui">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M14.8 9.2l-2.2 5.6-5.6 2.2 2.2-5.6z"/></svg></span>
-        <h3>Comece Aqui</h3>
-        <p>Como trabalhar offshore, passo a passo</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile" href="/vagas">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5"/><path d="M3 12.5h18"/></svg></span>
-        <h3>Vagas Offshore</h3>
-        <p>Oportunidades verificadas em canais oficiais</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile destaque" href="/carreiras/cadastre-seu-curriculo">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3.2"/><path d="M3.5 19.5a6 6 0 0 1 12 0"/><path d="M18 8v5M15.5 10.5h5"/></svg></span>
-        <h3>Cadastre seu Currículo</h3>
-        <p>Canais oficiais das principais empresas do setor</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile" href="/carreiras">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15.5a8 8 0 0 1 16 0"/><path d="M12 7.5v-1"/><rect x="2.5" y="15.5" width="19" height="3" rx="1"/></svg></span>
-        <h3>Carreiras Offshore</h3>
-        <p>Funções, hierarquia e caminhos de carreira</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <!-- ── Intenção 2: Acompanhar ── -->
-      <div class="central-grupo-div"><span class="central-grupo-label">Acompanhar</span></div>
-      <a class="central-tile destaque" href="/offshore-agora">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2.2-6.5L13 18l2.4-6H21"/></svg></span>
-        <h3>Offshore Agora</h3>
-        <p>O que está acontecendo no offshore brasileiro agora</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile destaque" href="/radar">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18M4 17l1.5-6h13L20 17M9 11V6h6v5M11 6V4h2v2"/><circle cx="12" cy="14" r="1"/></svg></span>
-        <h3>Radar Offshore</h3>
-        <p>Encontre navios, sondas e plataformas</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile" href="/aviacao-offshore">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12.5 21 6.5l-4 8-3 1-1 4-2-3.5-4.5-1.5-1-3z"/></svg></span>
-        <h3>Aviação Offshore</h3>
-        <p>Aeronaves, aeroportos e operação aérea</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/agenda">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8.5 14.5h3M15.5 14.5h.5"/></svg></span>
-        <h3>Agenda Offshore</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <!-- ── Intenção 3: Ferramentas ── -->
-      <div class="central-grupo-div"><span class="central-grupo-label">Ferramentas</span></div>
-      <a class="central-tile" href="/minha-escala">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/><path d="M8 14.5h2M14 14.5h2M8 18h2"/></svg></span>
-        <h3>Minha Escala</h3>
-        <p>Calcule seu próximo embarque e desembarque</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/ferramentas">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 3.5 20.5 9.5 9.5 20.5 3.5 14.5Z"/><path d="M13 5 19 11"/><circle cx="7.5" cy="16.5" r="1.4"/></svg></span>
-        <h3>Central de Ferramentas</h3>
-        <p>Calculadoras, conversores e utilidades</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile" href="/pergunte-ao-ownews">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H9l-4 4v-4H4Z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span>
-        <h3>Pergunte ao OWNews</h3>
-        <p>IA offshore — funções, siglas e vagas verificadas</p>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/salarios">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6.5" width="18" height="12" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14" r="1"/></svg></span>
-        <h3>Salários Offshore</h3>
-        <p>Referência CAGED e Pesquisa Salarial OWNews</p>
-      </a>
-      <!-- ── Intenção 4: Explorar ── -->
-      <div class="central-grupo-div"><span class="central-grupo-label">Explorar</span></div>
-      <a class="central-tile" href="/empresas">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1"/><path d="M9 8h1.2M13.8 8H15M9 12h1.2M13.8 12H15M9 16h1.2M13.8 16H15"/></svg></span>
-        <h3>Empresas Offshore</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/explica">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><path d="M9.3 9.3a2.7 2.7 0 1 1 3.7 2.5c-.9.4-1 1-1 1.7"/><path d="M12 17h.01"/></svg></span>
-        <h3>OWNews Explica</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/guias">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5V8h4"/><path d="M9.5 12.5h5M9.5 16h5"/></svg></span>
-        <h3>Guias OWNews</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/cursos" id="cursos">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5 2.5 10 12 14.5 21.5 10z"/><path d="M6.5 12v4.5c0 1.1 2.5 2.5 5.5 2.5s5.5-1.4 5.5-2.5V12"/></svg></span>
-        <h3>Cursos e Escolas</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-      <a class="central-tile secundario" href="/radar">
-        <span class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><path d="M12 7v13"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M4.5 13h3M16.5 13h3"/></svg></span>
-        <h3>Plataformas &amp; Sondas</h3>
-        <span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
-      </a>
-    </div>
-    </details>
+    <div class="ed-head"><h2>Central Offshore</h2><span class="ed-sub">Os recursos do OWNews organizados pelo que você precisa</span></div>
+    ${CENTRAL_OFFSHORE_INTENCOES}
   </section>
 
   ${adSlot("home_after_editorial")}
@@ -3051,10 +3021,13 @@ ${CSS_TEMA_CLARO}
   <!-- Home OWNews 2.0 (2026-09-27): Mais Lidas desceu para posição de
        recirculação de conteúdo (fim da página, antes do ecossistema/rodapé)
        — função e HTML internos 100% preservados, só a posição mudou. -->
+  <div class="ml-ag-grid">
   <section class="ed-section" id="maisLidas" hidden>
-    <div class="ed-head"><h2>Mais Lidas</h2><span class="ed-sub">Últimos 7 dias, por leitura real</span></div>
+    <div class="ed-head"><h2>Mais Lidas</h2><span class="ed-sub" title="Contagem própria do OWNews: um acesso por navegador a cada 30 minutos; robôs excluídos">Acessos reais nos últimos 7 dias</span></div>
     <div class="row-list" id="maisLidasBody"></div>
   </section>
+  <aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>
+  </div>
 
   <section class="eco-section" id="ecossistema">
     <div class="eco-head">
@@ -3115,7 +3088,7 @@ ${CSS_TEMA_CLARO}
 
 </main>
 
-<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><p class="footer-col-titulo">Portal</p><a href="/sobre">Sobre</a><a href="/explica">OWNews Explica</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><p class="footer-col-titulo">Explore</p><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><p class="footer-col-titulo">Acompanhe</p><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>
+${FOOTER_HTML}
 
 <nav class="tabbar" aria-label="Navegação principal">
   <a href="#inicio" class="active"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</a>
@@ -3155,6 +3128,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') fecharMais();
 });
 document.querySelectorAll('#maisMenu a').forEach(a => a.addEventListener('click', fecharMais));
+// Logo = Home + topo, sem depender do histórico (AdSense 3.0).
+const logoHome = document.getElementById('logoHome');
+if (logoHome) logoHome.addEventListener('click', (e) => {
+  if (location.pathname !== '/') return;
+  e.preventDefault();
+  if (location.hash || location.search) history.replaceState(null, '', '/');
+  window.scrollTo(0, 0);
+});
 
 /* Busca: índice estático leve com os destinos reais do site (mesmos nomes/
    slugs usados nas páginas hub) + notícias atualmente carregadas. Nunca
@@ -3166,15 +3147,12 @@ const INDICE_BUSCA_DESTINOS = [
   { titulo: 'Mercado Offshore', categoria: 'Mercado', url: '/mercado' },
   { titulo: 'Aeroportos Offshore', categoria: 'Aeroportos', url: '/aeroportos' },
   { titulo: 'Vagas Verificadas OWNews', categoria: 'Vagas', url: '/vagas' },
-  { titulo: 'Pergunte ao OWNews', categoria: 'Ferramentas', url: '/pergunte-ao-ownews' },
-  { titulo: 'Salários Offshore', categoria: 'Salários', url: '/salarios' },
   { titulo: 'Funções a Bordo', categoria: 'Funções', url: '/funcoes' },
-  { titulo: 'Cursos e Escolas', categoria: 'Cursos', url: '/cursos' },
-  { titulo: 'Central de Ferramentas', categoria: 'Ferramentas', url: '/ferramentas' },
-  { titulo: 'Conversor Offshore', categoria: 'Ferramentas', url: '/conversor' },
+  { titulo: 'Central Offshore', categoria: 'Central', url: '/central-offshore' },
+  { titulo: 'Meus Certificados', categoria: 'Ferramentas', url: '/meus-certificados' },
+  { titulo: 'Checklist de Embarque', categoria: 'Ferramentas', url: '/checklist-embarque' },
+  { titulo: 'OWNews Explica', categoria: 'Explica', url: '/explica' },
   { titulo: 'Glossário Offshore', categoria: 'Ferramentas', url: '/glossario' },
-  { titulo: 'Horários Offshore', categoria: 'Ferramentas', url: '/horarios' },
-  { titulo: 'Calculadora de Embarque', categoria: 'Ferramentas', url: '/calculadora-embarque' },
   { titulo: 'Guias OWNews', categoria: 'Guias', url: '/guias' },
   { titulo: 'Offshore Agora', categoria: 'Agora', url: '/offshore-agora' },
   { titulo: 'OWBuddy', categoria: 'OWBuddy', url: '/meu-ownews' },
@@ -3693,119 +3671,12 @@ function svgDataUri(svg){
   return 'data:image/svg+xml,' + encodeURIComponent(svg.replace(/\\s{2,}/g, ' '));
 }
 
-const FALLBACK_SVGS = {
-  Petrobras: \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
-    <defs>
-      <linearGradient id="skyP" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#0a2c40"/><stop offset="1" stop-color="#061c2b"/>
-      </linearGradient>
-      <radialGradient id="glowP" cx="74%" cy="26%" r="42%">
-        <stop offset="0" stop-color="#12a8ee" stop-opacity="0.22"/><stop offset="1" stop-color="#12a8ee" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <rect width="800" height="450" fill="url(#skyP)"/>
-    <rect width="800" height="450" fill="url(#glowP)"/>
-    <rect y="298" width="800" height="152" fill="#0a2c40"/>
-    <line x1="0" y1="298" x2="800" y2="298" stroke="#16445e" stroke-width="1"/>
-    <g stroke="#123c53" stroke-width="2" fill="none" opacity="0.7">
-      <path d="M0 320 Q100 310 200 320 T400 320 T600 320 T800 320"/>
-      <path d="M0 350 Q100 340 200 350 T400 350 T600 350 T800 350"/>
-    </g>
-    <g stroke="#1c4f6c" stroke-width="3" fill="none">
-      <path d="M520 298 L520 214 M600 298 L600 202 M680 298 L680 214"/>
-      <path d="M500 298 L560 214 M640 298 L600 202 M700 298 L640 214"/>
-    </g>
-    <rect x="500" y="196" width="180" height="16" rx="2" fill="#123c53"/>
-    <rect x="585" y="150" width="6" height="46" fill="#123c53"/>
-    <circle cx="588" cy="146" r="5" fill="#5fc4ee"/>
-    <circle cx="588" cy="146" r="13" fill="#12a8ee" opacity="0.25"/>
-  </svg>\`,
-
-  MME: \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
-    <defs>
-      <linearGradient id="skyM" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#0a2c40"/><stop offset="1" stop-color="#061c2b"/>
-      </linearGradient>
-      <radialGradient id="glowM" cx="26%" cy="20%" r="46%">
-        <stop offset="0" stop-color="#5fc4ee" stop-opacity="0.20"/><stop offset="1" stop-color="#5fc4ee" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <rect width="800" height="450" fill="url(#skyM)"/>
-    <rect width="800" height="450" fill="url(#glowM)"/>
-    <rect y="300" width="800" height="150" fill="#0a2c40"/>
-    <line x1="0" y1="300" x2="800" y2="300" stroke="#16445e" stroke-width="1"/>
-    <g stroke="#1c4f6c" stroke-width="3" fill="none" stroke-linecap="round">
-      <line x1="200" y1="300" x2="200" y2="140"/>
-      <line x1="200" y1="150" x2="150" y2="120"/>
-      <line x1="200" y1="150" x2="245" y2="105"/>
-      <line x1="200" y1="150" x2="215" y2="200"/>
-      <line x1="430" y1="300" x2="430" y2="110"/>
-      <line x1="430" y1="120" x2="378" y2="86"/>
-      <line x1="430" y1="120" x2="478" y2="70"/>
-      <line x1="430" y1="120" x2="446" y2="176"/>
-      <line x1="630" y1="300" x2="630" y2="160"/>
-      <line x1="630" y1="170" x2="584" y2="140"/>
-      <line x1="630" y1="170" x2="670" y2="122"/>
-      <line x1="630" y1="170" x2="644" y2="222"/>
-    </g>
-  </svg>\`,
-
-  ANP: \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
-    <defs>
-      <linearGradient id="skyA" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#0a2c40"/><stop offset="1" stop-color="#061c2b"/>
-      </linearGradient>
-    </defs>
-    <rect width="800" height="450" fill="url(#skyA)"/>
-    <g stroke="#123c53" stroke-width="1.5" fill="none" opacity="0.6">
-      <path d="M-20 120 Q200 90 420 130 T820 110"/>
-      <path d="M-20 180 Q200 150 420 190 T820 170"/>
-      <path d="M-20 240 Q200 215 420 250 T820 230"/>
-    </g>
-    <g stroke="#1c4f6c" stroke-width="3" fill="none">
-      <path d="M560 380 L620 190 L680 380"/>
-      <path d="M578 330 L662 330 M588 280 L652 280 M598 235 L642 235"/>
-    </g>
-    <circle cx="620" cy="176" r="5" fill="#5fc4ee"/>
-    <circle cx="620" cy="176" r="13" fill="#12a8ee" opacity="0.22"/>
-  </svg>\`,
-
-  default: \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
-    <defs>
-      <radialGradient id="glowD" cx="78%" cy="8%" r="60%">
-        <stop offset="0" stop-color="#12a8ee" stop-opacity="0.16"/><stop offset="1" stop-color="#12a8ee" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="skyD" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#061c2b"/><stop offset="0.78" stop-color="#0a2c40"/>
-      </linearGradient>
-    </defs>
-    <rect width="800" height="450" fill="url(#skyD)"/>
-    <rect width="800" height="450" fill="url(#glowD)"/>
-    <line x1="0" y1="290" x2="800" y2="290" stroke="#16445e" stroke-width="1"/>
-    <g stroke="#16445e" stroke-width="2" fill="none">
-      <path d="M600 290 L600 210 M660 290 L660 200 M720 290 L720 210"/>
-      <path d="M580 290 L620 210 M700 290 L660 200 M740 290 L700 210"/>
-    </g>
-    <rect x="580" y="192" width="160" height="14" rx="2" fill="#123c53"/>
-  </svg>\`
-};
-
-const FALLBACK_IMAGES = Object.fromEntries(
-  Object.entries(FALLBACK_SVGS).map(([fonte, svg]) => [fonte, svgDataUri(svg)])
-);
-
-/* ---------------------------------------------------------------
-   Biblioteca Editorial OWNews — Nível 3 da hierarquia de imagem.
-   Fotos reais, licenciadas (CC BY / CC BY-SA), curadas manualmente — ver
-   biblioteca-fotografica.json (metadado completo, com URL original, autor,
-   licença e data de validação). Aqui só o necessário pra exibir + creditar.
-   Nunca retratam o acontecimento específico da matéria — por isso sempre
-   aparecem com o selo "Imagem ilustrativa" + crédito.
------------------------------------------------------------------- */
-const BIBLIOTECA_FOTOGRAFICA = [{"id": "commons-hermod-cassia", "categoria": "plataforma_fpso", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Hermod_at_Cassia_A_and_Cassia_B_platforms%2C_offshore_Trinidad.jpg?width=1600", "credito": "Foto: Chanilim714 / Wikimedia Commons (CC BY-SA 3.0)"}, {"id": "commons-northsea-platforms", "categoria": "plataforma_fpso", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/North_Sea_oil_platforms_%289246%29.jpg?width=1600", "credito": "Foto: joiseyshowaa / Wikimedia Commons (CC BY-SA 2.0)"}, {"id": "commons-silivri-platform", "categoria": "plataforma_fpso", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/SilivriOffshorePlatform.jpg?width=1600", "credito": "Foto: CeeGee / Wikimedia Commons (CC BY-SA 4.0)"}, {"id": "commons-scotland-psv", "categoria": "sonda_perfuracao", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Offshore_drilling_rigs_and_a_platform_supply_vessel_lay_idle_in_Scotland_%289287%29.jpg?width=1600", "credito": "Foto: Michael Elleray / Wikimedia Commons (CC BY 2.0)"}, {"id": "commons-caspian-drilling", "categoria": "sonda_perfuracao", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Deep_sea_oil_drilling_in_the_Caspian._%283892498628%29.jpg?width=1600", "credito": "Foto: Peretz Partensky / Wikimedia Commons (CC BY-SA 2.0)"}, {"id": "commons-oiltanker-nyharbour", "categoria": "petroleo_gas", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Oil_Tanker_in_New_York_Harbour.jpg?width=1600", "credito": "Foto: Paul Harrison / Wikimedia Commons (CC BY-SA 4.0)"}, {"id": "commons-burnaby-refinery", "categoria": "petroleo_gas", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Burnaby_Refinery.jpg?width=1600", "credito": "Foto: Robert Stupka / Wikimedia Commons (CC BY 2.0)"}, {"id": "commons-boats-oilrig", "categoria": "navio_apoio_maritimo", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Boats_and_Oil_rig.jpg?width=1600", "credito": "Foto: Alancru / Wikimedia Commons (CC BY-SA 3.0)"}, {"id": "marinha-porto-santos", "categoria": "porto_logistica", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Navio_cargueiro_atracado_no_Porto_de_Santos_-_2024_%2853639935936%29.jpg?width=1600", "credito": "Foto: Marinha do Brasil / Wikimedia Commons (CC BY-SA 2.0)"}, {"id": "commons-saipem7000", "categoria": "subsea_rov", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Saipem_7000.jpg?width=1600", "credito": "Foto: TeeGeeNo / Wikimedia Commons (CC BY-SA 3.0)"}, {"id": "commons-seven-navica", "categoria": "subsea_rov", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Seven_Navica.jpg?width=1600", "credito": "Foto: Billy McCrorie / Wikimedia Commons (CC BY-SA 2.0)"}, {"id": "commons-dcv-aegir", "categoria": "subsea_rov", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/DCV_Aegir_at_Huisman_yard.jpg?width=1600", "credito": "Foto: RCH95 / Wikimedia Commons (CC BY-SA 3.0)"}, {"id": "commons-nordsee-one", "categoria": "eolica_offshore", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Nordsee_One_Offshore_Windpark.jpg?width=1600", "credito": "Foto: Capmat007 / Wikimedia Commons (CC BY-SA 4.0)"}, {"id": "commons-kent-windfarm", "categoria": "eolica_offshore", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Windfarm_off_the_Kent_coast_%2826339012935%29.jpg?width=1600", "credito": "Foto: G B_NZ / Wikimedia Commons (CC BY-SA 2.0)"}, {"id": "commons-transmission-sunset", "categoria": "energia_industria", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Transmission_Lines_at_Sunset.jpg?width=1600", "credito": "Foto: Kevin Kiefuik / Wikimedia Commons (CC BY 4.0)"}, {"id": "commons-plenario-camara", "categoria": "regulacao_mercado", "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Plen%C3%A1rio_Ulysses_Guimar%C3%A3es.jpg?width=1600", "credito": "Foto: Boaventuravinicius / Wikimedia Commons (CC BY-SA 4.0)"}];
+const CAPAS_EDITORIAIS = ${JSON.stringify(CAPAS_EDITORIAIS)};
+const DOMINIOS_IMAGEM_SEM_HOTLINK = ${JSON.stringify(DOMINIOS_IMAGEM_SEM_HOTLINK)};
 
 // correspondência SEMÂNTICA por assunto — nunca "qualquer foto offshore".
 const PALAVRAS_CATEGORIA_IMAGEM = {
+  carreiras: ["vaga","vagas","emprego","sindicato","sindical","assembleia","greve","acordo coletivo","trabalhadores"],
   plataforma_fpso: ["plataforma","navio-plataforma","fpso","p-80","p-82","p-74"],
   sonda_perfuracao: ["sonda","perfuração","perfuracao","poço","poco","toolpusher","driller"],
   subsea_rov: ["subsea","rov","árvore de natal","arvore de natal"],
@@ -3819,7 +3690,7 @@ const PALAVRAS_CATEGORIA_IMAGEM = {
   energia_industria: ["energia","eletricidade","gasoduto","descomissionamento"]
 };
 const ORDEM_CATEGORIA_IMAGEM = [
-  "plataforma_fpso","sonda_perfuracao","subsea_rov","eolica_offshore",
+  "carreiras","plataforma_fpso","sonda_perfuracao","subsea_rov","eolica_offshore",
   "navio_apoio_maritimo","porto_logistica","petroleo_gas","regulacao_mercado","energia_industria"
 ];
 
@@ -3837,25 +3708,6 @@ function classificarImagem(n){
   return null;
 }
 
-// rotação: nunca repete a última foto usada (em qualquer seção da home) e
-// gira por todas as fotos da categoria antes de repetir uma delas.
-const ponteiroCategoriaFoto = {};
-let ultimaFotoUsadaId = null;
-
-function proximaFotoBiblioteca(categoria){
-  const pool = BIBLIOTECA_FOTOGRAFICA.filter(f => f.categoria === categoria);
-  if (!pool.length) return null;
-  let idx = ponteiroCategoriaFoto[categoria] || 0;
-  let escolhida, tentativas = 0;
-  do {
-    escolhida = pool[idx % pool.length];
-    idx++; tentativas++;
-  } while (escolhida.id === ultimaFotoUsadaId && tentativas < pool.length + 1);
-  ponteiroCategoriaFoto[categoria] = idx;
-  ultimaFotoUsadaId = escolhida.id;
-  return escolhida;
-}
-
 /* Imagens que não servem como capa mesmo vindo como image_url "real": ícones
    de sistema de CMS (ex.: SharePoint dos sites .gov.br), não fotografia.
    Ex. real: EPE reaproveita o mesmo ícone genérico do site em toda matéria
@@ -3865,7 +3717,9 @@ const IMAGEM_PADROES_INVALIDOS = [
   /spcommon\\.png/i
 ];
 function imagemInvalida(url){
-  return !!url && IMAGEM_PADROES_INVALIDOS.some(re => re.test(url));
+  if (!url) return false;
+  if (IMAGEM_PADROES_INVALIDOS.some(re => re.test(url))) return true;
+  try { const h = new URL(url).hostname; return DOMINIOS_IMAGEM_SEM_HOTLINK.some(d => h === d || h.endsWith('.' + d)); } catch { return false; }
 }
 
 /* Hierarquia de imagem:
@@ -3878,29 +3732,14 @@ function imagemDe(noticia){
   if (noticia.image_url && !imagemInvalida(noticia.image_url)) {
     return { src: noticia.image_url, ilustracao: false, variant: '', credito: null };
   }
-
-  const categoria = classificarImagem(noticia);
-  if (categoria) {
-    const foto = proximaFotoBiblioteca(categoria);
-    if (foto) {
-      return { src: foto.src, ilustracao: true, variant: '', credito: foto.credito };
-    }
-  }
-
-  const h = hashSimples(noticia.id || noticia.title || '');
-  const flip = (h % 2 === 0) ? 'scaleX(-1)' : 'none';
-  const hue = (h % 5) * 6 - 12; // leve variação, não muda a paleta de marca
-  return {
-    src: FALLBACK_IMAGES[noticia.image_credit] || FALLBACK_IMAGES.default,
-    ilustracao: true,
-    variant: \`transform:\${flip};filter:hue-rotate(\${hue}deg)\`,
-    credito: null
-  };
+  // Sem foto utilizável da fonte: capa editorial OWNews da editoria
+  // (nunca foto de outra unidade/navio).
+  return { src: CAPAS_EDITORIAIS[classificarImagem(noticia) || 'offshore'] || CAPAS_EDITORIAIS.offshore, ilustracao: true, variant: '', credito: null };
 }
 
 function notaIlustrativa(img, compacta){
   if (!img.ilustracao) return '';
-  const texto = img.credito ? \`Imagem ilustrativa · \${escaparHTML(img.credito)}\` : 'Ilustração editorial OWNews';
+  const texto = img.credito ? \`Imagem ilustrativa · \${escaparHTML(img.credito)}\` : 'Capa editorial OWNews';
   return \`<span class="illustration-note\${compacta ? ' compacta' : ''}"\${compacta ? \` title="\${escaparHTML(texto)}"\` : ''}>\${compacta ? 'ⓘ' : texto}</span>\`;
 }
 
@@ -4408,7 +4247,11 @@ function renderTudo(noticias){
   jornalismo.forEach(id => { const el = id === '__giro__' ? giroWrap : document.getElementById(id); if (el) el.hidden = false; });
   ULTIMAS_NOTICIAS_RADAR = noticias;
 
-  const hero = escolherDestaque(noticias24h);
+  // Seleção canônica do servidor (ver selecaoCanonicaHome): mesma manchete
+  // no HTML inicial e depois de hidratar. Regra local só como reserva.
+  const selCanon = window.__HOME_SEL__ || null;
+  const heroCanon = selCanon && noticias24h.find(n => n.id === selCanon.hero);
+  const hero = heroCanon || escolherDestaque(noticias24h);
   function urlHomeNormalizada(url) {
     if (!url) return '';
     try {
@@ -4487,6 +4330,10 @@ function renderTudo(noticias){
     if (candidata.image_url && imagensDestaques.has(candidata.image_url)) continue;
     destaques.push(candidata);
     if (candidata.image_url) imagensDestaques.add(candidata.image_url);
+  }
+  if (heroCanon && Array.isArray(selCanon.laterais) && selCanon.laterais.length) {
+    const lateraisCanon = selCanon.laterais.map(id => noticias.find(n => n.id === id)).filter(Boolean);
+    if (lateraisCanon.length === selCanon.laterais.length) destaques.splice(0, destaques.length, ...lateraisCanon);
   }
   const usados = new Set([hero, ...destaques].flatMap(chavesHome));
   /* Esgotamento sequencial do pool: cada seção só pode usar matérias que
@@ -4609,8 +4456,13 @@ if (!document.querySelector('#heroCard .lead-ssr-link')) {
    cada dia sem novo deploy) até o PRÓXIMO tick do setInterval, que era de
    10 minutos. Agora tenta de novo rapidamente (8s) até 3 vezes antes de
    desistir e esperar o próximo intervalo normal. */
+let homeSelecaoDoHtml = !!window.__HOME_SEL__;
 async function carregarNoticiasAoVivo(tentativa){
   try {
+    if (!homeSelecaoDoHtml) {
+      try { const r = await fetch('/api/home-selecao'); if (r.ok) window.__HOME_SEL__ = await r.json(); } catch (e) {}
+    }
+    homeSelecaoDoHtml = false;
     const url = SUPABASE_URL + '/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,editorial_score,score_reason&status=eq.published&order=published_at.desc&limit=40';
     const resposta = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!resposta.ok) throw new Error('Supabase ' + resposta.status);
@@ -4772,7 +4624,7 @@ function renderMaisLidas(itens){
     const img = imagemDe(n);
     return '<article class="row" onclick="' + irPara(n.id) + '">' +
       '<div class="row-thumb" ' + capaAtributos(img) + '>' + botaoCarregarImagem() + notaIlustrativa(img, true) + '</div>' +
-      '<div class="row-main"><span class="eyebrow">#' + (i + 1) + ' MAIS LIDA</span><h3>' + escaparHTML(n.title) + '</h3><span class="byline">' + escaparHTML(tempoRelativo(n.published_at)) + '</span></div>' +
+      '<div class="row-main"><span class="eyebrow">#' + (i + 1) + ' MAIS LIDA' + (n.views ? ' · ' + Number(n.views).toLocaleString('pt-BR') + ' acessos' : '') + '</span><h3>' + escaparHTML(n.title) + '</h3><span class="byline">' + escaparHTML(tempoRelativo(n.published_at)) + '</span></div>' +
       '</article>';
   }).join('');
 }
@@ -5422,7 +5274,7 @@ const IMAGEM_PADROES_INVALIDOS_SERVIDOR = [
   /spcommon\.png/i
 ];
 function imagemValidaServidor(url) {
-  return !!url && !IMAGEM_PADROES_INVALIDOS_SERVIDOR.some((re) => re.test(url));
+  return !!url && !IMAGEM_PADROES_INVALIDOS_SERVIDOR.some((re) => re.test(url)) && !imagemDeDominioBloqueado(url);
 }
 
 /* Fallback de imagem no SERVIDOR (Missão Mestre, 2026-09-18, seção "imagem
@@ -5440,6 +5292,7 @@ function imagemValidaServidor(url) {
    como ilustrativa via alt text.
 ------------------------------------------------------------------ */
 const PALAVRAS_CATEGORIA_IMAGEM_SERVIDOR = {
+  carreiras: ["vaga","vagas","emprego","sindicato","sindical","assembleia","greve","acordo coletivo","trabalhadores"],
   plataforma_fpso: ["plataforma","navio-plataforma","fpso","p-80","p-82","p-74"],
   sonda_perfuracao: ["sonda","perfuração","perfuracao","poço","poco","toolpusher","driller"],
   subsea_rov: ["subsea","rov","árvore de natal","arvore de natal"],
@@ -5453,23 +5306,8 @@ const PALAVRAS_CATEGORIA_IMAGEM_SERVIDOR = {
   energia_industria: ["energia","eletricidade","gasoduto","descomissionamento"]
 };
 const ORDEM_CATEGORIA_IMAGEM_SERVIDOR = [
-  "plataforma_fpso","sonda_perfuracao","subsea_rov","eolica_offshore",
+  "carreiras","plataforma_fpso","sonda_perfuracao","subsea_rov","eolica_offshore",
   "navio_apoio_maritimo","porto_logistica","petroleo_gas","regulacao_mercado","energia_industria"
-];
-const BIBLIOTECA_FOTOGRAFICA_SERVIDOR = [
-  { id: "commons-hermod-cassia", categoria: "plataforma_fpso", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Hermod_at_Cassia_A_and_Cassia_B_platforms%2C_offshore_Trinidad.jpg?width=1600", credito: "Foto: Chanilim714 / Wikimedia Commons (CC BY-SA 3.0)" },
-  { id: "commons-northsea-platforms", categoria: "plataforma_fpso", src: "https://commons.wikimedia.org/wiki/Special:FilePath/North_Sea_oil_platforms_%289246%29.jpg?width=1600", credito: "Foto: joiseyshowaa / Wikimedia Commons (CC BY-SA 2.0)" },
-  { id: "commons-scotland-psv", categoria: "sonda_perfuracao", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Offshore_drilling_rigs_and_a_platform_supply_vessel_lay_idle_in_Scotland_%289287%29.jpg?width=1600", credito: "Foto: Michael Elleray / Wikimedia Commons (CC BY 2.0)" },
-  { id: "commons-caspian-drilling", categoria: "sonda_perfuracao", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Deep_sea_oil_drilling_in_the_Caspian._%283892498628%29.jpg?width=1600", credito: "Foto: Peretz Partensky / Wikimedia Commons (CC BY-SA 2.0)" },
-  { id: "commons-oiltanker-nyharbour", categoria: "petroleo_gas", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Oil_Tanker_in_New_York_Harbour.jpg?width=1600", credito: "Foto: Paul Harrison / Wikimedia Commons (CC BY-SA 4.0)" },
-  { id: "commons-burnaby-refinery", categoria: "petroleo_gas", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Burnaby_Refinery.jpg?width=1600", credito: "Foto: Robert Stupka / Wikimedia Commons (CC BY 2.0)" },
-  { id: "commons-boats-oilrig", categoria: "navio_apoio_maritimo", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Boats_and_Oil_rig.jpg?width=1600", credito: "Foto: Alancru / Wikimedia Commons (CC BY-SA 3.0)" },
-  { id: "marinha-porto-santos", categoria: "porto_logistica", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Navio_cargueiro_atracado_no_Porto_de_Santos_-_2024_%2853639935936%29.jpg?width=1600", credito: "Foto: Marinha do Brasil / Wikimedia Commons (CC BY-SA 2.0)" },
-  { id: "commons-saipem7000", categoria: "subsea_rov", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Saipem_7000.jpg?width=1600", credito: "Foto: TeeGeeNo / Wikimedia Commons (CC BY-SA 3.0)" },
-  { id: "commons-seven-navica", categoria: "subsea_rov", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Seven_Navica.jpg?width=1600", credito: "Foto: Billy McCrorie / Wikimedia Commons (CC BY-SA 2.0)" },
-  { id: "commons-nordsee-one", categoria: "eolica_offshore", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Nordsee_One_Offshore_Windpark.jpg?width=1600", credito: "Foto: Capmat007 / Wikimedia Commons (CC BY-SA 4.0)" },
-  { id: "commons-transmission-sunset", categoria: "energia_industria", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Transmission_Lines_at_Sunset.jpg?width=1600", credito: "Foto: Kevin Kiefuik / Wikimedia Commons (CC BY 4.0)" },
-  { id: "commons-plenario-camara", categoria: "regulacao_mercado", src: "https://commons.wikimedia.org/wiki/Special:FilePath/Plen%C3%A1rio_Ulysses_Guimar%C3%A3es.jpg?width=1600", credito: "Foto: Boaventuravinicius / Wikimedia Commons (CC BY-SA 4.0)" }
 ];
 function bateComBordaDePalavraServidor(t, palavra) {
   if (palavra.length > 4) return t.includes(palavra);
@@ -6387,12 +6225,39 @@ function injetarNoticiasHome(html, noticias, agora) {
   return html
     .replace('<section class="masthead" id="destaque" aria-label="Destaque">', '<section class="masthead ' + m.classeMasthead + '" id="destaque" aria-label="Destaque">')
     .replace('<article class="lead" id="heroCard"></article>', '<article class="lead" id="heroCard">' + m.hero + '</article>')
-    .replace('<aside class="highlights" id="highlightsList"></aside>', '<aside class="highlights" id="highlightsList">' + m.laterais + '</aside>')
+    .replace('<aside class="highlights" id="highlightsList"></aside>', '<aside class="highlights" id="highlightsList">' + m.laterais + '</aside><script>window.__HOME_SEL__=' + JSON.stringify(selecaoCanonicaHome(selecao)) + ';</script>')
     .replace('<div class="latest-body" id="ultimasBody"></div>', '<div class="latest-body latest-count-' + m.ultimasCount + '" id="ultimasBody">' + m.ultimas + '</div>');
 }
 
+/* AdSense 3.0: seleção canônica de manchete + laterais. O cliente não
+   recalcula com regra própria (antes divergia: sem filtro de matéria thin
+   e com outro score) — usa a escolha do servidor embutida no HTML e, nos
+   refreshes, /api/home-selecao, que roda esta MESMA função. */
+function selecaoCanonicaHome(selecao) {
+  return selecao ? { hero: selecao.hero.id, laterais: selecao.laterais.map((n) => n.id) } : null;
+}
+async function responderHomeSelecao() {
+  let sel = null;
+  try { sel = selecaoCanonicaHome(selecionarHomeServidor(await obterNoticiasHomeServidor(), Date.now())); } catch {}
+  return new Response(JSON.stringify(sel), { headers: { 'Content-Type': 'application/json; charset=UTF-8' } });
+}
+
+/* Home 3.0 Etapa 2 / AdSense 3.0: Agenda compacta ao lado de Mais Lidas,
+   com os próximos 3 eventos reais de AGENDA_EVENTOS (nada fixo no HTML). */
+const MESES_AGENDA_HOME = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+function blocoAgendaHome() {
+  const eventos = proximosEventosAgenda(3);
+  if (!eventos.length) return null;
+  return '<aside class="ed-section home-agenda" id="homeAgenda"><div class="ed-head"><h2>Próximos eventos</h2></div><ul class="ha-lista">' +
+    eventos.map((ev) => {
+      const [, m, d] = String(ev.dataInicio).split('-');
+      return '<li><a class="ha-item" href="/agenda/' + escaparHTML(ev.slug) + '"><span class="ha-data"><strong>' + escaparHTML(d) + '</strong>' + MESES_AGENDA_HOME[(+m || 1) - 1] + '</span><span class="ha-info"><span class="ha-nome">' + escaparHTML(ev.nome) + '</span><span class="ha-local">' + escaparHTML([ev.cidade, ev.pais].filter(Boolean).join(', ')) + '</span></span></a></li>';
+    }).join('') + '</ul><a class="ha-cta" href="/agenda">Ver agenda completa →</a></aside>';
+}
+
 async function renderHomeServidor() {
-  const base = homeEstatica();
+  const agendaHome = blocoAgendaHome();
+  const base = agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica();
   try {
     const noticias = await obterNoticiasHomeServidor();
     return injetarNoticiasHome(base, noticias, new Date());
@@ -6411,11 +6276,8 @@ function hashSimplesServidor(texto) {
 // Fallback determinístico (mesmo artigo => sempre a mesma foto, mesmo em
 // isolates/requisições diferentes — sem estado mutável de módulo).
 function imagemFallbackServidor(artigo) {
-  const categoria = classificarImagemServidor(artigo);
-  const pool = categoria ? BIBLIOTECA_FOTOGRAFICA_SERVIDOR.filter((f) => f.categoria === categoria) : [];
-  const base = pool.length ? pool : BIBLIOTECA_FOTOGRAFICA_SERVIDOR;
-  const escolhida = base[hashSimplesServidor(artigo.id || artigo.title) % base.length];
-  return { src: escolhida.src, credito: escolhida.credito, ilustrativa: true };
+  const categoria = classificarImagemServidor(artigo) || 'offshore';
+  return { src: CAPAS_EDITORIAIS[categoria] || CAPAS_EDITORIAIS.offshore, credito: null, ilustrativa: true };
 }
 // Retorna a imagem real (se válida) ou a de fallback — nunca null.
 function imagemComFallbackServidor(artigo) {
@@ -7195,9 +7057,9 @@ const SONDA_SLUGS_SET = new Set([
    todo o site); páginas de função/salário vêm do cadastro real
    (FUNCOES_OFFSHORE). Sem endpoint técnico, sem rota de teste. */
 const ROTAS_ESTATICAS_SITEMAP = [
-  "/", "/offshore-agora", "/aeroportos", "/mercado", "/comece-aqui", "/cursos", "/conversor", "/glossario", "/horarios", "/calculadora-embarque", "/empresas",
-  "/funcoes", "/guias", "/minha-escala", "/radar", "/pesquisa-salarial",
-  "/salarios", "/vagas", "/carreiras", "/carreiras/sonda-de-perfuracao", "/carreiras/cadastre-seu-curriculo", "/carreiras/modelo-curriculo", "/pergunte-ao-ownews",
+  "/", "/offshore-agora", "/aeroportos", "/mercado", "/comece-aqui", "/glossario", "/empresas",
+  "/funcoes", "/guias", "/minha-escala", "/meus-certificados", "/checklist-embarque", "/central-offshore", "/radar",
+  "/vagas", "/carreiras", "/carreiras/sonda-de-perfuracao", "/carreiras/cadastre-seu-curriculo", "/carreiras/modelo-curriculo",
   "/guias/escala-offshore", "/guias/erros-comuns-golpes",
   "/guias/checklist-documentos", "/guias/primeiro-embarque",
   "/guias/o-que-levar", "/guias/preciso-de-experiencia",
@@ -7205,8 +7067,7 @@ const ROTAS_ESTATICAS_SITEMAP = [
   "/guias/onde-encontrar-vagas-confiaveis", "/guias/primeiro-emprego-offshore",
   "/guias/escolher-uma-funcao", "/guias/rotina-a-bordo",
   "/guias/embarque-de-helicoptero", "/certificados-offshore",
-  "/sobre", "/contato", "/privacidade", "/politica-editorial", "/correcoes", "/termos-de-uso", "/owbuddy",
-  "/newsletter"
+  "/sobre", "/contato", "/privacidade", "/politica-editorial", "/correcoes", "/termos-de-uso", "/owbuddy"
 ];
 
 /* Missão AdSense Recovery 1.0 — resposta em cache de borda (caches.default)
@@ -7257,8 +7118,21 @@ function xmlUrl(loc, lastmod) {
    volta ao índice sozinha — nada é inventado para preencher.
    Calibrado com o acervo real em 2026-10-17 (ver relatório da missão). */
 const ROBOTS_NOINDEX_PAGINA = 'noindex,follow';
+// AdSense Readiness 3.0 (2026-10-17) — decisão de negócio: Salários Offshore
+// fora da superfície pública até ser reconstruído com dados confiáveis.
+// URLs continuam respondendo (noindex,follow; fora do sitemap, menus, busca
+// e links internos). Código e dados preservados: religar = true.
+const SALARIOS_PUBLICO = false;
+// Páginas que respondem mas não devem ser avaliadas/indexadas: utilitários
+// pessoais (dados só do aparelho), formulários, busca e ferramentas
+// genéricas ou incompletas aposentadas da navegação.
+const PAGINAS_FORA_DO_INDICE = ['/salarios', '/pesquisa-salarial', '/cursos', '/conversor', '/pergunte-ao-ownews', '/buscar', '/meus-alertas', '/meu-ownews', '/central-do-trabalhador', '/newsletter'];
+function paginaForaDoIndice(caminho) {
+  return !!caminho && (PAGINAS_FORA_DO_INDICE.includes(caminho) || caminho.startsWith('/salarios/'));
+}
 // Salário: só com dado real (CAGED) ou amostra suficiente da Pesquisa OWNews.
 function salarioIndexavel(slug) {
+  if (!SALARIOS_PUBLICO) return false;
   const d = DADOS_SALARIO[slug];
   const p = PESQUISA_SALARIAL_AGREGADOS[slug];
   return !!((d && d.clt && d.clt.media) || (p && p.n >= PESQUISA_SALARIAL_MINIMO));
@@ -7279,7 +7153,7 @@ function funcaoIndexavel(fBase) {
     !!(f.funcoesRelacionadas && f.funcoesRelacionadas.length),
     !!(f.fontes && f.fontes.length)
   ].filter(Boolean).length;
-  return proprio >= 700 && pilares >= 5;
+  return proprio >= 900 && pilares >= 5; // AdSense 3.0: era 700
 }
 // Empresa: hoje as fichas só têm nome, categoria e link de carreiras (stub).
 // Indexa apenas quando houver perfil editorial próprio com fontes.
@@ -7287,11 +7161,13 @@ function empresaIndexavel(e) {
   return !!(e && e.perfil && String(e.perfil).length >= 400 && Array.isArray(e.fontesPerfil) && e.fontesPerfil.length);
 }
 // Unidade do Radar: descrição própria + dados técnicos verificáveis.
+// AdSense 3.0: a nota "Não foi localizado código NS-##" não conta como
+// descrição; ficha de duas frases + campos técnicos fica fora do índice.
 function radarIndexavel(u) {
   if (!u) return false;
-  const sobre = String(u.sobre || '').length;
-  const tec = ['imo', 'ano_construcao', 'estaleiro', 'comprimento_m', 'gt', 'owner', 'operador', 'contratante', 'campo', 'status_brasil', 'bandeira'].filter((k) => u[k] != null && u[k] !== '').length;
-  return sobre >= 250 || (sobre >= 120 && tec >= 6);
+  const sobre = String(u.sobre || '').replace(/\s*Não foi localizad[oa][^.]*\./gi, '').trim().length;
+  const tec = ['imo', 'ano_construcao', 'estaleiro', 'comprimento_m', 'gt', 'owner', 'operador', 'contratante', 'campo', 'status_brasil', 'bandeira', 'capacidade', 'codigo_petrobras', 'dwt'].filter((k) => u[k] != null && u[k] !== '').length;
+  return sobre >= 400 || (sobre >= 260 && tec >= 4);
 }
 // Evento da Agenda: ficha curta (nome/data/local/link) não é conteúdo
 // editorial; só indexa evento futuro com descrição própria substancial.
@@ -7663,6 +7539,13 @@ const PALAVRAS_COMECAR = ['como embarco', 'como embarcar', 'como comeco', 'como 
 // coisa genérica" (regra explícita da missão).
 function respostaSalarioIA(perguntaNorm) {
   const funcao = funcaoParaPerguntaIA(perguntaNorm);
+  // AdSense 3.0: Salários fora do ar — nenhuma faixa nem link para /salarios.
+  if (!SALARIOS_PUBLICO) {
+    return {
+      curtoCircuito: 'O OWNews não publica referências salariais no momento: a base está sendo refeita com dados mais confiáveis. ' + (funcao ? 'Veja o que faz um(a) ' + funcao.nome + ' em Funções a Bordo.' : 'Veja as funções catalogadas em Funções a Bordo.'),
+      fontes: [funcao ? { titulo: funcao.nome + ' — Funções a Bordo', url: '/funcoes/' + funcao.slug } : { titulo: 'Funções a Bordo', url: '/funcoes' }]
+    };
+  }
   if (!funcao) {
     return {
       curtoCircuito: 'Não identifiquei a função exata da sua pergunta sobre salário. Veja a lista completa de funções com dados salariais em /salarios, ou pergunte de novo citando o nome do cargo (ex.: Guindasteiro, ROV, Driller, Plataformista).',
@@ -7698,7 +7581,7 @@ function montarContextoPerguntaIA(perguntaNorm) {
     const candidatas = funcoesParaComparacaoIA(perguntaNorm);
     if (candidatas.length === 2) {
       candidatas.forEach((f) => {
-        blocos.push('Função "' + f.nome + '": ' + f.resumo + (f.requisitosEntrada ? ' Requisitos de entrada: ' + f.requisitosEntrada + '.' : '') + (DADOS_SALARIO[f.slug] && DADOS_SALARIO[f.slug].salarioBase && DADOS_SALARIO[f.slug].salarioBase.valor ? ' Salário-base CLT: ' + DADOS_SALARIO[f.slug].salarioBase.valor + '.' : ''));
+        blocos.push('Função "' + f.nome + '": ' + f.resumo + (f.requisitosEntrada ? ' Requisitos de entrada: ' + f.requisitosEntrada + '.' : '') + (SALARIOS_PUBLICO && DADOS_SALARIO[f.slug] && DADOS_SALARIO[f.slug].salarioBase && DADOS_SALARIO[f.slug].salarioBase.valor ? ' Salário-base CLT: ' + DADOS_SALARIO[f.slug].salarioBase.valor + '.' : ''));
         fontes.push({ titulo: f.nome + ' — Funções a Bordo', url: '/funcoes/' + f.slug });
       });
       return { curtoCircuito: null, contexto: blocos.join('\n\n'), fontes };
@@ -8192,7 +8075,7 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     // Missão AdSense Recovery 1.0: páginas "thin" (sem camada editorial e
     // corpo igual ao resumo) saem do índice via robots meta, mas continuam
     // acessíveis e linkadas (follow). Padrão: sem meta → indexável.
-    (opcoes.robots ? '<meta name="robots" content="' + escaparHTML(opcoes.robots) + '">' : '') +
+    ((opcoes.robots || paginaForaDoIndice(caminhoCanonico)) ? '<meta name="robots" content="' + escaparHTML(opcoes.robots || ROBOTS_NOINDEX_PAGINA) + '">' : '') +
     (urlCanonica ? '<link rel="canonical" href="' + urlCanonica + '">' : '') +
     '<meta property="og:site_name" content="OWNews">' +
     '<meta property="og:type" content="' + tipoOg + '">' +
@@ -8207,39 +8090,17 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">' +
     '<style>\n/* ---------------------------------------------------------------\n   OWNews — HOME v3 (versão editorial aprovada). Identidade preservada:\n   navy escuro + branco + azul/ciano.\n   Laranja reservado exclusivamente para elementos ligados à OffshoreWorks.\n\n   Vozes tipográficas:\n   - Source Serif 4 = voz editorial (todo título de matéria, de manchete a\n     linha de lista) — é o que dá o ar de jornal premium.\n   - Archivo = voz de interface (nav, botões, rótulos de seção, metadados).\n   - IBM Plex Mono = reservada só pra dado técnico (códigos ICAO na barra\n     de aeroportos) — de propósito, não usamos mono em mais nada, pra\n     tirar o ar de "dashboard".\n------------------------------------------------------------------ */\n:root{\n  --navy-950:#061c2b;\n  --navy-900:#08283a;\n  --navy-800:#0a2c40;\n  --navy-700:#0e3450;\n  --line:#16445e;\n  --line-soft:#123c53;\n  --line-hair:#153a50;\n  --cyan:#12a8ee;\n  --cyan-dim:#5fc4ee;\n  --white:#f7fafc;\n  --muted:#9eb5c5;\n  --muted-dim:#6f8b9c;\n  --orange:#ff7a00;   /* somente OffshoreWorks */\n  --orange-dim:#7a3f10;\n  --green:#42d879;\n  --yellow:#ffd44d;\n  --red:#ff4b4b;\n\n  --editorial: \'Source Serif 4\', Georgia, \'Times New Roman\', serif;\n  --ui: \'Archivo\', system-ui, -apple-system, \'Segoe UI\', sans-serif;\n  --mono: \'IBM Plex Mono\', \'SF Mono\', ui-monospace, monospace;\n\n  color-scheme: dark;\n}\n\n*{box-sizing:border-box}\nhtml{scroll-behavior:smooth}\nbody{\n  margin:0;\n  /* Navy metalizado premium — mesmas 3 camadas de CSS puro da Home (Fase 3, 2026-09-18): glow azul-petróleo no topo, sheen diagonal sutil e degradê diagonal até quase-preto. Unificado com a Home pra consistência visual entre artigo/aeroportos/mercado/etc. */\n  background:\n    url(\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22900%22%20height%3D%22900%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%3E%3Cpath%20d%3D%22M680%20620C640%20560%20560%20540%20500%20580C440%20620%20430%20700%20480%20740C540%20790%20640%20770%20680%20720C710%20680%20710%20650%20680%20620Z%22%20stroke-opacity%3D%220.045%22%2F%3E%3Cpath%20d%3D%22M700%20600C650%20520%20540%20500%20460%20550C380%20600%20370%20710%20440%20760C520%20820%20660%20790%20710%20710C745%20655%20745%20615%20700%20600Z%22%20stroke-opacity%3D%220.035%22%2F%3E%3Cpath%20d%3D%22M730%20580C660%20480%20510%20460%20410%20525C310%20590%20300%20730%20390%20790C490%20860%20670%20820%20735%20715C780%20645%20780%20600%20730%20580Z%22%20stroke-opacity%3D%220.028%22%2F%3E%3Cpath%20d%3D%22M760%20560C670%20440%20480%20415%20355%20495C235%20570%20225%20745%20335%20815C455%20895%20685%20850%20760%20720C815%20630%20815%20580%20760%20560Z%22%20stroke-opacity%3D%220.02%22%2F%3E%3Cpath%20d%3D%22M226%20146h8M230%20142v8%22%20stroke-opacity%3D%220.06%22%20stroke-width%3D%220.8%22%2F%3E%3Cpath%20d%3D%22M116%20476h8M120%20472v8%22%20stroke-opacity%3D%220.06%22%20stroke-width%3D%220.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E\"),\n    url(\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22600%22%20height%3D%22600%22%3E%3Cpath%20d%3D%22M0%2060%20C%20100%2020%20200%20100%20300%2060%20S%20500%2020%20600%2060%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.05%22%2F%3E%3Cpath%20d%3D%22M0%20180%20C%20100%20140%20200%20220%20300%20180%20S%20500%20140%20600%20180%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.045%22%2F%3E%3Cpath%20d%3D%22M0%20300%20C%20100%20260%20200%20340%20300%20300%20S%20500%20260%20600%20300%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.04%22%2F%3E%3Cpath%20d%3D%22M0%20420%20C%20100%20380%20200%20460%20300%20420%20S%20500%20380%20600%20420%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.035%22%2F%3E%3Cpath%20d%3D%22M0%20540%20C%20100%20500%20200%20580%20300%20540%20S%20500%20500%20600%20540%22%20stroke%3D%22%235fc4ee%22%20stroke-width%3D%221%22%20fill%3D%22none%22%20stroke-opacity%3D%220.03%22%2F%3E%3C%2Fsvg%3E\"),\n    url(\"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22764%22%20height%3D%22367%22%20viewBox%3D%220%200%20764%20367%22%3E%3Cpath%20fill%3D%22%235fc4ee%22%20fill-opacity%3D%220.05%22%20fill-rule%3D%22evenodd%22%20d%3D%22M427.8%201.8%20407%202l4%203.6c5.8%205.2%208.2%2011.2%2023.5%2056.9l27.2%2081c11.3%2033.1%2013.3%2040.2%2012.4%2041.8-.7%201-9.2%2011.8-19%2024a690%20690%200%200%200-19.7%2025.5c-1.9%203-2.2%203.1-2.8%201.5L405%20163l-19.3-51.5-27.4-73c-9.4-24.8-9.9-27.5-5.8-32.3a15%2015%200%200%200%202.5-3.6c0-.3-10.6-.6-23.5-.6s-23.5.2-23.5.5%202%202.4%204.7%204.7c6%205.5%204.4%202%2036.3%2086.9%2026.7%2071%2033.8%2090%2036.6%2096.9l8.4%2023c16.3%2044.8%2015.8%2044.2%2035.4%2044.8l10.9.4-.7-2.4c-1.7-6-1.7-8%200-13%202-6%206.3-13%2017.2-26.8%2010-12.6%2018-23.2%2019.2-25%201.3-2.2%201.2-2.5%209.9%2027.8%204.4%2015.6%208.9%2029.7%209.8%2031.3%203.4%205.7%207.5%207.2%2020.2%207.7l11.4.4-.9-3.3c-4.5-17.1%204.6-42.1%2034-93.1%2018.2-31.7%2037.2-69.4%2041.5-82.4%2012-36.2%208.5-66.5-8.8-75.4-20-10.2-41.5.8-55.8%2028.6-24.7%2048.4-24.2%20111.5%201.2%20144.9l3.7%204.8-6.5%2013.1a182%20182%200%200%200-13.8%2034.3q-2%209-3.5%202c-.7-3.5-.5-2.9-12.7-40.7-10-31-23-71.3-26.2-82L463%2058.5c-15.3-47.3-15.6-49-11-54.1%201.3-1.3%202.2-2.5%202-2.5-1.2-.4-7-.4-26.2-.1M267%203.6c-50.6%209.2-93.2%2045.9-107.4%2092.4a128%20128%200%200%200%207.2%2088.5c5.2%2010.5%2015.4%2025%2021.6%2031a141%20141%200%200%200%2041%2029c21.5%2010.4%2039%2014%2063.1%2013.2%2021-.7%2037-5%2057.1-15%2013-6.6%2035.2-23%2036.9-27.5.6-1.6-6.3-22.2-7.5-22.2-.3%200-2.5%203.7-5%208.3a98%2098%200%200%201-77.6%2051.9c-45.8%204.5-87-23-103.7-69.2-24-66.4-.1-142.6%2052.6-168%2013.9-6.6%2021-8.2%2040-8.7%2013.5-.4%2016.7-.8%2016.7-2%200-.7-1.2-1.8-2.6-2.3-3.6-1.4-23.5-1-32.4.6m292.8%2032c-30.9%208-46%2071.8-28.3%20118.5%202.9%207.4%2011.6%2023%2013.2%2023.6.5.2%202.5-2.5%204.3-6%201.8-3.4%205.9-10.5%209-15.7%2019.1-32.2%2029.2-52.5%2033-66.6%203.6-13.3%202.5-32.7-2.4-42.2s-17.4-14.6-28.8-11.7M106%20284.5A30%2030%200%200%200%2092%20303c-.5%202-1.4%202.6-5%203.1l-4.5.6%204.3.2%204.3.1-.3%2028.9-.3%2028.8h9l-.3-28.8L99%20307h28.2l-.3%2029-.3%2029%204.5-.2%204.5-.3-.3-28.7-.3-28.8%2012.8-.2c10-.1%2011.4-.3%206.3-.7l-6.5-.6%203.2-1.7c13.7-7.6%2013.5-22.7-.3-21.6-9.8.8-19%209.2-22%2019.8l-1%203.5-7.2.3c-6.9.3-9.6-.9-5.3-2.3a25%2025%200%200%200%209.7-11.1c2.3-9-8.5-13.6-18.6-7.8m109-1.2c.8%201%201%2012.2.8%2041.3l-.3%2039.8%205.3.1c4.5%200%205.2-.1%204.5-1.5-.4-.9-.8-9-.8-18.1v-16.5l3.4-6.3c10.7-19.7%2029-20%2033.1-.6.9%204%20.9%206.8%200%2010.7-2.8%2012.8-2.3%2031.2.9%2031.8l4.7.4%204%20.3-1.8-5.1c-2-6-2.2-13.1-.7-19.7%204.8-20.2-3.4-34-20.4-34-7.5%200-13.5%204-19%2012.6l-4.2%206.6-.3-20.3c-.3-22.4-.4-22.9-6.4-22.9-3.4%200-3.8.2-2.9%201.4m439%200c.9%201%201.1%2012%20.9%2041.6l-.3%2040.1%205-.5%205.5-.5q.3-.1-.8-1.3c-2-2-1.7-27.8.3-27.8%205%200%209.7%204.9%2016%2016.5%203.9%207.3%208.6%2012.4%2011.4%2012.6l4.4.4c3.3.4%203.4%200%20.1-3.8a55%2055%200%200%201-5.6-9.1c-4-7.9-10.2-16.3-12.8-17.1-3-1-1.6-2.2%203.2-3%2011.5-1.6%2020.8-9.3%2020.8-17%200-7.3-4.8-10.3-13.5-8.5-9%201.9-13.5%205.5-23.7%2019.2-1.6%202.2-1.7%201.3-1.8-19.4%200-24.2.1-23.8-7-23.8-2.7%200-3%20.2-2%201.4m-621.4.7c-11%202.7-22%2011.8-27%2022.4A40.4%2040.4%200%200%200%2035.2%20364c21.5%203.8%2042.4-12.5%2045.2-35.2%203.3-26.3-23-51-47.9-44.7m78-.1c-5.8%201.8-9%206.9-11%2017.7-1%204.2.3%204.7%207.6%202.8%2010-2.5%2016.8-8.3%2016.8-14.3%200-5-6.8-8.3-13.4-6.2m36%200c-5.8%201.8-9.1%207.2-11%2017.8-.8%204.4%201%205%208.5%202.7%2013-4%2019.5-13%2013.4-19-2.5-2.6-5.7-3-10.9-1.5m303.5%202.8c1%202%204.4%2010.7%207.3%2019.2%2021.7%2062.3%2020.3%2059%2025.8%2059%202.4%200%202.8-.4%202.8-2.6%200-2.5%2010.4-18.4%2012-18.4.3%200%201.7%204%203%209%202.5%209.8%204.3%2012.3%208.7%2011.8%202.4-.3%202.8-.7%202.5-3-.5-4%201.7-9.4%2013.2-32.8%2013.7-27.6%2015.5-38%208-44-14.6-11.4-29.6%2028.3-19%2050.3l2.8%205.7-2.8%207.3c-1.5%204-3%207.6-3.4%208s-3.3-8-6.5-18.5L494.3%20304c-2.5-8-4.5-16-4.6-17.7l-.1-3.3h-6c-4.5%200-5.6.3-4.8%201.3%201%201.2%208%2022%2014.7%2044%204%2013.4%204%2013.3-2%2021.3-2.6%203.2-5%206.5-5.5%207.3-1.3%202.5-1.9%201.3-8.5-18.1l-12.3-35.4c-4.2-12-5.6-17.6-5-18.8.8-1.4.1-1.6-5.6-1.6h-6.4zm-416.4-1.4c-23%206.4-32%2042.3-16.4%2065.3a28.4%2028.4%200%200%200%2046.7%201.2c9.3-11.8%2011-34.1%203.7-49-7-14.7-20.2-21.4-34-17.5m487.3%208.9c-6.6%203.4-11%2020.6-8.1%2032.4%201.3%205.6%204.1%2012.3%205%2012.3s8.2-12.8%2011.7-20.5c6.7-14.7%201.5-29.4-8.6-24.2m-353.8%2013.9a31%2031%200%200%200-9.3%204.9c-7.5%207-.6%2018.3%2014%2023%207%202.2%207.8%203.8%202%203.9-9%200-18.9%206.3-18.9%2012%200%204.7%201.5%206.7%207.3%209.7a58%2058%200%200%200%2037.8%200c13.8-7%209.1-17.3-10.1-22.2-18.3-4.6-25.2-8.7-26.6-16-3.3-17.7%2018.1-22.2%2035-7.4l4.4%204%202.1-3c2.7-3.8%202.7-3.7-1.7-6a51%2051%200%200%200-36-2.9m130.8-.9c-13%204.5-20%2014.3-20%2028%20.1%2030.8%2042%2040.6%2056%2013%203.3-6.4%203.5-19.6.5-25.8a32%2032%200%200%200-36.5-15.2m46.6%201.6c1.6%203.2%201.7%2051%20.1%2054.1-.6%201.2.2%201.5%204.5%201.6l5.3.1-.3-18.8-.3-18.9%203.6-5.5c8.7-13%2017.8-15.8%2025.2-7.7l3.3%203.6%202.6-2.6c3.2-3.1%202.6-4.3-3-6.9-9.5-4.3-20-.5-27.6%2010.1-2%202.7-3.8%205-4.1%205-.4%200-.6-3-.5-6.8.1-8.3-1-10.2-6.4-10.2h-3.8zm63.5-1.4c-31.8%2011.2-26%2052.4%207.9%2056.7l4.5.6-4-1.4c-14.8-4.7-22.5-16.4-18-27%202.9-7%209.1-8.7%2022.4-6%2014.4%203%2022.4-2.1%2018.7-12-4-10.2-18.8-15.3-31.5-10.9m148-.5c-13.6%204.4-21.2%2014.5-21.4%2028.1-.3%2031.9%2043.8%2041%2056.9%2011.9a29%2029%200%200%200-14.5-38.2%2039%2039%200%200%200-21-1.8m45%20.5c.7%201%201%209.2.8%2029-.3%2030.8-.9%2028.6%207%2028.6%203%200%203.3-.3%202.6-1.7-.5-1-1-8.7-1.2-17.1-.3-14.7-.2-15.5%202.3-21%207.4-16.2%2020.8-20.9%2028-9.8l1.9%202.8%202.8-3.1c3.3-3.7%203-4.7-2.6-7.2a18%2018%200%200%200-17.7%201%2046%2046%200%200%200-12.9%2013.3q-.1.8-1%20.3c-.5-.3-1-3.7-1-7.4%200-7.8-.9-9.1-6.3-9.1-3.3%200-3.7.2-2.8%201.4m122%20.5c-19.5%206.2-17.2%2021.3%204.3%2028.3%207%202.2%207.4%203.8%201%203.8-8.4%200-19.2%207-19.2%2012.4%200%2013.6%2039%2017.7%2051.4%205.4%202.3-2.4%202.7-3.4%202.2-6-1.3-6.3-5.7-9-21.6-13.3-17-4.5-21.8-7.9-22.7-15.8-1.1-9.6%203.2-14.5%2013.9-15.5%206-.6%2014.6%203.2%2020.6%209.1l4.3%204.2%202-2.5c3-4%202.4-5.6-3.4-7.8q-17.9-7-32.9-2.3m-422.7.3c-18%206-19.3%2043.9-1.8%2053%209.2%204.7%2020%201.7%2025.7-7.1%209-14.3%205.2-38.2-7.2-44.7a29%2029%200%200%200-16.7-1.2M412%20308c-8.3%202.6-12.2%206.7-15.1%2016.3-2.2%207-2.6%2015.7-.6%2012.3a42%2042%200%200%201%204.5-5.4l3.3-3.4%2010.9.7c13.3.9%2016.3-.2%2018-6.3%202.7-10.1-8.8-17.9-21-14.2m143.5%201.5c-18.9%208.7-16.8%2047.3%202.8%2053.1%2015.8%204.7%2027.3-7%2027.2-28-.2-21.2-13.8-32.7-30-25.1M683%20309a38%2038%200%200%200-15.6%2015.1c-4.2%206.8-3.8%207.8%202.4%207.8%2018.4-.2%2033.4-10.2%2030.8-20.5-1.2-4.8-9.8-6-17.6-2.4m-507.5%2031.6c-28.4%204-24%2023.3%205.3%2023.3q19.1%200%2019.2-11c0-3.6-3-9-5.9-10.4a51%2051%200%200%200-18.6-2m552.5.5c-20.2%203.4-23.2%2016.2-5.1%2021.3%2018.8%205.3%2034.6-1%2031.2-12.4q-3.8-12.5-26-8.9m-295.3%2020.4c-.3.3-2.5%201-5%201.4q-5%201-1.3%201c2.8%200%2010.3-2.6%208-2.8q-1.2%200-1.7.4%22%2F%3E%3C%2Fsvg%3E\") no-repeat var(--ow-mark-pos, center center) / var(--ow-mark-size, 86vw auto),\n    radial-gradient(1400px 800px at 50% -220px, #103a52 0%, rgba(16,58,82,0) 60%),\n    radial-gradient(900px 500px at 100% 8%, rgba(255,255,255,.025) 0%, rgba(255,255,255,0) 55%),\n    linear-gradient(165deg, #0a2c40 0%, var(--navy-950) 45%, #05141f 100%);\n  background-attachment:fixed;\n  color:var(--white);\n  font-family:var(--ui);\n  -webkit-font-smoothing:antialiased;\n  /* casa exatamente com a altura real da tabbar (conteúdo + safe-area) —\n     um valor fixo deixava vão vazio em telas sem notch e sobrepunha\n     conteúdo em iPhones com safe-area-inset-bottom grande. */\n  padding-bottom:calc(56px + env(safe-area-inset-bottom));\n\n}\n@media(min-width:760px){ body{ padding-bottom:0; } }\n@media(min-width:760px){ body{ --ow-mark-size: 56vw auto; } }\n@media(min-width:1024px){ body{ --ow-mark-size: 42vw auto; } }\n\na{text-decoration:none;color:inherit}\nimg{max-width:100%;display:block}\nh1,h2,h3{text-wrap:balance;margin:0;font-family:var(--editorial)}\nbutton{font-family:inherit}\n:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n\n.container{width:min(1180px,100% - 32px);margin-inline:auto}\n\n.skip-link{\n  position:absolute;left:12px;top:-48px;background:var(--cyan);color:var(--navy-950);\n  font-weight:700;padding:10px 14px;border-radius:6px;z-index:100;transition:top .15s;\n}\n.skip-link:focus{top:12px}\n\n/* ---------- topo institucional ---------- */\n.topline{border-bottom:1px solid var(--line-soft);font-family:var(--ui);font-size:11.5px;letter-spacing:.02em;color:var(--muted-dim)}\n.topline .container{display:flex;justify-content:space-between;gap:12px;padding-block:8px}\n\n/* ---------- header ---------- */\nheader{\n  background:rgba(6,28,43,.92);backdrop-filter:blur(10px);\n  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;\n}\n.nav{min-height:60px;display:flex;align-items:center;gap:16px}\n.logo{font-family:var(--ui);font-size:24px;font-weight:800;letter-spacing:-.03em;white-space:nowrap;color:var(--white)}\n.logo span{color:var(--cyan)}\n.menu-btn{\n  display:flex;align-items:center;justify-content:center;margin-left:auto;\n  border:1px solid var(--line);background:var(--navy-900);color:var(--white);\n  border-radius:8px;font-size:20px;width:42px;height:38px;\n}\n.links{\n  display:none;position:absolute;left:0;right:0;top:60px;background:var(--navy-950);\n  border-bottom:1px solid var(--line);padding:6px 16px 18px;flex-direction:column;gap:0;\n}\n.links.open{display:flex}\n.links a{padding:13px 4px;border-bottom:1px solid var(--line-soft);font-size:13px;font-weight:700;letter-spacing:.02em}\n.shop-btn{\n  margin-top:10px;text-align:center;background:var(--navy-800);color:var(--white);\n  border:1px solid var(--orange-dim);font-weight:700;font-size:12.5px;letter-spacing:.02em;\n  padding:12px;border-radius:6px;\n}\n.shop-btn:hover{border-color:var(--orange)}\n@media(min-width:760px){\n  .nav{min-height:76px}\n  .logo{font-size:30px}\n  .menu-btn{display:none}\n  .links{\n    display:flex;position:static;flex-direction:row;align-items:center;gap:22px;\n    background:none;border:0;padding:0;margin-left:auto;\n  }\n  .links a{padding:0;border:0;font-size:13px}\n  .shop-btn{margin-top:0;background:var(--navy-700);border:1px solid var(--orange-dim);color:var(--white);padding:11px 16px}\n  .shop-btn:hover{border-color:var(--orange)}\n}\n\n/* ---------- ops strip: aeroportos (mantido como estava — sem mudanças de conceito) ---------- */\n.ops{margin-block:16px}\n.ops-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;padding-inline:2px}\n.ops-head .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex:none}\n.ops-head strong{\n  font-family:var(--ui);font-size:11px;letter-spacing:.08em;color:var(--muted);\n  text-transform:uppercase;font-weight:700;\n}\n.ops-strip{\n  display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;\n  padding-bottom:2px;-webkit-overflow-scrolling:touch;\n}\n.ops-strip::-webkit-scrollbar{display:none}\n.airport{\n  scroll-snap-align:start;flex:0 0 auto;display:flex;align-items:center;gap:8px;\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;\n  padding:9px 12px;white-space:nowrap;\n}\n.airport .dot{width:8px;height:8px;border-radius:50%;flex:none}\n.airport .code{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--white)}\n.airport .cidade{font-size:11px;color:var(--muted);font-family:var(--ui)}\n.dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}\n.dot.yellow{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}\n.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}\n.dot.unknown{background:var(--muted-dim)}\n@media(min-width:760px){\n  .ops-strip{display:grid;grid-template-columns:repeat(6,1fr);overflow:visible}\n  .airport{justify-content:center}\n}\n\n/* ---------- MASTHEAD: manchete dominante + 3 destaques ---------- */\n.masthead{display:grid;gap:22px;margin-top:8px}\n.lead{\n  position:relative;border-radius:8px;overflow:hidden;min-height:clamp(260px, 62vw, 340px);\n  background:var(--navy-900);cursor:pointer;\n}\n.lead .cover{position:absolute;inset:0;background-size:cover;background-position:center center}\n.lead .cover::after{\n  content:"";position:absolute;inset:0;\n  background:linear-gradient(180deg,rgba(4,12,18,0) 0%,rgba(4,12,18,.16) 22%,rgba(4,12,18,.42) 42%,rgba(3,10,15,.74) 64%,rgba(3,10,15,.95) 100%);\n}\n.lead-copy{position:relative;z-index:2;padding:22px 20px 20px;display:flex;flex-direction:column;min-height:clamp(260px, 62vw, 340px);pointer-events:none}\n.eyebrow{\n  font-family:var(--ui);font-size:11.5px;font-weight:700;letter-spacing:.08em;\n  text-transform:uppercase;color:var(--cyan-dim);margin-bottom:12px;\n}\n.lead h1{font-size:26px;line-height:1.14;font-weight:600;letter-spacing:-.01em;margin-bottom:10px;color:var(--white);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 2px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}\n.lead p{font-family:var(--editorial);font-size:17px;line-height:1.5;color:#dbe8ef;max-width:60ch;margin-bottom:12px}\n.byline{font-family:var(--ui);font-size:12px;color:var(--muted)}\n.illustration-note{\n  position:absolute;left:10px;top:10px;z-index:2;font-family:var(--ui);\n  font-size:10.5px;letter-spacing:.03em;color:var(--muted-dim);\n  background:rgba(6,28,43,.68);padding:4px 9px;border-radius:99px;\n  max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\n}\n.lead .illustration-note, .ops-card .illustration-note{left:20px;top:18px}\n.illustration-note.compacta{\n  padding:2px 5px;font-size:9px;max-width:none;white-space:nowrap;cursor:help;\n}\n\n.highlights{display:flex;flex-direction:column}\n.highlight{\n  display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:start;\n  padding-block:16px;border-top:1px solid var(--line-hair);cursor:pointer;\n}\n.highlight:first-child{border-top:0;padding-top:0}\n.highlight .thumb{width:64px;height:64px;border-radius:4px;background-size:cover;background-position:center;background-color:var(--navy-800);flex:none;position:relative}\n.highlight .thumb .illustration-note.compacta{left:3px;top:3px}\n.highlight .eyebrow{margin-bottom:6px;font-size:10.5px}\n.highlight h2,.highlight h3{font-size:16px;line-height:1.3;font-weight:600;color:var(--white)}\n.highlight .byline{margin-top:6px;display:block}\n\n@media(min-width:760px){\n  .masthead{grid-template-columns:1.7fr 1fr}\n  .lead{min-height:520px}\n  .lead-copy{min-height:520px;padding:40px}\n  .lead h1{font-size:42px}\n  .lead p{font-size:18px}\n}\n\n/* ---------- seções editoriais ---------- */\n.ed-section{margin-top:52px}\n/* flex-wrap + sem nowrap no ed-sub: causa raiz do overflow horizontal no\n   mobile — h2 + subtítulo juntos não cabem em 320-360px numa linha só, e\n   nowrap forçava o subtítulo a estourar a viewport em vez de quebrar. */\n.ed-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid var(--line)}\n.ed-head h2{font-family:var(--ui);font-size:22px;font-weight:800;color:var(--white);letter-spacing:-.01em}\n.ed-sub{font-family:var(--ui);font-size:12px;color:var(--muted-dim)}\n@media(min-width:760px){ .ed-sub{white-space:nowrap} }\n\n/* Últimas Notícias: 1 item em destaque + lista tipográfica, sem caixas */\n.latest-body{display:grid;gap:28px}\n.latest-feature{display:grid;gap:14px;cursor:pointer;padding-bottom:22px;border-bottom:1px solid var(--line-hair)}\n.latest-feature .thumb{width:100%;aspect-ratio:16/8;border-radius:8px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}\n.latest-feature h3{font-size:24px;line-height:1.15;font-weight:600}\n.latest-feature p{font-family:var(--editorial);font-size:15.5px;line-height:1.5;color:var(--muted);max-width:68ch}\n.row-list{display:flex;flex-direction:column}\n.row{display:flex;gap:14px;align-items:center;padding-block:12px;border-top:1px solid var(--line-hair);cursor:pointer}\n.row:first-child{border-top:0}\n.row-thumb{\n  width:92px;height:66px;border-radius:5px;background-size:cover;background-position:center;\n  background-color:var(--navy-900);flex:none;position:relative;\n}\n.row-main{min-width:0}\n.row-main h3{font-size:16.5px;line-height:1.35;font-weight:600}\n.row-main .byline{margin-top:5px}\n\n@media(min-width:760px){\n  .latest-body{grid-template-columns:1.3fr 1fr;align-items:start}\n  .latest-body.latest-count-1{grid-template-columns:1fr}\n  .latest-count-2 .row-list{justify-content:center}\n  .latest-count-4 .row-list{justify-content:space-between;height:100%}\n  .latest-feature{border-bottom:0;padding-bottom:0}\n  .latest-feature h3{font-size:27px}\n}\n\n/* Mercado & Energia: assimétrico, item maior + lista compacta ao lado */\n.market-body{display:grid;gap:26px}\n.market-feature{display:grid;gap:12px;cursor:pointer}\n.market-feature .thumb{width:100%;aspect-ratio:16/9;border-radius:8px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}\n.market-feature h3{font-size:22px;line-height:1.18;font-weight:600}\n.market-feature p{font-family:var(--editorial);font-size:15px;line-height:1.5;color:var(--muted)}\n@media(min-width:760px){\n  .market-body{grid-template-columns:1fr 1fr;gap:40px}\n  .market-feature h3{font-size:25px}\n}\n\n/* Operações Offshore: trilho horizontal cinematográfico */\n.ops-rail{display:flex;gap:16px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}\n.ops-rail::-webkit-scrollbar{display:none}\n.ops-card{\n  scroll-snap-align:start;flex:0 0 auto;width:280px;border-radius:6px;overflow:hidden;\n  position:relative;min-height:340px;cursor:pointer;background:var(--navy-900);\n}\n.ops-card .cover{position:absolute;inset:0;background-size:cover;background-position:center}\n.ops-card .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,12,18,0) 8%,rgba(4,12,18,.2) 32%,rgba(3,10,15,.6) 55%,rgba(3,10,15,.93) 100%)}\n.ops-card-copy{position:relative;z-index:2;padding:18px;display:flex;flex-direction:column;min-height:340px;pointer-events:none}\n.card-copy-inner{margin-top:auto}\n.ops-card h3{font-size:18px;line-height:1.25;font-weight:600;color:var(--white);text-shadow:0 1px 2px rgba(0,0,0,.55),0 2px 10px rgba(0,0,0,.4)}\n@media(min-width:760px){ .ops-card{width:320px;min-height:380px} .ops-card-copy{min-height:380px} }\n\n/* Carreiras: lista limpa, sem grade de caixas */\n/* ---------- parceiro OFFVoos (discreto, dentro da barra de aeroportos) ---------- */\n.ops-partner{\n  display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;\n  margin-top:10px;padding-top:10px;border-top:1px solid var(--line-hair);\n  font-family:var(--ui);\n}\n.ops-partner-link{font-size:12.5px;font-weight:700;color:var(--cyan-dim)}\n.ops-partner-link:hover{color:var(--cyan)}\n.ops-partner-sig{font-size:10.5px;color:var(--muted-dim)}\n\n/* ---------- newsletter ---------- */\n.newsletter{margin-top:52px;padding-top:26px;border-top:1px solid var(--line-hair)}\n.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:12px}\n.subscribe{display:flex;max-width:440px}\n.subscribe input{min-width:0;flex:1;padding:12px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit}\n.subscribe button{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 16px;border-radius:0 6px 6px 0}\n\nfooter{margin-top:40px;border-top:1px solid var(--line-soft);padding:36px 0 0;color:var(--muted-dim);font-size:12px}\n.footer-novo{display:grid;grid-template-columns:1fr;gap:26px;padding-bottom:26px}\n.footer-col-marca{max-width:320px}\n.footer-logo{display:block;font-family:var(--ui);font-weight:800;font-size:16px;color:var(--white);letter-spacing:.01em}\n.footer-logo span{color:var(--cyan-dim)}\n.footer-tagline{margin:8px 0 6px;font-size:12.5px;line-height:1.5;color:var(--muted)}\n.footer-by{display:block;font-size:11.5px;color:var(--muted-dim)}\n.footer-col-titulo{margin:0 0 10px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}\n.footer-col{display:flex;flex-direction:column;gap:4px}\n.footer-col a{padding:3px 0;color:var(--muted-dim);font-size:12.5px}\n.footer-col a:hover{color:var(--muted)}\n@media(min-width:640px){.footer-novo{grid-template-columns:1.3fr 1fr 1fr 1fr}}\n.footer-bottom{display:flex;flex-direction:column;gap:12px;padding:16px 0 22px;border-top:1px solid var(--line-hair)}\n@media(min-width:640px){.footer-bottom{flex-direction:row;align-items:center;justify-content:space-between}}\n.footer-bottom-info{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center}\n\n/* ---------- Instagram/Telegram: presença discreta e constante, sem propaganda ---------- */\n.social-link{\n  display:inline-flex;align-items:center;gap:5px;font-family:var(--ui);font-weight:600;\n  font-size:12.5px;color:var(--muted);padding:3px 0;\n}\n.social-link:hover{color:var(--cyan-dim)}\n.social-link svg{width:13px;height:13px;flex:none}\n.social-link-secundario{color:var(--muted-dim)}\n.footer-social{display:flex;flex-direction:column;gap:8px}\n.leitores-online{display:inline-flex;align-items:center;gap:6px;font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--muted-dim)}\n.leitores-online::before{content:"●";color:var(--green);font-size:8px;line-height:1}\n.visitas-total{display:inline-flex;align-items:center;font-family:var(--ui);font-size:11px;font-weight:500;color:var(--muted-dim)}\n.leitores-online:not([hidden])+.visitas-total::before{content:" · ";color:var(--muted-dim)}\n.nav-social{display:flex;gap:16px;flex-wrap:wrap;padding:14px 4px 4px;margin-top:6px;border-top:1px solid var(--line-soft)}\n@media(min-width:760px){.nav-social{display:none}}\n\n/* ---------- tab bar fixa (mobile / futuro app) ---------- */\n.tabbar{\n  position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;\n  background:rgba(8,28,40,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);\n  padding-bottom:env(safe-area-inset-bottom);\n}\n.tabbar a{\n  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;\n  font-size:10px;font-weight:700;color:var(--muted-dim);font-family:var(--ui);\n}\n.tabbar a .ti{font-size:18px}\n.tabbar a.active{color:var(--cyan)}\n@media(min-width:760px){.tabbar{display:none}}\n\n/* ---------- HUB: Salários Offshore / Funções a Bordo ---------- */\n.hub-main{padding-top:18px;padding-bottom:40px}\n.breadcrumb{font-family:var(--ui);font-size:12px;color:var(--muted-dim);margin-bottom:18px}\n.breadcrumb a{color:var(--muted);font-weight:600}\n.breadcrumb a:hover{color:var(--cyan-dim)}\n.bc-sep{margin:0 6px;opacity:.6}\n\n.hub-hero{margin-bottom:36px}\n.hub-hero .eyebrow{font-family:var(--ui);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);display:block;margin-bottom:10px}\n.hub-hero h1{font-size:34px;line-height:1.1;font-weight:600;margin-bottom:14px}\n.hub-lead{font-family:var(--editorial);font-size:17px;line-height:1.55;color:var(--muted);max-width:70ch}\n.hub-cta-secundario{display:inline-block;margin-top:14px;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan)}\n\n.aero-grupo-uf{margin-bottom:28px}\n.aero-grupo-titulo{font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line-soft)}\n.aero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}\n.aero-card{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;padding:16px}\n.aero-card-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}\n.aero-card-top .dot{width:8px;height:8px;border-radius:50%;flex:none}\n.aero-card-codigo{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--white)}\n.aero-card-tipo{font-family:var(--ui);font-size:10.5px;color:var(--muted-dim);margin-left:auto}\n.aero-card-nome{font-family:var(--ui);font-size:13.5px;color:var(--white);font-weight:600;margin-bottom:8px}\n.aero-card-clima{font-family:var(--ui);font-size:12.5px;color:var(--muted);margin-bottom:6px}\n.aero-card-clima.sem-dado{color:var(--muted-dim)}\n.aero-card-ops{font-family:var(--ui);font-size:12px;color:var(--cyan-dim);font-weight:600;margin-bottom:10px;padding-top:8px;border-top:1px solid var(--line-hair)}\n.aero-ao-vivo{color:var(--green);font-weight:700;font-size:10.5px}\n.aero-fonte-link{color:var(--muted-dim);font-weight:400;font-size:10.5px;text-decoration:underline}\n.aero-card-relevancia{font-family:var(--editorial);font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:6px}\n.aero-card-fonte{font-family:var(--ui);font-size:10px;color:var(--muted-dim)}\n\n.mp-macro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}\n.ma-item{display:flex;flex-direction:column;gap:3px;padding:12px 14px}\n.ma-nome{font-family:var(--ui);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}\n.ma-preco{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--white)}\n.var-alta{color:var(--green);font-family:var(--ui);font-size:11.5px;font-weight:700}\n.var-queda{color:var(--red);font-family:var(--ui);font-size:11.5px;font-weight:700}\n.var-neutro{color:var(--muted-dim);font-family:var(--ui);font-size:11.5px;font-weight:600}\n.mo-strip.mp-wrap{flex-wrap:wrap}\n.mo-card{background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;min-width:170px;flex:1 1 170px;max-width:220px}\n.mo-card-top{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}\n.mo-nome{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--white)}\n.mo-ticker{font-family:var(--mono);font-size:10.5px;color:var(--cyan-dim)}\n.mo-ticker.mo-privada{color:var(--muted-dim);font-family:var(--ui);letter-spacing:.04em}\n.mo-preco-row{display:flex;align-items:center;justify-content:space-between;gap:8px}\n.mo-preco{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--white)}\n.mo-sem-cotacao{font-family:var(--ui);font-size:11px;color:var(--muted-dim);font-style:italic}\n.mo-indisponivel{font-family:var(--ui);font-size:12px;color:var(--muted-dim)}\n\n.aviso-atualizacao{\n  margin-top:18px;padding:14px 16px;border-radius:6px;\n  border:1px solid var(--line-soft);background:var(--navy-900);\n  font-family:var(--ui);font-size:13px;color:var(--muted);line-height:1.5;\n}\n.aviso-atualizacao strong{color:var(--white)}\n\n.area-group{margin-top:40px}\n.area-group h2,.area-group h3{font-family:var(--ui);font-size:19px;font-weight:800;color:var(--white);padding-bottom:10px;border-bottom:2px solid var(--line)}\n.area-desc{font-family:var(--ui);font-size:12.5px;color:var(--muted-dim);margin:8px 0 4px}\n\n.role-list{display:flex;flex-direction:column}\n.role-row{\n  display:flex;align-items:center;gap:12px;padding-block:15px;\n  border-top:1px solid var(--line-hair);font-family:var(--ui);\n}\n.role-row:first-child{border-top:0}\n.role-nome{flex:1;font-size:15px;font-weight:600;color:var(--white)}\n.role-row .go{color:var(--cyan)}\n\n.campo-pill{\n  display:inline-block;font-family:var(--ui);font-size:11px;font-weight:700;\n  letter-spacing:.03em;color:var(--muted-dim);background:var(--navy-800);\n  border:1px solid var(--line-soft);border-radius:99px;padding:4px 10px;\n}\n.campo-pill.neutro{color:var(--cyan-dim);border-color:var(--line)}\n.campo-pill-obrigatorio_regulamento{color:var(--white);background:var(--line);border-color:var(--cyan-dim)}\n.campo-pill-exigencia_comum_empresa{color:var(--cyan-dim);border-color:var(--line)}\n.campo-pill-diferencial_profissional{color:var(--muted-dim)}\n.glossario-chip{cursor:pointer;font:inherit;transition:background-color .15s,color .15s,border-color .15s}\n.glossario-chip.ativo{color:var(--navy-950);background:var(--cyan-dim);border-color:var(--cyan-dim);font-weight:800}\n.certificacao-item{margin-bottom:10px}\n.certificacao-item p{margin:5px 0 0;font-family:var(--ui);font-size:13px;color:var(--muted);line-height:1.5}\n\n.campo-grid{display:flex;flex-direction:column;margin-top:8px}\n.campo-row{\n  display:flex;flex-direction:column;gap:8px;\n  padding-block:14px;border-top:1px solid var(--line-hair);\n}\n.campo-row:first-child{border-top:0}\n.campo-rotulo{font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--white)}\n.campo-valor{min-width:0}\n.dado-valor{font-family:var(--editorial);font-size:16px;line-height:1.4;color:var(--white)}\n.dado-contexto{font-family:var(--ui);font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:4px}\n.dado-contexto.sem-margem{margin-top:0;color:var(--muted)}\n.dado-fonte{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);margin-top:4px}\n.lista-fontes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}\n.lista-fontes a{font-family:var(--ui);font-size:12.5px;font-weight:600;color:var(--cyan-dim)}\n.lista-fontes a:hover{color:var(--cyan)}\n.aviso-metodologia{margin-bottom:28px}\n\n.hub-continue{\n  margin-top:44px;padding-top:20px;border-top:1px solid var(--line-hair);\n  display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;font-family:var(--ui);\n}\n.hub-continue-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim);width:100%} .hub-lista{margin:8px 0 14px;padding-left:20px;font-family:var(--ui);font-size:13.5px;line-height:1.6;color:var(--muted)} .hub-lista li{margin:6px 0} .hub-lista li strong{color:var(--white)}\n.hub-continue a{font-size:13.5px;font-weight:700;color:var(--cyan)}\n\n@media(min-width:760px){\n  .hub-hero h1{font-size:44px}\n  .campo-row{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start}\n}\n\n/* ---------- /salarios: tratamento de produto premium ---------- */\n.salarios-hero{margin-bottom:40px}\n.salarios-hero .eyebrow{font-family:var(--ui);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);display:block;margin-bottom:10px}\n.salarios-hero h1{font-size:36px;line-height:1.08;font-weight:600;margin-bottom:14px}\n.salarios-hero h1 .ano{color:var(--cyan-dim);font-size:.62em;font-family:var(--ui);font-weight:800;letter-spacing:.02em;vertical-align:middle;margin-left:4px}\n\n.busca-grande{margin-top:28px;max-width:560px}\n.busca-grande label{display:block;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}\n.busca-grande input{\n  width:100%;font-family:var(--editorial);font-size:19px;color:var(--white);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;\n  padding:16px 18px;\n}\n.busca-grande input:focus{outline:2px solid var(--cyan);outline-offset:2px;border-color:var(--cyan-dim)}\n.busca-grande input::placeholder{color:var(--muted-dim)}\n\n.stats-row{display:flex;flex-wrap:wrap;gap:28px;margin-top:28px;padding-top:22px;border-top:1px solid var(--line-hair)}\n.stat{display:flex;flex-direction:column;gap:2px;font-family:var(--ui)}\n.stat strong{font-size:28px;font-weight:800;color:var(--white);line-height:1}\n.stat span{font-size:12px;color:var(--muted-dim)}\n.stat-texto{justify-content:center}\n.stat-texto span{font-size:13px;color:var(--muted)}\n\n.area-cards{display:grid;grid-template-columns:1fr;gap:16px;margin-top:8px}\n.area-card{\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;padding:22px;\n}\n.area-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}\n.area-card-head h2,.area-card-head h3{font-family:var(--ui);font-size:18px;font-weight:800;color:var(--white)}\n.area-count{font-family:var(--ui);font-size:11px;color:var(--muted-dim);white-space:nowrap}\n.area-card .area-desc{font-family:var(--ui);font-size:12.5px;color:var(--muted-dim);margin:8px 0 14px}\n.chip-list{display:flex;flex-direction:column}\n.role-chip{\n  display:flex;align-items:center;justify-content:space-between;gap:10px;\n  padding-block:11px;border-top:1px solid var(--line-hair);font-family:var(--ui);\n  font-size:14px;font-weight:600;color:var(--white);\n}\n.role-chip:first-child{border-top:0}\n.role-chip:hover span:first-child{color:var(--cyan-dim)}\n\n.busca-vazio{font-family:var(--ui);color:var(--muted-dim);text-align:center;padding:30px 0}\n\n@media(min-width:760px){\n  .salarios-hero h1{font-size:48px}\n  .area-cards{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}\n}\n\n/* ---------- caminho de carreira (sequência conectada) ---------- */\n.caminho-carreira-bloco{margin-top:40px}\n.caminho-carreira-bloco h3{font-family:var(--ui);font-size:16px;font-weight:800;color:var(--white);margin-bottom:14px}\n.caminho-sequencia{display:flex;flex-wrap:wrap;align-items:center;gap:4px}\n.caminho-no{\n  font-family:var(--ui);font-size:13px;font-weight:700;color:var(--muted);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:99px;\n  padding:8px 16px;\n}\n.caminho-no.atual{color:var(--cyan-dim);border-color:var(--cyan-dim)}\n.caminho-seta{color:var(--muted-dim);font-size:15px;padding:0 4px}\n\n/* ---------- CTA de comunidade (informar salário) ---------- */\n.cta-comunidade{\n  margin-top:36px;padding:26px 24px;border-radius:10px;text-align:center;\n  border:1px solid var(--line-soft);background:var(--navy-900);\n}\n.cta-comunidade h3,.cta-comunidade-titulo{font-family:var(--editorial);font-size:20px;font-weight:600;color:var(--white);margin-bottom:8px}\n.cta-comunidade p{font-family:var(--ui);font-size:13.5px;color:var(--muted);margin-bottom:18px}\n.btn-em-breve{\n  display:inline-flex;align-items:center;gap:10px;font-family:var(--ui);font-weight:700;font-size:13.5px;\n  color:var(--muted);background:var(--navy-800);border:1px solid var(--line);\n  border-radius:6px;padding:12px 20px;cursor:not-allowed;\n}\n.em-breve-tag{\n  font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim);\n  background:var(--line-soft);border-radius:99px;padding:3px 9px;\n}\n\n/* ---------- Vagas Verificadas OWNews: card-exemplo e lista de empresas ---------- */\n.chip-list-flex{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}\n.vaga-badge{\n  display:inline-block;font-family:var(--ui);font-size:10.5px;font-weight:800;\n  letter-spacing:.04em;color:var(--muted-dim);background:var(--navy-800);\n  border:1px solid var(--line-soft);border-radius:99px;padding:3px 9px;\n}\n.vaga-badge-offshore{color:var(--navy-950);background:var(--cyan-dim);border-color:var(--cyan-dim)}\n.vaga-badge-novo{color:var(--cyan-dim);border-color:var(--cyan-dim);background:rgba(18,168,238,0.08)}\n.vaga-badge-tipo{color:var(--cyan-dim);border-color:rgba(95,196,238,.35);background:rgba(95,196,238,.08)}\n.vaga-fav-btn{background:none;border:1px solid var(--line-soft);border-radius:99px;width:24px;height:24px;font-size:13px;line-height:1;color:var(--yellow);cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0}\n.vaga-fav-btn.ativo{border-color:var(--yellow);background:rgba(255,212,77,.12)}\n.vaga-exemplo{\n  position:relative;margin-top:16px;padding:22px;border-radius:10px;\n  border:2px dashed var(--line-soft);background:var(--navy-900);opacity:.9;\n}\n.vaga-exemplo-tag{\n  display:inline-block;margin-bottom:12px;font-family:var(--ui);font-size:10px;font-weight:800;\n  letter-spacing:.05em;text-transform:uppercase;color:var(--yellow);\n  background:rgba(255,212,77,.12);border:1px solid var(--yellow);border-radius:99px;padding:3px 10px;\n}\n.vaga-selo{font-family:var(--ui);font-size:11px;font-weight:800;color:var(--green);margin-bottom:10px}\n.vaga-exemplo h4{font-family:var(--editorial);font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px}\n.vaga-empresa{font-family:var(--ui);font-size:13px;color:var(--muted);margin-bottom:4px}\n.vaga-meta{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);margin-bottom:14px}\n\n/* ---------- Offshore Agora: widgets ao vivo dentro do hub ---------- */\n.agora-secao{margin-top:32px}\n.agora-secao h2,.agora-secao h3{\n  font-family:var(--ui);font-size:13px;font-weight:800;color:var(--muted);\n  text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;\n}\n.agora-ops-strip{\n  display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;\n  padding-bottom:4px;-webkit-overflow-scrolling:touch;\n}\n.agora-ops-strip::-webkit-scrollbar{display:none}\n.agora-airport{\n  scroll-snap-align:start;flex:0 0 auto;display:flex;flex-direction:column;gap:3px;\n  min-width:132px;max-width:168px;\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;\n  padding:10px 12px;font-family:var(--ui);font-size:12px;color:var(--white);\n}\n.agora-airport-top{display:flex;align-items:center;gap:6px}\n.agora-airport .agora-dot{width:8px;height:8px;border-radius:50%;flex:none}\n.agora-airport .agora-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}\n.agora-airport .agora-dot.yellow{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}\n.agora-airport .agora-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}\n.agora-airport .agora-dot.unknown{background:var(--muted-dim)}\n.agora-airport .agora-code{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--white)}\n.agora-airport .agora-cidade{font-size:11.5px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}\n.agora-airport .agora-clima{font-size:11px;color:var(--muted)}\n.agora-airport .agora-clima.sem-dado{color:var(--muted-dim);font-size:10px}\n.agora-ops-mini{font-family:var(--ui);font-size:11px;color:var(--cyan-dim);font-weight:600}\n.agora-ops-mini.ao-vivo::before{content:"\u25cf ";color:var(--green)}\n.agora-airport-vertodos{display:flex;align-items:center;justify-content:center;color:var(--cyan-dim);font-weight:700;font-size:12px;text-decoration:none;border-style:dashed}\n.agora-noticias{display:flex;flex-direction:column}\n.agora-noticia-item{padding-block:12px;border-top:1px solid var(--line-hair);font-family:var(--ui)}\n.agora-noticia-item:first-child{border-top:0}\n.agora-noticia-item a{font-size:14px;font-weight:600;color:var(--white)}\n.agora-noticia-item a:hover{color:var(--cyan-dim)}\n.agora-noticia-meta{font-size:11.5px;color:var(--muted-dim);display:block;margin-top:3px}\n.agora-carregando{font-family:var(--ui);font-size:13px;color:var(--muted-dim);padding:10px 0}\n\n/* ---------- Dados Oficiais vs Pesquisa Salarial OWNews: rótulos de seção ---------- */\n.secao-label{\n  font-family:var(--ui);font-size:13px;font-weight:800;color:var(--cyan-dim);\n  text-transform:uppercase;letter-spacing:.06em;margin-top:36px;margin-bottom:4px;\n}\n.campo-grid + .secao-label{margin-top:44px}\n\n/* ---------- Pesquisa Salarial OWNews: formulário mobile-first ---------- */\n.pesquisa-hero{margin-bottom:8px}\n.pesquisa-cta-bloco{\n  margin:22px 0 36px;padding:26px 22px;border-radius:10px;text-align:center;\n  background:linear-gradient(135deg,var(--navy-900) 0%,var(--navy-800) 100%);\n  border:1px solid var(--cyan-dim);\n}\n.pesquisa-cta-bloco h2,.pesquisa-cta-titulo{font-family:var(--ui);font-size:20px;font-weight:800;color:var(--white);margin-bottom:8px;line-height:1.3}\n.pesquisa-cta-bloco p{font-family:var(--editorial);font-size:14.5px;color:var(--muted);max-width:52ch;margin:0 auto 18px}\n.form-pesquisa{display:flex;flex-direction:column;gap:20px;margin-top:24px}\n.campo-form{display:flex;flex-direction:column;gap:6px}\n.campo-form label{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white)}\n.campo-form .ajuda{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim)}\n.campo-form select, .campo-form input[type="text"], .campo-form textarea{\n  width:100%;font-family:var(--ui);font-size:15px;color:var(--white);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;\n  padding:12px 14px;appearance:none;\n}\n.campo-form select:focus, .campo-form input:focus, .campo-form textarea:focus{\n  outline:2px solid var(--cyan);outline-offset:1px;border-color:var(--cyan-dim);\n}\n.campo-form textarea{resize:vertical;min-height:80px;font-family:inherit}\n.checks-grid{display:flex;flex-wrap:wrap;gap:10px}\n.check-item{\n  display:flex;align-items:center;gap:7px;font-family:var(--ui);font-size:13px;color:var(--muted);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:99px;padding:8px 14px;\n  cursor:pointer;\n}\n.check-item input{margin:0}\n.check-item:has(input:checked){color:var(--white);border-color:var(--cyan-dim)}\n.btn-enviar-pesquisa{\n  font-family:var(--ui);font-weight:800;font-size:15px;color:var(--navy-950);\n  background:var(--cyan);border:0;border-radius:8px;padding:15px 20px;cursor:pointer;\n  margin-top:6px;\n}\n.btn-enviar-pesquisa:hover{background:var(--cyan-dim)}\n.btn-enviar-pesquisa:disabled{opacity:.6;cursor:not-allowed}\n.pesquisa-status{\n  font-family:var(--ui);font-size:13.5px;padding:12px 14px;border-radius:8px;margin-top:6px;display:none;\n}\n.pesquisa-status.ok,.pesquisa-status-ok{display:block;background:rgba(66,216,121,.1);border:1px solid var(--green);color:var(--white)}\n.pesquisa-status.erro,.pesquisa-status-erro{display:block;background:rgba(255,75,75,.1);border:1px solid var(--red);color:var(--white)}\n.metodologia-bloco{margin-top:48px;padding-top:24px;border-top:1px solid var(--line-hair)}\n.metodologia-bloco h2{font-family:var(--ui);font-size:18px;font-weight:800;color:var(--white);margin-bottom:14px}\n.metodologia-bloco h3{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white);margin:18px 0 6px}\n.metodologia-bloco p, .metodologia-bloco li{font-family:var(--ui);font-size:13.5px;color:var(--muted);line-height:1.6}\n.metodologia-bloco ul{margin:0;padding-left:20px}\n@media(min-width:760px){\n  .form-pesquisa{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px}\n  .campo-form.largura-total{grid-column:1 / -1}\n}\n\n\n/* Intrinsic sizing: long text must fit its grid/flex cell, including mobile. */\n.container, .container *, .hub-main *{min-width:0}\nh1,h2,h3,p,.ed-sub,.hub-lead,.breadcrumb,.campo-valor,.hub-continue a{overflow-wrap:anywhere}\n.topline .container{flex-wrap:wrap}\n.ops-detail-head{flex-wrap:wrap}\n.ticker-track{width:max-content;gap:0}\n.ticker-group{display:flex;flex:none;width:max-content;align-items:center}\n.ticker-item{padding-right:24px}\n[hidden]{display:none!important}\n@media(max-width:759px){\n  .airport{max-width:calc(100vw - 32px);white-space:normal;flex-wrap:wrap}\n  .airport .cidade{overflow-wrap:anywhere}\n}\n@media(min-width:760px) and (max-width:1100px){\n  .nav{flex-wrap:wrap;padding-block:12px}\n  .links{flex-wrap:wrap;gap:14px}\n  .ops-strip{grid-template-columns:repeat(3,minmax(0,1fr))}\n}\n\n/* Shared page navigation wraps instead of forcing desktop links into mobile. */\n.hub-nav{flex-wrap:wrap;padding-block:12px}\n.hub-nav .logo{flex:none}\n.hub-links{display:flex;flex-wrap:wrap;gap:10px 16px;width:100%;align-items:center}\n.hub-links a{font-size:12px;font-weight:700;overflow-wrap:anywhere}\n.hub-links .shop-btn{margin:0}\n.hub-links .nav-mais{flex-shrink:0}\n.area-card-head{flex-wrap:wrap;gap:8px}\n.area-count,.role-row .campo-pill{flex-shrink:0}\n@media(min-width:1100px){.hub-links{width:auto;margin-left:auto}}\n@media(max-width:759px){.hub-nav{flex-wrap:nowrap;align-items:center;gap:10px;padding-block:8px;position:relative}.hub-links{width:auto;margin-left:auto;flex-wrap:nowrap;gap:6px}.hub-links>a:not(.hub-search-icon),.hub-links>.shop-btn{display:none}.hub-links .hub-search-icon{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}.hub-links .nav-mais-btn{min-height:40px;padding:0 8px;white-space:nowrap}.hub-nav .nav-mais-menu{position:absolute;left:12px;right:12px;top:100%;z-index:60;margin:0;padding:8px;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;box-shadow:0 16px 32px rgba(2,10,16,.45);max-height:70vh;overflow-y:auto}.hub-nav .nav-mais-menu a{min-height:40px;display:flex;align-items:center}}.nav-mais-mobile{display:none}@media(max-width:759px){.nav-mais-mobile{display:flex}}\n\n/* ---------- Cadastre seu Currículo: filtros e cards de empresa ---------- */\n.filtro-segmento-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}\n.filtro-btn{\n  font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--muted);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:99px;\n  padding:8px 14px;cursor:pointer;\n}\n.filtro-btn:hover{border-color:var(--cyan-dim);color:var(--white)}\n.filtro-btn.ativo{color:var(--navy-950);background:var(--cyan-dim);border-color:var(--cyan-dim)}\n.filtro-vazio-tag{font-size:9.5px;font-weight:600;color:var(--muted-dim);text-transform:none;letter-spacing:0}\n.busca-empresas-row{margin:16px 0 12px}\n.busca-empresas-input{\n  width:100%;box-sizing:border-box;font-family:var(--ui);font-size:14px;color:var(--white);\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;\n}\n.busca-empresas-input::placeholder{color:var(--muted-dim)}\n.busca-empresas-input:focus{outline:2px solid var(--cyan-dim);outline-offset:1px}\n.empresa-cta{\n  display:inline-flex;margin-top:10px;font-family:var(--ui);font-weight:700;font-size:13px;\n  color:var(--cyan-dim);text-decoration:none;\n}\n.empresa-cta:hover{color:var(--white)}\n.empresas-grid{display:flex;flex-direction:column;gap:14px}\n.empresa-card{\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;\n  padding:18px 20px;\n}\n.empresa-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}\n.empresa-head h3{font-family:var(--ui);font-size:16px;font-weight:800;color:var(--white)}\n.empresa-segmento-tag{\n  font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;\n  color:var(--cyan-dim);background:var(--navy-800);border:1px solid var(--line);border-radius:99px;padding:3px 10px;\n}\n.empresa-portal, .empresa-ats{font-family:var(--ui);font-size:13px;color:var(--muted);margin:4px 0}\n.empresa-verificado{font-family:var(--ui);font-size:11px;color:var(--muted-dim);margin:8px 0 12px}\n.empresa-cta{display:inline-block;font-family:var(--ui);font-weight:700;font-size:13px;color:var(--cyan-dim)}\n.empresa-cta:hover{color:var(--cyan)}\n.empresa-pendente{display:block;font-family:var(--ui);font-size:12px;color:var(--muted-dim);font-style:italic}\n@media(min-width:760px){\n  .empresas-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}\n}\n.compartilhar-bloco{margin-top:36px;padding-top:18px;border-top:1px solid var(--line-hair);display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:var(--ui)}\n.compartilhar-label{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-dim)}\n.compartilhar-link{font-size:12.5px;font-weight:700;color:var(--cyan-dim);background:none;border:1px solid var(--line-soft);border-radius:99px;padding:6px 14px;cursor:pointer;font-family:inherit}\n.compartilhar-link:hover{color:var(--cyan);border-color:var(--cyan-dim)}\n.compartilhar-feedback{font-family:var(--ui);font-size:12px;color:var(--green);font-weight:700}\n.compartilhar-ig{display:inline-flex;align-items:center;gap:6px;background:var(--cyan-dim);color:var(--navy-950);border:0;border-radius:99px;padding:8px 16px;font-size:12.5px;font-weight:800;letter-spacing:.02em;font-family:inherit;cursor:pointer}\n.compartilhar-ig:hover{background:var(--cyan)}\n.compartilhar-ig svg{width:15px;height:15px;flex:none}\n.compartilhar-icone{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:99px;border:1px solid var(--line-soft);color:var(--muted);background:none;cursor:pointer;flex:none}\n.compartilhar-icone:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}\n.compartilhar-icone svg{width:15px;height:15px}\n\n/* Comece Aqui / Cursos / Guias — páginas novas desta rodada */\n.jornada-lista{display:flex;flex-direction:column;gap:0;margin-top:8px}\n.jornada-passo{display:flex;gap:14px;padding:18px 0;border-bottom:1px solid var(--line-hair)}\n.jornada-passo:last-child{border-bottom:0}\n.jornada-num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--navy-800);border:1px solid var(--cyan-dim);color:var(--cyan);font-family:var(--ui);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}\n.jornada-corpo h3{font-family:var(--ui);font-size:15px;font-weight:800;color:var(--white);margin:0 0 6px}\n.jornada-corpo p{font-family:var(--editorial);font-size:13.5px;line-height:1.5;color:#c9d6dc;margin:0 0 10px}\n.jornada-cta{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim)}\n.jornada-cta:hover{color:var(--cyan)}\n.cursos-grid{display:grid;gap:12px;margin-top:8px}\n.curso-card{border:1px solid var(--line);border-radius:8px;background:var(--navy-900);padding:16px}\n.curso-card h3{font-family:var(--ui);font-size:14.5px;font-weight:800;color:var(--white);margin:0 0 8px}\n.curso-card p{font-family:var(--editorial);font-size:13px;line-height:1.5;color:#c9d6dc;margin:0 0 6px}\n.curso-aviso{font-size:11.5px!important;color:var(--muted-dim)!important}\n.guias-grid{display:grid;gap:12px;margin-top:8px}\n.guia-card{display:block;border:1px solid var(--line);border-radius:8px;background:var(--navy-900);padding:16px;position:relative}\n.guia-card h3{font-family:var(--ui);font-size:14.5px;font-weight:800;color:var(--white);margin:0 0 6px}\n.guia-card p{font-family:var(--editorial);font-size:13px;line-height:1.5;color:#c9d6dc;margin:0}\n.guia-card .go{position:absolute;top:16px;right:16px;color:var(--cyan-dim);font-weight:800}\n.guia-em-preparacao{opacity:.55;display:flex;align-items:center;justify-content:space-between}\n.guia-em-preparacao h3{margin:0}\n/* ---------- Minha Escala 2.0 ---------- */\n#resultadoEscala{scroll-margin-top:100px}\n.escala-hero{background:rgba(8,40,58,0.72);backdrop-filter:blur(3px);border:1px solid var(--line-soft);border-radius:12px;padding:26px 22px;margin-top:8px}\n.escala-status-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}\n.escala-status-label{font-family:var(--ui);font-weight:800;font-size:26px;letter-spacing:-.01em;color:var(--white)}\n.escala-status-label.folga{color:var(--cyan-dim)}\n.escala-status-dia{font-family:var(--ui);font-size:13.5px;color:var(--muted);font-weight:700}\n.escala-progress-track{margin-top:16px;height:10px;border-radius:99px;background:rgba(10,44,64,0.65);border:1px solid var(--line-soft);overflow:hidden}\n.escala-progress-fill{height:100%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan));border-radius:99px;transition:width .3s ease}\n.escala-progress-fill.folga{background:linear-gradient(90deg,#3a5f74,var(--cyan-dim))}\n.escala-status-legenda{margin-top:12px;font-family:var(--editorial);font-size:15px;color:#dbe8ef}\n.escala-status-legenda strong{color:var(--white)}\n.escala-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}\n.escala-card{background:rgba(10,44,64,0.72);backdrop-filter:blur(3px);border:1px solid var(--line-soft);border-radius:10px;padding:16px}\n.escala-card-label{font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-dim)}\n.escala-card-data{font-family:var(--ui);font-weight:800;font-size:30px;color:var(--white);margin-top:8px;line-height:1}\n.escala-card-dia-semana{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:4px;text-transform:capitalize}\n@media(min-width:480px){.escala-card-data{font-size:36px}}\n.escala-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}\n.escala-acao-btn{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--white);background:rgba(10,44,64,0.65);border:1px solid var(--line-soft);border-radius:8px;padding:10px 14px;cursor:pointer}.escala-form-botoes{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.escala-form-botoes .escala-acao-btn{background:transparent}.escala-editar-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}.escala-editar-btn{font-family:var(--ui);font-size:13px;font-weight:800;color:var(--navy-950);background:var(--cyan-dim);border:0;border-radius:99px;padding:10px 16px;cursor:pointer;white-space:nowrap}.escala-editar-btn:hover{background:var(--cyan)}\n.escala-acao-btn:hover{border-color:var(--cyan-dim);color:var(--cyan-dim)}\n.escala-link-noticias{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-hair);font-family:var(--ui);font-size:13px;color:var(--muted)}\n.escala-link-noticias a{color:var(--cyan-dim);font-weight:700}\n.escala-link-noticias a:hover{color:var(--cyan)}\n.escala-calendario{margin-top:28px}\n.escala-cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}\n.escala-cal-nav{font-family:var(--ui);font-weight:700;font-size:20px;color:var(--muted);background:rgba(8,40,58,0.65);border:1px solid var(--line-soft);border-radius:8px;width:38px;height:38px;cursor:pointer;line-height:1}\n.escala-cal-nav:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}\n.escala-cal-mes{font-family:var(--ui);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--white)}\n.escala-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}\n.escala-cal-dow{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-dim);text-align:center;padding-bottom:6px}\n.escala-dia{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:3px 2px 2px;border-radius:6px;font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--muted);background:rgba(8,40,58,0.65);border:1px solid transparent;position:relative;overflow:hidden;gap:1px}\n.escala-dia.vazio{background:transparent;border:none}\n.escala-dia.embarcado{background:rgba(26,83,122,0.82);color:var(--white);border-color:#1e6090}\n.escala-dia.folga{background:rgba(6,28,43,0.72);color:var(--muted-dim);border-color:var(--navy-800)}\n.escala-dia.embarque{border-color:var(--cyan);border-width:2px;color:var(--white);background:rgba(18,168,238,0.1);box-shadow:0 0 8px rgba(18,168,238,0.32)}\n.escala-dia.desembarque{border-color:var(--yellow);border-width:2px;color:var(--white);background:rgba(255,212,77,0.08);box-shadow:0 0 8px rgba(255,212,77,0.28)}\n.escala-dia.hoje{outline:2px solid rgba(247,250,252,0.82);outline-offset:-2px;color:var(--white)}\n.escala-dia.hoje::before{content:"HOJE";font-size:7px;font-weight:900;letter-spacing:.06em;color:var(--cyan);line-height:1}\n.escala-dia.dobra{background:rgba(245,158,11,0.28);color:var(--white);border-color:#f59e0b;border-width:2px}\n.escala-dia.ferias{background:rgba(139,92,246,0.28);color:var(--white);border-color:#8b5cf6;border-width:2px}\n.esc-d-num{font-family:var(--ui);font-size:15px;font-weight:800;line-height:1;color:inherit}\n.escala-dia.hoje .esc-d-num,.escala-dia.embarque .esc-d-num,.escala-dia.desembarque .esc-d-num,.escala-dia.embarcado .esc-d-num{color:var(--white)}\n.esc-ev2{font-family:var(--ui);font-weight:900;letter-spacing:.04em;line-height:1;padding:1px 4px;border-radius:3px;width:100%;text-align:center;box-sizing:border-box;font-size:7.5px}\n.esc-emb{background:rgba(18,168,238,.28);color:var(--cyan)}\n.esc-des{background:rgba(255,212,77,.22);color:#ffd44d}\n.esc-ev2-s{display:inline}.esc-ev2-l{display:none}\n@media(min-width:480px){.esc-d-num{font-size:19px}.esc-ev2{font-size:9.5px;padding:2px 5px}.esc-ev2-s{display:none}.esc-ev2-l{display:inline}}\n.escala-anual-dia.dobra{background:rgba(245,158,11,0.4);color:var(--navy-950);border-color:#f59e0b}\n.escala-anual-dia.ferias{background:rgba(139,92,246,0.4);border-color:#8b5cf6}\n.escala-legenda{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:14px;font-family:var(--ui);font-size:11.5px;color:var(--muted)}\n.escala-legenda-item{display:flex;align-items:center;gap:6px}\n.escala-legenda-swatch{width:12px;height:12px;border-radius:3px;flex:none;background:var(--navy-900);border:1px solid var(--line-soft)}\n.escala-legenda-swatch.embarcado{background:rgba(18,168,238,0.32);border-color:rgba(18,168,238,0.5)}\n.escala-legenda-swatch.embarque{background:rgba(18,168,238,0.32);border-color:rgba(18,168,238,0.5);box-shadow:inset 0 3px 0 var(--cyan)}\n.escala-legenda-swatch.desembarque{box-shadow:inset 0 -3px 0 rgba(255,212,77,0.8);border-color:rgba(255,212,77,0.35)}\n.escala-legenda-swatch.hoje{outline:2px solid rgba(247,250,252,0.82);outline-offset:-2px}\n.escala-legenda-swatch.dobra{background:#f59e0b;border-color:#f59e0b}\n.escala-legenda-swatch.ferias{background:#8b5cf6;border-color:#8b5cf6}\n.escala-dia[tabindex],.escala-anual-dia[tabindex]{cursor:pointer}\n.escala-dia[tabindex]:focus-visible,.escala-anual-dia[tabindex]:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}\n.escala-dia-marca{display:none}\n.escala-anual-dia.com-marca{box-shadow:inset 0 0 0 1px rgba(18,168,238,0.5)}\n.esc-sec-row{display:flex;flex-wrap:nowrap;gap:1px;align-items:center;justify-content:center;width:100%;pointer-events:none;overflow:hidden}\n.esc-badge{font-family:var(--ui);font-weight:900;font-size:8px;line-height:1.3;padding:1px 3px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}\n.fer-b{background:rgba(66,216,121,.9);color:#061c2b}\n.pes-b{background:rgba(18,168,238,.85);color:#061c2b;font-size:12px;line-height:1;padding:0 1px}\n.juntos-b{background:rgba(251,191,36,.9);color:#061c2b;font-size:12px;line-height:1;padding:0 1px}.cruzar-lista{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}.cruzar-pessoa{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:10px 12px;cursor:pointer}.cruzar-pessoa-header{display:flex;align-items:center;gap:8px}.cruzar-pessoa-icon{font-size:20px;flex-shrink:0;line-height:1}.cruzar-pessoa-info{flex:1;min-width:0}.cruzar-pessoa-nome{font-family:var(--ui);font-weight:800;font-size:13px;color:var(--white);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cruzar-pessoa-rel{font-family:var(--ui);font-size:10px;color:var(--muted-dim);letter-spacing:.04em;text-transform:uppercase}.cruzar-pessoa-actions{display:flex;gap:4px;flex-shrink:0}.cruzar-btn-ed,.cruzar-btn-rm{font-family:var(--ui);font-size:12px;font-weight:700;padding:4px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--line-soft)}.cruzar-btn-ed{background:rgba(18,168,238,.15);color:var(--cyan-dim)}.cruzar-btn-rm{background:rgba(239,68,68,.15);color:#f87171}.cruzar-pessoa-prox{font-family:var(--ui);font-size:11px;color:var(--muted-dim);margin-top:6px;padding-top:6px;border-top:1px solid rgba(251,191,36,.15)}.cruzar-pessoa-meta{font-family:var(--ui);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.02em}.cruzar-btn-adicionar-mais{width:100%;font-family:var(--ui);font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;background:rgba(251,191,36,.08);border:1px dashed rgba(251,191,36,.4);color:rgba(251,191,36,.8);border-radius:8px;padding:10px;cursor:pointer;margin-top:6px}.cruzar-icon-picker{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:4px}.cruzar-icon-opt{font-size:26px;padding:8px;border-radius:10px;cursor:pointer;border:2px solid transparent;background:rgba(8,40,58,.65);line-height:1;text-align:center;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}.cruzar-icon-opt.selecionado{border-color:rgba(251,191,36,.8);background:rgba(251,191,36,.15)}\n.escala-anual-dia .esc-sec-row,.escala-anual-dia .esc-badges-area,.escala-anual-dia .esc-ev2{display:none}\n.esc-exc-strip{font-family:var(--ui);font-size:7.5px;font-weight:900;letter-spacing:.04em;line-height:1.3;padding:1px 3px;border-radius:3px;width:100%;text-align:center;box-sizing:border-box;pointer-events:none;min-height:11px;overflow:hidden}\n.dobra-strip{background:#f59e0b;color:#000}\n.ferias-strip{background:#8b5cf6;color:#fff}\n@media(min-width:480px){.esc-exc-strip{font-size:9.5px;padding:2px 5px;min-height:14px}}\n.escala-dia-detalhe{position:fixed;bottom:0;left:0;right:0;z-index:1000;background:var(--navy-900);border:1px solid var(--line-soft);border-top-left-radius:18px;border-top-right-radius:18px;padding:0 0 env(safe-area-inset-bottom);max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}.escala-dia-detalhe.aberto{transform:translateY(0)}.escala-dia-backdrop{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.55);cursor:pointer}.escala-dia-backdrop.ativo{display:block}.escala-dia-sheet-inner{padding:14px 16px 20px}.escala-dia-sheet-handle{width:36px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin:10px auto 0;cursor:grab}\n.escala-dia-detalhe-fechar{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:50%;border:1px solid var(--line-soft);background:rgba(255,255,255,.05);color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}\n.escala-dia-detalhe-secao{font:800 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);opacity:.7;margin-bottom:4px}\n.escala-dia-detalhe-data{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px}\n.escala-dia-detalhe-status{display:inline-block;font-family:var(--ui);font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:8px;background:rgba(18,168,238,0.15);color:var(--cyan-dim)}\n.escala-dia-detalhe-status.folga{background:rgba(255,212,77,0.15);color:var(--yellow)}\n.escala-dia-detalhe-item{font-size:13px;color:var(--muted);padding:6px 0;border-top:1px solid var(--line-hair)}\n.escala-dia-detalhe-item:first-of-type{border-top:0}\n.escala-dia-detalhe-item.dobra{color:#f59e0b}\n.escala-dia-detalhe-item.ferias{color:#8b5cf6}\n.esc-detalhe-edit-btn{background:none;border:1px solid currentColor;border-radius:4px;color:inherit;font-size:10px;padding:2px 6px;cursor:pointer;opacity:.75;margin-left:auto;flex-shrink:0}\n.escala-detalhe-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}\n.esc-detalhe-add-btn{font-family:var(--ui);font-size:13px;font-weight:700;background:rgba(18,168,238,0.1);border:1.5px solid rgba(18,168,238,0.3);border-radius:10px;color:var(--cyan-dim);padding:14px 10px;cursor:pointer;white-space:nowrap;text-align:center;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}\n.esc-detalhe-add-btn:hover,.esc-detalhe-add-btn:active{background:rgba(18,168,238,0.2)}\n.esc-detalhe-add-btn.pes{background:rgba(156,214,108,0.1);border-color:rgba(156,214,108,0.3);color:#9cd46c}\n.esc-detalhe-add-btn.pes:hover,.esc-detalhe-add-btn.pes:active{background:rgba(156,214,108,0.2)}\n.escala-datas-pessoais-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:8px}\n.escala-btn-add-compacto{flex:none;font-family:var(--ui);font-size:12px;font-weight:700;padding:7px 14px;border-radius:99px;border:1px solid var(--cyan-dim);background:transparent;color:var(--cyan-dim);cursor:pointer;white-space:nowrap}\n.escala-btn-add-compacto:hover{background:rgba(18,168,238,0.1)}\n.escala-btn-add-data{flex:none;font-family:var(--ui);font-size:12px;font-weight:700;padding:7px 16px;border-radius:99px;border:none;background:var(--cyan);color:var(--navy-950);cursor:pointer;white-space:nowrap}\n.escala-btn-add-data:hover{background:#0e97d8}\n.escala-btn-add-data:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n.dp-item{display:flex;flex-direction:column;gap:3px;padding:10px 12px;background:var(--navy-900);border:1px solid var(--line-soft);border-radius:8px;margin-bottom:6px}\n.dp-item-header{display:flex;align-items:center;justify-content:space-between;gap:8px}\n.dp-item-nome{font-size:13px;font-weight:600;color:var(--white)}\n.dp-item-datas{font-size:12px;color:var(--cyan-dim)}\n.dp-item-acoes{display:flex;gap:6px;flex-shrink:0}\n.dp-item-btn{font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--muted-dim)}\n.dp-item-btn:hover{border-color:var(--cyan-dim);color:var(--white)}\n.dp-item-analise{font-size:12px;color:var(--muted);line-height:1.4;margin-top:2px}\n.dp-item-analise.ok{color:var(--green)}\n.dp-item-analise.bordo{color:var(--muted-dim)}\n.escala-form-compacto{max-width:420px}\n.escala-timeline{display:flex;flex-direction:column;margin-top:8px}\n.escala-timeline-item{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line-hair)}\n.escala-timeline-item:first-child{border-top:0}\n.escala-timeline-marca{flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px}\n.escala-timeline-marca.embarcado{background:var(--cyan)}\n.escala-timeline-marca.folga{background:var(--muted-dim)}\n.escala-timeline-corpo{min-width:0}\n.escala-timeline-tipo{font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-dim)}\n.escala-timeline-item:has(.folga) .escala-timeline-tipo{color:var(--muted)}\n.escala-timeline-datas{font-family:var(--ui);font-weight:700;font-size:15.5px;color:var(--white);margin-top:3px}\n.escala-datas-importantes{display:flex;flex-direction:column;gap:2px}\n.escala-data-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line-hair)}\n.escala-data-item:first-child{border-top:0}\n.escala-data-nome{font-family:var(--ui);font-weight:700;font-size:14px;color:var(--white)}\n.escala-data-sub{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);margin-top:2px}\n.escala-data-status{flex:none;font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:4px 10px;border-radius:99px;white-space:nowrap}\n.escala-data-status.bordo{color:var(--navy-950);background:var(--cyan-dim)}\n.escala-data-status.casa{color:var(--muted);background:var(--navy-800);border:1px solid var(--line-soft)}\n.escala-datas-pessoais-lista{display:flex;flex-direction:column;gap:2px;margin-top:8px}\n.escala-data-pessoal-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line-hair)}\n.escala-data-pessoal-item:first-child{border-top:0}\n.escala-data-pessoal-remover{flex:none;background:none;border:1px solid var(--line-soft);border-radius:8px;color:var(--muted-dim);font-size:12px;padding:4px 9px;cursor:pointer}\n.escala-data-pessoal-remover:hover{color:var(--red);border-color:var(--red)}\n.escala-ano-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px}\n.escala-visao-anual{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:14px}\n.escala-mes-mini{border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;background:rgba(8,40,58,0.65);backdrop-filter:blur(2px)}\n.escala-mes-mini-nome{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}\n.escala-mes-mini-bar{display:flex;height:6px;border-radius:99px;overflow:hidden;margin:8px 0 6px;background:rgba(10,44,64,0.65)}\n.escala-mes-mini-fill{background:var(--cyan-dim)}\n.escala-vaga-item{display:block;padding:12px 0;border-top:1px solid var(--line-hair);text-decoration:none}\n.escala-vaga-topo{display:flex;align-items:center;gap:8px;margin-bottom:4px}\n.escala-vaga-empresa{font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-dim)}\n.escala-vaga-badge{font-family:var(--ui);font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:99px;padding:2px 7px;color:var(--navy-950);background:var(--cyan-dim)}\n.escala-vaga-badge-on{color:var(--white);background:var(--navy-700)}\n.escala-vaga-titulo{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white);line-height:1.35}\n.escala-vaga-item:hover .escala-vaga-titulo{color:var(--cyan)}\n.escala-vagas-cta{display:block;text-align:center;margin-top:14px;padding:11px 16px;border-radius:8px;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan);background:rgba(18,168,238,0.07);border:1px solid rgba(18,168,238,0.2);text-decoration:none;transition:background .15s}\n.escala-vagas-cta:hover{background:rgba(18,168,238,0.14)}\n@media(max-width:639px){.escala-vaga-extra{display:none}}\n.escala-anual-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:12px}\n@media(min-width:560px){.escala-anual-grid{grid-template-columns:repeat(2,1fr)}}\n@media(min-width:860px){.escala-anual-grid{grid-template-columns:repeat(4,1fr)}}\n#escalaAntDiv{grid-column:1/-1;display:grid;grid-template-columns:1fr;gap:14px}\n@media(min-width:560px){#escalaAntDiv{grid-template-columns:repeat(2,1fr)}}\n@media(min-width:860px){#escalaAntDiv{grid-template-columns:repeat(4,1fr)}}\n.escala-anual-mes{background:rgba(8,40,58,0.6);border:1px solid var(--line-soft);border-radius:8px;padding:10px}\n@media(max-width:559px){.escala-anual-grid{grid-template-columns:minmax(0,1fr)}#escalaAntDiv{grid-template-columns:minmax(0,1fr)}.escala-anual-mes{min-width:0;max-width:100%;width:100%}}\n.escala-anual-mes-nome{font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:5px}\n.escala-anual-grid-dias{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}\n.escala-anual-dow{font-family:var(--ui);font-size:8px;font-weight:700;color:var(--muted-dim);text-align:center;padding:2px 0}\n.escala-anual-dia{font-family:var(--ui);font-size:9px;text-align:center;padding:2px 1px;border-radius:2px;color:var(--muted)}\n.escala-anual-dia.embarcado{background:rgba(18,168,238,0.32);color:var(--cyan-dim)}\n.escala-anual-dia.embarque{background:rgba(18,168,238,0.32);color:var(--cyan-dim);box-shadow:inset 0 3px 0 var(--cyan);font-weight:700}\n.escala-anual-dia.desembarque{color:var(--yellow);box-shadow:inset 0 -3px 0 rgba(255,212,77,0.8);font-weight:700}\n.escala-anual-dia.hoje{outline:2px solid var(--white);outline-offset:-1px;font-weight:700}\n.escala-anual-dia.vazio{background:transparent}\n.escala-anual-dia.dobra{background:rgba(245,158,11,0.38);color:var(--white);font-weight:700}\n.escala-anual-dia.ferias{background:rgba(139,92,246,0.38);color:var(--white);font-weight:700}\n.escala-anual-nav{display:flex;align-items:center;gap:12px;margin-bottom:12px}\n.escala-anual-ano-label{font-family:var(--ui);font-size:15px;font-weight:800;color:var(--white);flex:1;text-align:center}\n.escala-print-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--ui);font-size:12.5px;font-weight:700;background:rgba(18,168,238,0.1);border:1px solid rgba(18,168,238,0.3);color:var(--cyan-dim);border-radius:6px;padding:8px 14px;cursor:pointer;margin-top:4px}\n.escala-print-header{display:none;margin-bottom:12px}\n.escala-exc-painel{background:var(--navy-800);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-top:10px}\n.escala-exc-tipo-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}\n.escala-exc-tipo-btn{flex:1;min-width:100px;padding:8px 10px;font-family:var(--ui);font-size:13px;font-weight:700;border-radius:6px;border:2px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}\n.escala-exc-tipo-btn.ativo-dobra{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,0.1)}\n.escala-exc-tipo-btn.ativo-ferias{border-color:#8b5cf6;color:#8b5cf6;background:rgba(139,92,246,0.1)}\n.escala-exc-datas-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}\n.escala-exc-datas-row label{font-family:var(--ui);font-size:12px;color:var(--muted-dim);display:flex;flex-direction:column;gap:3px}\n.escala-exc-datas-row input[type=date]{background:var(--navy-700);border:1px solid var(--line);border-radius:6px;color:var(--white);font-family:var(--ui);font-size:14px;padding:7px 10px;width:100%}\n.escala-exc-aviso{font-family:var(--ui);font-size:12px;color:#f59e0b;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);border-radius:5px;padding:7px 10px;margin-bottom:8px;display:none}\n.escala-exc-acoes{display:flex;gap:8px;flex-wrap:wrap}\n.escala-exc-lista{margin-top:10px;display:flex;flex-direction:column;gap:5px}\n.escala-exc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--navy-700);border-radius:6px;border-left:3px solid var(--line)}\n.escala-exc-item.dobra{border-left-color:#f59e0b}\n.escala-exc-item.ferias{border-left-color:#8b5cf6}\n.escala-exc-info{flex:1;min-width:0}\n.escala-exc-badge{font-family:var(--ui);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}\n.escala-exc-badge.dobra{color:#f59e0b}\n.escala-exc-badge.ferias{color:#8b5cf6}\n.escala-exc-datas{font-family:var(--ui);font-size:12.5px;color:var(--white);margin-top:2px}\n.escala-exc-btn-del{flex:none;background:transparent;border:none;color:var(--muted-dim);cursor:pointer;font-size:16px;padding:3px 6px;border-radius:4px;line-height:1}\n.escala-exc-btn-del:hover{color:var(--red)}\n.escala-exc-btn-edit{flex:none;background:transparent;border:1px solid var(--line-soft);color:var(--muted-dim);cursor:pointer;font-size:11px;padding:3px 7px;border-radius:4px;font-family:var(--ui)}\n.escala-exc-btn-edit:hover{color:var(--cyan-dim);border-color:var(--cyan-dim)}\n.escala-exc-add-btn{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;padding:11px 16px;font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--cyan);background:rgba(18,168,238,0.07);border:1.5px solid rgba(18,168,238,0.4);border-radius:8px;cursor:pointer;width:100%;transition:background .15s,border-color .15s}\n.escala-exc-add-btn:hover{background:rgba(18,168,238,0.14);border-color:var(--cyan)}\n.escala-exc-add-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}\n.escala-exc-add-btn[hidden]{display:none}\n.escala-exc-painel-titulo{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}\n.escala-exc-dica{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);margin:-2px 0 8px}\n.escala-print-marca{font-family:var(--ui);font-size:18px;font-weight:800;color:var(--white)}\n.escala-print-titulo{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--muted-dim);margin-top:2px}\n.escala-print-nome{font-family:var(--ui);font-size:12px;color:var(--muted-dim)}\n.escala-conta{margin-top:24px;padding:18px 20px;background:rgba(8,40,58,0.7);border:1px solid var(--line-soft);border-radius:10px}\n.escala-conta-titulo{font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);margin:0 0 10px}\n.escala-conta-desc{font-family:var(--ui);font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.55}\n.escala-conta-form{display:flex;flex-direction:column;gap:8px}\n.escala-conta-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}\n@media(max-width:479px){.escala-conta-row-2{grid-template-columns:1fr}}\n.escala-conta-form input,.escala-conta-form select{font-family:var(--ui);font-size:13.5px;background:var(--navy-800);border:1px solid var(--line-soft);border-radius:6px;color:var(--white);padding:9px 11px;width:100%}\n.escala-conta-form input:focus,.escala-conta-form select:focus{outline:none;border-color:var(--cyan)}\n.escala-conta-btn{font-family:var(--ui);font-size:13px;font-weight:700;background:var(--cyan);color:var(--navy-950);border:none;border-radius:6px;padding:10px 16px;cursor:pointer;align-self:flex-start}\n.escala-conta-btn-sec{font-family:var(--ui);font-size:12px;font-weight:700;background:transparent;color:var(--muted-dim);border:1px solid var(--line-soft);border-radius:6px;padding:8px 13px;cursor:pointer}\n.escala-conta-link{font-family:var(--ui);font-size:12px;color:var(--cyan-dim);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;display:inline}\n.escala-conta-msg{font-family:var(--ui);font-size:12.5px;margin-top:6px;min-height:18px}\n.escala-conta-msg.ok{color:var(--green)}\n.escala-conta-msg.erro{color:var(--red)}\n.escala-conta-logado{display:flex;flex-direction:column;gap:8px}\n.escala-conta-logado-info{font-family:var(--ui);font-size:13px;color:var(--muted);margin:0}\n.escala-conta-logado-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--ui);font-size:11px;font-weight:700;color:var(--green);background:rgba(66,216,121,0.12);border:1px solid rgba(66,216,121,0.25);border-radius:10px;padding:2px 8px}\n.escala-conta-logado-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}\n.escala-conta-funcao-wrap{position:relative}\n.escala-conta-funcao-lista{position:absolute;top:100%;left:0;right:0;background:var(--navy-800);border:1px solid var(--line-soft);border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:20;display:none}\n.escala-conta-funcao-lista.aberta{display:block}\n.escala-conta-funcao-opcao{font-family:var(--ui);font-size:12.5px;padding:7px 11px;cursor:pointer;color:var(--muted)}\n.escala-conta-funcao-opcao:hover{background:rgba(18,168,238,0.1);color:var(--white)}\n.escala-conta-btn-danger{font-family:var(--ui);font-size:12px;font-weight:700;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 13px;cursor:pointer}\n.escala-conta-btn-danger:hover{background:rgba(239,68,68,0.2);border-color:#ef4444}\n.escala-conta-edit-sep{border:none;border-top:1px solid var(--line);margin:10px 0}\n\n.escala-tagline{font-family:var(--ui);font-size:14px;color:var(--muted);margin:6px 0 10px;line-height:1.5}\n.escala-gratis-pill{display:inline-block;font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--cyan-dim);border:1px solid rgba(18,168,238,0.35);border-radius:20px;padding:4px 12px;margin-bottom:4px}\n.escala-anual-hint{margin:8px 0 4px}\n.escala-anual-hint-btn{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim);background:rgba(18,168,238,0.08);border:1px solid rgba(18,168,238,0.25);border-radius:6px;padding:8px 14px;cursor:pointer;width:100%;text-align:left}\n.escala-anual-hint-btn:hover{background:rgba(18,168,238,0.15)}\n.escala-ver-ant{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--cyan-dim);background:rgba(18,168,238,0.08);border:1px solid rgba(18,168,238,0.25);border-radius:6px;padding:8px 14px;cursor:pointer;width:100%;text-align:left;margin-bottom:8px;grid-column:1/-1}\n.escala-ver-ant:hover{background:rgba(18,168,238,0.15)}\n.escala-conta-logado-badge.alteracoes{background:rgba(255,130,0,0.15);color:#ff9a3c;border-color:rgba(255,130,0,0.35)}\n.escala-conflito-aviso{background:rgba(255,130,0,0.06);border:1px solid rgba(255,130,0,0.3);border-radius:8px;padding:14px 16px;margin-top:12px}\n.escala-conflito-titulo{font-family:var(--ui);font-size:12.5px;font-weight:800;color:var(--white);margin:0 0 6px}\n.escala-conflito-desc{font-family:var(--ui);font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5}\n.escala-conflito-dados{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}\n.escala-conflito-lado{background:rgba(8,40,58,0.6);border-radius:6px;padding:8px 10px}\n.escala-conflito-lado-label{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:4px}\n.escala-conflito-lado-dado{font-family:var(--ui);font-size:11px;color:var(--white);font-weight:600}\n.escala-conflito-acoes{display:flex;gap:8px;flex-wrap:wrap}\n.escala-limpar-confirm{background:rgba(255,69,58,0.06);border:1px solid rgba(255,69,58,0.25);border-radius:8px;padding:12px 14px;margin-top:8px}\n.escala-limpar-confirm-titulo{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--white);margin:0 0 4px}\n.escala-limpar-confirm-desc{font-family:var(--ui);font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.45}\n.escala-limpar-confirm-acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}\n.escala-conta-btn-danger{background:rgba(255,69,58,0.15);border-color:rgba(255,69,58,0.4);color:#ff453a}\n.escala-confirm-pendente{display:flex;flex-direction:column;gap:10px}\n.escala-confirm-pendente-dica{font-family:var(--ui);font-size:12px;color:var(--muted);margin:0;line-height:1.5}\n#btnReenviarConfirmacao:disabled{opacity:.5;cursor:not-allowed}\n@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}header,footer,.topline,.breadcrumb-nav,.hub-hero,#escalaConfigWrap,#escalaEditarRow,#escalaTabs,#escalaTabPainelHoje,#escalaTabPainelCalendario,.escala-conta,.escala-vagas-section,.hub-continue,.aviso-atualizacao,.escala-print-btn,.escala-anual-nav{display:none!important}#escalaTabPainelAnual{display:block!important;padding:0}.escala-print-header{display:block!important}.escala-anual-grid{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:6px!important}body,html{background:#fff!important;color:#000!important}.escala-anual-mes{border:1px solid #ccc!important;background:#fff!important;break-inside:avoid}.escala-anual-mes-nome{color:#000!important}.escala-anual-dow{color:#666!important}.escala-anual-dia{color:#444!important}.escala-anual-dia.embarcado{background:#222!important;color:#fff!important}.escala-anual-dia.embarque{background:#000!important;color:#fff!important;font-weight:700!important}.escala-anual-dia.desembarque{background:#fff!important;color:#000!important;border:2px solid #000!important;font-weight:700!important}.escala-anual-dia.hoje{outline:2px solid #000!important}.escala-anual-dia.dobra{background:#c97c00!important;color:#fff!important;font-weight:700!important}.escala-anual-dia.ferias{background:#6d28d9!important;color:#fff!important;font-weight:700!important}.escala-print-marca,.escala-print-titulo,.escala-print-nome{color:#000!important}@page{size:A4 landscape;margin:10mm}}\n.escala-mes-mini-legenda{font-family:var(--ui);font-size:11px;color:var(--muted-dim)}\n@media(max-width:480px){.cruzar-conn-bar{padding:6px 10px;gap:6px}.cruzar-conn-link-input{max-width:160px}.cruzar-convite-banner{padding:10px 12px;font-size:13px}}\n.cruzar-conn-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:rgba(18,168,238,.08);border:1px solid rgba(18,168,238,.18);border-radius:8px;margin:8px 0;flex-wrap:wrap}\n.cruzar-conn-ativo{background:rgba(66,216,121,.08);border-color:rgba(66,216,121,.25)}\n.cruzar-conn-status{font-size:13px;color:var(--green);font-family:var(--ui);font-weight:600}\n.cruzar-conn-btn{background:rgba(18,168,238,.12);border:1px solid rgba(18,168,238,.3);color:var(--cyan);font-family:var(--ui);font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}\n.cruzar-conn-btn:hover{background:rgba(18,168,238,.2)}\n.cruzar-conn-btn-sm{font-family:var(--ui);font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px;cursor:pointer;white-space:nowrap;background:rgba(18,168,238,.1);border:1px solid rgba(18,168,238,.2);color:var(--cyan)}\n.cruzar-conn-btn-cancel{background:rgba(255,75,75,.08);border-color:rgba(255,75,75,.2);color:#ff6b6b}\n.cruzar-conn-link-input{font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);padding:3px 8px;border-radius:4px;flex:1;min-width:120px;max-width:260px;font-family:var(--ui)}\n.cruzar-convite-banner{background:rgba(18,168,238,.1);border:1px solid rgba(18,168,238,.25);border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:var(--white);font-family:var(--ui);line-height:1.5}\n.cruzar-section{margin:0 0 24px;padding:20px;background:rgba(245,158,11,.11);border:1px solid rgba(245,158,11,.4);border-radius:10px}\n.cruzar-header{margin-bottom:12px}\n.cruzar-titulo{font:800 13px/1.3 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:#f59e0b;display:block;margin:0 0 6px}\n.cruzar-subtitulo{font:400 12px/1 var(--ui);color:var(--muted-dim)}\n.cruzar-hero{background:var(--navy-800);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:14px;text-align:center}\n.cruzar-hero-label{font:800 10px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}\n.cruzar-hero-datas{font:700 22px/1.15 var(--editorial);color:var(--white);margin-bottom:5px}\n.cruzar-hero-duracao{font:400 14px/1.4 var(--ui);color:var(--cyan-dim);margin-bottom:4px}\n.cruzar-hero-faltam{font:700 12px/1 var(--ui);color:var(--muted)}\n.cruzar-janelas{display:flex;gap:8px;margin-bottom:14px}\n.cruzar-janela{flex:1;background:var(--navy-800);border:1px solid var(--line);border-radius:6px;padding:10px 12px;text-align:center;min-width:0}\n.cruzar-janela-label{font:800 9px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px}\n.cruzar-janela-datas{font:700 13px/1.3 var(--editorial);color:var(--white)}\n.cruzar-janela-dur{font:400 11px/1 var(--ui);color:var(--cyan-dim);margin-top:3px}\n.cruzar-form{background:var(--navy-900);border:1px solid var(--line);border-radius:8px;padding:16px 20px}\n.cruzar-form-titulo{font:800 11px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}\n.cruzar-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}\n@media(max-width:420px){.cruzar-form-grid{grid-template-columns:1fr}}\n.escala-toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 80px);left:50%;transform:translateX(-50%) translateY(20px);background:rgba(18,168,238,0.15);border:1px solid rgba(18,168,238,0.4);border-radius:99px;padding:10px 20px;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;z-index:2000}.escala-toast.visivel{opacity:1;transform:translateX(-50%) translateY(0)}\n.cruzar-btn-editar{font:700 12px/1 var(--ui);color:var(--muted-dim);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 12px;cursor:pointer}\n.cruzar-btn-editar:hover{color:var(--white);border-color:var(--muted)}\n.cruzar-sem-escala{font:400 13px/1.5 var(--ui);color:var(--muted-dim);padding:10px 0}\n.cruzar-cta-btn{display:block;width:100%;padding:15px 20px;font-family:var(--ui);font-weight:800;font-size:15px;border-radius:8px;border:none;background:#f59e0b;color:#000;cursor:pointer;letter-spacing:.02em;text-align:center;transition:background .15s}\n.cruzar-cta-btn:hover{background:#d97706}\n.cruzar-cta-btn:focus-visible{outline:2px solid #f59e0b;outline-offset:3px}\n.cruzar-promo-card{display:block;width:100%;background:none;border:none;text-align:left;cursor:pointer;padding:0;margin:0;font-family:inherit;-webkit-tap-highlight-color:rgba(245,158,11,.18)}\n.cruzar-promo-card:focus-visible{outline:2px solid #f59e0b;outline-offset:2px;border-radius:4px}\n.cruzar-cta-label{display:inline-block;margin-top:12px;background:#f59e0b;color:#000;padding:10px 20px;border-radius:8px;font:800 14px/1 var(--ui);letter-spacing:.02em}\n.cruzar-promo{padding:2px 0 6px}\n.cruzar-promo-desc{font-size:14px;color:var(--white);opacity:.88;margin:0 0 4px;line-height:1.5}\n.cruzar-promo-sub{font-size:12px;color:var(--muted);margin:0 0 18px;line-height:1.45}\n.escala-dia.juntos::after,.escala-anual-dia.juntos::after{content:"\u2665";position:absolute;bottom:1px;right:1px;font-size:9px;line-height:1;color:#fbbf24;pointer-events:none}\n.escala-dia{position:relative}\n.escala-anual-dia{position:relative}\n@media(max-width:639px){.cruzar-janelas .cruzar-janela:nth-child(n+2){display:none}.cruzar-form-grid{grid-template-columns:1fr}}\n.checklist-grupo{margin-top:28px}\n.checklist-grupo h3{font-family:var(--ui);font-size:15px;font-weight:800;color:var(--white);margin-bottom:4px;padding-bottom:8px;border-bottom:1px solid var(--line-hair)}\n.checklist-grupo-nota{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);margin:6px 0 4px}\n.checklist-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer}\n.checklist-item input{margin-top:3px;flex:none;width:17px;height:17px;accent-color:var(--cyan)}\n.checklist-texto{flex:1;font-family:var(--editorial);font-size:14px;line-height:1.5;color:#dbe8ef}\n.checklist-item:has(input:checked) .checklist-texto{color:var(--muted-dim);text-decoration:line-through}\n.checklist-tag{flex:none;font-family:var(--ui);font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:99px;white-space:nowrap;align-self:center}\n.checklist-tag.regulatorio{color:var(--red);background:rgba(255,75,75,.12);border:1px solid rgba(255,75,75,.3)}\n.checklist-tag.mercado{color:var(--cyan-dim);background:rgba(95,196,238,.1);border:1px solid rgba(95,196,238,.25)}\n.checklist-tag.variavel{color:var(--yellow);background:rgba(255,212,77,.1);border:1px solid rgba(255,212,77,.25)}\n.checklist-topo{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:8px}\n.checklist-progresso{font-family:var(--ui);font-size:12.5px;color:var(--muted)}\n.checklist-legenda{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;font-family:var(--ui);font-size:11px;color:var(--muted)}\n.checklist-legenda span{display:inline-flex;align-items:center;gap:5px}\n@media(max-width:759px){.checklist-item{align-items:center}}\n@media(min-width:640px){.escala-cards-grid{grid-template-columns:1fr 1fr}.escala-dia{font-size:14px}}\n/* menu "Mais" no header compartilhado (hub pages) — mesmo padrão do menu\n   principal da Home: Explorar + Em desenvolvimento, sem ocupar espaço nobre. */\n.nav-mais{position:relative}\n.nav-mais-btn{\n  background:none;border:0;font:inherit;color:var(--white);cursor:pointer;\n  font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:.02em;\n  display:flex;align-items:center;gap:2px;padding:0;\n}\n.nav-mais-menu{display:none;flex-direction:column;gap:0;margin:0;padding:8px}\n.nav-mais-menu.open{\n  display:flex;position:absolute;top:calc(100% + 14px);right:0;min-width:240px;\n  background:var(--navy-900);border:1px solid var(--line-soft);border-radius:10px;\n  box-shadow:0 16px 32px rgba(2,10,16,.45);z-index:40;\n}\n.nav-mais-menu a, .nav-mais-menu .nav-mais-dev{\n  display:flex;align-items:center;justify-content:space-between;gap:8px;\n  padding:10px 10px;font-family:var(--ui);font-size:12.5px;font-weight:600;color:var(--white);\n  border-radius:6px;\n}\n.nav-mais-menu a:hover{background:var(--navy-800);color:var(--cyan-dim)}\n.nav-mais-tag{\n  font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-dim);\n  background:var(--navy-950);border-radius:99px;padding:2px 8px;white-space:nowrap;flex:none;\n}\n.nav-mais-disabled{opacity:.55;cursor:default}\n.nav-mais-sep{height:1px;background:var(--line-hair);margin:6px 10px}\n.nav-mais-label{\n  display:block;padding:8px 10px 2px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;\n  color:var(--muted-dim);font-weight:800;\n}\n.nav-mais-label:first-child{padding-top:2px}\n.links a.nav-destaque{color:var(--cyan-dim)}\n.links a.nav-destaque:hover{color:var(--cyan)}\n.escala-sh{background:#1a1a2e;border-radius:10px;padding:14px 16px;margin-bottom:16px}\n.escala-sh-row{display:flex;justify-content:space-between;align-items:center;gap:12px}\n.escala-sh-info{display:flex;align-items:center;gap:12px;min-width:0;flex:1}\n.escala-sh-icon{font-size:22px;flex-shrink:0}\n.escala-sh-bloco{min-width:0;flex:1}\n.escala-sh-label{display:block;font:800 18px/1.1 var(--ui);color:#f59e0b;text-transform:uppercase;letter-spacing:.02em}\n.escala-sh-sub{display:block;font:400 13px/1.4 var(--ui);color:#aaa;margin-top:4px}\n.escala-sh-sub strong{color:#fff;font-weight:700}\n.escala-sh-faltam{display:block;font:600 12px/1 var(--ui);color:#888;margin-top:4px}\n.escala-sh-editar{flex-shrink:0;background:none;border:1px solid #444;border-radius:6px;color:#ccc;font:600 12px/1 var(--ui);padding:8px 12px;cursor:pointer;white-space:nowrap}\n.escala-sh-editar:hover{border-color:#f59e0b;color:#f59e0b}\n.escala-ar{margin:20px 0 8px}\n.escala-ar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}\n.escala-ar-btn{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--navy-800);border:1.5px solid var(--line);border-radius:12px;padding:16px 10px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s;min-height:84px;justify-content:center}\n.escala-ar-btn:hover,.escala-ar-btn:focus-visible{border-color:#f59e0b;background:#1e1e3a;outline:none}\n.escala-ar-icon{font-size:26px;line-height:1}\n.escala-ar-label{font:700 11px/1.3 var(--ui);color:var(--white);text-transform:uppercase;letter-spacing:.04em}\n@media(max-width:420px){.escala-ar-grid{grid-template-columns:repeat(2,1fr)}}\n.cw-header{margin-bottom:22px}.cw-header-nome{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--cyan-dim);display:flex;align-items:center;gap:8px}.cw-header-nome::before{content:"";display:inline-block;width:14px;height:1px;background:currentColor;opacity:.5}.cw-escala-gratis{font-family:var(--ui);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-top:3px}.cw-header-relogio{font-family:var(--ui);font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:.01em}.cw-nome-dest{font-size:11.5px;font-weight:800;color:var(--white)}@media(max-width:360px){.cw-nome-dest{font-size:10.5px}}.cw-header-status{display:flex;align-items:center;gap:8px;margin:6px 0 2px}.cw-header-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}.cw-header-status-dot.embarcado{background:var(--cyan)}.cw-header-status-dot.folga{background:var(--green)}.cw-header-status-label{font-family:var(--ui);font-size:24px;font-weight:800;color:var(--white);line-height:1;letter-spacing:-.02em}.cw-header-detalhe{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:2px}.cw-alerta-strip{background:rgba(255,212,77,.05);border:1px solid rgba(255,212,77,.15);border-radius:5px;padding:10px 14px;margin-bottom:14px;font-family:var(--ui);font-size:12px;color:var(--yellow);display:flex;align-items:center;gap:10px;text-decoration:none;transition:border-color .15s}.cw-alerta-strip:hover{border-color:rgba(255,212,77,.4)}.cw-alerta-strip.critico{background:rgba(255,75,75,.07);border-color:rgba(255,75,75,.25);color:var(--red)}.cw-alerta-strip.critico:hover{border-color:rgba(255,75,75,.5)}.cw-alerta-strip.critico .cw-alerta-cta{color:var(--red)}.cw-alerta-strip.critico .cw-alerta-icon{color:var(--red)}.cw-ck-module{background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:7px;padding:14px 16px;margin-top:10px}.cw-ck-mod-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.cw-ck-mod-label{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-dim)}.cw-ck-mod-link{font-family:var(--ui);font-size:11px;font-weight:700;color:rgba(18,168,238,.7);text-decoration:none;letter-spacing:.03em}.cw-ck-mod-state{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;line-height:1.4}.cw-ck-mod-state .muted{color:var(--muted);font-weight:400}.cw-ck-mod-context{font-family:var(--ui);font-size:11px;color:var(--muted);margin-bottom:10px;min-height:14px}.cw-ck-mod-context.urgente{color:var(--cyan-dim)}.cw-ck-mod-context.critico{color:var(--yellow)}.cw-ck-mod-qaBtn{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--cyan-dim);background:rgba(18,168,238,.06);border:1px solid rgba(18,168,238,.2);border-radius:6px;padding:8px 14px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;-webkit-tap-highlight-color:transparent}.cw-ck-mod-qaBtn:active{background:rgba(18,168,238,.12)}.cw-qa-overlay{position:fixed;inset:0;background:rgba(6,14,28,.7);z-index:9000;display:flex;align-items:flex-end;justify-content:center;-webkit-tap-highlight-color:transparent}.cw-qa-overlay[hidden]{display:none}.cw-qa-sheet{background:var(--navy-900);border:1px solid rgba(18,168,238,.15);border-radius:14px 14px 0 0;padding:20px 20px 28px;width:100%;max-width:520px;box-sizing:border-box}.cw-qa-lbl{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-dim);display:block;margin-bottom:8px}.cw-qa-input{width:100%;box-sizing:border-box;background:var(--navy-950);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px;color:var(--white);font-family:var(--ui);font-size:15px;outline:none;transition:border-color .15s;-webkit-appearance:none}.cw-qa-input:focus{border-color:rgba(18,168,238,.5)}.cw-qa-input::placeholder{color:var(--muted-dim)}.cw-qa-actions{display:flex;gap:10px;margin-top:12px}.cw-qa-cancel{flex:1;font-family:var(--ui);font-size:13px;color:var(--muted);background:none;border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;cursor:pointer}.cw-qa-submit{flex:2;font-family:var(--ui);font-size:13px;font-weight:700;color:var(--navy-950);background:var(--cyan-dim);border:none;border-radius:7px;padding:10px;cursor:pointer}.cw-qa-submit:active{opacity:.85}.cw-alertas-pill{background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:6px;overflow:hidden;margin-top:10px;text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px;padding:12px 16px;transition:border-color .15s;-webkit-tap-highlight-color:transparent}.cw-alertas-pill:hover{border-color:rgba(18,168,238,.28)}.cw-alertas-pill-icon{font-size:16px;flex-shrink:0;opacity:.7}.cw-alertas-pill-text{flex:1;font-family:var(--ui);font-size:13px;color:var(--white);font-weight:600}.cw-alertas-pill-estado{font-family:var(--ui);font-size:10px;font-weight:700;color:var(--muted-dim);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}.cw-alertas-pill-estado.ativo{color:var(--green)}.al-perm-box{background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:8px;padding:20px 20px 16px;margin-bottom:14px}.al-perm-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.al-perm-status{font-family:var(--ui);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-dim)}.al-perm-status.ativo{color:var(--green)}.al-perm-status.bloqueado{color:var(--red)}.al-perm-desc{font-family:var(--ui);font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}.al-perm-btn{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--navy-950);background:var(--cyan-dim);border:none;border-radius:8px;padding:13px 22px;cursor:pointer;width:100%;transition:opacity .15s;margin-bottom:8px}.al-perm-btn:active{opacity:.85}.al-perm-btn:disabled{opacity:.4;cursor:not-allowed}.al-tipo-card{display:flex;align-items:center;gap:14px;background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:7px;padding:14px 16px;margin-bottom:8px;transition:border-color .15s}.al-tipo-card.ativo{border-color:rgba(18,168,238,.25)}.al-tipo-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center}.al-tipo-info{flex:1}.al-tipo-nome{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white);margin-bottom:2px}.al-tipo-desc{font-family:var(--ui);font-size:12px;color:var(--muted);line-height:1.4}.al-toggle{position:relative;width:44px;height:24px;flex-shrink:0}.al-toggle input{opacity:0;width:0;height:0;position:absolute}.al-toggle-track{width:100%;height:100%;border-radius:12px;background:rgba(255,255,255,.1);cursor:pointer;transition:background .2s;display:block}.al-toggle input:checked+.al-toggle-track{background:var(--cyan-dim)}.al-toggle-thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--white);transition:left .2s;pointer-events:none}.al-toggle input:checked~.al-toggle-thumb{left:22px}.al-test-btn{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim);background:rgba(18,168,238,.06);border:1px solid rgba(18,168,238,.2);border-radius:7px;padding:11px 16px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px}.al-test-btn:hover{border-color:rgba(18,168,238,.5)}.al-test-btn:disabled{opacity:.4;cursor:not-allowed}.al-msg{font-family:var(--ui);font-size:13px;color:var(--muted);padding:12px;background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.06);border-radius:7px;margin:8px 0;text-align:center}.al-msg.sucesso{color:var(--green);border-color:rgba(66,216,121,.2)}.al-msg.erro{color:var(--red);border-color:rgba(255,75,75,.2)}.cw-alerta-icon{font-size:12px;flex-shrink:0;opacity:.8}.cw-alerta-texto{flex:1;line-height:1.4}.cw-alerta-cta{font-family:var(--ui);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;color:var(--yellow)}.cw-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}@media(max-width:599px){.cw-cards-grid{grid-template-columns:1fr;gap:10px}}.cw-card{background:rgba(6,14,28,.55);border:1px solid rgba(255,255,255,.055);border-radius:6px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;position:relative;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}.cw-card:hover{border-color:rgba(18,168,238,.28);background:rgba(6,14,28,.75)}.cw-card:active{transform:scale(.985);transition:transform .07s}@media(prefers-reduced-motion:reduce){.cw-card{transition:none}.cw-card:active{transform:none}}.cw-card-accent{height:2px;background:rgba(255,255,255,.04)}.cw-card-accent--cyan{background:rgba(18,168,238,.55)}.cw-card-accent--green{background:rgba(66,216,121,.5)}.cw-card-accent--yellow{background:rgba(255,212,77,.5)}.cw-card-inner{padding:14px 16px 13px;display:flex;flex-direction:column;flex:1}.cw-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.cw-card-eyebrow{font-family:var(--ui);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-dim)}.cw-card-status{display:flex;align-items:center;gap:4px}.cw-status-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}.cw-status-dot--cyan{background:var(--cyan-dim)}.cw-status-dot--green{background:var(--green)}.cw-status-dot--yellow{background:var(--yellow)}.cw-status-dot--red{background:#ff6b6b}.cw-status-dot--muted{background:var(--muted-dim)}.cw-status-lbl{font-family:var(--ui);font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-dim)}.cw-card-main{font-family:var(--ui);font-size:36px;font-weight:800;color:var(--white);line-height:1;margin-bottom:3px;letter-spacing:-.02em}.cw-card-main--sm{font-size:19px;letter-spacing:0}.cw-card-main--cyan{color:var(--cyan-dim)}.cw-card-main--green{color:var(--green)}.cw-card-main--yellow{color:var(--yellow)}.cw-card-main--red{color:#ff6b6b}.cw-card-sub{font-family:var(--ui);font-size:11px;color:var(--muted);line-height:1.35;margin-bottom:2px}.cw-card-detail{font-family:var(--ui);font-size:10.5px;color:var(--cyan-dim)}.cw-card-divider{height:1px;background:rgba(255,255,255,.04);margin:10px 0 10px}.cw-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}.cw-card-cta{font-family:var(--ui);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;flex:1}.cw-card:hover .cw-card-cta{color:rgba(255,255,255,.7)}.cw-card-btn{width:32px;height:32px;border-radius:4px;border:1px solid rgba(18,168,238,.22);background:rgba(18,168,238,.04);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:rgba(18,168,238,.7);transition:background .15s,border-color .15s,color .15s;line-height:1}.cw-card:hover .cw-card-btn{background:rgba(18,168,238,.1);border-color:rgba(18,168,238,.5);color:var(--cyan-dim)}.cw-card:hover .cw-card-btn .cw-btn-arrow{transform:translateX(2px)}.cw-btn-arrow{display:inline-block;transition:transform .12s}@media(prefers-reduced-motion:reduce){.cw-card-btn,.cw-btn-arrow{transition:none}}.cw-login-pill{background:rgba(6,14,28,.4);border:1px solid rgba(255,255,255,.05);border-radius:6px;padding:12px 16px;margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cw-login-pill p{font-family:var(--ui);font-size:12px;color:var(--muted);margin:0;flex:1}.cw-login-pill a{font-family:var(--ui);font-size:11.5px;font-weight:700;color:var(--cyan-dim);text-decoration:none;white-space:nowrap}.cw-login-pill a:hover{text-decoration:underline}.central-home-cta{display:flex;align-items:center;gap:13px;background:rgba(6,14,28,.55);border:1px solid rgba(255,255,255,.055);border-radius:6px;padding:13px 16px;text-decoration:none;color:inherit;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent;margin-top:2px}.central-home-cta:hover{border-color:rgba(18,168,238,.28);background:rgba(6,14,28,.75)}.central-home-cta:active{transform:scale(.99);transition:transform .07s}@media(prefers-reduced-motion:reduce){.central-home-cta{transition:none}.central-home-cta:active{transform:none}}.chc-accent{width:2px;height:32px;background:rgba(18,168,238,.5);border-radius:1px;flex-shrink:0}.chc-status{display:flex;align-items:center;gap:4px;margin-bottom:3px}.chc-status-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan-dim);flex-shrink:0}.chc-status-lbl{font-family:var(--ui);font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan-dim)}.chc-corpo{flex:1;min-width:0}.chc-main{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white);display:block}.chc-sub{font-family:var(--ui);font-size:11px;color:var(--muted);display:block;margin-top:2px;letter-spacing:.02em}.chc-btn{width:34px;height:34px;border-radius:4px;border:1px solid rgba(18,168,238,.22);background:rgba(18,168,238,.04);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:rgba(18,168,238,.7);transition:background .15s,border-color .15s,color .15s}.central-home-cta:hover .chc-btn{background:rgba(18,168,238,.1);border-color:rgba(18,168,238,.5);color:var(--cyan-dim)}.central-home-cta:hover .chc-btn .cw-btn-arrow{transform:translateX(2px)}@media(max-width:400px){.chc-accent{display:none}}.cert-lista{display:flex;flex-direction:column;gap:10px;margin-top:8px}.cert-card{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .18s}.cert-card:hover{border-color:var(--cyan-dim)}.cert-card-head{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}.cert-card-nome{font-family:var(--ui);font-size:14px;font-weight:700;color:var(--white)}.cert-badge{font-family:var(--ui);font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0}.cert-badge.valido{background:rgba(66,216,121,.12);color:#42d879}.cert-badge.atencao{background:rgba(255,212,77,.12);color:#ffd44d}.cert-badge.vence-hoje{background:rgba(255,75,75,.2);color:#ff4b4b;box-shadow:0 0 0 1px rgba(255,75,75,.4)}.cert-badge.vencido{background:rgba(255,75,75,.12);color:#ff6b6b}.cert-badge.sem-data{background:rgba(100,130,150,.1);color:var(--muted)}.cert-card-validade{font-family:var(--ui);font-size:12px;color:var(--muted);margin-top:5px}.cert-card-insight{font-family:var(--ui);font-size:11.5px;color:var(--cyan-dim);margin-top:4px}.cert-card-acao{font-family:var(--ui);font-size:11.5px;font-weight:700;color:var(--cyan-dim);display:inline-block;margin-top:7px;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline;text-underline-offset:2px}.cert-card-detalhe{border-top:1px solid var(--line-soft);margin-top:12px;padding-top:12px;display:none;flex-direction:column;gap:8px}.cert-card-detalhe.aberto{display:flex}.cert-detalhe-campo{font-family:var(--ui);font-size:12.5px;color:var(--muted)}.cert-detalhe-campo strong{color:var(--white);font-weight:600}.cert-acoes{display:flex;gap:8px;margin-top:4px}.cert-btn-editar,.cert-btn-excluir{font-family:var(--ui);font-size:12px;font-weight:700;padding:6px 14px;border-radius:6px;border:1px solid var(--line-soft);background:transparent;cursor:pointer;transition:border-color .15s}.cert-btn-editar{color:var(--cyan-dim)}.cert-btn-editar:hover{border-color:var(--cyan-dim)}.cert-btn-excluir{color:#ff6b6b}.cert-btn-excluir:hover{border-color:#ff6b6b}.cert-form-wrap{background:var(--navy-800);border:1px solid var(--line-soft);border-radius:12px;padding:20px;margin-bottom:20px;display:none}.cert-form-wrap.aberto{display:block}.cert-form-titulo{font-family:var(--ui);font-size:14px;font-weight:800;color:var(--white);margin-bottom:14px}.cert-vazio{font-family:var(--ui);font-size:13.5px;color:var(--muted);text-align:center;padding:32px 0}.central-login-pill{background:rgba(6,14,28,.4);border:1px solid rgba(255,255,255,.05);border-radius:6px;padding:12px 16px;margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.central-login-pill p{font-family:var(--ui);font-size:12px;color:var(--muted);margin:0;flex:1}.central-login-pill a{font-family:var(--ui);font-size:11.5px;font-weight:700;color:var(--cyan-dim);text-decoration:none;white-space:nowrap}.central-alerta-strip{background:rgba(255,212,77,.05);border:1px solid rgba(255,212,77,.18);border-radius:5px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-family:var(--ui);font-size:12px;color:var(--yellow)}.ck-embarque-info{font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:8px}.ck-progresso-txt{font-family:var(--ui);font-size:12px;color:var(--muted)}.ck-progresso-bar{background:rgba(255,255,255,.07);border-radius:99px;height:4px;margin:6px 0 18px;overflow:hidden}.ck-progresso-bar-fill{background:var(--cyan-dim);height:100%;border-radius:99px;transition:width .3s}.ck-section-title{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-dim);margin:16px 0 8px}.ck-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:7px;margin-bottom:6px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:border-color .15s}.ck-item:active{transform:scale(.99)}.ck-item.checked{opacity:.6}.ck-checkbox{width:18px;height:18px;border-radius:4px;border:1.5px solid rgba(255,255,255,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-950);transition:all .15s}.ck-item.checked .ck-checkbox{background:var(--green);border-color:var(--green)}.ck-texto{font-family:var(--ui);font-size:13.5px;color:var(--white);flex:1}.ck-item.checked .ck-texto{text-decoration:line-through;color:var(--muted)}.ck-btn-remover{font-size:14px;color:var(--muted-dim);background:none;border:none;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}.ck-btn-rec{font-size:11px;color:var(--cyan-dim);background:none;border:none;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0;font-family:var(--ui)}.ck-btn-add{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim);background:none;border:1px solid rgba(18,168,238,.25);border-radius:7px;padding:10px 16px;cursor:pointer;margin-top:4px;width:100%;text-align:left;transition:border-color .15s;display:block}.ck-btn-add:hover{border-color:rgba(18,168,238,.5)}.ck-add-form{display:none;margin-top:10px;background:rgba(6,14,28,.5);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:14px}.ck-add-form.aberto{display:block}.ck-add-row{display:flex;gap:8px}.ck-add-input{flex:1;background:var(--navy-950);border:1px solid var(--line-soft);border-radius:6px;padding:9px 12px;color:var(--white);font-family:var(--ui);font-size:13px;min-width:0}.ck-add-input::placeholder{color:var(--muted-dim)}.ck-add-submit{background:rgba(18,168,238,.1);border:1px solid rgba(18,168,238,.3);color:var(--cyan-dim);font-family:var(--ui);font-size:13px;font-weight:700;padding:9px 16px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}.ck-add-submit:hover{background:rgba(18,168,238,.2)}.ck-reset-btn{font-family:var(--ui);font-size:11.5px;color:var(--muted-dim);background:none;border:none;cursor:pointer;margin-top:16px;display:block;text-decoration:underline;text-underline-offset:2px}.cw-ck-strip{background:rgba(6,14,28,.45);border:1px solid rgba(255,255,255,.055);border-radius:6px;padding:12px 16px;margin-top:10px;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;-webkit-tap-highlight-color:transparent;transition:border-color .15s}.cw-ck-strip:hover{border-color:rgba(18,168,238,.28)}.cw-ck-strip-accent{width:2px;height:28px;background:var(--cyan-dim);border-radius:1px;flex-shrink:0;opacity:.6}.cw-ck-strip-body{flex:1}.cw-ck-strip-title{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--white)}.cw-ck-strip-sub{font-family:var(--ui);font-size:11px;color:var(--muted);margin-top:2px}.cw-ck-strip-btn{width:28px;height:28px;border-radius:4px;border:1px solid rgba(18,168,238,.22);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(18,168,238,.7);flex-shrink:0}@media(max-width:600px){.cert-card-head{flex-wrap:wrap}}@media(max-width:759px){.topline{display:none}}\n' + CSS_TEMA_CLARO + '</style>' +
     '</head><body>' +
-    '<div class="topline"><div class="container"><span>OWNews • Informação para quem vive o offshore.</span><span>by OffshoreWorks</span></div></div>' +
     '<header><div class="container nav hub-nav">' +
-    '<a class="logo" href="/">OW<span>News</span></a>' +
+    '<a class="logo" href="/" aria-label="OWNews — ir para a página inicial">OW<span>News</span></a>' +
     '<nav class="hub-links" aria-label="Navegação principal">' +
     '<a href="/buscar" class="hub-search-icon" aria-label="Buscar no OWNews" title="Buscar">🔍</a>' + TEMA_BOTAO_HUB +
     '<a href="/#destaque">NOTÍCIAS</a>' +
     '<a href="/offshore-agora">OFFSHORE AGORA</a>' +
-    '<a class="nav-destaque" href="/carreiras/cadastre-seu-curriculo">CADASTRE SEU CURRÍCULO</a>' +
+    '<a href="/mercado">MERCADO</a>' +
     '<a href="/carreiras">CARREIRAS</a>' +
     '<div class="nav-mais" id="navMaisHub">' +
     '<button type="button" class="nav-mais-btn" id="maisBtnHub" aria-expanded="false" aria-haspopup="true" aria-controls="maisMenuHub">MAIS ▾</button>' +
-    '<div class="nav-mais-menu" id="maisMenuHub" role="menu" aria-label="Mais">' +
-    '<a class="nav-mais-mobile" href="/offshore-agora" role="menuitem">Offshore Agora</a>' +
-    '<a class="nav-mais-mobile nav-destaque" href="/carreiras/cadastre-seu-curriculo" role="menuitem">Cadastre seu Currículo</a>' +
-    '<span class="nav-mais-label">Explorar</span>' +
-    '<a href="/radar" role="menuitem" class="nav-destaque">Radar Offshore</a>' +
-    '<a href="/aviacao-offshore" role="menuitem">Aviação Offshore</a>' +
-    '<a href="/funcoes" role="menuitem">Funções a Bordo</a>' +
-    '<a href="/empresas" role="menuitem">Empresas Offshore</a>' +
-    '<a href="/cursos" role="menuitem">Cursos e Escolas</a>' +
-    '<a href="/conversor" role="menuitem">Conversor Offshore</a>' +
-    '<a href="/glossario" role="menuitem">Glossário Offshore</a>' +
-    '<a href="/horarios" role="menuitem">Horários Offshore</a>' +
-    '<a href="/calculadora-embarque" role="menuitem">Calculadora de Embarque</a>' +
-
-    '<a href="/minha-escala" role="menuitem">Minha Escala</a>' +
-    '<a href="/central-do-trabalhador" role="menuitem">Central do Trabalhador</a>' +
-    '<a href="/meus-certificados" role="menuitem">Meus Certificados</a>' +
-    '<a href="/checklist-embarque" role="menuitem">Checklist de Embarque</a>' +
-    '<div class="nav-mais-sep"></div>' +
-    '<span class="nav-mais-label">Carreira</span>' +
-    '<a href="/vagas" role="menuitem">Vagas Verificadas</a>' +
-    '<a href="/salarios" role="menuitem">Salários Offshore</a>' +
+    '<div class="nav-mais-menu" id="maisMenuHub" role="menu" aria-label="Mais seções do OWNews">' + MENU_MAIS_ITENS +
     '</div></div>' +
     '<a class="shop-btn" href="https://www.offshoreworks.com.br" target="_blank" rel="noopener"><span class="shop-loja">LOJA</span> <span class="shop-nome">Offshore<span class="shop-works">Works</span></span> <span class="shop-seta">↗</span></a>' +
     '</nav></div></header>' +
@@ -8255,7 +8116,7 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     '<div class="compartilhar-bloco">' +
     '<span class="compartilhar-label">Compartilhar</span>' +
     '<button type="button" class="compartilhar-ig" id="shareInstagram">' +
-    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>' +
+    '' + SVG_IG + '' +
     'Instagram' +
     '</button>' +
     '<a class="compartilhar-icone" id="shareWhatsApp" href="https://wa.me/" target="_blank" rel="noopener" aria-label="Compartilhar no WhatsApp" title="WhatsApp">' +
@@ -8330,7 +8191,7 @@ function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, o
     SCRIPT_PRESENCA +
     SCRIPT_VISITAS +
     (opcoes.eventoAbertura ? '<script>if(window.ownewsEvento)window.ownewsEvento(' + JSON.stringify(opcoes.eventoAbertura) + ');</script>' : '') +
-    '<footer><div class="container footer-novo"><div class="footer-col footer-col-marca"><span class="footer-logo">OW<span>News</span></span><p class="footer-tagline">Notícias, vagas e ferramentas para quem trabalha (ou quer trabalhar) offshore no Brasil.</p><span class="footer-by">by OffshoreWorks</span></div><div class="footer-col"><p class="footer-col-titulo">Portal</p><a href="/sobre">Sobre</a><a href="/explica">OWNews Explica</a><a href="/contato">Contato</a><a href="/politica-editorial">Política Editorial</a><a href="/correcoes">Correções</a><a href="/privacidade">Privacidade</a><a href="/termos-de-uso">Termos de Uso</a></div><div class="footer-col"><p class="footer-col-titulo">Explore</p><a href="/">Notícias</a><a href="/vagas">Vagas</a><a href="/carreiras">Carreiras</a><a href="/radar">Radar Offshore</a><a href="/minha-escala">Minha Escala</a></div><div class="footer-col"><p class="footer-col-titulo">Acompanhe</p><div class="footer-social"><a class="social-link" href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OWNews</a><a class="social-link social-link-secundario" href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c2.7 0 3.1 0 4.1.1 1.1 0 1.8.2 2.4.4a5 5 0 0 1 2 1.3 5 5 0 0 1 1.3 2c.2.6.4 1.3.4 2.4.1 1 .1 1.4.1 4.1s0 3.1-.1 4.1c0 1.1-.2 1.8-.4 2.4a5 5 0 0 1-1.3 2 5 5 0 0 1-2 1.3c-.6.2-1.3.4-2.4.4-1 .1-1.4.1-4.1.1s-3.1 0-4.1-.1c-1.1 0-1.8-.2-2.4-.4a5 5 0 0 1-2-1.3 5 5 0 0 1-1.3-2c-.2-.6-.4-1.3-.4-2.4C2 15.1 2 14.7 2 12s0-3.1.1-4.1c0-1.1.2-1.8.4-2.4a5 5 0 0 1 1.3-2 5 5 0 0 1 2-1.3c.6-.2 1.3-.4 2.4-.4C8.9 2 9.3 2 12 2zm0 1.8c-2.6 0-3 0-4 .1-.9 0-1.4.2-1.7.3-.4.2-.8.4-1.1.7-.3.3-.5.7-.7 1.1-.1.3-.3.8-.3 1.7-.1 1-.1 1.4-.1 4s0 3 .1 4c0 .9.2 1.4.3 1.7.2.4.4.8.7 1.1.3.3.7.5 1.1.7.3.1.8.3 1.7.3 1 .1 1.4.1 4 .1s3 0 4-.1c.9 0 1.4-.2 1.7-.3.4-.2.8-.4 1.1-.7.3-.3.5-.7.7-1.1.1-.3.3-.8.3-1.7.1-1 .1-1.4.1-4s0-3-.1-4c0-.9-.2-1.4-.3-1.7a3 3 0 0 0-.7-1.1 3 3 0 0 0-1.1-.7c-.3-.1-.8-.3-1.7-.3-1-.1-1.4-.1-4-.1zm0 3a5.2 5.2 0 1 1 0 10.4A5.2 5.2 0 0 1 12 6.8zm0 1.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm5.4-2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z"/></svg>Instagram OffshoreWorks</a><a class="social-link social-link-secundario" href="https://t.me/ownewsradar" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram OWNews</a></div></div></div><div class="container footer-bottom"><span>OWNews © 2026 · by OffshoreWorks</span><div class="footer-bottom-info"><span class="leitores-online" id="leitoresOnline" hidden></span><span class="visitas-total" id="visitasTotal" hidden></span></div></div></footer>' +
+    FOOTER_HTML +
     '<nav class="tabbar" aria-label="Navegação principal">' +
     '<a href="/"><span class="ti">🏠</span>Home</a>' +
     '<a href="/#destaque"><span class="ti">📰</span>Notícias</a>' +
@@ -8825,7 +8686,6 @@ function renderFuncaoDetalhe(slug) {
     '<h1>' + escaparHTML(f.nome) + '</h1>' +
     (f.nomeAntigo ? '<p class="funcao-nome-antigo">' + escaparHTML(f.nomeAntigo) + '</p>' : '') +
     '<p class="hub-lead">' + escaparHTML(f.resumo) + '</p>' +
-    '<a class="hub-cta-secundario" href="/salarios/' + f.slug + '">Ver salário desta função →</a>' +
     '</div>' +
     secAtividades +
     secOndeAtua +
@@ -8858,7 +8718,6 @@ function renderFuncaoDetalhe(slug) {
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     (SONDA_SLUGS_SET.has(f.slug) ? '<a href="/carreiras/sonda-de-perfuracao">← Mapa da Sonda de Perfuração</a>' : '<a href="/funcoes">← Todas as funções</a>') +
-    '<a href="/salarios/' + f.slug + '">Salário de ' + escaparHTML(f.nome) + ' →</a>' +
     '<a href="/carreiras/modelo-curriculo">Monte seu currículo para esta função →</a>' +
     '<a href="/carreiras/cadastre-seu-curriculo">Cadastre-se nas empresas do setor →</a>' +
     '<a href="/carreiras">Ver seção Carreiras</a>' +
@@ -9444,7 +9303,7 @@ async function renderVagaDetalhe(slug, env, ctx) {
     '});' +
     '});' +
     '})();</script>';
-  return paginaChrome(vaga.titulo + ' — ' + vaga.empresa, descricao, conteudo, url, { tipo: 'website', imagemUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Saipem_7000.jpg?width=1200', eventoAbertura: 'vaga_aberta' });
+  return paginaChrome(vaga.titulo + ' — ' + vaga.empresa, descricao, conteudo, url, { tipo: 'website', imagemUrl: OG_IMAGEM_PADRAO, eventoAbertura: 'vaga_aberta' });
 }
 
 async function renderVagasIndex(env, ctx){
@@ -9626,80 +9485,66 @@ const DATASET_AEROPORTOS_OFFSHORE = [
    coletor (Durable Object Alarm, ~5-10min) → cache (KV) → esta página.
    Renderização client-side pra sempre refletir o cache mais recente sem
    precisar de novo deploy a cada atualização de preço. */
+/* AdSense 3.0 (2026-10-17): painel por categoria real em vez de uma
+   coluna estreita por país. Indicadores em Energia/Moedas/Metais; empresas
+   pelos setores do próprio snapshot do coletor (campo `categoria`). O
+   contexto de cada grupo é renderizado no servidor (só afirmações gerais e
+   sustentáveis, sem recomendação); cotações continuam client-side. */
+const MERCADO_GRUPOS_MACRO = [
+  { id: 'energia', t: 'Energia', ids: ['brent', 'wti', 'gas_natural'], d: 'O Brent é a principal referência de preço para o petróleo produzido no Brasil e entra no cálculo do preço de referência usado pela ANP para royalties e participação especial. Preço sustentado tende a favorecer decisões de investimento em novos projetos; queda prolongada costuma adiar campanhas de perfuração.' },
+  { id: 'moedas', t: 'Moedas', ids: ['usd_brl', 'eur_brl'], d: 'Afretamento de sondas e embarcações, equipamentos importados e boa parte dos contratos do setor são cotados em dólar. A variação do câmbio afeta custos das operadoras no Brasil e a receita em reais de quem exporta petróleo.' },
+  { id: 'metais', t: 'Metais', ids: ['ouro', 'prata', 'minerio_ferro'], d: 'Referências globais de commodities acompanhadas como contexto macroeconômico. O minério de ferro é relevante para o aço usado em cascos, estruturas e dutos.' }
+];
+const MERCADO_SETORES = [
+  ['operadoras', 'Operadoras e petroleiras', 'Empresas que detêm concessões e partilhas e respondem pela produção. Os planos de investimento delas definem a demanda por sondas, FPSOs, embarcações e mão de obra.'],
+  ['perfuracao', 'Perfuração', 'Donas de sondas e navios-sonda. A taxa diária e a ocupação da frota acompanham as campanhas de perfuração das operadoras.'],
+  ['producao_fpso', 'Produção e FPSO', 'Construção, afretamento e operação de unidades de produção (FPSO), base dos grandes campos do pré-sal.'],
+  ['subsea_rov', 'Subsea e ROV', 'Equipamentos submarinos, instalação de linhas e serviços com ROV — etapa que liga o poço à unidade de produção.'],
+  ['apoio_maritimo', 'Apoio marítimo', 'Embarcações de apoio (PSV, AHTS, RSV, PLSV) que abastecem unidades, ancoram, instalam e fazem a logística no mar.'],
+  ['servicos_poco', 'Serviços de poço', 'Perfilagem, cimentação, completação, estimulação e tecnologia de reservatório contratadas pelas operadoras.'],
+  ['engenharia_epc', 'Engenharia e EPC', 'Projeto, construção e integração de unidades e grandes pacotes de equipamentos.']
+];
 function renderMercadoOffshore(){
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Mercado Offshore" }]) +
     '<div class="hub-hero">' +
-    '<span class="eyebrow">Mercado agora</span>' +
+    '<span class="eyebrow">Mercado Offshore</span>' +
     '<h1>Mercado Offshore</h1>' +
-    '<p class="hub-lead">Commodities, câmbio e as ações das empresas do ecossistema offshore — cotação de referência, nunca tempo real. Empresas de capital fechado continuam monitoradas, sem preço inventado.</p>' +
-    '<p class="hub-cta-secundario" id="mpAtualizado"></p>' +
+    '<p class="hub-lead">Petróleo, câmbio e as ações das empresas que movem o offshore, organizadas por setor. Cotações de referência com atraso, nunca em tempo real, e nenhuma recomendação de investimento.</p>' +
+    '<p class="mk-atualizado" id="mpAtualizado"></p>' +
     '</div>' +
-
-    '<div class="aero-grupo-uf"><h2 class="aero-grupo-titulo">Commodities &amp; Câmbio</h2><div class="mp-macro-grid" id="mpMacro"><p class="agora-carregando">Carregando…</p></div></div>' +
-
-    // Etapa 16.2 (2026-09-25) + 20.1 (2026-09-25): visão por mercado/bolsa
-    // é agora a ÚNICA organização visual da página (a organização por
-    // categoria/setor foi removida daqui pra não duplicar a mesma lista
-    // duas vezes — o metadado `categoria` continua vindo normalmente no
-    // snapshot do coletor e é preservado em `porCategoria` no script
-    // abaixo, só não tem mais seção própria; fica pronto pra um filtro
-    // por setor futuro sem precisar mudar o motor de cotações).
-    '<div class="filtro-segmento-row" id="mpMercadoFiltros" hidden><button type="button" class="filtro-btn ativo" data-mercado="todos">Todos os mercados</button></div>' +
-    '<div id="mpPorMercado"></div>' +
-
-    '<p class="mo-indisponivel" style="margin-top:8px">Fonte das cotações: Yahoo Finance (cotação de referência, com atraso — nunca tempo real). Câmbio: Banco Central Europeu (referência diária). Empresas sem ticker são de capital fechado, subsidiárias ou estatais — continuam monitoradas para notícias, contratos e vagas, nunca recebem preço.</p>' +
-
+    '<nav class="mk-ancoras" aria-label="Seções do Mercado"><a href="#indicadores">Indicadores</a>' + MERCADO_SETORES.map((x) => '<a href="#setor-' + x[0] + '">' + x[1] + '</a>').join('') + '</nav>' +
+    '<section id="indicadores" class="mk-macro">' + MERCADO_GRUPOS_MACRO.map((g) =>
+      '<div class="mk-grupo"><h2>' + g.t + '</h2><div class="mk-ind" id="mk-' + g.id + '" data-ids="' + g.ids.join(',') + '"><p class="agora-carregando">Carregando…</p></div><p class="mk-ctx">' + g.d + '</p></div>').join('') + '</section>' +
+    MERCADO_SETORES.map((x) => '<section class="mk-setor" id="setor-' + x[0] + '"><div class="mk-setor-head"><h2>' + x[1] + '</h2><p>' + x[2] + '</p></div><div class="mk-cards" data-setor="' + x[0] + '"></div></section>').join('') +
+    '<p class="mo-indisponivel" style="margin-top:16px">Fonte das cotações: Yahoo Finance (referência com atraso). Câmbio: referência diária. Empresas sem ticker são de capital fechado, subsidiárias ou estatais e aparecem sem preço — nunca estimamos valor. Variação exibida é a do último pregão disponível; “Fechado” indica bolsa sem negociação no momento.</p>' +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/">Voltar para a Home →</a>' +
-    '<a href="/empresas">Cadastre seu Currículo →</a>' +
+    '<a href="/offshore-agora">Offshore Agora →</a>' +
+    '<a href="/explica/oferta-permanente">Como funciona a Oferta Permanente →</a>' +
+    '<a href="/empresas">Empresas Offshore →</a>' +
     '</div>' +
-
     '<script>' +
     '(function(){' +
     'function esc(t){return String(t||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}' +
     'function fmtPreco(p,m){if(typeof p!=="number")return "—";var s=m==="BRL"?"R$":m==="EUR"?"€":m==="USD"?"US$":(m||"");return s+" "+p.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});}' +
     'function fechado(it){return it&&(it.market_state==="CLOSED"||it.market_state==="POST"||it.market_state==="PRE");}' +
-    'function varHtml(it){if(!it||it.ok!==true||typeof it.variacao_percent!=="number")return "<span class=\\"var-neutro\\">—</span>";if(fechado(it))return "<span class=\\"var-neutro\\">Fechado</span>";var v=it.variacao_percent;var c=v>0.005?"var-alta":v<-0.005?"var-queda":"var-neutro";var s=v>0.005?"▲":v<-0.005?"▼":"●";return "<span class=\\""+c+"\\">"+s+" "+(v>0?"+":"")+v.toFixed(2)+"%</span>";}' +
-    'function cardEmpresa(e){var semCotacao=e.sem_cotacao||e.ok!==true;return "<div class=\\"mo-card\\"><div class=\\"mo-card-top\\"><span class=\\"mo-nome\\">"+esc(e.nome)+"</span>"+(e.ticker?"<span class=\\"mo-ticker\\">"+esc(e.ticker)+" · "+esc(e.bolsa||"")+"</span>":"<span class=\\"mo-ticker mo-privada\\">"+esc(e.ownership==="SUBSIDIARY"?"SUBSIDIÁRIA":e.ownership==="JV"?"JOINT VENTURE":"PRIVADA")+"</span>")+"</div>"+(semCotacao?"<div class=\\"mo-sem-cotacao\\">Sem cotação pública</div>":"<div class=\\"mo-preco-row\\"><span class=\\"mo-preco\\">"+fmtPreco(e.preco,e.moeda)+"</span>"+varHtml(e)+"</div>")+"</div>";}' +
-    // Etapa 16.2/16.3: país deduzido só da bolsa real do ativo (nunca da
-    // nacionalidade jurídica) — mesma disciplina de "não inventar" do
-    // resto do site. Bolsa sem entrada aqui cai em "Outros mercados",
-    // nunca é omitida silenciosamente.
-    'var BOLSA_PAIS={"B3":"BRASIL","NYSE":"EUA","Nasdaq":"EUA","Oslo":"NORUEGA","Euronext Amsterdam":"HOLANDA","Bursa Malaysia":"MALÁSIA","Milão":"ITÁLIA","Lisboa":"PORTUGAL","Madri":"ESPANHA","ASX":"AUSTRÁLIA","Frankfurt":"ALEMANHA","Hong Kong":"HONG KONG"};' +
-    'function mercadoDe(e){if(!e.bolsa)return null;return BOLSA_PAIS[e.bolsa]||"OUTROS MERCADOS";}' +
-    'var mercadoAtivo="todos";var porMercadoCache={};' +
-    'function renderPorMercado(){' +
-    'var cont=document.getElementById("mpPorMercado");if(!cont)return;' +
-    'var mercados=Object.keys(porMercadoCache).sort(function(a,b){return a==="BRASIL"?-1:b==="BRASIL"?1:a.localeCompare(b);});' +
-    'var visiveis=mercadoAtivo==="todos"?mercados:[mercadoAtivo];' +
-    'cont.innerHTML=visiveis.map(function(m){return "<div class=\\"aero-grupo-uf\\"><h2 class=\\"aero-grupo-titulo\\">"+esc(m)+"</h2><div class=\\"mo-strip mp-wrap\\">"+porMercadoCache[m].map(cardEmpresa).join("")+"</div></div>";}).join("");' +
+    'function varHtml(it){if(!it||it.ok!==true||typeof it.variacao_percent!=="number")return "<span class=var-neutro>—</span>";if(fechado(it))return "<span class=var-neutro>Fechado</span>";var v=it.variacao_percent;var c=v>0.005?"var-alta":v<-0.005?"var-queda":"var-neutro";var s=v>0.005?"▲":v<-0.005?"▼":"●";return "<span class="+c+">"+s+" "+(v>0?"+":"")+v.toFixed(2)+"%</span>";}' +
+    'function card(e){var sem=e.sem_cotacao||e.ok!==true;var tag=e.ticker?esc(e.ticker)+(e.bolsa?" · "+esc(e.bolsa):""):(e.ownership==="SUBSIDIARY"?"Subsidiária":e.ownership==="JV"?"Joint venture":"Capital fechado");return "<div class=mk-card><div class=mk-card-top><span class=mk-nome>"+esc(e.nome)+"</span><span class=mk-tag>"+tag+"</span></div>"+(sem?"<div class=mk-sem>Sem cotação pública</div>":"<div class=mk-preco-row><span class=mk-preco>"+fmtPreco(e.preco,e.moeda)+"</span>"+varHtml(e)+"</div>")+"</div>";}' +
+    'function aplicar(snap){' +
+    'var at=document.getElementById("mpAtualizado");if(at&&snap.atualizado_em){at.textContent="Cotações coletadas às "+new Date(snap.atualizado_em).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"})+" (horário de Brasília)";}' +
+    'var mm={};(snap.macro||[]).forEach(function(m){mm[m.id]=m;});' +
+    'Array.prototype.slice.call(document.querySelectorAll(".mk-ind")).forEach(function(el){var itens=el.getAttribute("data-ids").split(",").map(function(id){return mm[id];}).filter(function(m){return m&&m.ok===true;});el.innerHTML=itens.length?itens.map(function(m){return "<div class=mk-ind-item><span class=mk-nome>"+esc(m.nome)+"</span><span class=mk-preco>"+fmtPreco(m.preco,m.moeda)+"</span>"+varHtml(m)+"</div>";}).join(""):"<p class=agora-carregando>Sem cotação válida agora.</p>";});' +
+    'var ps={};(snap.empresas||[]).forEach(function(e){(ps[e.categoria]=ps[e.categoria]||[]).push(e);});' +
+    'Array.prototype.slice.call(document.querySelectorAll(".mk-cards")).forEach(function(el){var l=(ps[el.getAttribute("data-setor")]||[]).slice().sort(function(a,b){return (a.ok===true?0:1)-(b.ok===true?0:1);});el.innerHTML=l.map(card).join("");if(!l.length)el.parentNode.hidden=true;});' +
     '}' +
-    'function aplicar(snapshot){' +
-    'var at=document.getElementById("mpAtualizado");if(at&&snapshot.atualizado_em){at.textContent="Atualizado "+new Date(snapshot.atualizado_em).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"});}' +
-    'var macroEl=document.getElementById("mpMacro");' +
-    'if(macroEl){macroEl.innerHTML=(snapshot.macro||[]).filter(function(m){return m.ok===true;}).map(function(m){return "<div class=\\"ma-item\\" style=\\"border:1px solid var(--line-soft);border-radius:8px\\"><span class=\\"ma-nome\\">"+esc(m.nome)+"</span><span class=\\"ma-preco\\">"+fmtPreco(m.preco,m.moeda)+"</span>"+varHtml(m)+"</div>";}).join("")||"<p class=\\"mo-indisponivel\\">Indisponível no momento.</p>";}' +
-    // Etapa 20.1: metadado de setor preservado (só não tem mais seção
-    // visual própria — evita duplicar a mesma lista de empresas 2x).
-    'var porCategoria={};(snapshot.empresas||[]).forEach(function(e){(porCategoria[e.categoria]=porCategoria[e.categoria]||[]).push(e);});' +
-    'porMercadoCache={};(snapshot.empresas||[]).forEach(function(e){var m=mercadoDe(e);if(!m)return;(porMercadoCache[m]=porMercadoCache[m]||[]).push(e);});' +
-    'var filtros=document.getElementById("mpMercadoFiltros");' +
-    'if(filtros&&Object.keys(porMercadoCache).length){' +
-    'filtros.hidden=false;' +
-    'var extras=Object.keys(porMercadoCache).sort(function(a,b){return a==="BRASIL"?-1:b==="BRASIL"?1:a.localeCompare(b);});' +
-    'extras.forEach(function(m){var b=document.createElement("button");b.type="button";b.className="filtro-btn";b.setAttribute("data-mercado",m);b.textContent=m.charAt(0)+m.slice(1).toLowerCase();filtros.appendChild(b);});' +
-    'Array.prototype.slice.call(filtros.querySelectorAll(".filtro-btn")).forEach(function(b){b.addEventListener("click",function(){mercadoAtivo=b.getAttribute("data-mercado");Array.prototype.slice.call(filtros.querySelectorAll(".filtro-btn")).forEach(function(x){x.classList.toggle("ativo",x===b);});renderPorMercado();});});' +
-    '}' +
-    'renderPorMercado();' +
-    '}' +
-    'fetch("https://shrill-pond-a915.olivercamaster.workers.dev/mercado").then(function(r){if(!r.ok)throw new Error("mercado "+r.status);return r.json();}).then(function(d){if(d&&d.snapshot)aplicar(d.snapshot);else throw new Error("sem snapshot");}).catch(function(e){document.getElementById("mpMacro").innerHTML="<p class=\\"mo-indisponivel\\">Mercado indisponível no momento.</p>";console.warn("OWNews: mercado indisponível.",e);});' +
+    'fetch("https://shrill-pond-a915.olivercamaster.workers.dev/mercado").then(function(r){if(!r.ok)throw new Error("mercado "+r.status);return r.json();}).then(function(d){if(d&&d.snapshot)aplicar(d.snapshot);else throw new Error("sem snapshot");}).catch(function(e){Array.prototype.slice.call(document.querySelectorAll(".mk-ind")).forEach(function(el){el.innerHTML="<p class=agora-carregando>Cotações indisponíveis no momento.</p>";});console.warn("OWNews: mercado indisponível.",e);});' +
     '})();' +
     '</script>';
 
   return paginaChrome(
     "Mercado Offshore",
-    "Commodities, câmbio e ações das empresas do ecossistema offshore — cotação de referência real, empresas de capital fechado sem preço inventado.",
+    "Petróleo, câmbio e ações das empresas do offshore organizadas por setor — perfuração, FPSO, subsea, apoio marítimo e operadoras — com cotação de referência e contexto.",
     conteudo,
     "/mercado",
     { eventoAbertura: "mercado_aberto" }
@@ -10578,7 +10423,7 @@ function renderCentralTrabalhador() {
     '<div class="cw-card-inner">' +
     '<div class="cw-card-top"><span class="cw-card-eyebrow" id="cwCarreiraEyebrow">CARREIRA</span><span class="cw-card-status"><span class="cw-status-dot cw-status-dot--muted" id="cwCarreiraDot"></span><span class="cw-status-lbl" id="cwCarreiraStatusLbl">OFFSHORE</span></span></div>' +
     '<div class="cw-card-main cw-card-main--sm" id="cwCarreiraMain">Offshore</div>' +
-    '<div class="cw-card-sub" id="cwCarreiraSub">Funções · Salários · Carreira offshore</div>' +
+    '<div class="cw-card-sub" id="cwCarreiraSub">Funções a bordo · empresas · currículo</div>' +
     '<div class="cw-card-divider"></div>' +
     '<div class="cw-card-footer"><span class="cw-card-cta" id="cwCarreiraCta">VER CARREIRAS</span><span class="cw-card-btn"><span class="cw-btn-arrow">→</span></span></div>' +
     '</div></a>' +
@@ -10909,7 +10754,6 @@ function renderCentralTrabalhador() {
     cardGuia("/meus-certificados", "Meus Certificados", "CBSP, HUET, ASO, NR-37 — acompanhe validades e receba alertas.") +
     cardGuia("/checklist-embarque", "Checklist de Embarque", "Prepare sua mala — itens essenciais e pessoais com progresso salvo.") +
     cardGuia("/vagas", "Vagas Verificadas", "Oportunidades verificadas pelo OWNews.") +
-    cardGuia("/salarios", "Salários Offshore", "Dados de remuneração por função.") +
     '</div></div>';
   return paginaChrome(
     "Central do Trabalhador Offshore",
@@ -11169,8 +11013,22 @@ function renderMeusCertificados() {
     '</div>' +
 
     '<div class="cert-lista" id="certLista">' +
-    '<div class="cert-vazio" id="certVazio">Nenhum certificado cadastrado. Clique em "+ Adicionar" para começar.</div>' +
+    '<div class="cert-vazio cert-onb-vazio" id="certVazio"><strong>Você ainda não cadastrou nenhum certificado.</strong>' +
+    '<span>Use o botão “+ Adicionar certificado” e comece pelo que vence primeiro: nome e data de validade bastam. Não pedimos CPF, número do certificado nem foto.</span></div>' +
     '</div>' +
+
+    // AdSense 3.0: explicação sempre visível do que a ferramenta faz de fato
+    // (status, cruzamento com a escala, alertas opcionais, privacidade).
+    '<section class="cert-onb" aria-labelledby="certComoTitulo">' +
+    '<h2 id="certComoTitulo">Como funciona</h2>' +
+    '<div class="cert-onb-grid">' +
+    '<div class="cert-onb-card"><h3>Validades num só lugar</h3><p>Cadastre certificados, cursos e documentos com a data de validade. A lista é ordenada pelo vencimento mais próximo e cada item mostra a situação: válido, atenção (a partir de 90 dias do vencimento), vence em até 30 dias, vence hoje ou vencido.</p></div>' +
+    '<div class="cert-onb-card"><h3>Cruzamento com a sua escala</h3><p>Se você usa a <a href="/minha-escala">Minha Escala</a> neste aparelho, cada certificado indica se vence durante o embarque ou durante a folga — o que ajuda a planejar a renovação no período em que você está em terra.</p></div>' +
+    '<div class="cert-onb-card"><h3>Alertas opcionais</h3><p>Em <a href="/meus-alertas">Meus Alertas</a> você pode ativar notificações no navegador para avisos 30 dias, 7 dias e 1 dia antes do vencimento, e no próprio dia. Nada é enviado sem a sua autorização.</p></div>' +
+    '<div class="cert-onb-card"><h3>Privacidade</h3><p>Os dados ficam neste aparelho. Criar uma conta é opcional e serve só para sincronizar entre aparelhos. Guardamos apenas nome, datas, instituição e observação — nunca cópia do documento.</p></div>' +
+    '</div>' +
+    '<p class="cert-onb-ex"><strong>Exemplos do que costuma ser acompanhado:</strong> CBSP, HUET ou T-HUET, ASO, NR-33, NR-35, NR-37, STCW e passaporte. Quais são exigidos — e com que validade — depende da empresa, da função e da unidade; confirme sempre com o empregador.</p>' +
+    '</section>' +
 
     '<div class="hub-continue" style="margin-top:32px">' +
     '<p class="campo-desc" style="font-family:var(--ui);font-size:12.5px;color:var(--muted-dim)">' +
@@ -11259,7 +11117,7 @@ function renderMeusCertificados() {
     '  var vazio=document.getElementById("certVazio");\n' +
     '  if(!lista)return;\n' +
     '  // Manter o vazio no DOM mas escondê-lo\n' +
-    '  if(vazio)vazio.style.display=certs.length===0?"block":"none";\n' +
+    '  if(vazio)vazio.style.display=certs.length===0?"":"none";\n' +
     '  // Remover cards antigos (manter vazio)\n' +
     '  var filhos=Array.from(lista.children);\n' +
     '  filhos.forEach(function(f){if(!f.id||f.id!=="certVazio")f.remove();});\n' +
@@ -11501,6 +11359,12 @@ function renderChecklistEmbarque() {
     '</form>' +
     '</div>' +
     '<button type="button" class="ck-reset-btn" id="ckBtnReset">Resetar ciclo</button>' +
+    '<section class="cert-onb" aria-labelledby="ckComoTitulo"><h2 id="ckComoTitulo">Como funciona</h2><div class="cert-onb-grid">' +
+    '<div class="cert-onb-card"><h3>Sua lista, do seu jeito</h3><p>A lista começa com itens comuns de mala e pode ser editada à vontade: adicione o que você sempre leva, separe entre essenciais e pessoais e remova o que não usa. Toque no item para marcá-lo como pronto.</p></div>' +
+    '<div class="cert-onb-card"><h3>Itens fixos e de uma vez só</h3><p>O botão ↻ mantém o item para todos os próximos embarques; 1× deixa o item só neste embarque — útil para um remédio temporário ou uma encomenda.</p></div>' +
+    '<div class="cert-onb-card"><h3>Integrado à Minha Escala</h3><p>Com a <a href="/minha-escala">Minha Escala</a> configurada neste aparelho, a página mostra quantos dias faltam para o próximo embarque e desmarca a lista sozinha quando começa um novo ciclo. Sem escala, use “Resetar ciclo”.</p></div>' +
+    '<div class="cert-onb-card"><h3>Documentos e certificados à parte</h3><p>Esta lista é para a mala. Para documentos, veja o <a href="/guias/checklist-documentos">checklist de documentos</a>; para validades, use <a href="/meus-certificados">Meus Certificados</a>. Primeira vez? Leia <a href="/guias/o-que-levar">o que levar para o primeiro embarque</a>.</p></div>' +
+    '</div><p class="cert-onb-ex">Os itens ficam salvos só neste navegador. Regras sobre o que pode ou não ser levado a bordo variam por empresa e unidade — siga sempre as orientações do seu empregador.</p></section>' +
     '<script>(function(){\n' +
     'var LS_KEY="ownews_checklist_mala";\n' +
     'var LS_ESCALA="ownews_minha_escala";\n' +
@@ -11680,7 +11544,7 @@ function renderCertificadosOffshore() {
     '<h2 class="secao-label">Veja também</h2>' +
     '<div class="guias-grid">' +
     cardGuia("/guias/checklist-documentos", "Checklist de Documentos", "Lista interativa para conferir o que está em dia antes do embarque.") +
-    cardGuia("/cursos", "Cursos e Escolas", "Treinamentos comuns para quem trabalha offshore no Brasil.") +
+    cardGuia("/guias/cursos-offshore", "Cursos para trabalhar offshore", "Guia dos treinamentos de segurança mais citados pelo setor.") +
     cardGuia("/central-do-trabalhador", "Central do Trabalhador", "Escala, certificados, vagas e carreira em um só lugar.") +
     '</div></div>';
 
@@ -11717,63 +11581,66 @@ function renderOffshoreAgora(){
     return '<div class="agora-noticia-item"><span class="agora-noticia-meta">' + escaparHTML(meta) + '</span><a href="/radar/' + escaparHTML(u.slug) + '">' + escaparHTML(u.nome) + '</a></div>';
   }).join('');
 
+  const horariosHtml = HORARIOS_OFFSHORE_LOCAIS.map((l, i) =>
+    '<div class="oa-hora"><span class="oa-hora-local"><strong>' + escaparHTML(l.nome) + '</strong><small>' + escaparHTML(l.nota) + '</small></span><span class="oa-hora-val" id="horaLocal' + i + '">--:--</span></div>'
+  ).join('');
+
+  // AdSense 3.0 (2026-10-17): painel em duas colunas no desktop (notícias à
+  // esquerda; mercado e hora nos polos à direita), âncoras internas e uma
+  // coluna no mobile. Mesmos dados reais e mesmos IDs do script abaixo.
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Offshore Agora" }]) +
     '<div class="hub-hero">' +
-    '<span class="eyebrow">Ao vivo · leitura rápida</span>' +
+    '<span class="eyebrow">Painel do dia · atualização automática</span>' +
     '<h1>Offshore Agora</h1>' +
-    '<p class="hub-lead">Em cerca de 1 minuto: aeroportos, giro do dia, mercado, vagas e unidades — o que está acontecendo no offshore agora.</p>' +
+    '<p class="hub-lead">O que está acontecendo no offshore brasileiro: condições dos aeroportos que atendem as plataformas, as notícias das últimas 24 horas, mercado, vagas e unidades. Cada bloco mostra a hora da última atualização.</p>' +
     '</div>' +
+    '<nav class="mk-ancoras" aria-label="Seções do painel"><a href="#aeroportos">Aeroportos</a><a href="#noticias">Notícias 24h</a><a href="#mercado-agora">Mercado</a><a href="#horarios">Hora nos polos</a><a href="#vagas-agora">Vagas</a><a href="#unidades-agora">Unidades</a></nav>' +
 
-    '<div class="agora-secao">' +
-    '<h3>🌦 Aeroportos Agora <span class="dado-contexto" id="oaAeroportosAtualizado"></span></h3>' +
+    '<section class="agora-secao" id="aeroportos">' +
+    '<h2 class="oa-h">Aeroportos offshore <span class="dado-contexto" id="oaAeroportosAtualizado"></span></h2>' +
     '<div class="agora-ops-strip" id="oaAeroportos"><p class="agora-carregando">Carregando condições…</p></div>' +
+    '<p class="oa-nota">Meteorologia REDEMET e movimento de voos OffVoos. <a href="/aeroportos">Ver os 11 aeroportos e heliportos →</a></p>' +
+    '</section>' +
+
+    '<div class="oa-grid">' +
+    '<div class="oa-col">' +
+    '<section class="agora-secao" id="noticias">' +
+    '<div id="oaFatosWrap" hidden><h2 class="oa-h">Em destaque</h2><div class="agora-noticias" id="oaFatos"></div></div>' +
+    '<div id="oaGiroWrap" hidden><h2 class="oa-h" style="margin-top:18px">Giro das últimas 24 horas</h2><div class="agora-noticias" id="oaGiro"></div></div>' +
+    '<a class="hub-cta-secundario" href="/#destaque">Todas as notícias →</a>' +
+    '</section>' +
     '</div>' +
 
+    '<aside class="oa-col oa-lateral">' +
+    '<section class="oa-box" id="mercado-agora">' +
+    '<h2 class="oa-h">Mercado <span class="dado-contexto" id="oaMercadoAtualizado"></span></h2>' +
+    '<div class="mk-ind" id="oaMercadoMacro"><p class="agora-carregando">Carregando…</p></div>' +
+    '<div id="oaMercadoOffshoreWrap" hidden><h3 class="oa-sub">Empresas do setor</h3><div class="mk-ind" id="oaMercadoOffshore"></div></div>' +
+    '<a class="hub-cta-secundario" href="/mercado">Mercado Offshore completo →</a>' +
+    '</section>' +
+    '<section class="oa-box" id="horarios">' +
+    '<h2 class="oa-h">Hora nos polos offshore</h2>' +
+    '<div class="oa-horas">' + horariosHtml + '</div>' +
+    '<p class="oa-nota">Hora local calculada pelo seu navegador, com horário de verão quando o país adota. Útil para falar com base, sede ou equipe no exterior.</p>' +
+    '</section>' +
+    '</aside>' +
+    '</div>' +
+
+    '<div class="oa-grid oa-grid-2">' +
     (vagasRecentesHtml
-      ? '<div class="agora-secao"><h3>💼 Vagas Recentes</h3><div class="agora-noticias">' + vagasRecentesHtml + '</div><a class="hub-cta-secundario" href="/vagas">Ver todas as vagas verificadas →</a></div>'
+      ? '<section class="agora-secao" id="vagas-agora"><h2 class="oa-h">Vagas verificadas recentes</h2><div class="agora-noticias">' + vagasRecentesHtml + '</div><a class="hub-cta-secundario" href="/vagas">Todas as vagas verificadas →</a></section>'
       : '') +
-
     (unidadesAgoraHtml
-      ? '<div class="agora-secao"><h3>🛰 Radar de Unidades</h3><div class="agora-noticias">' + unidadesAgoraHtml + '</div><a class="hub-cta-secundario" href="/radar">Ver Radar Offshore completo →</a></div>'
+      ? '<section class="agora-secao" id="unidades-agora"><h2 class="oa-h">Radar de unidades</h2><div class="agora-noticias">' + unidadesAgoraHtml + '</div><a class="hub-cta-secundario" href="/radar">Radar Offshore completo →</a></section>'
       : '') +
-
-    '<div class="agora-secao" id="oaFatosWrap" hidden>' +
-    '<h3>⚡ Fatos Importantes</h3>' +
-    '<div class="agora-noticias" id="oaFatos"></div>' +
-    '</div>' +
-
-    '<div class="agora-secao" id="oaGiroWrap" hidden>' +
-    '<h3>🔄 Giro 24h</h3>' +
-    '<div class="agora-noticias" id="oaGiro"></div>' +
-    '</div>' +
-
-    '<div class="agora-secao">' +
-    '<h3>📈 Mercado Essencial <span class="dado-contexto" id="oaMercadoAtualizado"></span></h3>' +
-    '<div class="mp-macro-grid" id="oaMercadoMacro"><p class="agora-carregando">Carregando…</p></div>' +
-    '</div>' +
-
-    '<div class="agora-secao" id="oaMercadoOffshoreWrap" hidden>' +
-    '<h3>🏢 Mercado Offshore</h3>' +
-    '<div class="mo-strip mp-wrap" id="oaMercadoOffshore"></div>' +
-    '<a class="hub-cta-secundario" href="/mercado">Ver Mercado Offshore completo →</a>' +
-    '</div>' +
-
-    '<div class="agora-secao">' +
-    '<h3>Acesso rápido</h3>' +
-    '<div class="chip-list-flex">' +
-    '<a class="campo-pill neutro" href="/carreiras/cadastre-seu-curriculo">💼 Cadastre seu Currículo</a>' +
-    '<a class="campo-pill neutro" href="/minha-escala">🗓 Minha Escala</a>' +
-    '<a class="campo-pill neutro" href="/radar">🛰 Radar Offshore</a>' +
-    '<a class="campo-pill neutro" href="/aeroportos">✈ Todos os Aeroportos</a>' +
-    '</div>' +
     '</div>' +
 
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/comece-aqui">Comece Aqui — guia de entrada →</a>' +
-    '<a href="/ferramentas">Central de Ferramentas →</a>' +
+    '<a href="/central-offshore">Central Offshore →</a>' +
     '<a href="/minha-escala">Minha Escala →</a>' +
+    '<a href="/explica">OWNews Explica →</a>' +
     '</div>' +
 
     '<script>' +
@@ -11801,7 +11668,7 @@ function renderOffshoreAgora(){
     // Sem nome de fonte no card (regra editorial 2026-09-19) — só editoria + hora.
     'function cardTexto(n){var cat=categoriaDe(n);return "<div class=\\"agora-noticia-item\\"><span class=\\"agora-noticia-meta\\">"+cat+" · "+fmtHora(n.published_at)+"</span><a href=\\"/noticia?id="+encodeURIComponent(n.id)+"\\">"+esc(n.title)+"</a></div>";}' +
     'function renderNoticias(lista){' +
-    'var giro=lista.filter(function(n){return idadeHoras(n.published_at)<=24;});' +
+    'var fatosIds={};lista.slice().sort(function(a,b){return scoreFato(b)-scoreFato(a);}).slice(0,5).forEach(function(n){fatosIds[n.id]=1;});var giro=lista.filter(function(n){return idadeHoras(n.published_at)<=24&&!fatosIds[n.id];}).slice(0,8);' +
     'var giroWrap=document.getElementById("oaGiroWrap");var giroEl=document.getElementById("oaGiro");' +
     'if(giro.length){giroWrap.hidden=false;giroEl.innerHTML=giro.map(cardTexto).join("");}else{giroWrap.hidden=true;}' +
     'var fatos=lista.slice().sort(function(a,b){return scoreFato(b)-scoreFato(a);}).slice(0,5);' +
@@ -11820,13 +11687,14 @@ function renderOffshoreAgora(){
     'var macroMap={};(snap.macro||[]).forEach(function(m){macroMap[m.id]=m;});' +
     'var macroEl=document.getElementById("oaMercadoMacro");' +
     'var itensMacro=MERCADO_ESSENCIAL_IDS.map(function(id){return macroMap[id];}).filter(function(m){return m&&m.ok===true;});' +
-    'macroEl.innerHTML=itensMacro.length?itensMacro.map(function(m){return "<div class=\\"ma-item\\" style=\\"border:1px solid var(--line-soft);border-radius:8px\\"><span class=\\"ma-nome\\">"+esc(m.nome)+"</span><span class=\\"ma-preco\\">"+fmtPreco(m.preco,m.moeda)+"</span>"+varHtml(m)+"</div>";}).join(""):"<p class=\\"agora-carregando\\">Mercado indisponível no momento.</p>";' +
+    'macroEl.innerHTML=itensMacro.length?itensMacro.map(function(m){return "<div class=mk-ind-item><span class=mk-nome>"+esc(m.nome)+"</span><span class=mk-preco>"+fmtPreco(m.preco,m.moeda)+"</span>"+varHtml(m)+"</div>";}).join(""):"<p class=agora-carregando>Mercado indisponível no momento.</p>";' +
     'var empMap={};(snap.empresas||[]).forEach(function(e){empMap[e.id]=e;});' +
     'var itensEmp=MERCADO_OFFSHORE_IDS.map(function(id){return empMap[id];}).filter(function(e){return e&&e.ok===true;});' +
     'var wrap=document.getElementById("oaMercadoOffshoreWrap");var el=document.getElementById("oaMercadoOffshore");' +
-    'if(itensEmp.length){wrap.hidden=false;el.innerHTML=itensEmp.map(function(e){return "<div class=\\"mo-card\\"><div class=\\"mo-card-top\\"><span class=\\"mo-nome\\">"+esc(e.nome)+"</span><span class=\\"mo-ticker\\">"+esc(e.ticker)+"</span></div><div class=\\"mo-preco-row\\"><span class=\\"mo-preco\\">"+fmtPreco(e.preco,e.moeda)+"</span>"+varHtml(e)+"</div></div>";}).join("");}else{wrap.hidden=true;}' +
+    'if(itensEmp.length){wrap.hidden=false;el.innerHTML=itensEmp.map(function(e){return "<div class=mk-ind-item><span class=mk-nome>"+esc(e.nome)+"</span><span class=mk-preco>"+fmtPreco(e.preco,e.moeda)+"</span>"+varHtml(e)+"</div>";}).join("");}else{wrap.hidden=true;}' +
     '}).catch(function(e){document.getElementById("oaMercadoMacro").innerHTML="<p class=\\"agora-carregando\\">Mercado indisponível no momento.</p>";console.warn("OWNews: mercado indisponível.",e);});}' +
 
+    'var LOCAIS=' + JSON.stringify(HORARIOS_OFFSHORE_LOCAIS.map((l) => l.tz)) + ';function horas(){var agora=new Date();LOCAIS.forEach(function(tz,i){var el=document.getElementById("horaLocal"+i);if(!el)return;try{el.textContent=new Intl.DateTimeFormat("pt-BR",{timeZone:tz,weekday:"short",hour:"2-digit",minute:"2-digit"}).format(agora);}catch(e){}});}horas();setInterval(horas,30000);' +
     'carregarAeroportos();carregarNoticias();carregarMercado();' +
     'setInterval(carregarAeroportos,10*60*1000);setInterval(carregarNoticias,10*60*1000);setInterval(carregarMercado,5*60*1000);' +
     '})();' +
@@ -12092,7 +11960,8 @@ function renderPesquisaSalarial() {
   return paginaChrome(
     "Pesquisa Salarial OWNews",
     "Contribua com a Pesquisa Salarial OWNews — respostas anônimas sobre salário e remuneração offshore no Brasil. Leva menos de 1 minuto.",
-    conteudo
+    conteudo,
+    "/pesquisa-salarial"
   );
 }
 
@@ -12414,7 +12283,6 @@ function renderCadastreCurriculo() {
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/funcoes">Funções a Bordo →</a>' +
     '<a href="/vagas">Vagas Verificadas →</a>' +
-    '<a href="/salarios">Salários Offshore →</a>' +
     '<a href="/offshore-agora">Offshore Agora →</a>' +
     '</div>' +
     scriptBuscaFiltroEmpresas('curriculoGrid', 'curriculoGridFiltros');
@@ -12467,70 +12335,33 @@ function renderEmpresasOffshore() {
   );
 }
 
-/* ---------- /ferramentas (Central de Ferramentas — 2026-09-19) ----------
-   Organiza por USO (embarque/conversores/informação/mercado/carreira) em
-   vez de lista única — só linka ferramenta que EXISTE de verdade (mesma
-   regra do resto do projeto: não fingir que está pronto). Reaproveita
-   cardGuia()/.area-group/.guias-grid, já usados e seguros em /guias. */
-function renderFerramentas() {
+/* ---------- /central-offshore (AdSense 3.0, 2026-10-17) ----------
+   Substitui a antiga "Central de Ferramentas" (/ferramentas → 301): em vez
+   de listar toda utilidade, organiza os produtos fortes pelas quatro
+   necessidades de quem vive ou quer entrar no offshore. */
+function renderCentralOffshore() {
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central de Ferramentas" }]) +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Central Offshore" }]) +
     '<div class="hub-hero">' +
     '<span class="eyebrow">Central Offshore</span>' +
-    '<h1>Central de Ferramentas</h1>' +
-    '<p class="hub-lead">Calculadoras, conversores e utilidades pra quem vive o offshore — organizadas pelo que você precisa fazer, não numa lista só.</p>' +
+    '<h1>Central Offshore</h1>' +
+    '<p class="hub-lead">O OWNews reúne notícias, referência e ferramentas gratuitas para quem trabalha embarcado ou quer começar. Aqui está tudo organizado pelo que você precisa resolver agora.</p>' +
     '</div>' +
-
-    '<div class="area-group" style="margin-top:8px">' +
-    '<h3>Embarque</h3>' +
-    '<div class="guias-grid">' +
-    cardGuia("/minha-escala", "Minha Escala", "Calcule seu próximo embarque e desembarque — 14x14, 14x21, 14x28 ou personalizada.") +
-    cardGuia("/calculadora-embarque", "Calculadora de Embarque", "Informe a data de embarque e a escala pra gerar os próximos embarques/desembarques.") +
-    cardGuia("/guias/checklist-documentos", "Checklist de Documentos", "Checklist interativo de documentos pro embarque — marque o que já tem.") +
-    '</div></div>' +
-
-    '<div class="area-group">' +
-    '<h3>Conversores</h3>' +
-    '<div class="guias-grid">' +
-    cardGuia("/conversor", "Conversor Offshore", "ft/m, in/mm, nós/km/h, nm/km, psi/bar/kPa/MPa, lb/kg, °F/°C, bbl/L/m³, gal/L.") +
-    '</div></div>' +
-
-    '<div class="area-group">' +
-    '<h3>Informação</h3>' +
-    '<div class="guias-grid">' +
-    cardGuia("/glossario", "Glossário Offshore", "BOP, DP, DPO, POB, ROV, FPSO, PSV, AHTS e outros termos do setor.") +
-    cardGuia("/horarios", "Horários Offshore", "Hora local agora nos principais polos offshore do mundo.") +
-    cardGuia("/agenda", "Agenda Offshore", "Feiras, congressos e conferências do setor offshore e energia — só com data confirmada.") +
-    '</div></div>' +
-
-    '<div class="area-group">' +
-    '<h3>Mercado</h3>' +
-    '<div class="guias-grid">' +
-    cardGuia("/mercado", "Mercado Offshore", "Empresas, petróleo e mercado — cotações reais, com fonte e horário.") +
-    '</div></div>' +
-
-    '<div class="area-group">' +
-    '<h3>Carreira</h3>' +
-    '<div class="guias-grid">' +
-    cardGuia("/funcoes", "Funções a Bordo", "Conheça as funções que mantêm uma unidade offshore operando.") +
-    cardGuia("/empresas", "Empresas Offshore", "Segmentos do setor e canais oficiais das principais empresas.") +
-    cardGuia("/cursos", "Cursos e Escolas", "Treinamentos comumente associados ao trabalho offshore no Brasil.") +
-    cardGuia("/carreiras/cadastre-seu-curriculo", "Cadastre seu Currículo", "Canais oficiais das principais empresas do setor.") +
-    '</div></div>' +
-
-    '<p class="area-desc" style="margin-top:8px">Em preparação: Meu Embarque, Certificados, Calendário Offshore completo e Painel Pré-Embarque — sem previsão fechada, publicamos só quando estiver pronto de verdade.</p>' +
-
+    CENTRAL_OFFSHORE_INTENCOES +
+    '<div class="area-group" style="margin-top:28px"><h2>Como usar</h2>' +
+    '<p class="area-desc">Se você ainda não trabalha no setor, comece pelo <a href="/comece-aqui">Comece Aqui</a> e pelas <a href="/funcoes">Funções a Bordo</a>: eles explicam como uma unidade offshore se organiza e quais portas de entrada existem. Para quem já embarca, a <a href="/minha-escala">Minha Escala</a> calcula embarques e folgas a partir da sua escala real, o <a href="/meus-certificados">Meus Certificados</a> acompanha validades e o <a href="/checklist-embarque">Checklist de Embarque</a> ajuda a não esquecer nada antes de sair de casa. Para acompanhar o setor, o <a href="/offshore-agora">Offshore Agora</a> concentra aeroportos, mercado e as notícias do dia.</p>' +
+    '<p class="area-desc">As ferramentas funcionam no navegador e não exigem cadastro; os dados ficam no seu aparelho. Criar uma conta é opcional e serve só para sincronizar entre aparelhos.</p></div>' +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/comece-aqui">Comece Aqui →</a>' +
-    '<a href="/guias">Guias OWNews →</a>' +
+    '<a href="/sobre">Sobre o OWNews →</a>' +
+    '<a href="/politica-editorial">Política Editorial →</a>' +
     '</div>';
 
   return paginaChrome(
-    "Central de Ferramentas",
-    "Calculadoras, conversores e utilidades pra quem vive o offshore: Minha Escala, Conversor Offshore, Glossário, Horários e mais.",
+    "Central Offshore — recursos do OWNews por necessidade",
+    "Notícias, vagas verificadas, Minha Escala, certificados, checklist, funções a bordo e referência do setor offshore, organizados pelo que você precisa.",
     conteudo,
-    "/ferramentas"
+    "/central-offshore"
   );
 }
 
@@ -12648,9 +12479,8 @@ function renderComeceAqui() {
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/guias">Guias OWNews →</a>' +
-    '<a href="/salarios">Salários Offshore →</a>' +
     '<a href="/minha-escala">Organize seus embarques →</a>' +
-    '<a href="/pergunte-ao-ownews">Pergunte ao OWNews IA →</a>' +
+    '<a href="/explica">OWNews Explica →</a>' +
     '</div>';
 
   return paginaChrome(
@@ -12952,6 +12782,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "É a solução de produção predominante nos campos do pré-sal brasileiro. Muitos FPSOs nascem da conversão de um navio-tanque (VLCC), mas também existem projetos construídos como unidade nova (newbuild).",
     comoFunciona: "O óleo e o gás chegam da cabeça do poço, no fundo do mar, através de risers. A bordo, passam por vasos separadores (o \"topside\") que dividem a produção em óleo, gás e água. O óleo tratado é armazenado nos tanques do próprio casco até ser transferido (offloading) para um navio aliviador, que o leva a um terminal em terra.",
     porQueImporta: "Dispensa duto até a costa — importante em campos de águas ultraprofundas e distantes — e pode ser desconectado e realocado para outro campo ao final da vida útil de um reservatório.",
+    aprofundamento: [["As partes de um FPSO", "O casco abriga os tanques de carga e os sistemas marítimos (lastro, geração de energia, acomodações). Sobre ele fica o topside, com as plantas de processo: separação de óleo, gás e água, tratamento do óleo, compressão do gás e tratamento da água produzida, que pode ser reinjetada no reservatório. A unidade fica presa ao fundo por um sistema de ancoragem — distribuído ao redor do casco ou concentrado em uma torre giratória (turret), que deixa o navio girar com o vento e a corrente. Risers e umbilicais ligam o FPSO aos poços e equipamentos submarinos."], ["Quem trabalha a bordo", "A tripulação reúne operação de produção, manutenção mecânica, elétrica e de instrumentação, equipe marítima (estabilidade e lastro), segurança, saúde e hotelaria, sob a coordenação do OIM. Como o número de pessoas a bordo (POB) é limitado pela capacidade de acomodação e de abandono, as equipes se revezam em regime de embarque."], ["FPSO, FSO e plataforma fixa", "O FSO só armazena e transfere o óleo, sem processar. Plataformas fixas (jaquetas) ficam apoiadas no fundo e são usadas em águas rasas. No Brasil, a Petrobras opera FPSOs próprios e também afretados de empresas especializadas, que constroem, possuem e às vezes operam a unidade."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["FPSO", "FSO", "FLNG", "Topside", "Riser"],
     relacionado: { label: "Ver FPSOs no Radar Offshore", href: "/radar" }
   },
@@ -12961,6 +12793,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "No universo offshore, o termo mais técnico é MODU (Mobile Offshore Drilling Unit), que reúne as unidades móveis: jack-ups (pernas apoiadas no fundo, águas rasas), semissubmersíveis (flutuantes, ancoradas ou com Posicionamento Dinâmico) e drillships (navios-sonda, autopropelidos).",
     comoFunciona: "A sonda sustenta a torre (derrick), o sistema de içamento e a coluna de perfuração, que gira e avança a broca através das camadas de rocha. Um drillship ou semissubmersível de águas profundas normalmente opera com BOP no fundo do mar e riser conectando a unidade ao poço.",
     porQueImporta: "A escolha do tipo de sonda depende basicamente da lâmina d'água e das condições do campo — é por isso que o Brasil, com poços em águas ultraprofundas do pré-sal, concentra majoritariamente drillships e semissubmersíveis, não jack-ups.",
+    aprofundamento: [["Os principais sistemas", "Toda sonda combina um sistema de içamento (torre ou mastro e guincho), que sustenta e movimenta a coluna de perfuração; um sistema de rotação (top drive ou mesa rotativa), que gira a broca; um sistema de fluido de perfuração (bombas e tanques de lama), que resfria a broca, carrega os cascalhos e controla a pressão do poço; e o sistema de segurança de poço, cujo coração é o BOP. Em unidades flutuantes, o BOP fica no fundo do mar e se liga à sonda por um riser de perfuração."], ["Como um poço é construído", "O poço é perfurado em fases, com diâmetros cada vez menores. Ao fim de cada fase, desce-se um revestimento de aço que é cimentado para isolar as formações. Durante o processo, ferramentas de perfilagem medem as propriedades das rochas. Concluída a perfuração, o poço segue para completação, se for produzir, ou é tamponado e abandonado com segurança."], ["Quem opera a sonda", "A sonda normalmente pertence a uma empresa de perfuração contratada pela operadora do campo, que paga uma taxa diária. A equipe da sonda inclui OIM ou rig manager, toolpusher, sondador, assistente de sondador, torrista e plataformistas, além de manutenção e equipe marítima. A operadora mantém representantes a bordo para acompanhar o programa do poço."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["MODU", "Drillship", "Semisub", "Jack-up", "Derrick"],
     relacionado: { label: "Ver sondas no Radar Offshore", href: "/radar" }
   },
@@ -12970,6 +12804,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "Em operações offshore de águas profundas, o BOP costuma ficar instalado no fundo do mar, sobre a cabeça do poço, conectado à unidade de perfuração pelo riser.",
     comoFunciona: "O BOP é composto por um conjunto de válvulas e gavetas (rams) capazes de fechar ao redor da coluna de perfuração ou cisalhá-la completamente em uma emergência, isolando o poço da superfície. Ele entra em ação quando a equipe de sonda identifica um kick (entrada indesejada de fluido da formação) que não pode ser controlado pelos métodos normais.",
     porQueImporta: "É a última linha de defesa do controle de poço — sua falha foi um fator central em acidentes graves da indústria, por isso é um dos equipamentos mais testados e regulados de toda a operação de perfuração.",
+    aprofundamento: [["Os componentes", "Um BOP é uma pilha de válvulas de grande porte. Os preventores anulares vedam ao redor de tubos de diferentes diâmetros; as gavetas (rams) de tubo vedam em torno da coluna; as gavetas cegas e cisalhantes cortam a coluna e fecham o poço por completo. Linhas de choke e kill permitem circular fluidos e controlar a pressão com o poço fechado. Em águas profundas, o BOP é acionado por um sistema de controle redundante e por acumuladores hidráulicos que garantem energia mesmo em falha."], ["Kick e controle de poço", "Kick é a entrada de fluidos da formação no poço quando a pressão dentro dele fica menor que a da rocha. A primeira barreira é o próprio fluido de perfuração, com densidade calculada para conter essa pressão; o BOP é a barreira de segurança seguinte. Quando um kick é detectado, a equipe fecha o poço e circula o influxo para fora de forma controlada."], ["Testes e treinamento", "O BOP passa por testes periódicos de pressão e de funcionamento definidos em normas e nos procedimentos da operadora. As empresas costumam exigir certificação em controle de poço para funções ligadas à perfuração."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["BOP", "Well Control", "Kick", "Blowout", "Riser"],
     relacionado: { label: "Glossário Offshore completo →", href: "/glossario" }
   },
@@ -12979,6 +12815,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "É um dos indicadores mais acompanhados na perfuração e na produção offshore, porque cada dia de operação de uma sonda ou unidade tem custo altíssimo.",
     comoFunciona: "Toda parada é classificada: tempo produtivo (a operação avançando conforme planejado) versus NPT (parada que não deveria ter acontecido). Empresas de perfuração e operadoras reportam o NPT como métrica de eficiência operacional e de gestão de risco.",
     porQueImporta: "Reduzir NPT é uma das formas mais diretas de baixar o custo de um poço — e é por isso que aparece com frequência em notícias e relatórios do setor sobre eficiência de operações.",
+    aprofundamento: [["Como o NPT é medido", "O tempo da sonda é registrado no relatório diário de perfuração e classificado por atividade: o que avança o poço conta como tempo produtivo; paradas e retrabalho entram como NPT. Algumas empresas também acompanham o chamado tempo perdido invisível — operações que aconteceram, mas mais devagar do que o padrão."], ["Causas mais comuns", "Falha de equipamento da sonda, espera por condições de mar e vento, espera por material, embarcação ou equipe de serviço, e problemas de poço, como prisão da coluna ou perda de circulação do fluido de perfuração."], ["Por que pesa tanto", "Sondas offshore são contratadas por taxa diária elevada, e cada hora parada é paga sem avançar o poço. Por isso NPT é um indicador acompanhado de perto por operadoras e empresas de perfuração e influencia contratos, planos de manutenção e a rotina das equipes a bordo."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["NPT", "ROP", "WOB", "MODU"],
     relacionado: null
   },
@@ -12988,6 +12826,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "Como a unidade fica no mar, a troca depende de transporte — normalmente helicóptero, partindo de uma base/aeroporto de apoio em terra (no Brasil, hubs como Macaé, Jacarepaguá, Cabo Frio e Vitória concentram esse fluxo).",
     comoFunciona: "Antes de embarcar, o trabalhador passa por check-in, pesagem de bagagem, treinamento de segurança válido (como HUET) e, em muitos casos, teste de alcoolemia. O voo leva a tripulação que está desembarcando de volta à base e traz a nova equipe. A operação é sequenciada para minimizar o tempo que a unidade fica com equipe reduzida.",
     porQueImporta: "Condições meteorológicas na base ou na unidade podem atrasar a troca de turma — por isso o OWNews acompanha o status dos aeroportos de apoio offshore em tempo real.",
+    aprofundamento: [["Como é o dia da troca", "No dia marcado, o trabalhador se apresenta no aeroporto ou heliponto no horário informado pela empresa, faz check-in, pesa a bagagem, assiste ao briefing de segurança e recebe os equipamentos exigidos para o voo. Ao chegar à unidade, ocorre a passagem de serviço com quem está desembarcando: situação dos equipamentos, trabalhos em andamento e pontos de atenção."], ["Quando a troca atrasa", "Condições meteorológicas (teto, visibilidade, vento), manutenção de aeronave e restrições no helideck podem adiar voos. Atrasos no embarque costumam estender a permanência de quem já está a bordo. As regras de compensação dependem do acordo coletivo e da empresa."], ["Como se preparar", "Manter documentos e certificados exigidos pela empresa dentro da validade, conferir a lista do que levar e acompanhar a própria escala evita surpresas no dia. Ferramentas como Minha Escala, Meus Certificados e Checklist de Embarque ajudam nessa organização."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: [],
     relacionado: { label: "Ver condição dos aeroportos agora →", href: "/aeroportos" }
   },
@@ -12997,6 +12837,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "É um dos principais tipos de embarcação de apoio subsea usados na instalação de sistemas de produção submarinos, ao lado de outras como RSV (embarcação de reparo de risers) e navios de construção offshore em geral.",
     comoFunciona: "O duto é armazenado a bordo (em carretéis ou em compartimentos verticais) e lançado progressivamente enquanto a embarcação avança sobre a rota planejada, geralmente usando Posicionamento Dinâmico para manter a trajetória com precisão.",
     porQueImporta: "Sem essas embarcações, não é possível conectar poços submarinos, manifolds e unidades de produção — são parte essencial da infraestrutura que liga o poço ao FPSO ou plataforma.",
+    aprofundamento: [["Como o PLSV lança as linhas", "As linhas flexíveis e umbilicais ficam armazenadas em carrosséis ou bobinas no convés. Durante o lançamento, a linha passa por um sistema vertical com tensionadores que controlam a descida até o fundo, enquanto ROVs acompanham a operação e fazem as conexões com equipamentos submarinos. O navio usa posicionamento dinâmico para se manter na rota exata."], ["Diferença para outras embarcações", "O PSV transporta suprimentos; o AHTS manuseia âncoras e reboca unidades; o RSV dá suporte a ROVs em inspeção e intervenção. O PLSV é o especialista em instalar dutos e umbilicais — função central no Brasil, onde os campos do pré-sal usam extensamente linhas flexíveis."], ["Quem trabalha a bordo", "Além da tripulação marítima, há equipes de projeto submarino, técnicos de ROV, operadores de guindaste e de sistemas de lançamento, que se revezam em turnos para manter a operação contínua."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["Umbilical", "Manifold", "Flowline"],
     relacionado: { label: "Ver Diretório Offshore (Subsea/ROV) →", href: "/empresas" }
   },
@@ -13006,6 +12848,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "É controlado por um piloto a bordo de uma embarcação ou unidade, através de um cabo umbilical que transmite energia, comandos e imagem de vídeo em tempo real.",
     comoFunciona: "Equipado com câmeras, luzes, sonares e braços manipuladores, o ROV realiza tarefas como inspeção visual de estruturas, abertura/fechamento de válvulas subsea e apoio a operações de lançamento de linhas — em profundidades onde o mergulho humano não é viável.",
     porQueImporta: "É a principal forma de \"enxergar e agir\" no fundo do mar em águas profundas, essencial para a manutenção de todo o sistema submarino de produção do pré-sal.",
+    aprofundamento: [["Tipos de ROV", "ROVs de observação são menores e carregam basicamente câmeras e sensores. ROVs work class têm braços manipuladores, ferramentas hidráulicas e potência para tarefas pesadas, como operar válvulas e auxiliar instalações. O veículo é lançado por um sistema de lançamento e recuperação e, em muitos casos, usa um módulo intermediário que gerencia o cabo."], ["A equipe de ROV", "A operação é contínua e feita por equipes com supervisor, pilotos e técnicos, que se alternam nos controles e na manutenção elétrica, eletrônica e hidráulica do sistema. Formação técnica em mecânica, eletrônica ou eletroeletrônica é comum na porta de entrada da função."], ["Onde o ROV trabalha", "Em navios de apoio a ROV, em embarcações de instalação como os PLSVs e em sondas de perfuração, onde acompanha o BOP e o riser no fundo do mar."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["Umbilical"],
     relacionado: { label: "Ver função ROV em Funções a Bordo →", href: "/funcoes/rov" }
   },
@@ -13015,6 +12859,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "Vem depois da fase de perfuração propriamente dita e antes do início da produção comercial do poço.",
     comoFunciona: "Inclui a descida da coluna de produção, instalação de equipamentos de segurança de subsuperfície, canhoneio (perfuração controlada do revestimento para conectar o poço ao reservatório) e, na cabeça do poço, a instalação da árvore de natal, que controla o fluxo.",
     porQueImporta: "Uma completação bem projetada afeta diretamente a produtividade do poço ao longo de toda sua vida útil — é uma das decisões de engenharia mais determinantes do projeto.",
+    aprofundamento: [["As principais etapas", "Depois da perfuração, o poço é limpo e recebe a coluna de produção, com equipamentos como packers, que isolam trechos do poço, e a válvula de segurança de subsuperfície. O canhoneio abre furos no revestimento para ligar o reservatório ao poço. Em alguns casos, a rocha é estimulada para melhorar o fluxo. Por fim, instala-se a árvore de natal — em poços submarinos, a árvore de natal molhada, no fundo do mar."], ["Completação inteligente", "Muitos poços do pré-sal usam válvulas de controle de fluxo e sensores permanentes de pressão e temperatura, que permitem gerenciar diferentes zonas do reservatório a partir da superfície, sem nova intervenção com sonda."], ["Quem participa", "A sonda, a equipe de completação da operadora e empresas de serviços de poço, que fornecem equipamentos e especialistas para cada etapa."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["Christmas Tree", "Casing", "Liner"],
     relacionado: null
   },
@@ -13024,6 +12870,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "Envolve, entre outras etapas, o tamponamento definitivo dos poços, a remoção ou o abandono seguro de equipamentos submarinos e, no caso de plataformas fixas ou unidades flutuantes, sua retirada, reciclagem ou (em alguns países) conversão em recife artificial, conforme a regulação aplicável.",
     comoFunciona: "É um processo regulado, que exige planejamento técnico e ambiental específico para cada unidade — o método e o cronograma variam conforme o tipo de instalação e a legislação do país.",
     porQueImporta: "Com o amadurecimento de campos historicamente importantes (como a Bacia de Campos), o descomissionamento vem se tornando uma frente de trabalho crescente no setor offshore brasileiro.",
+    aprofundamento: [["Como o processo acontece no Brasil", "O descomissionamento começa anos antes, com um programa de descomissionamento apresentado à ANP e avaliado também por órgãos como Ibama e Marinha. As etapas incluem o tamponamento e abandono definitivo dos poços, a retirada ou o tratamento de linhas e equipamentos submarinos, a desconexão e o reboque da unidade e a destinação final, como desmantelamento e reciclagem em estaleiro."], ["Por que gera trabalho", "A Bacia de Campos concentra muitas unidades e poços maduros. O descomissionamento demanda sondas e embarcações para abandono de poços, serviços submarinos, estaleiros de desmantelamento e monitoramento ambiental — uma frente de trabalho que cresce à medida que campos antigos encerram a produção."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: ["Casing", "Christmas Tree"],
     relacionado: null
   },
@@ -13033,6 +12881,8 @@ const EXPLICA_ARTIGOS = [
     explicacao: "No Brasil, esse fluxo se concentra em aeroportos e heliportos de apoio à Bacia de Campos, ao pré-sal e às demais bacias produtoras — bases como Macaé, Jacarepaguá, Cabo Frio, Maricá, Farol de São Tomé e Vitória.",
     comoFunciona: "Antes do voo, o passageiro passa por check-in, pesagem de bagagem e, sempre, pelo treinamento HUET (escape de helicóptero submerso) válido — pré-requisito obrigatório para embarcar. O voo segue rotas e janelas meteorológicas monitoradas, podendo ser adiado por condições de tempo desfavoráveis.",
     porQueImporta: "É o elo logístico que viabiliza toda a operação com tripulação embarcada — por isso o OWNews acompanha em tempo real a condição meteorológica e operacional desses aeroportos.",
+    aprofundamento: [["As etapas do voo", "O passageiro faz check-in, tem bagagem e peso conferidos, assiste ao vídeo ou briefing de segurança e recebe os equipamentos definidos pela operadora para o voo sobre o mar. O pouso é em helideck, onde a equipe da unidade coordena desembarque, bagagem e carga."], ["O que pode impedir o voo", "Teto e visibilidade baixos, vento forte, condições do helideck, limitação de peso (passageiros, bagagem e combustível) e manutenção das aeronaves. Por isso os aeroportos e helipontos que atendem as bacias acompanham de perto a meteorologia aeronáutica."], ["Quem opera", "Empresas de táxi aéreo especializadas operam os helicópteros sob contrato com as operadoras de petróleo, a partir de bases como Jacarepaguá, Macaé, Cabo Frio, Maricá, Farol de São Tomé e Vitória. O painel de Aeroportos do OWNews mostra as condições dessas bases."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: [],
     relacionado: { label: "Ver condição dos aeroportos agora →", href: "/aeroportos" }
   },
@@ -13042,8 +12892,10 @@ const EXPLICA_ARTIGOS = [
     explicacao: "No Brasil, as principais bacias produtoras de petróleo e gás ficam na margem continental (offshore): Campos, Santos (onde está a maior parte do pré-sal), Espírito Santo, entre outras ao longo da costa.",
     comoFunciona: "Ao longo do tempo geológico, matéria orgânica soterrada sob camadas sucessivas de sedimento, sob pressão e temperatura específicas, se transforma em óleo e gás — que depois migram e ficam retidos em rochas-reservatório sob uma camada selante (como o sal, no caso do pré-sal).",
     porQueImporta: "Entender a bacia de um campo ajuda a explicar escolhas de engenharia inteiras — profundidade de lâmina d'água, tipo de unidade usada, distância até a costa — que aparecem constantemente nas notícias do setor.",
+    aprofundamento: [["As principais bacias offshore do Brasil", "Santos concentra o pré-sal e a maior parte da produção atual. Campos é a bacia histórica, com grande número de unidades e campos maduros. Espírito Santo, Sergipe-Alagoas e Potiguar também têm produção marítima. A Margem Equatorial — que inclui Foz do Amazonas, Pará-Maranhão, Barreirinhas, Ceará e Potiguar — é a principal fronteira exploratória."], ["Pré-sal e pós-sal", "O pré-sal é formado por reservatórios carbonáticos abaixo de uma espessa camada de sal, em águas ultraprofundas, revelados a partir de meados dos anos 2000. O pós-sal reúne reservatórios acima dessa camada, base da produção da Bacia de Campos por décadas."], ["Por que isso importa para quem trabalha", "A geografia das bacias define onde ficam bases, aeroportos e estaleiros — e, portanto, onde estão as oportunidades. Rio de Janeiro e Espírito Santo concentram a operação atual; novas fronteiras podem levar atividade a estados do Norte e do Nordeste."]],
+    atualizadoEm: "2026-10-17",
     termosRelacionados: [],
-    relacionado: { label: "Ver Painel da Bacia →", href: "/painel-da-bacia" }
+    relacionado: { label: "Ver unidades no Radar Offshore →", href: "/radar" }
   },
   {
     slug: "diferenca-plataforma-sonda-fpso", titulo: "Qual a diferença entre plataforma, sonda e FPSO?", categoria: "Comparativo",
@@ -13222,6 +13074,7 @@ function renderExplicaDetalhe(slug) {
     '<section class="area-group"><h2>EXPLICAÇÃO</h2><p class="area-desc">' + escaparHTML(e.explicacao) + '</p></section>' +
     '<section class="area-group"><h2>COMO FUNCIONA</h2><p class="area-desc">' + escaparHTML(e.comoFunciona) + '</p></section>' +
     '<section class="area-group"><h2>POR QUE IMPORTA NO OFFSHORE</h2><p class="area-desc">' + escaparHTML(e.porQueImporta) + '</p></section>' +
+    (e.aprofundamento || []).map((x) => '<section class="area-group"><h2>' + escaparHTML(x[0].toUpperCase()) + '</h2><p class="area-desc">' + escaparHTML(x[1]) + '</p></section>').join('') +
     (e.contribuicaoHumanaPendente
       ? '<div class="aviso-atualizacao"><strong>Lógica geral, não relato pessoal:</strong> este verbete descreve como o processo funciona em linhas gerais, a partir de fontes públicas. Detalhes práticos variam por empresa e unidade, e relatos de quem trabalha a bordo serão incorporados aqui somente com autoria identificada. Se você trabalha no setor e quer contribuir ou corrigir algo, use a página de <a href="/correcoes">Correções</a>.</div>'
       : '') +
@@ -13697,15 +13550,27 @@ function renderAgendaSubmeter(sucesso) {
 }
 
 function renderGlossario() {
-  const linhas = GLOSSARIO_TERMOS.map((t) =>
-    '<div class="campo-row" data-categoria="' + escaparHTML(t.categoria) + '">' +
-    '<span class="campo-rotulo">' + escaparHTML(t.sigla) + '</span>' +
-    '<div class="campo-valor">' +
-    '<p class="dado-valor">' + escaparHTML(t.nome) + '</p>' +
-    '<p class="dado-contexto sem-margem">' + escaparHTML(t.def) + '</p>' +
-    '</div>' +
-    '</div>'
-  ).join('');
+  // AdSense 3.0: ordem alfabética com âncoras por letra, link para o
+  // verbete do OWNews Explica quando existe, e grade em 2 colunas no desktop.
+  const letraDe = (t) => (t.sigla || '').normalize('NFD').replace(/[^A-Za-z0-9]/g, '').charAt(0).toUpperCase() || '#';
+  const ordenados = GLOSSARIO_TERMOS.slice().sort((a, b) => a.sigla.localeCompare(b.sigla, 'pt-BR', { sensitivity: 'base' }));
+  const explicaDe = (sigla) => EXPLICA_ARTIGOS.find((e) => (e.termosRelacionados || [])[0] === sigla) || EXPLICA_ARTIGOS.find((e) => (e.termosRelacionados || []).includes(sigla));
+  const letrasVistas = new Set();
+  const linhas = ordenados.map((t) => {
+    const l = letraDe(t);
+    const ancora = letrasVistas.has(l) ? '' : ' id="letra-' + l + '"';
+    letrasVistas.add(l);
+    const ex = explicaDe(t.sigla);
+    return '<div class="campo-row"' + ancora + ' data-categoria="' + escaparHTML(t.categoria) + '">' +
+      '<span class="campo-rotulo">' + escaparHTML(t.sigla) + '</span>' +
+      '<div class="campo-valor">' +
+      '<p class="dado-valor">' + escaparHTML(t.nome) + ' <span class="glo-cat">' + escaparHTML(t.categoria) + '</span></p>' +
+      '<p class="dado-contexto sem-margem">' + escaparHTML(t.def) + '</p>' +
+      (ex ? '<a class="glo-explica" href="/explica/' + ex.slug + '">Entenda: ' + escaparHTML(ex.titulo) + ' →</a>' : '') +
+      '</div>' +
+      '</div>';
+  }).join('');
+  const letrasNav = '<nav class="glo-letras" aria-label="Navegar por letra">' + Array.from(letrasVistas).map((l) => '<a href="#letra-' + l + '">' + l + '</a>').join('') + '</nav>';
 
   const chips = '<button type="button" class="campo-pill glossario-chip ativo" data-categoria="todas">Todas</button>' +
     GLOSSARIO_CATEGORIAS.map((c) =>
@@ -13722,11 +13587,14 @@ function renderGlossario() {
     '<div class="busca-empresas-row">' +
     '<input type="text" class="busca-empresas-input" id="glossarioBusca" placeholder="Buscar sigla ou termo…" autocomplete="off">' +
     '</div>' +
-    '<div class="chip-list-flex" id="glossarioChips" style="margin-bottom:18px">' + chips + '</div>' +
+    '<div class="chip-list-flex" id="glossarioChips" style="margin-bottom:12px">' + chips + '</div>' +
+    letrasNav +
+    '<p class="glo-contagem" id="glossarioContagem" aria-live="polite"></p>' +
     '<div class="campo-grid" id="glossarioLista">' + linhas + '</div>' +
+    '<p class="empresa-pendente" id="glossarioVazio" hidden>Nenhum termo encontrado. Tente outra grafia ou a categoria “Todas”.</p>' +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/conversor">Conversor Offshore →</a>' +
+    '<a href="/explica">OWNews Explica →</a>' +
     '<a href="/funcoes">Funções a Bordo →</a>' +
     '</div>' +
     '<script>' +
@@ -13735,17 +13603,20 @@ function renderGlossario() {
     'var chips=document.querySelectorAll("#glossarioChips .glossario-chip");var categoriaAtiva="todas";' +
     'function aplicarFiltro(){' +
     'var termo=input?input.value.toLowerCase():"";' +
+    'var n=0;' +
     'linhas.forEach(function(l){' +
     'var bateCategoria=categoriaAtiva==="todas"||l.getAttribute("data-categoria")===categoriaAtiva;' +
     'var bateTermo=!termo||l.textContent.toLowerCase().indexOf(termo)!==-1;' +
-    'l.hidden=!(bateCategoria&&bateTermo);' +
+    'l.hidden=!(bateCategoria&&bateTermo);if(!l.hidden)n++;' +
     '});' +
+    'var c=document.getElementById("glossarioContagem");if(c)c.textContent=n+(n===1?" termo":" termos");var v=document.getElementById("glossarioVazio");if(v)v.hidden=n>0;' +
     '}' +
     'if(input)input.addEventListener("input",aplicarFiltro);' +
     'chips.forEach(function(chip){chip.addEventListener("click",function(){' +
     'chips.forEach(function(c){c.classList.remove("ativo");});chip.classList.add("ativo");' +
     'categoriaAtiva=chip.getAttribute("data-categoria");aplicarFiltro();' +
     '});});' +
+    'aplicarFiltro();' +
     '})();' +
     '</script>';
 
@@ -13761,114 +13632,13 @@ function renderGlossario() {
    Contínua, 2026-09-18). IDs de fuso IANA reais (Intl.DateTimeFormat cuida
    do horário de verão automaticamente onde a região observa). */
 const HORARIOS_OFFSHORE_LOCAIS = [
-  { nome: "Brasília", tz: "America/Sao_Paulo" },
-  { nome: "Georgetown (Guyana)", tz: "America/Guyana" },
-  { nome: "Paramaribo (Suriname)", tz: "America/Paramaribo" },
-  { nome: "Houston", tz: "America/Chicago" },
-  { nome: "Londres", tz: "Europe/London" },
-  { nome: "Aberdeen", tz: "Europe/London" },
-  { nome: "Oslo", tz: "Europe/Oslo" },
-  { nome: "Luanda", tz: "Africa/Luanda" },
-  { nome: "Windhoek", tz: "Africa/Windhoek" },
-  { nome: "Perth", tz: "Australia/Perth" },
-  { nome: "Singapura", tz: "Asia/Singapore" }
+  { nome: "Rio de Janeiro · Macaé", tz: "America/Sao_Paulo", nota: "Bacias de Campos e Santos" },
+  { nome: "Georgetown", tz: "America/Guyana", nota: "Guiana · bloco Stabroek" },
+  { nome: "Houston", tz: "America/Chicago", nota: "Sedes de perfuração e serviços" },
+  { nome: "Aberdeen", tz: "Europe/London", nota: "Mar do Norte · Reino Unido" },
+  { nome: "Stavanger", tz: "Europe/Oslo", nota: "Mar do Norte · Noruega" },
+  { nome: "Luanda", tz: "Africa/Luanda", nota: "Offshore de Angola" }
 ];
-
-/* ---------- /calculadora-embarque — Calculadora de Embarque (Fase 23,
-   Missão Mestre Contínua, 2026-09-18): data de embarque + dias -> data de
-   desembarque prevista. Client-side, sem dado inventado. */
-function renderCalculadoraEmbarque() {
-  const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Calculadora de Embarque" }]) +
-    '<div class="hub-hero">' +
-    '<span class="eyebrow">Ferramenta OWNews · client-side</span>' +
-    '<h1>Calculadora de Embarque</h1>' +
-    '<p class="hub-lead">Informe a data de embarque e a duração do período — calculamos a data de desembarque prevista.</p>' +
-    '</div>' +
-    '<div class="form-pesquisa" style="max-width:420px">' +
-    '<div class="campo-form"><label for="calcDataEmbarque">Data de embarque</label><input type="date" id="calcDataEmbarque"></div>' +
-    '<div class="campo-form"><label for="calcDias">Dias embarcado</label><input type="number" id="calcDias" min="1" value="14"></div>' +
-    '<button type="button" class="btn-enviar-pesquisa" id="calcBtn">CALCULAR</button>' +
-    '</div>' +
-    '<div class="aviso-atualizacao" id="calcResultado" hidden></div>' +
-    '<div class="hub-continue">' +
-    '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/minha-escala">Jogar para Minha Escala →</a>' +
-    '</div>' +
-    '<script>' +
-    '(function(){' +
-    'var btn=document.getElementById("calcBtn");' +
-    'btn.addEventListener("click",function(){' +
-    'var dataStr=document.getElementById("calcDataEmbarque").value;var dias=parseInt(document.getElementById("calcDias").value,10);' +
-    'var el=document.getElementById("calcResultado");' +
-    'if(!dataStr||!dias||dias<1){el.hidden=false;el.innerHTML="Informe a data de embarque e a quantidade de dias.";return;}' +
-    'var inicio=Date.parse(dataStr+"T00:00:00Z");' +
-    'var fim=inicio+dias*86400000;' +
-    'var fimData=new Date(fim);' +
-    'var formatado=fimData.toLocaleDateString("pt-BR",{timeZone:"UTC",weekday:"long",day:"2-digit",month:"long",year:"numeric"});' +
-    'el.hidden=false;' +
-    'el.innerHTML="<strong>Desembarque previsto:</strong> "+formatado+" ("+dias+" dias de embarque a partir de "+new Date(inicio).toLocaleDateString("pt-BR",{timeZone:"UTC"})+").";' +
-    '});' +
-    '})();' +
-    '</script>';
-
-  return paginaChrome(
-    "Calculadora de Embarque",
-    "Calcule sua data de desembarque prevista a partir da data de embarque e da duração do período — direto no navegador, sem enviar dados.",
-    conteudo,
-    "/calculadora-embarque"
-  );
-}
-
-
-
-function renderHorarios() {
-  const cards = HORARIOS_OFFSHORE_LOCAIS.map((l, i) =>
-    '<div class="mo-card" data-tz="' + escaparHTML(l.tz) + '">' +
-    '<div class="mo-card-top"><span class="mo-nome">' + escaparHTML(l.nome) + '</span></div>' +
-    '<div class="mo-preco-row"><span class="mo-preco" id="horaLocal' + i + '">--:--</span></div>' +
-    '<span class="mo-sem-cotacao" id="dataLocal' + i + '"></span>' +
-    '</div>'
-  ).join('');
-
-  const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Horários Offshore" }]) +
-    '<div class="hub-hero">' +
-    '<span class="eyebrow">Ferramenta OWNews · ao vivo no navegador</span>' +
-    '<h1>Horários Offshore</h1>' +
-    '<p class="hub-lead">Hora local agora em polos offshore do mundo todo — horário de verão calculado automaticamente pelo seu navegador.</p>' +
-    '</div>' +
-    '<div class="mo-strip mp-wrap">' + cards + '</div>' +
-    '<div class="hub-continue">' +
-    '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/conversor">Conversor Offshore →</a>' +
-    '<a href="/minha-escala">Minha Escala →</a>' +
-    '</div>' +
-    '<script>' +
-    '(function(){' +
-    'var LOCAIS=' + JSON.stringify(HORARIOS_OFFSHORE_LOCAIS) + ';' +
-    'function atualizar(){' +
-    'var agora=new Date();' +
-    'LOCAIS.forEach(function(l,i){' +
-    'try{' +
-    'var hora=new Intl.DateTimeFormat("pt-BR",{timeZone:l.tz,hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(agora);' +
-    'var data=new Intl.DateTimeFormat("pt-BR",{timeZone:l.tz,weekday:"short",day:"2-digit",month:"2-digit"}).format(agora);' +
-    'var elH=document.getElementById("horaLocal"+i);var elD=document.getElementById("dataLocal"+i);' +
-    'if(elH)elH.textContent=hora;if(elD)elD.textContent=data;' +
-    '}catch(e){}' +
-    '});' +
-    '}' +
-    'atualizar();setInterval(atualizar,1000);' +
-    '})();' +
-    '</script>';
-
-  return paginaChrome(
-    "Horários Offshore",
-    "Hora local agora nos principais polos offshore do mundo — Brasília, Guyana, Suriname, Houston, Londres, Aberdeen, Oslo, Luanda, Windhoek, Perth e Singapura.",
-    conteudo,
-    "/horarios"
-  );
-}
 
 function renderCursosEscolas() {
   const cards = CURSOS_REFERENCIA.map((c) =>
@@ -13887,7 +13657,6 @@ function renderCursosEscolas() {
     '<p class="hub-lead">Treinamentos comumente associados ao trabalho offshore no Brasil. Não afirmamos obrigatoriedade fechada nem preço — cada empresa define seus próprios requisitos.</p>' +
     '</div>' +
     '<div class="cursos-grid">' + cards + '</div>' +
-    campoEstrutura("Escolas e faixa de preço", pillAtualizacao("Em atualização — só com fontes confiáveis e verificáveis")) +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/funcoes">Funções a Bordo →</a>' +
@@ -13920,7 +13689,7 @@ function renderGuias() {
     '<div class="hub-hero">' +
     '<span class="eyebrow">Guias OWNews</span>' +
     '<h1>Guias e Checklists</h1>' +
-    '<p class="hub-lead">Conteúdo prático pra quem vive ou quer entrar no offshore. Publicamos só o que temos fonte suficiente pra sustentar — o resto aparece aqui como "em preparação", sem conteúdo técnico ou legal sem base.</p>' +
+    '<p class="hub-lead">Conteúdo prático pra quem vive ou quer entrar no offshore. Textos originais do OWNews, escritos a partir de fontes públicas e da prática do setor — sem promessa de vaga e sem conteúdo técnico ou legal sem base.</p>' +
     '</div>' +
 
     '<div class="area-group" style="margin-top:8px">' +
@@ -14437,7 +14206,7 @@ function renderGuiaCursosOffshore() {
     '<span class="hub-continue-label">Continue no OWNews</span>' +
     '<a href="/guias/checklist-documentos">Checklist de documentos →</a>' +
     '<a href="/guias/preciso-de-experiencia">Preciso de experiência? →</a>' +
-    '<a href="/cursos">Cursos e Escolas →</a>' +
+    '<a href="/meus-certificados">Meus Certificados →</a>' +
     '<a href="/guias">Voltar aos Guias →</a>' +
     '</div>';
 
@@ -14732,7 +14501,7 @@ function renderGuiaEscolherFuncao() {
     '<div class="area-cards" style="margin-top:8px">' + grupos + '</div>' +
 
     '<div class="aviso-atualizacao">' +
-    'Esta organização segue a mesma referência de áreas e funções já usada em <a href="/funcoes">Funções a Bordo</a> e <a href="/salarios">Salários Offshore</a> — nenhuma categoria nova foi inventada só para este guia.' +
+    'Esta organização segue a mesma referência de áreas e funções já usada em <a href="/funcoes">Funções a Bordo</a> — nenhuma categoria nova foi inventada só para este guia.' +
     '</div>' +
 
     '<div class="hub-continue">' +
@@ -16827,7 +16596,7 @@ function renderSobre() {
     "</div>" +
     '<div class="area-group">' +
     "<h2>Como trabalhamos</h2>" +
-    '<p class="area-desc">Somos uma equipe pequena e usamos software em parte do processo — a coleta e a triagem das notícias são automatizadas; a seleção de fontes, todo o conteúdo explicativo e de referência, a camada "Buddy te explica" e as correções são feitas por pessoa. Damos prioridade a fontes oficiais e verificáveis: dados técnicos no Radar Offshore só são publicados com fonte pública citável; quando não há confirmação, o dado não aparece. Não inventamos relatos, números nem procedimentos. Tudo isso está detalhado na <a href="/politica-editorial">Política Editorial</a> e na <a href="/correcoes">Política de Correções</a>.</p>' +
+    '<p class="area-desc">Somos uma equipe pequena e usamos software em parte do processo — a coleta, a triagem e a maior parte dos resumos "Buddy te explica" das notícias são automatizadas (os resumos são escritos por inteligência artificial e só aparecem se passarem em checagens automáticas de qualidade); a seleção de fontes, todo o conteúdo explicativo e de referência, os textos de curadoria e as correções são feitos por pessoa. Damos prioridade a fontes oficiais e verificáveis: dados técnicos no Radar Offshore só são publicados com fonte pública citável; quando não há confirmação, o dado não aparece. Não inventamos relatos, números nem procedimentos. Tudo isso está detalhado na <a href="/politica-editorial">Política Editorial</a> e na <a href="/correcoes">Política de Correções</a>.</p>' +
     "</div>" +
     '<div class="area-group">' +
     "<h2>Quem faz</h2>" +
@@ -16854,13 +16623,19 @@ function renderContato() {
     '<div class="hub-hero">' +
     '<span class="eyebrow">Contato</span>' +
     "<h1>Contato</h1>" +
-    '<p class="hub-lead">Hoje o canal direto do OWNews é o Instagram. Use-o para correções, sugestões de pauta ou dúvidas sobre parcerias/publicidade.</p>' +
+    '<p class="hub-lead">O canal direto do OWNews é a mensagem privada (direct) no Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a>. Use-o para correções, sugestões de pauta, contribuições e parcerias.</p>' +
     "</div>" +
+    '<div class="cof-grid" style="margin:8px 0 22px">' +
+    '<div class="cof-card"><h3 class="cof-titulo">Instagram OWNews</h3><p class="cof-desc">Mensagens, correções e pautas.</p><div class="cof-links"><a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr ↗</a></div></div>' +
+    '<div class="cof-card"><h3 class="cof-titulo">Telegram</h3><p class="cof-desc">Canal de notícias (somente leitura).</p><div class="cof-links"><a href="https://t.me/ownewsradar" target="_blank" rel="noopener">@ownewsradar ↗</a></div></div>' +
+    '<div class="cof-card"><h3 class="cof-titulo">OffshoreWorks</h3><p class="cof-desc">Empresa responsável pelo OWNews.</p><div class="cof-links"><a href="https://www.offshoreworks.com.br" target="_blank" rel="noopener">offshoreworks.com.br ↗</a><a href="https://www.instagram.com/offshoreworks" target="_blank" rel="noopener">@offshoreworks ↗</a></div></div>' +
+    '</div>' +
     '<div class="area-group" style="margin-top:8px">' +
     "<h2>Editorial e correções</h2>" +
     '<p class="area-desc">Encontrou uma informação errada ou desatualizada em uma notícia, em um verbete do Explica ou em uma ficha do Radar Offshore? Mande o link e o que está errado pelo Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a> — corrigimos o quanto antes. Como tratamos erros está descrito na <a href="/correcoes">Política de Correções</a>.</p>' +
     "</div>" +
     '<div class="area-group">' +
+    '<p class="area-desc">Para agilizar uma correção, envie: o link da página, o trecho que está errado e, se possível, a fonte que mostra a informação correta. Correções relevantes ficam registradas na página de <a href="/correcoes">Correções</a>.</p>' +
     "<h2>Quer contribuir?</h2>" +
     '<p class="area-desc">Se você trabalha embarcado e quer contribuir com um guia ou verbete a partir da sua experiência, use o mesmo canal. Contribuições entram com autoria identificada e revisão editorial — veja o que publicamos e como na <a href="/politica-editorial">Política Editorial</a>.</p>' +
     "</div>" +
@@ -16939,7 +16714,7 @@ function renderPoliticaEditorial() {
     '<li><strong>Notícia</strong> — fato do setor coletado de uma fonte identificada, com data e link para a origem. Fica na página /noticia e na Home.</li>' +
     '<li><strong>Explicativo</strong> (OWNews Explica, Guias) — texto original e atemporal sobre como algo funciona. Não noticia; explica. Fica em /explica e /guias.</li>' +
     '<li><strong>Referência</strong> (Funções, Carreiras, Glossário, Radar Offshore, Certificados) — dados estruturados sobre funções, unidades e termos, com fonte por dado.</li>' +
-    '<li><strong>Ferramenta</strong> (Minha Escala, Meus Certificados, Meus Alertas, conversores) — utilitários que rodam no seu navegador. Não têm pretensão editorial.</li>' +
+    '<li><strong>Ferramenta</strong> (Minha Escala, Meus Certificados, Checklist de Embarque, Meus Alertas) — utilitários que rodam no seu navegador. Não têm pretensão editorial.</li>' +
     '</ul>' +
     '<p class="area-desc">O OWNews <strong>não</strong> escreve análise de opinião própria, não faz previsões de preço e não publica salário sem fonte pública identificada. Quando uma fonte monitorada publica um artigo de opinião, ele aparece com a fonte identificada.</p>' +
     "</div>" +
@@ -16951,7 +16726,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="fontes">' +
     "<h2>Fontes e atribuição</h2>" +
-    '<p class="area-desc">O OWNews organiza, filtra e contextualiza notícias do setor offshore publicadas por fontes identificadas. <strong>O texto-base de cada notícia é coletado automaticamente da fonte citada</strong> (comunicado oficial ou veículo especializado) e exibido com o nome da fonte e o link para o original, no bloco "Sobre esta matéria" ao final da página, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. O OWNews não reapura nem reescreve o corpo das notícias coletadas. O que o OWNews acrescenta é a seleção, a organização por tema, a camada "Buddy te explica" quando ela passa nos critérios abaixo e links para referências próprias (Explica, Funções, Radar). No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
+    '<p class="area-desc">O OWNews organiza, filtra e contextualiza notícias do setor offshore publicadas por fontes identificadas. <strong>O texto-base de cada notícia é coletado automaticamente da fonte citada</strong> (comunicado oficial ou veículo especializado) e exibido com o nome da fonte e o link para o original, no bloco "Sobre esta matéria" ao final da página, que distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. O OWNews não reapura nem reescreve o corpo das notícias coletadas. O que o OWNews acrescenta é a seleção, a organização por tema, a camada "Buddy te explica" quando ela passa nos critérios abaixo e links para referências próprias (Explica, Funções, Radar). Imagens: quando a fonte oferece foto utilizável, ela aparece com crédito; quando não oferece (ou bloqueia a exibição em outros sites), usamos uma capa editorial genérica do OWNews, identificada como tal — nunca a foto de outra unidade ou navio como se fosse do fato. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha — quando um dado não pôde ser confirmado, ele não aparece, em vez de ser estimado. Nos verbetes do OWNews Explica, as fontes consultadas ficam listadas na seção "Fontes" de cada página.</p>' +
     "</div>" +
 
     '<div class="area-group" id="producao-automatizada">' +
@@ -16971,7 +16746,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="indexacao">' +
     "<h2>O que entra nos mecanismos de busca</h2>" +
-    '<p class="area-desc">Usamos uma regra única e automática, aplicada tanto à marcação de cada página quanto aos sitemaps. <strong>Notícias</strong>: só são indexáveis quando têm corpo próprio suficiente (não apenas o resumo da fonte) e um resumo "Buddy te explica" aprovado nas checagens acima; as demais continuam acessíveis, com fonte e link, mas marcadas com noindex e fora dos sitemaps. <strong>Salários</strong>: só são indexáveis as funções com dado real (CAGED) ou amostra suficiente da Pesquisa Salarial OWNews. <strong>Funções, Radar, Empresas e Agenda</strong>: fichas com pouco conteúdo próprio ficam fora do índice até serem enriquecidas com informação verificável — nunca com texto genérico. Formulários (como o envio de eventos para a Agenda) não são indexados.</p>' +
+    '<p class="area-desc">Usamos uma regra única e automática, aplicada tanto à marcação de cada página quanto aos sitemaps. <strong>Notícias</strong>: só são indexáveis quando têm corpo próprio suficiente (não apenas o resumo da fonte) e um resumo "Buddy te explica" aprovado nas checagens acima; as demais continuam acessíveis, com fonte e link, mas marcadas com noindex e fora dos sitemaps. <strong>Salários</strong>: a área está fora do ar enquanto é refeita com dados mais confiáveis; as páginas antigas continuam acessíveis por link, com noindex, fora dos sitemaps e dos menus. <strong>Funções, Radar, Empresas e Agenda</strong>: fichas com pouco conteúdo próprio ficam fora do índice até serem enriquecidas com informação verificável — nunca com texto genérico. Formulários (como o envio de eventos para a Agenda) não são indexados.</p>' +
     "</div>" +
 
     '<div class="area-group" id="autoria">' +
@@ -17049,7 +16824,7 @@ function renderOWBuddyLanding() {
 
     '<div class="area-group">' +
     '<h2>Aplicativo</h2>' +
-    '<p class="area-desc">O aplicativo OWBuddy está em desenvolvimento. Ainda não há versão pública nas lojas; por isso, esta página não traz botões de download. Quando houver uma versão publicada, o link oficial aparecerá aqui e no bloco Ecossistema da Home. Até lá, a versão no navegador é a forma de usar o Buddy.</p>' +
+    '<p class="area-desc">O aplicativo OWBuddy ainda não tem versão pública nas lojas; por isso, esta página não traz botões de download. Quando houver uma versão publicada, o link oficial aparecerá aqui e no bloco Ecossistema da Home. Até lá, a versão no navegador é a forma de usar o Buddy.</p>' +
     '</div>' +
 
     '<div class="area-group">' +
@@ -17065,7 +16840,7 @@ function renderOWBuddyLanding() {
     '</div>';
   return paginaChrome(
     "OWBuddy — seu parceiro na vida offshore",
-    "OWBuddy: escala, viagem, certificados, lembretes e informação para facilitar sua rotina offshore. O que já funciona hoje no OWNews e o que está em desenvolvimento.",
+    "OWBuddy: escala, viagem, certificados, lembretes e informação para facilitar sua rotina offshore. O que já funciona hoje no OWNews, direto no navegador.",
     conteudo,
     "/owbuddy"
   );
@@ -17129,7 +16904,7 @@ function renderTermosDeUso() {
     "</div>" +
     '<div class="area-group" style="margin-top:8px">' +
     "<h2>Acesso ao conteúdo</h2>" +
-    '<p class="area-desc">O OWNews é gratuito e não exige cadastro ou login para ler notícias, consultar vagas ou usar as ferramentas do site (Minha Escala, Radar Offshore, conversores e calculadoras). Isso vale hoje e não temos planos de mudar esse modelo básico de acesso.</p>' +
+    '<p class="area-desc">O OWNews é gratuito e não exige cadastro ou login para ler notícias, consultar vagas ou usar as ferramentas do site (Minha Escala, Meus Certificados, Checklist de Embarque e Radar Offshore). Isso vale hoje e não temos planos de mudar esse modelo básico de acesso.</p>' +
     "</div>" +
     '<div class="area-group">' +
     "<h2>Uso permitido</h2>" +
@@ -19465,8 +19240,11 @@ async function responderMaisLidas(request, env) {
     // Reordena pela contagem real de views (a query "in" não preserva ordem);
     // artigo apagado/despublicado depois de contabilizado simplesmente some
     // da lista, nunca vira erro.
+    // AdSense 3.0: inclui a contagem real (acessos únicos por navegador a
+    // cada 30 min, robôs e navegador automatizado excluídos, 7 dias).
+    const viewsPorId = new Map(rankeados.map((it) => [it.article_id, it.views]));
     const itens = ids.map((id) => porId.get(id)).filter(Boolean)
-      .map((a) => (a.title ? { ...a, title: decodificarEntidadesHTMLServidor(a.title) } : a));
+      .map((a) => ({ ...a, views: viewsPorId.get(a.id) || null, title: a.title ? decodificarEntidadesHTMLServidor(a.title) : a.title }));
     return new Response(JSON.stringify({ itens }), { status: 200, headers });
   } catch {
     return new Response(JSON.stringify({ itens: [] }), { status: 503, headers });
@@ -22104,6 +21882,10 @@ export default {
       return responderVisitasTotal(request, env);
     }
 
+    if (url.pathname === "/api/home-selecao" && request.method === "GET") {
+      return respostaCacheada(request, ctx, 120, responderHomeSelecao);
+    }
+
     if (url.pathname === "/api/mais-lidas" && request.method === "GET") {
       return responderMaisLidas(request, env);
     }
@@ -22423,8 +22205,14 @@ export default {
       return Response.json(resultado, { status: resultado.ok ? 200 : 400 });
     }
 
+    // AdSense 3.0: "Central de Ferramentas" virou a Central Offshore (hub
+    // por necessidade) — 301 preserva links antigos.
     if (url.pathname === "/ferramentas") {
-      return new Response(renderFerramentas(), {
+      return Response.redirect("https://ownews.com.br/central-offshore", 301);
+    }
+
+    if (url.pathname === "/central-offshore") {
+      return new Response(renderCentralOffshore(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
     }
@@ -22590,16 +22378,14 @@ export default {
       return new Response(paginaAeronave, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
     }
 
-    if (url.pathname === "/horarios") {
-      return new Response(renderHorarios(), {
-        headers: { "Content-Type": "text/html; charset=UTF-8" }
-      });
-    }
-
+    // AdSense 3.0 (2026-10-17): ferramentas aposentadas. Calculadora de
+    // Embarque era subconjunto da Minha Escala (mesma função, menos recurso);
+    // Horários Offshore virou o bloco "Hora nos polos" do Offshore Agora.
     if (url.pathname === "/calculadora-embarque") {
-      return new Response(renderCalculadoraEmbarque(), {
-        headers: { "Content-Type": "text/html; charset=UTF-8" }
-      });
+      return Response.redirect("https://ownews.com.br/minha-escala", 301);
+    }
+    if (url.pathname === "/horarios") {
+      return Response.redirect("https://ownews.com.br/offshore-agora#horarios", 301);
     }
 
     if (url.pathname === "/comparador-escalas") {
@@ -22831,12 +22617,11 @@ export default {
     }
 
     if (url.pathname === "/ads.txt") {
-      // Mecanismo pronto, sem linha de publisher real ainda — nunca um
-      // pub-id fictício. Comentário é sintaxe válida em ads.txt (IAB
-      // spec). Preencher a linha real "google.com, pub-XXXXXXXXXXXXXXXX,
-      // DIRECT, f08c47fec0942fa0" só depois da conta AdSense aprovada.
+      // AdSense 3.0: mesmo publisher já declarado no meta
+      // google-adsense-account de todas as páginas. Anúncios continuam
+      // desligados no site; ads.txt só autoriza o vendedor.
       return new Response(
-        "# OWNews — ads.txt em preparação.\n# Nenhum vendedor autorizado configurado ainda (AdSense não ativado).\n",
+        "google.com, pub-7540734255466089, DIRECT, f08c47fec0942fa0\n",
         { headers: { "Content-Type": "text/plain; charset=UTF-8" } }
       );
     }
@@ -22911,7 +22696,7 @@ export default {
       /* Fallback defensivo: uma matéria nunca pode virar HTTP 500 por falha
          de bloco auxiliar (relacionadas, anúncios ou imagem). O conteúdo
          editorial básico continua disponível e mantém a atribuição. */
-      const imgBasicaNoticia = artigo.image_url || 'https://commons.wikimedia.org/wiki/Special:FilePath/Saipem_7000.jpg?width=1200';
+      const imgBasicaNoticia = imagemValidaServidor(artigo.image_url) ? artigo.image_url : OG_IMAGEM_PADRAO;
       const urlBasicaNoticia = '/noticia?id=' + encodeURIComponent(artigo.id);
       // Keep this emergency rendering path free of optional article helpers.
       // A malformed auxiliary field must not turn a valid article into 1101.
@@ -23070,10 +22855,10 @@ export default {
         (artigo.summary && !corpoIgualResumo && !leadEhBoilerplate ? '<p class="hub-lead" style="margin-top:14px">' + escaparHTML(artigo.summary) + '</p>' : '') +
         '<button type="button" class="compartilhar-link" id="btnSalvarNoticia" style="margin-top:12px" data-id="' + escaparHTML(artigo.id) + '" data-title="' + escaparHTML(artigo.title) + '" data-image="' + escaparHTML(imagemArtigo.src) + '" data-published="' + escaparHTML(artigo.published_at || '') + '">☆ Salvar notícia</button>' +
         '</div>' +
-        '<img class="noticia-imagem" src="' + escaparHTML(imagemArtigo.src) + '" alt="' + escaparHTML(imagemArtigo.ilustrativa ? 'Imagem ilustrativa' : 'Imagem da matéria: ' + artigo.title) + '" width="1200" height="675" decoding="async" referrerpolicy="no-referrer"' +
+        '<img class="noticia-imagem" src="' + escaparHTML(imagemArtigo.src) + '" alt="' + escaparHTML(imagemArtigo.ilustrativa ? 'Capa editorial OWNews' : 'Imagem da matéria: ' + artigo.title) + '" width="1200" height="675" decoding="async" referrerpolicy="no-referrer"' +
           (imagemArtigo.ilustrativa ? '' : ' data-fallback="' + escaparHTML(imagemFallbackServidor(artigo).src) + '" onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;this.alt=\'Imagem ilustrativa\';}"') + '>' +
         (!imagemArtigo.ilustrativa && artigo.image_credit ? '<p class="noticia-imagem-legenda">Imagem: ' + escaparHTML(artigo.image_credit) + '</p>' : '') +
-        (imagemArtigo.ilustrativa ? '<p class="noticia-imagem-legenda">Imagem ilustrativa' + (imagemArtigo.credito ? ' · ' + escaparHTML(imagemArtigo.credito) : '') + '</p>' : '') +
+        (imagemArtigo.ilustrativa ? '<p class="noticia-imagem-legenda">Capa editorial OWNews — a fonte não disponibilizou foto utilizável.</p>' : '') +
         blocoBuddyExplica(camadaEditorial) +
         // slot adaptativo: só aparece depois da intro em artigo médio/longo —
         // nunca em artigo curto, nunca entre título e subtítulo/imagem
@@ -23119,7 +22904,7 @@ export default {
           descricaoNoticia,
           conteudoNoticia,
           urlArtigo,
-          { tipo: 'article', imagemUrl: imagemArtigo.src, eventoAbertura: 'noticia_aberta', robots: robotsNoticia }
+          { tipo: 'article', imagemUrl: imagemArtigo.ilustrativa ? OG_IMAGEM_PADRAO : imagemArtigo.src, eventoAbertura: 'noticia_aberta', robots: robotsNoticia }
         ),
         { headers: Object.assign({ "Content-Type": "text/html; charset=UTF-8", "X-OWNews-Indexacao": indexacaoNoticia.estado }, robotsNoticia ? { "X-Robots-Tag": robotsNoticia } : {}) }
       );

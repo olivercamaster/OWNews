@@ -217,23 +217,34 @@ test("mantém texto curto intacto", () => expect(M.descricaoMetaSegura("Texto cu
 
 console.log("\n== INDEXAÇÃO DE PÁGINAS (estático) ==");
 const idxSrc = bloco(FRONT, "/* ==== INDEXACAO PAGINAS 2.1: INICIO ====", "/* ==== INDEXACAO PAGINAS 2.1: FIM ==== */");
-const P = new Function("DADOS_SALARIO", "PESQUISA_SALARIAL_AGREGADOS", "PESQUISA_SALARIAL_MINIMO", "funcaoComExtra",
-  idxSrc + "\nreturn { salarioIndexavel, funcaoIndexavel, empresaIndexavel, radarIndexavel, eventoAgendaIndexavel };")(
+const montarP = (src) => new Function("DADOS_SALARIO", "PESQUISA_SALARIAL_AGREGADOS", "PESQUISA_SALARIAL_MINIMO", "funcaoComExtra",
+  src + "\nreturn { salarioIndexavel, funcaoIndexavel, empresaIndexavel, radarIndexavel, eventoAgendaIndexavel, paginaForaDoIndice };")(
   { "com-dado": { clt: { media: 5000 } }, "sem-dado": {} }, { "pesq": { n: 12 }, "pesq-pouca": { n: 3 } }, 10, (f) => f);
+const P = montarP(idxSrc);
+// AdSense 3.0: Salários fora do ar (SALARIOS_PUBLICO=false). A regra de
+// dado real continua testada com a chave religada.
+const PSal = montarP(idxSrc.replace("const SALARIOS_PUBLICO = false;", "const SALARIOS_PUBLICO = true;"));
+test("Salários fora do ar: nenhum salário indexável e /salarios/* com noindex", () => {
+  expect(!P.salarioIndexavel("com-dado") && !P.salarioIndexavel("pesq"), "salário indexável com SALARIOS_PUBLICO=false");
+  expect(P.paginaForaDoIndice("/salarios") && P.paginaForaDoIndice("/salarios/driller") && P.paginaForaDoIndice("/pesquisa-salarial"), "salários sem noindex");
+});
 test("salário com CAGED é indexável; placeholder não", () => {
-  expect(P.salarioIndexavel("com-dado") && !P.salarioIndexavel("sem-dado") && !P.salarioIndexavel("inexistente"));
+  expect(PSal.salarioIndexavel("com-dado") && !PSal.salarioIndexavel("sem-dado") && !PSal.salarioIndexavel("inexistente"));
 });
 test("salário volta ao índice sozinho com amostra suficiente da pesquisa", () => {
-  expect(P.salarioIndexavel("pesq") && !P.salarioIndexavel("pesq-pouca"));
+  expect(PSal.salarioIndexavel("pesq") && !PSal.salarioIndexavel("pesq-pouca"));
 });
 test("função quase vazia não é indexável; função completa é", () => {
   expect(!P.funcaoIndexavel({ resumo: "Opera o ROV." }));
-  const rica = { resumo: "x".repeat(150), atividades: ["a".repeat(80), "b".repeat(80)], ondeAtua: "c".repeat(60), requisitosEntrada: "d".repeat(60), caminhoCarreira: ["a", "b"], funcoesRelacionadas: ["z"], fontes: [{ url: "u" }], rotina: "e".repeat(300) };
+  const rica = { resumo: "x".repeat(150), atividades: ["a".repeat(80), "b".repeat(80)], ondeAtua: "c".repeat(60), requisitosEntrada: "d".repeat(60), caminhoCarreira: ["a", "b"], funcoesRelacionadas: ["z"], fontes: [{ url: "u" }], rotina: "e".repeat(500) };
   expect(P.funcaoIndexavel(rica));
 });
 test("empresa stub (só nome/link) não é indexável", () => expect(!P.empresaIndexavel({ nome: "X", careersUrl: "u" })));
 test("radar com descrição curta e poucos dados não é indexável", () => {
-  expect(!P.radarIndexavel({ sobre: "FPSO afretado." }) && P.radarIndexavel({ sobre: "s".repeat(260) }));
+  expect(!P.radarIndexavel({ sobre: "FPSO afretado." }) && P.radarIndexavel({ sobre: "s".repeat(400) }));
+  // AdSense 3.0: 260+ caracteres só com 4+ campos técnicos; a nota "Não foi localizado código" não conta.
+  expect(!P.radarIndexavel({ sobre: "s".repeat(260) }) && P.radarIndexavel({ sobre: "s".repeat(260), imo: 1, owner: "a", operador: "b", ano_construcao: 2010 }));
+  expect(!P.radarIndexavel({ sobre: "s".repeat(200) + " Não foi localizado código NS-## associado a esta unidade.", imo: 1, owner: "a", operador: "b", ano_construcao: 2010 }));
 });
 test("evento passado ou ficha curta da agenda não é indexável", () => {
   expect(!P.eventoAgendaIndexavel({ dataFim: "2020-01-01", descricao: "d".repeat(400) }) && !P.eventoAgendaIndexavel({ dataFim: "2099-01-01", descricao: "curta" }));
