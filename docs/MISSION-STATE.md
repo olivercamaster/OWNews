@@ -3814,3 +3814,14 @@ Nenhum no momento. Continuar autonomamente.
 - PRESERVADO: páginas individuais de vagas, Foresea, compartilhamento, OG/canonical, CTA oficial, status VAGA ABERTA/BANCO DE TALENTOS, freshness, /saude, collector e banco.
 - TESTE: `node --check` e `git diff --check`; `/`, `/vagas` e `/vagas/foresea-auxiliar-plataforma-plataformista` HTTP 200 com conteúdo esperado.
 - DEPLOY: `ownews-git` `6ea815ec-ce37-4311-a6a2-39b7fc87ee2f`; rollback `79b4a802-fdaa-4f62-beea-87942e3b0fa6`.
+
+## 2026-10-17 — Home 3.0 Etapa 1 (primeira metade da Home)
+- ORDEM (desktop e mobile, DOM único): Minha Escala → Acessos → Área Pessoal → Giro 24h → Aeroportos → Mercado Agora → Aconteceu no Offshore → Hero + laterais. Overrides `order` do mobile removidos.
+- AEROPORTOS: painel de detalhe volta a renderizar vento, visibilidade, teto (clima do collector), METAR/SPECI, TAF (recolhível) e aviso REDEMET (dados[5] bruto). Campo ausente não aparece.
+- DECK: `RE_LEAD_INSTITUCIONAL` + `deckEditorial` (servidor) / `deckDe` (cliente, mesma regex injetada) omitem resumo institucional da fonte no hero, Últimas e Mercado & Energia; `/noticia` usa a mesma regex.
+- AGENDA: faixa horizontal "Próximos Eventos" e seu IIFE saíram da Home; `AGENDA_EVENTOS`, `/agenda` e APIs intactos (reposicionar na Etapa 2).
+- MERCADO & ENERGIA: destaque médio horizontal + 3 notas compactas em linha (mobile: imagem ≤190px + lista).
+- REMOVIDO: código morto do Giro do Embarque (sem markup desde 2026-09-20).
+- DEPLOY: `ownews-git` `8e85ab1d-d0d2-45e0-85de-b3aa6888209f` → `5f4b5a5a-225e-422a-83e9-82e413eb0bd4`; rollback `4de4dc62-d75f-461f-8ecf-60d3f8b569f7`.
+- NOTA: Home tem cache de borda de 300s (`respostaCacheada`) — validar produção só após `X-OWNews-Cache: MISS` ou expirar.
+- PENDENTE: hero SSR ≠ hero cliente (SSR escolhe por score, cliente por recência/breaking) — troca visível após hidratar; não tratado (lógica de recência fora do escopo).
