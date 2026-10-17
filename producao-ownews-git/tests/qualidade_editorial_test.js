@@ -214,6 +214,23 @@ test("publicado sem corpo OWNews = não indexável", () => {
   const r = M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a));
   expect(r.estado === "EDITORIAL_INCOMPLETE" && r.motivos.includes("sem_corpo_ownews"), JSON.stringify(r));
 });
+test("NOINDEX: nota duplicada (mesmo fato de outra fonte) mantém texto mas sai do índice", () => {
+  const a = Object.assign({}, MAT_OWNEWS, { buddy_source: "duplicada" });
+  const c = M.resolverCamadaEditorial(a);
+  expect(c && c.corpo, "texto OWNews da duplicada deve continuar visível");
+  expect(M.classificarIndexacaoNoticia(a, c).estado === "NOINDEX" && M.ehMateriaThin(a), "duplicada indexável ou na Home");
+});
+test("impacto 'não afeta o offshore' é reprovado na geração (sem relevância offshore)", () => {
+  const r = M.validarMateriaOWNews(Object.assign({ buddy_summary: BUDDY_IA_OK, corpo: CORPO_OWNEWS }, { why_it_matters: "Não altera operações offshore; a ANP só divulgou os 5,851 milhões de boe/d de julho." }), ARTIGO_ANP, ARTIGO_ANP.content);
+  expect(!r.ok && r.motivos.includes("impacto:sem_relevancia_offshore"), JSON.stringify(r.motivos));
+});
+test("título em inglês (release sem tradução) não é indexável", () => {
+  const a = Object.assign({}, MAT_OWNEWS, { title: "Transocean Ltd. Announces Contract Awards Totaling $185 Million" });
+  const r = M.classificarIndexacaoNoticia(a, M.resolverCamadaEditorial(a));
+  expect(r.estado === "EDITORIAL_INCOMPLETE" && r.motivos.includes("titulo_ingles"), JSON.stringify(r));
+  const pt = Object.assign({}, MAT_OWNEWS, { title: "Transocean ganha contratos de US$ 185 milhões para duas semissubmersíveis" });
+  expect(M.classificarIndexacaoNoticia(pt, M.resolverCamadaEditorial(pt)).estado === "INDEXABLE");
+});
 test("NOINDEX: material da fonte insuficiente", () => {
   const a = Object.assign({}, ARTIGO_ANP, { buddy_source: "insuficiente" });
   expect(M.classificarIndexacaoNoticia(a, null).estado === "NOINDEX");
@@ -423,6 +440,11 @@ if (COLLECTOR) {
     const ia = p.indexOf("arquivarMaterialFonte("), ic = p.indexOf("artigo.content = camadaIA.corpo;");
     expect(ia > 0 && ic > ia && p.includes("artigo.buddy_source = MATERIA_OWNEWS;"), "pipeline não grava matéria OWNews");
     expect(!p.includes("artigo.buddy_source = 'ia';"), "pipeline ainda grava acervo 'ia'");
+  });
+  test("pipeline marca mesmo acontecimento de outra fonte como 'duplicada' (fora do índice)", () => {
+    const ini = COLLECTOR.indexOf("async function processarNoticiasComDedupe(");
+    const p = COLLECTOR.slice(ini, COLLECTOR.indexOf("\n/* =========================\n   LEITURA DA MATÉRIA", ini));
+    expect(p.includes("artigo.buddy_source = 'duplicada'") && p.includes("Object.assign({}, contexto, { recentes })"), "dedupe por evento ausente");
   });
   test("gate da IA exige Buddy + corpo + impacto (validarMateriaOWNews)", () => {
     expect(funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa)").includes("validarMateriaOWNews("));

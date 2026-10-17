@@ -2985,7 +2985,7 @@ async function buscarTitulosRecentes(env, dias) {
   const desde = new Date(Date.now() - dias * 86400000).toISOString();
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles` +
-    `?select=id,title,image_credit,original_url&status=eq.published&published_at=gte.${encodeURIComponent(desde)}`;
+    `?select=id,title,image_credit,original_url,buddy_summary,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}`;
 
   const resposta = await fetch(endpoint, { headers: supabaseHeaders(env) });
   if (!resposta.ok) return [];
@@ -3644,7 +3644,9 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
     const setBase = new Set(base);
     const ancoras = (t.match(/\b([A-ZÀ-Ú][\wÀ-ú-]{2,}|\d[\d.,]*)/g) || []).slice(1)
       .map((x) => q21Tokens(x)[0]).filter(Boolean);
-    if (!ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
+    // semFonte (exibição de matéria OWNews): a âncora já foi conferida
+    // contra a fonte na geração; o corpo OWNews é síntese e pode omitir nomes.
+    if (!o.semFonte && !ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
   }
   return { ok: m.length === 0, motivos: m };
 }
@@ -3746,7 +3748,21 @@ function validarMateriaOWNews(mat, artigo, fonte) {
   if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
   if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
   if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  // Impacto que só diz que "não afeta o offshore" não é impacto útil: a
+  // nota não tem relevância offshore suficiente para ser publicada.
+  if (impacto && /^\s*(n[aã]o|nada|sem) (afeta|altera|toca|envolve|muda|mexe|atinge|interfere)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
   return { ok: motivos.length === 0, motivos, buddy_summary: buddy, why_it_matters: impacto, corpo };
+}
+/* Título em inglês (press release publicado sem tradução): sem acento do
+   português, sem palavra funcional do português e com palavra funcional ou
+   verbo típico de release em inglês. */
+const Q4_EN_TITULO = new Set('the and of for with its to in on at from by into signs announces reports completes receives awarded wins intends delivers enters secures expands launches growing year'.split(' '));
+const Q4_PT_TITULO = new Set('de da do das dos em no na nos nas com para por que um uma ao aos se sobre entre ou e o a os as'.split(' '));
+function tituloEmIngles(titulo) {
+  const t = String(titulo || '');
+  if (/[ãõçáéíóúâêôà]/i.test(t)) return false;
+  const w = t.toLowerCase().match(/[a-z]+/g) || [];
+  return w.some((x) => Q4_EN_TITULO.has(x)) && !w.some((x) => Q4_PT_TITULO.has(x));
 }
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
    - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
@@ -3766,7 +3782,11 @@ function classificarIndexacaoNoticia(artigo, camada) {
   if (artigo && artigo.buddy_source === 'ia_fora_escopo') motivos.push('fora_escopo');
   if (motivos.length) return { estado: 'DESCARTAR', motivos };
   if (artigo.buddy_source === 'insuficiente') return { estado: 'NOINDEX', motivos: ['material_insuficiente'] };
+  // Mesmo fato já publicado a partir de outra fonte: texto OWNews continua
+  // acessível, mas só uma nota por evento entra no índice.
+  if (artigo.buddy_source === 'duplicada') return { estado: 'NOINDEX', motivos: ['duplicada'] };
   if (artigo.buddy_source !== MATERIA_OWNEWS) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_materia_ownews'] };
+  if (tituloEmIngles(titulo)) motivos.push('titulo_ingles');
   if (!camada || !camada.buddy_summary) motivos.push('sem_buddy_valido');
   if (!camada || !camada.why_it_matters) motivos.push('sem_impacto_valido');
   if (!camada || !camada.corpo) motivos.push('sem_corpo_ownews');
@@ -3886,6 +3906,19 @@ async function lerMaterialFonte(env, hash) {
   } catch { return null; }
 }
 
+/* Memória de reprovação do gate (storage do BuddyIAPoller, 3 dias). */
+async function listarRejeicoesRecentes(env) {
+  if (!env.BUDDY_IA_DO) return new Set();
+  try {
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeicoes');
+    return new Set(r.ok ? await r.json() : []);
+  } catch { return new Set(); }
+}
+async function registrarRejeicao(env, hash) {
+  if (!env.BUDDY_IA_DO || !hash) return;
+  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeitar', { method: 'POST', body: JSON.stringify({ hash }) }); } catch { /* best effort */ }
+}
+
 /* Converte uma matéria do acervo em matéria OWNews (ou a marca como
    insuficiente/fora de escopo). Usado pelo retroprocessamento (IA) e pela
    rota admin /admin/materia-ownews (textos escritos fora do Worker —
@@ -3895,6 +3928,7 @@ async function aplicarMateriaOWNews(env, a, mat, fonteMaterial) {
   const fonte = String(fonteMaterial || '').trim();
   let patch;
   if (mat.acao === 'insuficiente') patch = { buddy_source: 'insuficiente' };
+  else if (mat.acao === 'duplicada') patch = { buddy_source: 'duplicada' };
   else if (mat.acao === 'fora_escopo') patch = { buddy_source: 'ia_fora_escopo' };
   else {
     const v = validarMateriaOWNews(mat, a, fonte);
@@ -3903,6 +3937,13 @@ async function aplicarMateriaOWNews(env, a, mat, fonteMaterial) {
       return { ok: false, motivos: ['arquivo_fonte_falhou'] };
     }
     patch = { content: v.corpo, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, buddy_source: MATERIA_OWNEWS, buddy_reviewed_at: new Date().toISOString() };
+    // Título revisado (ex.: release publicado com título em inglês).
+    if (mat.titulo) {
+      const tt = sanearTextoPublicacao(String(mat.titulo));
+      const errT = detectarErrosTexto(tt + '.').filter((e) => e !== 'frase_incompleta');
+      if (tt.length < 15 || tt.length > 170 || errT.length || tituloEmIngles(tt)) return { ok: false, motivos: ['titulo_invalido'].concat(errT) };
+      patch.title = tt;
+    }
   }
   const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(a.id)}`, {
     method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
@@ -3917,7 +3958,7 @@ async function retroprocessarCamadaIA(env, limite) {
   const max = Math.max(1, Math.min(limite || 3, 8));
   const out = { consultados: 0, aprovados: 0, rejeitados: 0, fora_escopo: 0, insuficiente: 0, erros: 0, interrompido: null, detalhes: [] };
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) { out.interrompido = 'supabase_nao_configurado'; return out; }
-  const filtro = 'or=(buddy_source.is.null,buddy_source.not.in.(ownews,insuficiente,ia_fora_escopo,ownews_rejeitado))';
+  const filtro = 'or=(buddy_source.is.null,buddy_source.not.in.(ownews,insuficiente,ia_fora_escopo,ownews_rejeitado,duplicada))';
   const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,hash,original_url&status=eq.published&${filtro}&order=published_at.desc&limit=20`, { headers: supabaseHeaders(env) });
   if (!resp.ok) { out.interrompido = 'select_http_' + resp.status; return out; }
   const artigos = await resp.json();
@@ -4019,6 +4060,17 @@ export class BuddyIAPoller {
       if (!(await this.state.storage.get(k))) await this.state.storage.put(k, d);
       return Response.json({ ok: true });
     }
+    if (url.pathname === '/rejeitar' && request.method === 'POST') {
+      const d = await request.json();
+      if (d && d.hash) await this.state.storage.put('rej:' + d.hash, Date.now());
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === '/rejeicoes') {
+      const lim = Date.now() - 3 * 86400000, vivos = [], velhos = [];
+      (await this.state.storage.list({ prefix: 'rej:' })).forEach((t, k) => (t >= lim ? vivos : velhos).push(k));
+      if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
+      return Response.json(vivos.map((k) => k.slice(4)));
+    }
     if (url.pathname === '/fonte') {
       const v = await this.state.storage.get('fonte:' + (url.searchParams.get('hash') || ''));
       return v ? Response.json(v) : Response.json({ ok: false }, { status: 404 });
@@ -4072,7 +4124,7 @@ async function processarNoticiasComDedupe(env, fonte, noticias, contexto = {}) {
     filtradas.push(item);
   }
 
-  const resultado = await processarNoticias(env, fonte, filtradas, contexto);
+  const resultado = await processarNoticias(env, fonte, filtradas, Object.assign({}, contexto, { recentes }));
   resultado.puladas_por_duplicidade = puladasPorDuplicidade;
   return resultado;
 }
@@ -4361,7 +4413,16 @@ slug: criarSlug(tituloPublicado),
       // (Buddy + corpo próprio + impacto). O texto da fonte é arquivado no
       // storage do BuddyIAPoller e NÃO vai para articles.content.
       const materialFonte = corpoEnParaGate || artigo.content || artigo.summary;
+      // Reprovada no gate nos últimos 3 dias: não gasta IA de novo a cada
+      // ciclo (cota diária gratuita de Workers AI é da conta inteira).
+      if (!contexto._rejeicoes) contexto._rejeicoes = await listarRejeicoesRecentes(env);
+      if (contexto._rejeicoes.has(artigo.hash)) {
+        resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
+        resultado.noticias.push({ titulo: artigo.title, status: 'editorial_incomplete', motivo: 'reprovada_recente', fonte });
+        continue;
+      }
       const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte);
+      if (!camadaIA.ok && !camadaIA.erro) await registrarRejeicao(env, artigo.hash);
       if (camadaIA.ok) {
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
@@ -4370,6 +4431,13 @@ slug: criarSlug(tituloPublicado),
         artigo.why_it_matters = camadaIA.why_it_matters;
         artigo.buddy_source = MATERIA_OWNEWS;
         artigo.buddy_reviewed_at = new Date().toISOString();
+        // Mesmo acontecimento já publicado a partir de outra fonte (títulos
+        // diferentes, fatos iguais): publica como 'duplicada' — fica
+        // acessível, mas fora do índice e da Home. Limiar calibrado no
+        // acervo (2026-10-17): pares reais >= 0,6; notas distintas <= 0,57.
+        const gemea = (contexto.recentes || []).find((r) => r.buddy_source === MATERIA_OWNEWS && r.buddy_summary &&
+          Math.min(similaridadeTextos(camadaIA.buddy_summary, r.buddy_summary).contencao, similaridadeTextos(r.buddy_summary, camadaIA.buddy_summary).contencao) >= 0.6);
+        if (gemea) { artigo.buddy_source = 'duplicada'; resultado.duplicadas_evento = (resultado.duplicadas_evento || 0) + 1; }
       }
 
       if (!camadaIA.ok) {

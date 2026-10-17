@@ -5492,7 +5492,7 @@ function validarImpactoOffshore(texto) {
    - qualquer outro valor: null (sem bloco editorial). */
 function resolverCamadaEditorial(artigo) {
   if (!artigo || !artigo.id) return null;
-  const ownews = artigo.buddy_source === MATERIA_OWNEWS;
+  const ownews = artigo.buddy_source === MATERIA_OWNEWS || artigo.buddy_source === 'duplicada';
   if (!ownews && artigo.buddy_source !== 'ia') return null;
   const opc = ownews ? { semFonte: true } : {};
   const resumo = artigo.buddy_summary ? sanearTextoPublicacao(artigo.buddy_summary) : null;
@@ -5810,7 +5810,9 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
     const setBase = new Set(base);
     const ancoras = (t.match(/\b([A-ZÀ-Ú][\wÀ-ú-]{2,}|\d[\d.,]*)/g) || []).slice(1)
       .map((x) => q21Tokens(x)[0]).filter(Boolean);
-    if (!ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
+    // semFonte (exibição de matéria OWNews): a âncora já foi conferida
+    // contra a fonte na geração; o corpo OWNews é síntese e pode omitir nomes.
+    if (!o.semFonte && !ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
   }
   return { ok: m.length === 0, motivos: m };
 }
@@ -5912,7 +5914,21 @@ function validarMateriaOWNews(mat, artigo, fonte) {
   if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
   if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
   if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  // Impacto que só diz que "não afeta o offshore" não é impacto útil: a
+  // nota não tem relevância offshore suficiente para ser publicada.
+  if (impacto && /^\s*(n[aã]o|nada|sem) (afeta|altera|toca|envolve|muda|mexe|atinge|interfere)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
   return { ok: motivos.length === 0, motivos, buddy_summary: buddy, why_it_matters: impacto, corpo };
+}
+/* Título em inglês (press release publicado sem tradução): sem acento do
+   português, sem palavra funcional do português e com palavra funcional ou
+   verbo típico de release em inglês. */
+const Q4_EN_TITULO = new Set('the and of for with its to in on at from by into signs announces reports completes receives awarded wins intends delivers enters secures expands launches growing year'.split(' '));
+const Q4_PT_TITULO = new Set('de da do das dos em no na nos nas com para por que um uma ao aos se sobre entre ou e o a os as'.split(' '));
+function tituloEmIngles(titulo) {
+  const t = String(titulo || '');
+  if (/[ãõçáéíóúâêôà]/i.test(t)) return false;
+  const w = t.toLowerCase().match(/[a-z]+/g) || [];
+  return w.some((x) => Q4_EN_TITULO.has(x)) && !w.some((x) => Q4_PT_TITULO.has(x));
 }
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
    - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
@@ -5932,7 +5948,11 @@ function classificarIndexacaoNoticia(artigo, camada) {
   if (artigo && artigo.buddy_source === 'ia_fora_escopo') motivos.push('fora_escopo');
   if (motivos.length) return { estado: 'DESCARTAR', motivos };
   if (artigo.buddy_source === 'insuficiente') return { estado: 'NOINDEX', motivos: ['material_insuficiente'] };
+  // Mesmo fato já publicado a partir de outra fonte: texto OWNews continua
+  // acessível, mas só uma nota por evento entra no índice.
+  if (artigo.buddy_source === 'duplicada') return { estado: 'NOINDEX', motivos: ['duplicada'] };
   if (artigo.buddy_source !== MATERIA_OWNEWS) return { estado: 'EDITORIAL_INCOMPLETE', motivos: ['sem_materia_ownews'] };
+  if (tituloEmIngles(titulo)) motivos.push('titulo_ingles');
   if (!camada || !camada.buddy_summary) motivos.push('sem_buddy_valido');
   if (!camada || !camada.why_it_matters) motivos.push('sem_impacto_valido');
   if (!camada || !camada.corpo) motivos.push('sem_corpo_ownews');
