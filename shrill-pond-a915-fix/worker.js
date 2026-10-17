@@ -3709,8 +3709,10 @@ function numerosSustentadosPelaFonte(texto, fonte) {
    { ok:true, buddy_summary, why_it_matters|null, relacao }   — aprovado
    { ok:false, relacao, motivos }                              — reprovado (não publicar)
    { ok:false, erro }                                          — falha técnica (tentar depois) */
-async function gerarCamadaEditorialIA(env, artigo, materialFonte) {
+const BUDDY_IA_MOTIVOS_REESCRITA = new Set(['copia_fonte', 'copia_lead', 'copia_titulo', 'frases_1', 'frase_redundante']);
+async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
+  const t = tentativa || 1;
   const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 3500);
   if (material.length < 120) return { ok: false, relacao: null, motivos: ['sem_material'] };
   let saida;
@@ -3718,10 +3720,11 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte) {
     saida = await env.AI.run(BUDDY_IA_MODELO, {
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
-        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material }
+        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material +
+          (t > 1 ? '\n\nATENÇÃO: a versão anterior copiou trechos da matéria ou ficou curta. Escreva o buddy em 2 ou 3 frases com vocabulário e ordem próprios — nenhuma sequência de mais de 5 palavras igual ao texto.' : '') }
       ],
       max_tokens: 450,
-      temperature: 0.2
+      temperature: t > 1 ? 0.6 : 0.2
     });
   } catch (e) {
     return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
@@ -3735,14 +3738,19 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte) {
   const vb = buddy ? validarBuddyPublicavel(buddy, artigo, { fonte: material }) : { ok: false, motivos: ['buddy_vazio'] };
   const motivos = vb.motivos.slice();
   if (buddy && !numerosSustentadosPelaFonte(buddy, fonteCompleta)) motivos.push('numero_sem_fonte');
-  if (motivos.length) return { ok: false, relacao, motivos };
+  if (motivos.length) {
+    // Uma única segunda tentativa quando a reprovação é só de forma (cópia
+    // ou nº de frases) — o gate não é afrouxado, só se pede outra redação.
+    if (t === 1 && motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.has(m))) return gerarCamadaEditorialIA(env, artigo, materialFonte, 2);
+    return { ok: false, relacao, motivos, tentativas: t };
+  }
   let impacto = null;
   if (relacao === 'direta' && j.impacto) {
     const imp = sanearTextoPublicacao(String(j.impacto));
     const vi = validarImpactoPublicavel(imp, artigo, buddy, { fonte: material });
     if (vi.ok && numerosSustentadosPelaFonte(imp, fonteCompleta)) impacto = imp;
   }
-  return { ok: true, buddy_summary: buddy, why_it_matters: impacto, relacao };
+  return { ok: true, buddy_summary: buddy, why_it_matters: impacto, relacao, tentativas: t };
 }
 
 /* Retroprocessamento do acervo (BuddyIAPoller e rota admin). Processa as
@@ -3750,11 +3758,13 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte) {
    < 400 caracteres) é marcada sem_material — não tem como virar INDEXABLE.
    Nunca apaga o texto antigo: matéria reprovada recebe buddy_source
    'ia_rejeitado'/'ia_fora_escopo' e o frontend oculta o bloco. */
-async function retroprocessarCamadaIA(env, limite) {
+async function retroprocessarCamadaIA(env, limite, incluirRejeitados) {
   const max = Math.max(1, Math.min(limite || 5, 12));
   const out = { consultados: 0, aprovados: 0, rejeitados: 0, fora_escopo: 0, thin: 0, erros: 0, interrompido: null, detalhes: [] };
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) { out.interrompido = 'supabase_nao_configurado'; return out; }
-  const filtro = 'or=(buddy_source.is.null,buddy_source.not.in.(ia,ia_rejeitado,ia_fora_escopo,sem_material))';
+  const filtro = incluirRejeitados
+    ? 'buddy_source=eq.ia_rejeitado'
+    : 'or=(buddy_source.is.null,buddy_source.not.in.(ia,ia_rejeitado,ia_fora_escopo,sem_material))';
   const resp = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content&status=eq.published&${filtro}&order=published_at.desc&limit=40`, { headers: supabaseHeaders(env) });
   if (!resp.ok) { out.interrompido = 'select_http_' + resp.status; return out; }
   const artigos = await resp.json();
@@ -3769,8 +3779,8 @@ async function retroprocessarCamadaIA(env, limite) {
       out.thin++;
     } else {
       processados++;
-      subreq++;
       const r = await gerarCamadaEditorialIA(env, a, corpo);
+      subreq += r.tentativas || 1;
       if (r.erro) { out.erros++; out.interrompido = r.erro; break; }
       if (r.ok) { patch = { buddy_summary: r.buddy_summary, why_it_matters: r.why_it_matters, buddy_source: 'ia' }; out.aprovados++; }
       else if (r.relacao === 'nenhuma') { patch = { buddy_source: 'ia_fora_escopo' }; out.fora_escopo++; }
@@ -3803,13 +3813,13 @@ export class BuddyIAPoller {
     const alarme = await this.state.storage.getAlarm();
     if (!alarme) await this.state.storage.setAlarm(Date.now() + 60000);
   }
-  async rodar(limite, ignorarTeto) {
+  async rodar(limite, ignorarTeto, incluirRejeitados) {
     const dia = new Date().toISOString().slice(0, 10);
     const chave = 'feitos:' + dia;
     const feitos = (await this.state.storage.get(chave)) || 0;
     const restante = ignorarTeto ? limite : Math.min(limite, BUDDY_IA_TETO_DIA - feitos);
     if (restante <= 0) return { pulado: 'teto_diario', feitos };
-    const r = await retroprocessarCamadaIA(this.env, restante);
+    const r = await retroprocessarCamadaIA(this.env, restante, incluirRejeitados);
     const gastos = r.aprovados + r.rejeitados + r.fora_escopo;
     await this.state.storage.put(chave, feitos + gastos);
     await this.state.storage.put('ultimo', { em: new Date().toISOString(), aprovados: r.aprovados, rejeitados: r.rejeitados, fora_escopo: r.fora_escopo, thin: r.thin, erros: r.erros, interrompido: r.interrompido });
@@ -3820,7 +3830,7 @@ export class BuddyIAPoller {
     const url = new URL(request.url);
     if (url.pathname === '/rodar') {
       const limite = Math.min(parseInt(url.searchParams.get('limite') || '5', 10) || 5, 12);
-      return Response.json(await this.rodar(limite, url.searchParams.get('ignorar_teto') === '1'));
+      return Response.json(await this.rodar(limite, url.searchParams.get('ignorar_teto') === '1', url.searchParams.get('rejeitados') === '1'));
     }
     return Response.json({ ok: true, ultimo: (await this.state.storage.get('ultimo')) || null, feitos_hoje: (await this.state.storage.get('feitos:' + new Date().toISOString().slice(0, 10))) || 0 });
   }
