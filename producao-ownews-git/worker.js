@@ -145,6 +145,9 @@ function classificarPaginaParaAds(caminho) {
    disciplina de fonte oficial → verificação → publicação. Nunca vaga
    inventada, nunca contador inflado.
    ========================================================================= */
+// Home 3.0: resumo institucional da fonte nunca vira deck (Home, /noticia).
+const RE_LEAD_INSTITUCIONAL = /[Rr]evista fundada em [0-9]{4}|^[Ii]nforma[çc][ãa]o publicada (pela|por) |^[Nn]ot[ií]cias sobre [Pp]ortos, [Mm]arinha [Mm]ercante|^[a-zà-ú][a-zà-ú ]*(, [a-zà-ú ]+){2,}\.?$/;
+const deckEditorial = (s, max) => { const t = String(s || '').trim(); return !t || RE_LEAD_INSTITUCIONAL.test(t) ? '' : t.length > max ? t.slice(0, max).trim() + '…' : t; };
 // S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
 const AEROPORTOS_COLLECTOR_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
 const AEROPORTOS_LISTA_SERVIDOR = [
@@ -1313,11 +1316,6 @@ header{
   .mo-strip{display:flex;flex-wrap:nowrap;overflow-x:auto}
   #moStrip .mo-card{min-width:160px;flex:1 1 160px;max-width:200px}
 }
-.giro-embarque-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-.giro-embarque-item{flex:0 0 min(290px,82vw);padding:12px 14px;border:1px solid var(--line-soft);border-radius:8px;background:var(--navy-900)}
-.giro-embarque-meta{display:block;font:700 10px var(--ui);letter-spacing:.05em;text-transform:uppercase;color:var(--cyan-dim);margin-bottom:6px}
-.giro-embarque-item a{font:600 15px/1.3 var(--editorial);color:var(--white)}
-.giro-embarque-data{display:block;margin-top:7px;font:11px var(--ui);color:var(--muted-dim)}
 
 .ops-detail{
   margin-top:8px;padding:14px 16px;border-radius:8px;
@@ -1334,9 +1332,17 @@ header{
 .ops-detail-body{margin-top:10px;font-size:13px;color:var(--muted)}
 .ops-detail-body strong{color:var(--white)}
 .ops-detail-condicao{font-size:15px;color:var(--white);font-weight:600}
-.ops-detail-status{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted)}
+.ops-detail-status{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:6px;font-size:12px;color:var(--muted)}
 .ops-detail-status .dot{width:7px;height:7px;border-radius:50%;flex:none}
-.ops-detail-atualizacao{margin-top:6px;font-size:11px;color:var(--muted-dim)}
+.ops-detail-atualizacao{font-size:11px;color:var(--muted-dim)}
+.ops-met{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;max-width:620px}
+.ops-met div{padding:7px 9px;border-radius:6px;background:var(--navy-800);border:1px solid var(--line-hair);min-width:0}
+.ops-met span{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-dim)}
+.ops-met strong{display:block;margin-top:2px;font-size:13px;font-weight:600;color:var(--white);overflow-wrap:anywhere}
+.ops-aviso{margin-top:8px;font-size:12px;color:var(--yellow);line-height:1.4}
+.ops-metar{margin-top:8px;font:11px/1.45 var(--mono);color:var(--muted);overflow-wrap:anywhere;white-space:pre-line}
+.ops-taf{margin-top:6px;font-size:11px;color:var(--muted-dim)}
+.ops-taf summary{cursor:pointer;padding:6px 0}
 /* OFFVoos: referência mínima, só aparece aqui dentro do painel, depois do
    usuário interagir com o aeroporto — nunca destaque, nunca independente. */
 .ops-detail-offvoos{
@@ -1469,16 +1475,18 @@ html.embarcado header{backdrop-filter:none}
   .masthead.one-lateral,.masthead.two-laterais,.masthead.three-laterais{grid-template-columns:1fr}
   .masthead.one-lateral .highlight .thumb{height:180px}
 }
-/* Ordem mobile (max-width:759px): Minha Escala → Aeroportos → Giro 24h
-   → 4 acessos (Telegram/Vagas/Embarcado/Redes) → resto em DOM.
-   Desktop (760px+) usa a ordem do DOM. */
-@media(max-width:759px){
-  #conteudo{display:flex;flex-direction:column}
-  #minhaEscalaHome{order:-5}
-  #aeroportos{order:-4}
-  #giro24h{order:-3}
-  #accessRow{order:-2}
-}
+/* Home 3.0: mobile segue a ordem do DOM, igual ao desktop — Utilidades →
+   Giro 24h → Aeroportos → Mercado Agora → Aconteceu no Offshore. */
+@media(max-width:759px){#conteudo{display:flex;flex-direction:column}}
+/* Aconteceu no Offshore: entrada editorial do bloco principal */
+.aconteceu-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px;margin:26px 0 14px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.aconteceu-head h2{margin:0;font:800 15px/1.25 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--white)}
+.aconteceu-head h2::before{content:"";display:inline-block;width:4px;height:13px;margin-right:9px;border-radius:2px;background:var(--cyan);vertical-align:-1px}
+.aconteceu-head p{margin:0;font:13.5px/1.4 var(--editorial);color:var(--muted)}
+/* Títulos longos: limite generoso só no bloco principal e em Mercado & Energia */
+#destaque .lead h1,#destaque .highlight h2,#mercado h3{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+#mercado .row-main h3{-webkit-line-clamp:3}
+@media(min-width:760px){.lead h1{font-size:clamp(26px,2.2vw,32px)}}
 
 /* ---------- seções editoriais ---------- */
 .ed-section{margin-top:52px}
@@ -1519,26 +1527,25 @@ html.embarcado header{backdrop-filter:none}
   .latest-feature h3{font-size:27px}
 }
 
-/* Mercado & Energia: assimétrico, item maior + lista compacta ao lado */
-.market-body{display:grid;gap:26px}
-.market-body.market-count-1{grid-template-columns:1fr}
-/* Etapa 3 (2026-09-24, "Evolução do Portal"): antes, com só 1 secundária
-   (market-count-2), a coluna direita ficava com o item colado no topo e
-   um vão vazio grande abaixo (a coluna esticava pra acompanhar a altura
-   da matéria principal, mas o conteúdo real era baixo). Com 2-3
-   secundárias, distribui o espaço entre elas (nunca duplica notícia nem
-   estica visualmente o card em si — só a distribuição vertical). */
-.market-body.market-count-2 .row-list{justify-content:flex-start}
-.market-body.market-count-3 .row-list,
-.market-body.market-count-4 .row-list{justify-content:flex-start}
+/* Mercado & Energia (Home 3.0): editoria especializada — destaque médio
+   horizontal + até 3 notas compactas em linha; nunca repete o hero. */
+.market-body{display:grid;gap:16px}
 .market-feature{display:grid;gap:12px;cursor:pointer}
-.market-feature .thumb{width:100%;aspect-ratio:16/9;border-radius:8px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}
-.market-feature h3{font-size:22px;line-height:1.18;font-weight:600}
-.market-feature p{font-family:var(--editorial);font-size:15px;line-height:1.5;color:var(--muted)}
+.market-feature .thumb{width:100%;aspect-ratio:16/9;max-height:190px;border-radius:8px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}
+.market-feature .eyebrow{margin-bottom:6px}
+.market-feature h3{font-size:20px;line-height:1.22;font-weight:600}
+.market-feature p{font-family:var(--editorial);font-size:14.5px;line-height:1.5;color:var(--muted);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.market-feature .byline{display:block;margin-top:8px}
+.market-body .row-list{border-top:1px solid var(--line-hair)}
+.market-body .row-list:empty{display:none}
 @media(min-width:760px){
-  .market-body{grid-template-columns:1fr 1fr;gap:40px}
-  .market-body.market-count-2,.market-body.market-count-3,.market-body.market-count-4{align-items:start}
-  .market-feature h3{font-size:25px}
+  .market-feature{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:26px;align-items:center}
+  .market-feature .thumb{aspect-ratio:16/10;max-height:250px}
+  .market-feature h3{font-size:23px}
+  .market-body .row-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;padding-top:18px}
+  .market-body .row{border-top:0;padding:0;align-items:flex-start}
+  .market-body .row-thumb{width:84px;height:62px}
+  .market-body .row-main h3{font-size:15px}
 }
 
 /* Operações Offshore: trilho horizontal cinematográfico */
@@ -2012,6 +2019,8 @@ a.eco-row:hover .eco-row-mark{color:var(--cyan-dim)}
   font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.07em;
   color:var(--navy-950);background:var(--cyan-dim);padding:0 9px;white-space:nowrap;
 }
+.ticker-head::before{content:"";width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--navy-950);animation:giroPulso 2s ease-in-out infinite}
+@keyframes giroPulso{50%{opacity:.3}}
 .ticker-viewport{flex:1 1 auto;overflow:hidden;position:relative;height:30px;min-width:0}
 .ticker-track{
   position:absolute;top:0;left:0;display:flex;align-items:center;height:30px;
@@ -2026,6 +2035,7 @@ a.eco-row:hover .eco-row-mark{color:var(--cyan-dim)}
 .ticker-item.ticker-vazio{border-right:0;color:var(--muted-dim);font-style:italic}
 @keyframes tickerScroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
 @media (prefers-reduced-motion: reduce){
+  .ticker-head::before{animation:none}
   .ticker-track{animation:none;position:static;overflow-x:auto;max-width:100%}
   .ticker-viewport{overflow-x:auto}
 }
@@ -2793,7 +2803,8 @@ ${CSS_TEMA_CLARO}
     <div class="ma-strip" id="maStrip"></div>
   </section>
 
-  <section class="masthead" id="destaque" aria-label="Destaque">
+  <div class="aconteceu-head" id="aconteceuHead"><h2 id="aconteceuTitulo">Aconteceu no Offshore</h2><p>As principais movimentações do setor nas últimas horas.</p></div>
+  <section class="masthead" id="destaque" aria-labelledby="aconteceuTitulo">
     <article class="lead" id="heroCard"></article>
     <aside class="highlights" id="highlightsList"></aside>
   </section>
@@ -2841,15 +2852,6 @@ ${CSS_TEMA_CLARO}
       </div>
     </div>
   </div>
-
-  <a class="me-home-card" id="agendaHomeCard" href="/agenda" style="margin-top:10px" hidden>
-    <span class="me-home-icone" aria-hidden="true">📅</span>
-    <span class="me-home-corpo">
-      <span class="me-home-status" id="agendaHomeLabel">PRÓXIMO EVENTO</span>
-      <span class="me-home-alerta" id="agendaHomeLista"></span>
-    </span>
-    <span class="me-home-cta">Ver Agenda →</span>
-  </a>
 
   <section class="ed-section" id="mercado">
     <div class="ed-head"><h2>Mercado &amp; Energia</h2><span class="ed-sub">Royalties, leilões e regulação</span></div>
@@ -3564,7 +3566,7 @@ function aeroportosMapFromApi(retorno){
   const lista = Array.isArray(retorno && retorno.aeroportos) ? retorno.aeroportos : [];
   lista.forEach(item => {
     const info = Array.isArray(item.dados) ? item.dados : [];
-    if (info[0]) map[info[0]] = { status: info[4], clima: item.clima || {}, offvoos: item.offvoos || null };
+    if (info[0]) map[info[0]] = { status: info[4], clima: item.clima || {}, offvoos: item.offvoos || null, bruto: typeof info[5] === 'string' ? info[5] : '' };
   });
   return map;
 }
@@ -3600,6 +3602,22 @@ function mostrarDetalheAeroporto(codigo, manterAberto){
   const linha = partes.length ? partes.join(' · ') : 'Sem dados';
   const atualizacao = clima.horarioUTC ? \`Observação atualizada às \${escaparHTML(clima.horarioUTC)}\` : '';
   const status = rotuloStatus(info.status);
+  // Home 3.0: campos REDEMET já recebidos (vento/visibilidade/teto + METAR,
+  // TAF e aviso brutos) voltam ao painel — só o que veio de fato.
+  const met = [];
+  if (climaConfirmado(clima)) {
+    if (clima.vento) met.push(['Vento', String(clima.vento).replace('/', ' · ')]);
+    if (clima.visibilidade) met.push(['Visibilidade', clima.visibilidade]);
+    if (clima.teto) met.push(['Teto', clima.teto]);
+  }
+  const blocos = String(info.bruto || '').split(/\\n\\s*\\n/).map(t => t.trim()).filter(Boolean);
+  const metar = blocos.find(t => /^(METAR|SPECI) /.test(t));
+  const taf = blocos.find(t => /^TAF /.test(t));
+  const aviso = blocos.find(t => !/^(METAR|SPECI|TAF) /.test(t) && !/^N[ãa]o h[áa] aviso/i.test(t));
+  const blocoMet = (met.length ? '<div class="ops-met">' + met.map(m => '<div><span>' + m[0] + '</span><strong>' + escaparHTML(m[1]) + '</strong></div>').join('') + '</div>' : '') +
+    (aviso ? '<div class="ops-aviso">⚠ ' + escaparHTML(aviso) + '</div>' : '') +
+    (metar ? '<div class="ops-metar">' + escaparHTML(metar) + '</div>' : '') +
+    (taf ? '<details class="ops-taf"><summary>Previsão (TAF)</summary><div class="ops-metar">' + escaparHTML(taf) + '</div></details>' : '');
 
   // Operação (OffVoos) — item 27/28: nunca mostra métrica com dado velho
   // como se fosse ao vivo, nunca quebra o painel se o dado não existir.
@@ -3639,8 +3657,8 @@ function mostrarDetalheAeroporto(codigo, manterAberto){
     </div>
     <div class="ops-detail-body">
       <div class="ops-detail-condicao">\${linha}</div>
-      <div class="ops-detail-status"><span class="dot \${status.classe}"></span>\${status.texto}</div>
-      \${atualizacao ? \`<div class="ops-detail-atualizacao">\${atualizacao}</div>\` : ''}
+      <div class="ops-detail-status"><span class="dot \${status.classe}"></span>\${status.texto}\${atualizacao ? ' · <span class="ops-detail-atualizacao">' + atualizacao + '</span>' : ''}</div>
+      \${blocoMet}
     </div>
     \${blocoOperacao}
   \`;
@@ -3995,6 +4013,8 @@ function truncar(texto, max){
   const t = String(texto || '').trim();
   return t.length > max ? t.slice(0, max).trim() + '…' : t;
 }
+const RE_LEAD_INST = new RegExp(${JSON.stringify(RE_LEAD_INSTITUCIONAL.source)});
+function deckDe(n, max){ const t = String(n.summary || '').trim(); return !t || RE_LEAD_INST.test(t) ? '' : truncar(t, max); }
 function dataPublicacaoReal(iso){
   const d = new Date(iso);
   return Number.isFinite(d.getTime()) ? d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) : 'Data não informada';
@@ -4009,7 +4029,7 @@ function renderHero(noticia){
     <div class="lead-copy"><div class="card-copy-inner">
       <span class="eyebrow">\${cartaoFonte(noticia)} · Destaque</span>
       <h1>\${escaparHTML(noticia.title)}</h1>
-      <p>\${escaparHTML(truncar(noticia.summary, 130))}</p>
+      \${deckDe(noticia, 130) ? '<p>' + escaparHTML(deckDe(noticia, 130)) + '</p>' : ''}
       <span class="byline">\${indicadorAtualidade(noticia.published_at)}\${tempoRelativo(noticia.published_at)}</span>
     </div></div>\`;
   hero.onclick = () => { window.location.href = '/noticia?id=' + encodeURIComponent(noticia.id); };
@@ -4067,7 +4087,7 @@ function renderUltimas(lista){
       <div class="thumb" \${capaAtributos(img)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, false)}</div>
       <span class="eyebrow">\${cartaoFonte(destaque)}</span>
       <h3>\${escaparHTML(destaque.title)}</h3>
-      <p>\${escaparHTML(destaque.summary)}</p>
+      \${deckDe(destaque, 400) ? '<p>' + escaparHTML(deckDe(destaque, 400)) + '</p>' : ''}
       <span class="byline">\${tempoRelativo(destaque.published_at)}</span>
     </article>
     <div class="row-list">
@@ -4092,10 +4112,12 @@ function renderMercado(lista, fallbackEditorial){
   el.innerHTML = \`
     <article class="market-feature" onclick="\${irPara(destaque.id)}">
       <div class="thumb" \${capaAtributos(img)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, false)}</div>
+      <div class="market-feature-copy">
       <span class="eyebrow">\${cartaoFonte(destaque)}</span>
       <h3>\${escaparHTML(destaque.title)}</h3>
-      <p>\${escaparHTML(destaque.summary)}</p>
+      \${deckDe(destaque, 170) ? '<p>' + escaparHTML(deckDe(destaque, 170)) + '</p>' : ''}
       <span class="byline">\${fallbackEditorial ? 'Publicado em ' + dataPublicacaoReal(destaque.published_at) : tempoRelativo(destaque.published_at)}</span>
+      </div>
     </article>
     <div class="row-list">
       \${resto.map(renderRowItem).join('')}
@@ -4331,22 +4353,6 @@ function ehBreakingNews(n){
   return PALAVRAS_BREAKING_URGENTE.some(p => t.includes(p));
 }
 
-function renderGiroEmbarque(lista){
-  const section = document.getElementById('giroEmbarque');
-  const el = document.getElementById('giroEmbarqueList');
-  if (!section || !el) return;
-  const seen = new Set();
-  const itens = lista.filter(n => {
-    const h = (Date.now() - new Date(n.published_at).getTime()) / 3600000;
-    const chave = (n.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    if (!Number.isFinite(h) || h < 0 || h > 24 || !chave || seen.has(chave)) return false;
-    seen.add(chave); return true;
-  }).slice(0, 5);
-  if (!itens.length) { section.hidden = true; el.innerHTML = ''; return; }
-  section.hidden = false;
-  el.innerHTML = itens.map(n => '<article class="giro-embarque-item"><span class="giro-embarque-meta">' + escaparHTML(editoriaDe(n)) + '</span><a href="/noticia?id=' + encodeURIComponent(n.id) + '">' + escaparHTML(truncar(n.title, 110)) + '</a><span class="giro-embarque-data">Publicado em ' + escaparHTML(dataPublicacaoReal(n.published_at)) + '</span></article>').join('');
-}
-
 /* Em empate de horário, fica a matéria que já vinha primeiro — a lista
    chega ordenada por published_at desc, então o empate sempre resolve
    pra mais recente, nunca de forma imprevisível entre execuções. */
@@ -4396,8 +4402,6 @@ function renderTudo(noticias){
     if (laterais) laterais.innerHTML = '';
     const giro = document.getElementById('tickerTrack');
     if (giro) giro.innerHTML = '<span class="ticker-item ticker-vazio">Sem notícia publicada nas últimas 48 horas.</span>';
-    const giroEmbarque = document.getElementById('giroEmbarque');
-    if (giroEmbarque) giroEmbarque.hidden = true;
     return;
   }
   jornalismo.forEach(id => { const el = id === '__giro__' ? giroWrap : document.getElementById(id); if (el) el.hidden = false; });
@@ -4976,36 +4980,8 @@ setInterval(carregarMaisLidas, DEZ_MINUTOS);
   if (utilRow) utilRow.addEventListener('click', () => evt('atalho_utilitario_clique'));
 })();
 
-/* Agenda Offshore — chamada discreta na Home (Etapa 23.4). Calculada no
-   CLIENTE (não no template do servidor): o template literal do HTML da
-   Home é avaliado uma única vez na inicialização do isolate, então
-   new Date() ali dentro reflete o momento do build/isolate, não o
-   request real — mesma armadilha já resolvida para o card de Minha
-   Escala. Por isso o card nasce hidden no HTML e só aparece aqui, com a
-   data real do navegador. Lista replicada de AGENDA_EVENTOS (server). */
-(function () {
-  const card = document.getElementById('agendaHomeCard');
-  const listaEl = document.getElementById('agendaHomeLista');
-  const labelEl = document.getElementById('agendaHomeLabel');
-  if (!card || !listaEl) return;
-  const EVENTOS = ${JSON.stringify(AGENDA_EVENTOS.map((e) => ({ slug: e.slug, nome: e.nome, dataInicio: e.dataInicio, dataFim: e.dataFim, cidade: e.cidade, pais: e.pais })))};
-  function fmtData(iso) {
-    const [, mes, dia] = iso.split('-');
-    const M = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    return dia + ' ' + M[parseInt(mes, 10) - 1];
-  }
-  const agora = new Date();
-  const hoje = agora.getFullYear() + '-' + String(agora.getMonth()+1).padStart(2,'0') + '-' + String(agora.getDate()).padStart(2,'0');
-  const proximos = EVENTOS.filter((ev) => hoje <= ev.dataFim).sort((a,b) => a.dataInicio.localeCompare(b.dataInicio)).slice(0,3);
-  if (!proximos.length) return;
-  if (labelEl) labelEl.textContent = proximos.length === 1 ? 'PRÓXIMO EVENTO' : 'PRÓXIMOS EVENTOS';
-  listaEl.innerHTML = proximos.map((ev) => {
-    const loc = ev.pais === 'Brasil' ? ev.cidade : ev.cidade + ', ' + ev.pais;
-    return '<span style="display:block"><b style="color:var(--cyan)">' + fmtData(ev.dataInicio) + '</b> · ' + ev.nome + ' · ' + loc + '</span>';
-  }).join('');
-  card.hidden = false;
-})();
-
+/* Home 3.0 (Etapa 1): faixa horizontal de Próximos Eventos saiu da Home;
+   Agenda (/agenda, AGENDA_EVENTOS) intacta — reposicionada na Etapa 2. */
 /* Offline (Fase A) — nunca finge que o cache é atual: mostra o horário
    real da última atualização bem-sucedida. Usa só o que já está na
    memória do próprio carregamento (sem Service Worker/cache de disco
@@ -6322,7 +6298,7 @@ function homeSsrMarkup(selecao, agora) {
     '<div class="lead-copy"><div class="card-copy-inner">' +
     '<span class="eyebrow">' + escaparHTML(editoriaDeServidor(h)) + ' · Destaque</span>' +
     '<h1>' + escaparHTML(h.title) + '</h1>' +
-    '<p>' + escaparHTML(String(h.summary || '').trim().length > 130 ? String(h.summary).trim().slice(0, 130).trim() + '…' : String(h.summary || '').trim()) + '</p>' +
+    (deckEditorial(h.summary, 130) ? '<p>' + escaparHTML(deckEditorial(h.summary, 130)) + '</p>' : '') +
     '<span class="byline">' + tempo(h) + '</span>' +
     '</div></div></a>';
   const laterais = selecao.laterais.map((n) =>
@@ -6341,7 +6317,7 @@ function homeSsrMarkup(selecao, agora) {
       homeSsrCapa(d, 'thumb') +
       '<span class="eyebrow">' + escaparHTML(editoriaDeServidor(d)) + '</span>' +
       '<h3>' + escaparHTML(d.title) + '</h3>' +
-      '<p>' + escaparHTML(d.summary || '') + '</p>' +
+      (deckEditorial(d.summary, 400) ? '<p>' + escaparHTML(deckEditorial(d.summary, 400)) + '</p>' : '') +
       '<span class="byline">' + tempo(d) + '</span></a></article>' +
       '<div class="row-list">' +
       resto.map((n) =>
@@ -23011,7 +22987,7 @@ export default {
       // institucional do site ("Revista fundada em 1958", "Informação
       // publicada pela Agência Petrobras..."). Não é lead: não aparece como
       // subtítulo nem vira meta description.
-      const leadEhBoilerplate = /revista fundada em \d{4}|^informa[çc][ãa]o publicada (pela|por)\b|^not[ií]cias sobre portos, marinha mercante/i.test(String(artigo.summary || '').trim());
+      const leadEhBoilerplate = RE_LEAD_INSTITUCIONAL.test(String(artigo.summary || '').trim());
       const descricaoNoticia = descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || (!leadEhBoilerplate && artigo.summary) || artigo.title || '', 160);
       const jsonLdArtigo = {
         "@context": "https://schema.org",
