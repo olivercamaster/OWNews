@@ -3825,3 +3825,19 @@ Nenhum no momento. Continuar autonomamente.
 - DEPLOY: `ownews-git` `8e85ab1d-d0d2-45e0-85de-b3aa6888209f` → `5f4b5a5a-225e-422a-83e9-82e413eb0bd4`; rollback `4de4dc62-d75f-461f-8ecf-60d3f8b569f7`.
 - NOTA: Home tem cache de borda de 300s (`respostaCacheada`) — validar produção só após `X-OWNews-Cache: MISS` ou expirar.
 - PENDENTE: hero SSR ≠ hero cliente (SSR escolhe por score, cliente por recência/breaking) — troca visível após hidratar; não tratado (lógica de recência fora do escopo).
+
+## 2026-10-17 — AdSense Readiness 3.0 (faxina + UX + indexação)
+- SALÁRIOS: `SALARIOS_PUBLICO=false` — fora de menus, busca, Central, funções, IA e sitemap; `/salarios*` e `/pesquisa-salarial` respondem 200 com `noindex,follow`. Código/dados/DO preservados.
+- REDIRECTS 301: `/calculadora-embarque`→`/minha-escala`; `/horarios`→`/offshore-agora#horarios` (bloco "Hora nos polos"); `/ferramentas`→`/central-offshore` (novo hub por necessidade).
+- NOINDEX (`PAGINAS_FORA_DO_INDICE`): salários, pesquisa-salarial, cursos, conversor, pergunte-ao-ownews, buscar, meus-alertas, meu-ownews, central-do-trabalhador, newsletter.
+- INDEXAÇÃO: radar exige ≥260 chars de descrição (sem a nota "Não foi localizado código") + ≥4 campos técnicos, ou ≥400 (66→44); funções ≥900 chars próprios (38→36). Sitemap 273→242 URLs, todas 200 sem noindex.
+- CHROME: barra superior removida; logo → `/` + topo (Home: scrollTo); menu "Mais" único `MENU_MAIS_ITENS`; rodapé único `FOOTER_HTML`; `SVG_IG` deduplicado.
+- TEMA CLARO: background do body era inválido (vírgulas duplicadas `,,`) — marcas d'água voltaram; OW mark 5,5%.
+- IMAGENS: `CAPAS_EDITORIAIS` (SVG próprio por editoria) substitui fotos de outras unidades; `DOMINIOS_IMAGEM_SEM_HOTLINK=['sindipetronf.org.br']` (responde 200 com PNG de bloqueio de 12.890 bytes quando o Referer é externo). og:image sem foto → `/icons/icon-512.png`.
+- HERO: `selecaoCanonicaHome` — SSR embute `window.__HOME_SEL__`; refresh do cliente usa `/api/home-selecao` (cache de borda 120s, mesma função). SSR = cliente validado em produção.
+- MAIS LIDAS: origem = DO PageViews (SQLite), 1 acesso/sessão/30 min, robôs e webdriver excluídos, janela 7 dias, mínimo 3 → exibe "N acessos". Agenda compacta (3 eventos reais) ao lado.
+- PÁGINAS: Mercado por categoria (Energia/Moedas/Metais + 7 setores do snapshot); Offshore Agora 2 colunas + âncoras; Explica +11 aprofundamentos; Certificados/Checklist "Como funciona"; Glossário A–Z; Currículo 3 colunas (30/30 links 200); Contato/Sobre/Política/Termos sem contradições.
+- ads.txt: `google.com, pub-7540734255466089, DIRECT, f08c47fec0942fa0` (anúncios seguem desligados).
+- TESTES: guard 93/94 (falha pré-existente: Buddy em 4 templates — o 4º é a Newsletter); logic 67/67; editorial 53/53; qualidade 61/61; collector 63/63.
+- DEPLOY: `ownews-git` `a839588c` → `4c98fdc1-4939-452e-a99e-4a152c56b7d7`; rollback `5f4b5a5a-225e-422a-83e9-82e413eb0bd4`. Commits `654fe45`, `1e52f42`.
+- PENDENTE: fichas de Empresas seguem noindex (sem perfil com fonte); Minério de Ferro mostrou +20,99% no snapshot do coletor (provável rolagem de contrato — auditar no collector).
