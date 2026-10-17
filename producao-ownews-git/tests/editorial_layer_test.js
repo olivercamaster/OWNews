@@ -41,6 +41,8 @@ const explicaSrc = src.slice(explicaIni, explicaFim);
 
 // ── Extrai o módulo da camada editorial ──────────────────────────────────
 const camadaSrc = entre("/* ==== CAMADA EDITORIAL: INICIO ====", "/* ==== CAMADA EDITORIAL: FIM ==== */");
+// Missão AdSense 2.1: o resolver usa o gate QUALIDADE EDITORIAL 2.1.
+const qualidadeSrc = entre("/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====", "/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */");
 
 // Stubs do que o módulo usa de fora
 const escaparHTML = (s) => String(s == null ? "" : s)
@@ -51,8 +53,8 @@ const mod = new Function(
   "escaparHTML", "decodificarEntidadesHTMLServidor",
   explicaSrc + "\n" +
   "function explicaPorSlug(slug) { return EXPLICA_ARTIGOS.find((e) => e.slug === slug) || null; }\n" +
-  camadaSrc + "\n" +
-  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, gerarBuddySummaryFallback, avaliarQualidadeMateria, validarImpactoOffshore, gerarImpactoOffshoreFallback, ehCopiaDoLead };"
+  camadaSrc + "\n" + qualidadeSrc + "\n" +
+  "return { EXPLICA_ARTIGOS, BUDDY_FRASES_PROIBIDAS, validarTextoCamadaEditorial, CAMADA_EDITORIAL_CURADA, explicaRelacionadosParaNoticia, resolverCamadaEditorial, blocoBuddyExplica, blocoEntendaMelhor, blocoProvenienciaNoticia, ehMateriaThin, formatarDataCurtaServidor, EXPLICA_GATILHOS_NOTICIA, classificarOrigemFonte, validarImpactoOffshore, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia };"
 )(escaparHTML, decodificarEntidadesHTMLServidor);
 
 // ── Mini runner ──────────────────────────────────────────────────────────
@@ -160,9 +162,12 @@ test("resolverCamadaEditorial prioriza curadoria sobre banco", () => {
   expect(c && c.fonte === "curadoria", "fonte=" + (c && c.fonte));
   expect(c.buddy_summary === mod.CAMADA_EDITORIAL_CURADA[idCurado].buddy_summary);
 });
-test("resolverCamadaEditorial aceita banco válido quando não há curadoria", () => {
+test("resolverCamadaEditorial aceita só banco escrito pela IA (legado extrativo oculto)", () => {
   const c = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000000", buddy_summary: "A unidade saiu do estaleiro na China rumo ao Brasil. A chegada ao campo está prevista para o ano que vem.", why_it_matters: null, buddy_reviewed_at: "2026-10-01T00:00:00Z" });
-  expect(c && c.fonte === "banco", "fonte=" + (c && c.fonte));
+  // 2.1: texto do banco sem buddy_source='ia' é extração legada — nunca exibido
+  expect(c === null, "legado exibido: " + (c && c.fonte));
+  const cIa = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-00000000000a", buddy_source: "ia", buddy_summary: "A unidade saiu do estaleiro na China rumo ao Brasil. A chegada ao campo está prevista para o ano que vem." });
+  expect(cIa && cIa.fonte === "ia", "fonte ia=" + (cIa && cIa.fonte));
 });
 test("resolverCamadaEditorial rejeita banco inválido (frase proibida)", () => {
   const c = mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000001", buddy_summary: "A empresa reforça seu compromisso com o setor e marca um novo capítulo na história offshore do país." });
@@ -170,41 +175,6 @@ test("resolverCamadaEditorial rejeita banco inválido (frase proibida)", () => {
 });
 test("resolverCamadaEditorial retorna null sem nada (sem content/summary para fallback)", () => {
   expect(mod.resolverCamadaEditorial({ id: "00000000-0000-0000-0000-000000000002" }) === null);
-});
-test("resolverCamadaEditorial fallback: usa conteúdo da matéria quando não há curadoria/banco", () => {
-  const artigo = {
-    id: "00000000-0000-0000-0000-000000000003",
-    title: "Petrobras anuncia contrato",
-    summary: "A Petrobras assinou contrato com a CHC para operações de helicóptero no campo de Búzios.",
-    content: "A Petrobras assinou um contrato de cinco anos com a CHC Helicopters para troca de equipes no campo de Búzios, na Bacia de Santos. A aeronave utilizada é um S-92 operando a partir de Maricá. O início das operações está previsto para junho de 2027.",
-  };
-  const c = mod.resolverCamadaEditorial(artigo);
-  expect(c !== null, "fallback deveria retornar camada");
-  expect(c.fonte === 'fallback', "fonte deve ser 'fallback', é: " + c.fonte);
-  expect(c.buddy_summary.length >= 40, "fallback muito curto");
-  // Impacto Offshore 1.0: fallback agora gera why_it_matters via gerarImpactoOffshoreFallback.
-  // Para artigo com Petrobras/Búzios, expected não-null. Se não-null, deve passar no validador.
-  if (c.why_it_matters !== null) {
-    expect(mod.validarImpactoOffshore(c.why_it_matters).ok, "why_it_matters do fallback não passa no validador: " + c.why_it_matters);
-  }
-  expect(mod.validarTextoCamadaEditorial(c.buddy_summary).ok, "fallback não passa no validador: " + c.buddy_summary);
-});
-test("resolverCamadaEditorial fallback: NÃO inventa fatos — só usa o que está no artigo", () => {
-  // O fallback não pode conter palavras que não estão no artigo
-  const artigo = {
-    id: "00000000-0000-0000-0000-000000000004",
-    title: "Empresa firma parceria",
-    content: "A Subsea7 firmou contrato de instalação de dutos com a Shell no Mar do Norte. O prazo é de 18 meses e o início está previsto para o segundo trimestre de 2027.",
-    summary: "A Subsea7 fechou contrato com a Shell."
-  };
-  const c = mod.resolverCamadaEditorial(artigo);
-  if (c && c.fonte === 'fallback') {
-    const palavrasArtigo = (artigo.content + ' ' + artigo.summary + ' ' + artigo.title).toLowerCase();
-    const palavrasFallback = c.buddy_summary.toLowerCase().replace(/[^\wà-ú\s]/g, ' ').split(/\s+/).filter(w => w.length > 5);
-    palavrasFallback.forEach(p => {
-      expect(palavrasArtigo.includes(p), "fallback contém palavra não presente no artigo: " + p);
-    });
-  }
 });
 test("ehMateriaThin: content === summary → thin", () => {
   const s = "A plataforma P-78 deixou o estaleiro em Singapura rumo ao campo de Búzios.";
@@ -246,31 +216,6 @@ test("blocoBuddyExplica vazio sem camada", () => {
 });
 test("blocoBuddyExplica vazio quando ambos os campos são null", () => {
   expect(mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: null }) === "", "deve retornar '' quando ambos null");
-});
-test("blocoBuddyExplica impacto-only: renderiza card de impacto quando só why_it_matters válido", () => {
-  const html = mod.blocoBuddyExplica({ buddy_summary: null, why_it_matters: "Isso representa mudança direta nas operações offshore.", revisado_em: null, fonte: 'banco' });
-  expect(html.includes("O que isso representa para o offshore?"), "título do card de impacto ausente");
-  expect(html.includes("mudança direta nas operações offshore"), "texto do impacto ausente");
-  expect(!html.includes('src="/icons/buddy-head.png"'), "mascote não deve aparecer no impacto-only");
-  expect(!html.includes("OWBuddy te explica"), "título do buddy não deve aparecer no impacto-only");
-  expect(html.includes('buddy-explica-porque-card--standalone'), "classe standalone ausente");
-});
-test("resolverCamadaEditorial: retorna impacto-only para artigo com why_it_matters no banco e buddy_summary null", () => {
-  const artigo = {
-    id: "id-impacto-only-9999",
-    title: "Petrobras assina contrato FPSO",
-    summary: "Petrobras assina FPSO.",
-    content: "Petrobras assinou FPSO.",  // conteúdo muito curto → gerarBuddySummaryFallback retorna null
-    buddy_summary: null,
-    why_it_matters: "Isso representa aumento de 15% na capacidade de produção offshore, afetando diretamente as contratações de operadores de planta."
-  };
-  const c = mod.resolverCamadaEditorial(artigo);
-  expect(c !== null, "camada não deve ser null quando DB tem why_it_matters válido");
-  if (c) {
-    expect(c.buddy_summary === null, "buddy_summary deve ser null no impacto-only");
-    expect(c.why_it_matters !== null && c.why_it_matters.length > 40, "why_it_matters ausente no impacto-only");
-    expect(c.fonte === 'banco', "fonte deve ser 'banco' no impacto-only: " + c.fonte);
-  }
 });
 test("blocoBuddyExplica linka a política editorial (#buddy-te-explica)", () => {
   const html = mod.blocoBuddyExplica({ buddy_summary: "Texto suficiente para o bloco aparecer normalmente.", why_it_matters: null, revisado_em: "2026-10-06" });
@@ -336,60 +281,11 @@ test("validarImpactoOffshore: aceita declaração honesta com limitação", () =
   const r = mod.validarImpactoOffshore("A informação envolve unidades FPSO, com participação de Petrobras. O anúncio não informa, neste momento, início de operações, mobilização de equipes ou geração de vagas.");
   expect(r.ok, "declaração honesta rejeitada: " + (r.motivo || ''));
 });
-test("gerarImpactoOffshoreFallback: artigo com Petrobras retorna texto não-nulo", () => {
-  const artigo = { title: "Petrobras anuncia novo contrato", summary: "A Petrobras fechou acordo de afretamento para o campo de Búzios.", content: "A Petrobras assinou contrato de afretamento de FPSO para o campo de Búzios no pré-sal da Bacia de Santos. O valor total do contrato não foi divulgado." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null && r.length > 40, "retornou null ou muito curto para artigo com Petrobras: " + r);
-  expect(r.includes("Petrobras") || r.includes("FPSO") || r.includes("pré-sal"), "texto não menciona nenhum elemento específico do artigo: " + r);
-});
-test("gerarImpactoOffshoreFallback: artigo com FPSO e subsea retorna texto com esses termos", () => {
-  const artigo = { title: "SBM Offshore entrega FPSO para operação", summary: "SBM Offshore concluiu a entrega do FPSO para uso em projeto subsea.", content: "A SBM Offshore entregou o FPSO ao operador. O projeto envolveu tecnologia subsea e risers de conexão no campo." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null, "retornou null para artigo offshore relevante");
-  expect(mod.validarImpactoOffshore(r).ok, "texto gerado não passa no validador: " + r);
-});
-test("gerarImpactoOffshoreFallback: entidade sem tema offshore retorna null (sem boilerplate genérico)", () => {
-  const artigo = { title: "SLB reporta resultados financeiros", summary: "SLB divulgou seu relatório trimestral de resultados.", content: "A companhia reportou receita de US$ 9 bilhões no trimestre, superando estimativas do mercado." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r === null, "esperado null — entidade sem tema offshore não gera impacto: " + r);
-});
-test("gerarImpactoOffshoreFallback: artigo sobre preço do petróleo retorna impacto específico", () => {
-  const artigo = { title: "Petróleo Brent fecha em alta", summary: "O barril de petróleo Brent fechou em alta nesta terça-feira.", content: "O barril de petróleo Brent subiu 2,3% e fechou a US$ 82,50. O movimento reflete tensões no Oriente Médio e redução de estoques nos EUA." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null, "esperado impacto para artigo sobre preço do petróleo: null retornado");
-  if (r) expect(mod.validarImpactoOffshore(r).ok, "impacto de preço não passa validador: " + r);
-});
-test("gerarImpactoOffshoreFallback: artigo sobre produção de petróleo retorna impacto específico", () => {
-  const artigo = { title: "Produção de petróleo do Brasil atinge 4 milhões de barris", summary: "A produção de petróleo do Brasil atingiu recorde.", content: "A produção de petróleo e gás natural do Brasil atingiu 4,1 milhões de barris por dia em setembro, novo recorde histórico." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null, "esperado impacto para artigo sobre produção de petróleo: null retornado");
-});
-test("gerarImpactoOffshoreFallback: artigo sem sinal offshore retorna null (sem card genérico)", () => {
-  const artigo = { title: "Banco Central sobe taxa de juros", summary: "O Banco Central decidiu elevar a taxa Selic em reunião de outubro.", content: "O Comitê de Política Monetária decidiu elevar a taxa Selic de 10,5% para 10,75% ao ano." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r === null, "esperado null para artigo sem sinal offshore: " + r);
-});
-test("gerarImpactoOffshoreFallback: nunca retorna texto com 'pode gerar vagas'", () => {
-  const artigos = [
-    { title: "Petrobras expande operações", summary: "A Petrobras anunciou expansão das operações no pré-sal.", content: "Expansão das operações no pré-sal com novos FPSOs contratados." },
-    { title: "Subsea 7 assina contrato", summary: "Subsea 7 fechou contrato para projeto subsea no Brasil.", content: "Contrato de subsea para instalação de flowlines e umbilicais." },
-  ];
-  artigos.forEach((a) => {
-    const r = mod.gerarImpactoOffshoreFallback(a);
-    if (r) expect(!mod.validarImpactoOffshore(r).ok === false, "vagas ou boilerplate no texto: " + r);
-  });
-});
-test("resolverCamadaEditorial: why_it_matters sempre preenchido para artigo válido com corpo", () => {
-  const artigo = { id: "id-teste-offshore-9999", title: "Transocean opera sonda no pré-sal", summary: "A Transocean opera sonda jack-up em campo brasileiro.", content: "A Transocean confirmou operação de sonda jack-up em campo de petróleo no pré-sal da Bacia de Campos. O contrato tem duração de dois anos e envolve perfuração de três poços exploratórios.".repeat(2) };
-  const c = mod.resolverCamadaEditorial(artigo);
-  expect(c !== null, "resolver retornou null para artigo com corpo");
-  expect(c.why_it_matters !== null && c.why_it_matters.length > 40, "why_it_matters vazio para artigo offshore: " + (c && c.why_it_matters));
-});
 test("resolverCamadaEditorial: why_it_matters curado preservado (não substituído por fallback)", () => {
   const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA).find((id) => mod.CAMADA_EDITORIAL_CURADA[id].why_it_matters);
   if (!idCurado) { console.log("  (skip: nenhum curado com why_it_matters)"); return; }
   const curValues = mod.CAMADA_EDITORIAL_CURADA[idCurado];
-  const artigo = { id: idCurado, title: "T", summary: curValues.buddy_summary, content: curValues.buddy_summary.repeat(5) };
+  const artigo = { id: idCurado, title: "T", summary: "Lead distinto da matéria original.", content: "Corpo distinto. ".repeat(40) };
   const c = mod.resolverCamadaEditorial(artigo);
   expect(c !== null && c.why_it_matters === curValues.why_it_matters.trim(), "curado substituído por fallback: " + (c && c.why_it_matters));
   expect(c.fonte === 'curadoria', "fonte incorreta: " + (c && c.fonte));
@@ -416,25 +312,6 @@ test("validarTextoCamadaEditorial: aceita texto completo sem truncamento", () =>
   const r = mod.validarTextoCamadaEditorial("A Petrobras assinou contrato de afretamento para FPSO no campo de Búzios. O contrato tem duração de 20 anos.");
   expect(r.ok, "texto completo deve passar: " + r.motivo);
 });
-test("ehCopiaDoLead: detecta cópia exata do lead", () => {
-  const lead = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal.";
-  const copia = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal da Bacia de Santos.";
-  expect(mod.ehCopiaDoLead(copia, lead), "deveria detectar cópia do lead");
-});
-test("ehCopiaDoLead: aceita texto com perspectiva diferente", () => {
-  const lead = "A empresa Petrobras anunciou novos contratos de afretamento para o campo de Búzios no pré-sal.";
-  const diferente = "O contrato define o cronograma de carregamento para novembro. Cada offloading envolve navio aliviador e equipe embarcada.";
-  expect(!mod.ehCopiaDoLead(diferente, lead), "texto diferente não deve ser detectado como cópia: " + diferente);
-});
-test("gerarBuddySummaryFallback: não retorna cópia exata do resumo quando corpo tem frases distintas", () => {
-  const artigo = {
-    title: "Petrobras assina contrato de FPSO",
-    summary: "A Petrobras assinou contrato de FPSO para o campo de Búzios.",
-    content: "A Petrobras assinou contrato de FPSO para o campo de Búzios na Bacia de Santos. O valor total não foi divulgado. O FPSO terá capacidade para processar 180 mil barris por dia. A seleção seguiu processo competitivo com múltiplos fornecedores. A unidade deverá iniciar operações a partir de 2028."
-  };
-  const r = mod.gerarBuddySummaryFallback(artigo);
-  if (r) expect(!mod.ehCopiaDoLead(r, artigo.summary), "fallback não deve copiar o lead: " + r);
-});
 test("validarImpactoOffshore: rejeita 'com base no conteúdo disponível...não é possível afirmar'", () => {
   const r = mod.validarImpactoOffshore("O assunto envolve o setor de energia. Com base no conteúdo disponível, não é possível afirmar impactos diretos em operações offshore, vagas ou contratos específicos neste momento.");
   expect(!r.ok && r.motivo === 'boilerplate_limitacao_generica', "esperado rejeição boilerplate: " + JSON.stringify(r));
@@ -442,41 +319,22 @@ test("validarImpactoOffshore: rejeita 'com base no conteúdo disponível...não 
 test("resolverCamadaEditorial: rejeita DB summary truncado (banco tier)", () => {
   const artigo = { id: "id-trunc-9999", title: "Título qualquer", summary: "Resumo original completo do artigo aqui.", buddy_summary: "A empresa anunciou novos contratos de afretamento para o campo de Búzios e...", content: "Texto longo. Petrobras firmou contrato com FPSO para pré-sal da Bacia de Santos. A duração é de 20 anos." };
   const c = mod.resolverCamadaEditorial(artigo);
-  if (c) expect(c.fonte === 'fallback', "DB summary truncado não deve usar fonte banco, encontrou fonte: " + (c && c.fonte));
+  expect(c === null, "DB summary truncado deve ser ocultado (sem fallback em runtime): " + JSON.stringify(c));
 });
 test("resolverCamadaEditorial: rejeita DB summary que é cópia do lead (banco tier)", () => {
   const artigo = { id: "id-copialead-9999", title: "Petrobras assina FPSO", summary: "A Petrobras assinou contrato de FPSO para campo de Búzios no pré-sal.", buddy_summary: "A Petrobras assinou contrato de FPSO para campo de Búzios no pré-sal da Bacia de Santos.", content: "A Petrobras assinou contrato de FPSO. O FPSO terá capacidade para 180 mil barris. A operação será no pré-sal da Bacia de Santos com duração de 20 anos." };
   const c = mod.resolverCamadaEditorial(artigo);
-  if (c) expect(c.fonte === 'fallback', "cópia do lead não deve ser aceita como banco, fonte: " + (c && c.fonte));
+  expect(c === null, "cópia do lead deve ser ocultada: " + JSON.stringify(c));
 });
-test("resolverCamadaEditorial: curadoria aceita mesmo que pareça lead (curadoria é humana)", () => {
+test("resolverCamadaEditorial (2.1): curadoria idêntica ao lead é ocultada (nenhuma origem pode copiar o lead)", () => {
   const idCurado = Object.keys(mod.CAMADA_EDITORIAL_CURADA)[0];
   const curada = mod.CAMADA_EDITORIAL_CURADA[idCurado];
   const artigo = { id: idCurado, title: "T", summary: curada.buddy_summary, content: curada.buddy_summary.repeat(5) };
   const c = mod.resolverCamadaEditorial(artigo);
-  expect(c !== null && c.fonte === 'curadoria', "curadoria deve ser aceita independente de similaridade: " + (c && c.fonte));
+  expect(c === null, "curadoria igual ao lead deveria ser ocultada: " + (c && c.fonte));
 });
 
 console.log("\n== P0.1 GATE E NOVOS PADRÕES ==");
-test("gerarImpactoOffshoreFallback: entidade sozinha sem tema não gera impacto (sem entity-only boilerplate)", () => {
-  const artigo = { title: "Transocean anuncia resultados do trimestre", summary: "Transocean Ltd. divulgou resultados do terceiro trimestre.", content: "A companhia reportou receita de US$ 1,1 bilhão. O CEO citou demanda sólida por sondas de águas profundas." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  if (r !== null) {
-    expect(!r.includes('empresa atuante no mercado de exploração'), "entity-only boilerplate ainda presente: " + r);
-  }
-});
-test("gerarImpactoOffshoreFallback: artigo sobre E&P retorna impacto", () => {
-  const artigo = { title: "Decisões de E&P no Brasil", summary: "O setor de exploração e produção no Brasil passa por transformações.", content: "A exploração e produção offshore no Brasil concentra investimentos de mais de US$ 50 bilhões até 2030." };
-  const r = mod.gerarImpactoOffshoreFallback(artigo);
-  expect(r !== null, "esperado impacto para artigo sobre E&P: null retornado");
-});
-test("gerarBuddySummaryFallback: decodifica HTML entities antes de extrair frases", () => {
-  const artigo = { title: "Porto do Açu", summary: "Porto do Açu e empresa assinam acordo.", content: "O Porto do A&ccedil;u e a companhia de energia assinaram um acordo hist&oacute;rico para eletrifica&ccedil;&atilde;o de plataformas. A parceria prev&ecirc; invers&atilde;o de R$ 500 milh&otilde;es nos pr&oacute;ximos anos." };
-  const r = mod.gerarBuddySummaryFallback(artigo);
-  expect(r !== null, "esperado buddy_summary para artigo com HTML entities: null retornado");
-  if (r) expect(!r.includes('&ccedil;') && !r.includes('&atilde;'), "HTML entities não decodificadas no buddy_summary: " + r);
-});
-
 // ── P0.2 Dedup editorial + fallback progressivo (2026-10-16) ─────────────────
 
 console.log("\n== P0.2 DEDUP EDITORIAL + FALLBACK PROGRESSIVO ==");

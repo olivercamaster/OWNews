@@ -269,10 +269,10 @@ def run_static():
     test("módulo CAMADA EDITORIAL presente com marcadores", lambda: _check_camada_markers())
     test("módulo HOME SSR presente (Home renderizada no servidor)", lambda: _check_home_ssr_markers())
     test("paginaChrome aceita opcoes.robots (noindex em matéria thin)", lambda: expect_in("opcoes.robots", worker(), "paginaChrome"))
-    test("/noticia aplica noindex,follow em matéria thin", lambda: expect_in("robots: materiaThin ? 'noindex,follow' : null", worker(), "/noticia"))
+    test("/noticia aplica noindex,follow fora de INDEXABLE (critério único 2.1)", lambda: (expect_in("classificarIndexacaoNoticia(artigo, camadaEditorial)", worker(), "/noticia"), expect_in("robots: robotsNoticia", worker(), "/noticia robots")))
     test("rota /correcoes + renderCorrecoes", lambda: _check_correcoes_route())
     test("/correcoes e /certificados-offshore no sitemap estático", lambda: _check_sitemap_rotas())
-    test("sitemap exclui matérias thin", lambda: expect_in("ehMateriaThin(", worker().split("function gerarSitemap", 1)[1][:4000], "gerarSitemap"))
+    test("sitemap só inclui notícias INDEXABLE", lambda: expect_in("classificarIndexacaoNoticia(a, camada).estado !== 'INDEXABLE'", worker().split("async function gerarSitemap", 1)[1][:5000], "gerarSitemap"))
     test("Política Editorial tem âncora #buddy-te-explica e seções exigidas", lambda: _check_politica_editorial_secoes())
     test("footers (home + chrome) linkam /correcoes e /explica", lambda: _check_footers_links())
     test("Home linka bloco OWNews Explica (#explica)", lambda: expect_in('class="ed-section explica-home" id="explica"', worker(), "blocoExplicaHome"))
@@ -283,57 +283,42 @@ def run_static():
     suite("ADSENSE RECOVERY 2.0 — Buddy universal + thin isolado + quality gate + hero")
 
     test("gerarBuddySummaryFallback definida e exportada no módulo", lambda: _check_fallback_fn())
-    test("avaliarQualidadeMateria definida e retorna gate+sinais", lambda: _check_quality_gate_fn())
+    test("classificarIndexacaoNoticia definida com os 4 estados (2.1)", lambda: _check_quality_gate_fn())
     test("resolverCamadaEditorial tem fallback como tier 3/4", lambda: _check_resolver_fallback())
     test("ehMateriaThin: thin = corpo APENAS, não depende de camada", lambda: _check_thin_no_camada())
     test("thin continua noindex mesmo com fallback Buddy", lambda: _check_thin_noindex())
     test("blocoBuddyExplica: footer honesto para fallback (sem 'revisada em')", lambda: _check_buddy_footer_fallback())
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
-    test("quality gate avalia thin, repetição, fatos e origemFonte", lambda: expect_in("function avaliarQualidadeMateria(artigo)", worker(), "avaliarQualidadeMateria"))
+    test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
     test("editorial_layer_test.js passa (49 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
     test("Política Editorial: texto explica as 3 prioridades do resolver", lambda: _check_politica_buddy_te_explica())
 
     suite("IMPACTO OFFSHORE 1.0 — segunda camada editorial em toda notícia")
 
     test("validarImpactoOffshore definida no worker", lambda: expect_in("function validarImpactoOffshore(texto)", worker(), "fn definida"))
-    test("gerarImpactoOffshoreFallback definida no worker", lambda: expect_in("function gerarImpactoOffshoreFallback(artigo)", worker(), "fn definida"))
-    test("gerarImpactoOffshoreFallback usa validarImpactoOffshore", lambda: expect_in(
-        "validarImpactoOffshore(texto).ok", worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0], "usa validador interno"))
-    test("resolver: porqueFinal gerado quando why_it_matters é null", lambda: expect_in(
-        "porqueFinal", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "porqueFinal no resolver"))
-    test("resolver: fallback branch usa gerarImpactoOffshoreFallback", lambda: expect_in(
-        "impactoFallback || null", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "impactoFallback no fallback"))
+    test("2.1: impacto de template removido do frontend", lambda: expect_not_in("function gerarImpactoOffshoreFallback(artigo)", worker(), "gerador de template"))
+    test("2.1: resolver valida impacto com validarImpactoPublicavel", lambda: expect_in(
+        "validarImpactoPublicavel(", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "gate de impacto"))
     test("blocoBuddyExplica: título 'O que isso representa para o offshore?'", lambda: expect_in(
         "O que isso representa para o offshore?",
         worker().split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0], "título offshore"))
     test("blocoBuddyExplica: segundo card não contém <img> (sem mascote)", lambda: _check_impacto_no_mascote())
-    test("gerarImpactoOffshoreFallback: proibido 'pode gerar vagas' nos PROIBIDOS", lambda: expect_in(
+    test("validarImpactoOffshore: proibido 'pode gerar vagas' nos PROIBIDOS", lambda: expect_in(
         "vagas_sem_base", worker().split("function validarImpactoOffshore(texto)", 1)[1].split("\nfunction ", 1)[0], "vagas_sem_base"))
     test("Política Editorial menciona bloco de impacto offshore", lambda: expect_in(
         '"O que isso representa para o offshore?"',
         worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0], "impacto na política"))
-    test("gerarImpactoOffshoreFallback: sem ramo 'players relevantes' (anti-boilerplate)", lambda: expect_not_in(
-        "são players relevantes",
-        worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0],
-        "ramo players relevantes removido"))
-    test("gerarImpactoOffshoreFallback: sem energy-only fallback (no-entity-no-topic → null)", lambda: expect_not_in(
-        "O assunto envolve o setor de energia",
-        worker().split("function gerarImpactoOffshoreFallback(artigo)", 1)[1].split("\nfunction ", 1)[0],
-        "energy-only fallback removido"))
     test("validarTextoCamadaEditorial: rejeita truncado (motivo 'truncado')", lambda: expect_in(
         "motivo: 'truncado'",
         worker().split("function validarTextoCamadaEditorial(texto)", 1)[1].split("\nfunction ", 1)[0],
         "cheque de truncamento"))
-    test("ehCopiaDoLead definida no worker", lambda: expect_in(
-        "function ehCopiaDoLead(gerado, resumoOriginal)", worker(), "fn definida"))
-    test("resolverCamadaEditorial: usa ehCopiaDoLead para banco tier", lambda: expect_in(
-        "ehCopiaDoLead(resumo, artigo.summary)",
-        worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "copy-lead check"))
-    test("resolverCamadaEditorial: rejeita why_it_matters similar ao buddy (buddy≈wm check)", lambda: expect_in(
-        "ehCopiaDoLead(porqueFinal, resumo)",
-        worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "buddy≈wm check"))
+    test("2.1: resolver usa validarBuddyPublicavel (anti-cópia lead/fonte)", lambda: expect_in(
+        "validarBuddyPublicavel(", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "gate de buddy"))
+    test("2.1: resolver não gera texto em runtime", lambda: expect_not_in(
+        "Fallback(", worker().split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0], "fallback em runtime"))
     test("editorial_layer_test.js passa (59 asserts Qualidade Editorial 1.0)", lambda: _run_node_test("editorial_layer_test.js"))
+    test("qualidade_editorial_test.js passa (Missão AdSense 2.1: gate, similaridade, indexação, paridade)", lambda: _run_node_test("qualidade_editorial_test.js"))
 
     suite("IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / H1-H2-H3")
 
@@ -443,40 +428,28 @@ def _check_buddy_feed_fields():
 
 def _check_fallback_fn():
     w = worker()
-    expect_in("function gerarBuddySummaryFallback(artigo)", w, "fn definida")
-    fn = w.split("function gerarBuddySummaryFallback(artigo)", 1)[1].split("\nfunction ", 1)[0]
-    # Princípios: não inventa, usa só base, valida
-    expect_in("validarTextoCamadaEditorial(", fn, "usa validador")
-    expect_in("return null", fn, "retorna null quando sem material")
-    expect_not_in("inventar", fn, "palavra inventar no código não é permitida (sinal de erro)")
+    # 2.1: o fallback extrativo (frases copiadas da fonte) não existe mais no frontend
+    expect_not_in("function gerarBuddySummaryFallback(artigo)", w, "fallback extrativo removido")
+    expect_in("function validarBuddyPublicavel(texto, artigo, opcoes)", w, "gate de buddy definido")
 
 
 def _check_quality_gate_fn():
     w = worker()
-    expect_in("function avaliarQualidadeMateria(artigo)", w, "fn definida")
-    fn = w.split("function avaliarQualidadeMateria(artigo)", 1)[1].split("\nfunction ", 1)[0]
-    for campo in ("thin", "corpoUtil", "origemFonte", "temNumero", "temEntidade", "muitoRepetitivo", "temMaterialBuddy", "gate", "motivos"):
-        expect_in(campo, fn, campo)
-    for gate_val in ("'pass'", "'hold'", "'nota_curta'", "'descartar'"):
-        expect_in(gate_val, fn, gate_val)
+    expect_in("function classificarIndexacaoNoticia(artigo, camada)", w, "fn definida")
+    fn = w.split("function classificarIndexacaoNoticia(artigo, camada)", 1)[1].split("\nfunction ", 1)[0]
+    for estado in ("'INDEXABLE'", "'NOINDEX'", "'EDITORIAL_INCOMPLETE'", "'DESCARTAR'"):
+        expect_in(estado, fn, estado)
 
 
 def _check_resolver_fallback():
     w = worker()
     fn = w.split("function resolverCamadaEditorial(artigo)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("gerarBuddySummaryFallback(artigo)", fn, "fallback chamado no resolver")
-    expect_in("fonte: 'fallback'", fn, "marca fallback")
-    # Impacto Offshore 1.0: fallback agora gera why_it_matters
-    expect_in("gerarImpactoOffshoreFallback(artigo)", fn, "impacto offshore no fallback")
-    expect_in("impactoFallback", fn, "impactoFallback usado no retorno")
-    # porqueFinal na branch de curadoria/banco
-    expect_in("porqueFinal", fn, "porqueFinal na branch curadoria/banco")
-    expect_in("gerarImpactoOffshoreFallback(artigo)", fn, "impacto offshore no resolver")
-    # Prioridade: curadoria > banco > fallback
     idx_curada = fn.index("CAMADA_EDITORIAL_CURADA")
     idx_banco = fn.index("artigo.buddy_summary")
-    idx_fallback = fn.index("gerarBuddySummaryFallback")
-    expect(idx_curada < idx_banco < idx_fallback, "prioridade: curadoria < banco < fallback")
+    expect(idx_curada < idx_banco, "prioridade: curadoria < banco")
+    expect_in("fonte: 'curadoria'", fn, "marca curadoria")
+    expect_in("'ia'", fn, "marca ia")
+    expect_not_in("Fallback(", fn, "sem geração em runtime")
 
 
 def _check_thin_no_camada():
@@ -490,24 +463,22 @@ def _check_thin_no_camada():
 
 def _check_thin_noindex():
     w = worker()
-    # noticia route: materiaThin deve ser calculada independente de camadaEditorial
-    bloco = w.split('url.pathname === "/noticia"', 1)[1][:10000]
-    expect_in("ehMateriaThin(artigo, camadaEditorial)", bloco, "ehMateriaThin ainda chamada com camada (compatibilidade)")
-    expect_in("robots: materiaThin ? 'noindex,follow' : null", w, "noindex se thin")
-    # A camada (fallback) não pode mudar o resultado de ehMateriaThin
-    # (garantido pela remoção do if(camada) no próprio ehMateriaThin)
+    bloco = w.split('url.pathname === "/noticia"', 1)[1][:12000]
+    expect_in("classificarIndexacaoNoticia(artigo, camadaEditorial)", bloco, "critério único na rota")
+    expect_in("robots: robotsNoticia", w, "noindex fora de INDEXABLE")
+    q = w.split("function classificarIndexacaoNoticia(artigo, camada)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("ehMateriaThin(artigo, camada)", q, "thin -> NOINDEX mesmo com Buddy")
     fn_thin = w.split("function ehMateriaThin(artigo,", 1)[1].split("\nfunction ", 1)[0]
-    # Verificar que o CÓDIGO (não o comentário) não consulta buddy_summary
     fn_thin_code = "\n".join(l for l in fn_thin.split("\n") if not l.strip().startswith("//"))
     expect_not_in("buddy_summary", fn_thin_code, "ehMateriaThin não usa buddy_summary no código (thin = corpo)")
 
 
 def _check_buddy_footer_fallback():
     w = worker()
-    fn = w.split("function blocoBuddyExplica(camada)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("camada.fonte === 'fallback'", fn, "footer diferente para fallback")
-    expect_in("Resumo gerado automaticamente pelo OWNews", fn, "texto honesto do footer fallback")
-    expect_in("Camada editorial do OWNews", fn, "texto para camada revisada")
+    fn = w.split("function rodapeCamadaEditorial(camada)", 1)[1].split("\nfunction ", 1)[0]
+    expect_in("camada.fonte === 'ia'", fn, "footer próprio para IA")
+    expect_in("inteligência artificial", fn, "IA declarada no rodapé")
+    expect_in("Texto escrito pelo OWNews", fn, "texto para curadoria")
 
 
 def _check_home_thin_filter():
@@ -522,15 +493,14 @@ def _check_home_thin_filter():
 def _check_politica_buddy_te_explica():
     w = worker()
     bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
-    pe_bloco = bloco.split('id="buddy-te-explica"', 1)[1][:3000]
-    expect_in("ordem de prioridade", pe_bloco, "3 prioridades documentadas")
-    expect_in("curadoria editorial", pe_bloco, "curadoria")
-    expect_in("banco de dados", pe_bloco, "banco")
-    expect_in("geração automática", pe_bloco, "fallback auto")
-    expect_in("noindex", pe_bloco, "thin continua noindex")
+    pe_bloco = bloco.split('id="buddy-te-explica"', 1)[1][:3500]
+    expect_in("inteligência artificial", pe_bloco, "IA declarada")
+    expect_in("texto escrito pelo OWNews", pe_bloco, "curadoria")
+    expect_in("similaridade", pe_bloco, "teste anti-cópia descrito")
+    expect_in("noindex", bloco, "indexação descrita")
+    expect_not_in("não há geração automática", bloco, "contradição removida")
+    expect_not_in("Toda notícia válida exibe", bloco, "promessa 100% removida")
 
-
-# ── IDENTIDADE PREMIUM 1.0 — tema claro / Buddy / marcas d'água / headings ──
 
 def _chrome_src():
     w = worker()
@@ -609,8 +579,9 @@ def _check_buddy_explica_markup():
     for s in ('class="buddy-explica-card"', 'class="buddy-explica-buddy" src="/icons/buddy-head.png"', 'aria-hidden="true" loading="lazy"',
               "Não quer ler a matéria toda? <strong>O Buddy resume e te explica.</strong>", '<h2 id="buddyExplicaTitulo"',
               '<h3 class="buddy-explica-sub">O que isso representa para o offshore?</h3>',
-              'class="buddy-explica-porque-card"', "/politica-editorial#buddy-te-explica"):
+              'class="buddy-explica-porque-card"', "rodapeCamadaEditorial(camada)"):
         expect_in(s, fn, s)
+    expect_in("/politica-editorial#buddy-te-explica", w.split("function rodapeCamadaEditorial(camada)", 1)[1][:2000], "link política no rodapé")
     expect_not_in("<h1", fn, "H1 dentro do bloco")
     css = w.split("const CSS_CAMADA_EDITORIAL", 1)[1][:8000]
     expect_in(".buddy-explica-buddy{flex:none;width:64px", css, "Buddy pequeno no mobile (64px)")
@@ -695,10 +666,9 @@ def _check_hierarquia_headings():
 
 def _check_politica_filosofia():
     bloco = worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
-    expect_in("O OWNews apura fatos offshore a partir de fontes confiáveis e produz sua própria cobertura, organização, explicação e contextualização.", bloco, "filosofia")
-    expect_in("o portal descobre o assunto; o pipeline localiza a fonte primária", bloco, "fluxo")
+    expect_in("O texto-base de cada notícia é coletado automaticamente da fonte citada", bloco, "transparência sobre coleta")
+    expect_in("Não há revisão humana matéria a matéria", bloco, "sem revisão humana inventada")
     expect_in('no bloco "Sobre esta matéria"', bloco, "nome real do bloco")
-    expect_not_in('no bloco "Fonte primária"', bloco, "nome antigo do bloco")
 
 
 def _check_ads_inalterado():
