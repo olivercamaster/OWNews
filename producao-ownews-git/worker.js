@@ -4401,7 +4401,11 @@ function renderTudo(noticias){
     return r;
   }
   const ultimasHoje = proximosUltimas(poolElegivelHoje, 6);
-  const ultimas = ultimasHoje.length >= 2
+  // Correção P0 (2026-10-17): com <5 matérias de 24h a seção caía na
+  // variante latest-count-2/3 (destaque gigante + 1-2 linhas soltas). O
+  // SSR já completa com 48h; o cliente agora faz o mesmo até 5 itens
+  // (destaque + 4 linhas = composição aprovada da Home 3.0). Só dados.
+  const ultimas = ultimasHoje.length >= 5
     ? ultimasHoje
     : ultimasHoje.concat(proximosUltimas(poolResiliencia48h, 6 - ultimasHoje.length));
 
@@ -4468,7 +4472,12 @@ async function carregarNoticiasAoVivo(tentativa){
     const url = SUPABASE_URL + '/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,editorial_score,score_reason,buddy_summary,buddy_source&status=eq.published&order=published_at.desc&limit=40';
     const resposta = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
     if (!resposta.ok) throw new Error('Supabase ' + resposta.status);
-    const noticias = await resposta.json();
+    const lista = await resposta.json();
+    // Editorial Original 4.0: Home só com matéria OWNews (texto próprio);
+    // nota sem matéria própria fica fora das superfícies editoriais.
+    // Mesmo fallback gracioso do servidor (selecionarHomeServidor).
+    const proprias = Array.isArray(lista) ? lista.filter(n => n.buddy_source === 'ownews') : [];
+    const noticias = proprias.length >= 8 ? proprias : lista;
     if (noticias.length) renderTudo(noticias);
     if (window.__ownewsMarcarAtualizado) window.__ownewsMarcarAtualizado();
   } catch (erro) {

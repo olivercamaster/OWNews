@@ -336,6 +336,8 @@ def run_static():
     test("Política Editorial: filosofia editorial + fluxo + bloco 'Sobre esta matéria'", lambda: _check_politica_filosofia())
     test("Privacidade menciona preferência de tema só no navegador", lambda: expect_in("preferência de tema (claro ou escuro) também fica só no localStorage", worker().split("function renderPrivacidade(", 1)[1][:12000], "privacidade/tema"))
     test("sem novos slots de anúncio (ADS_ENABLED=false, adSlot inerte, /ads.txt sem publisher inventado)", lambda: _check_ads_inalterado())
+    test("HOME — 'Últimas Notícias' congelado (CSS + markup = Home 3.0 aprovada; mude dados, não design)", lambda: _check_ultimas_congelado())
+    test("HOME — 'Últimas' completa com 48h até 5 itens (sem variante rala destaque + 1-2 linhas)", lambda: expect_in("ultimasHoje.length >= 5", worker(), "fill de Últimas"))
 
     suite("STATIC — security: no secrets in source")
 
@@ -666,6 +668,24 @@ def _check_politica_filosofia():
     expect_in("A fonte é matéria-prima factual; a nota publicada é do OWNews", bloco, "modelo editorial")
     expect_in("Não há revisão humana nota a nota", bloco, "sem revisão humana inventada")
     expect_in('o bloco "Fonte" diz quem publicou os fatos originalmente', bloco, "nome real do bloco")
+
+
+# Snapshot estrutural de "Últimas Notícias" (Home 3.0, db0816d). Missões de
+# dados/editorial/AdSense NÃO podem mudar este bloco incidentalmente: se a
+# mudança for um redesign AUTORIZADO, atualize os hashes no mesmo commit.
+ULTIMAS_CSS_SHA1 = "0860d26cdeb8a0f706617ff6667c1e4993e4f808"
+ULTIMAS_MARKUP_SHA1 = "3b96e581085b9bf5ae67e9ecd357018d9d63941e"
+
+
+def _check_ultimas_congelado():
+    import hashlib
+    w = worker()
+    h = _home_src()
+    css = [l.strip() for l in h.split("\n") if re.search(r'\.latest-|\.row-list|\.row-main|\.row-thumb|\.row\{|\.row ', l) and '{' in l]
+    expect(hashlib.sha1("\n".join(css).encode()).hexdigest() == ULTIMAS_CSS_SHA1, "CSS de Últimas mudou (redesign não autorizado?)")
+    fn = re.sub(r'//[^\n]*', '', w.split("function renderUltimas(lista){", 1)[1].split("\nfunction ", 1)[0])
+    expect(hashlib.sha1(fn.encode()).hexdigest() == ULTIMAS_MARKUP_SHA1, "markup de renderUltimas mudou (redesign não autorizado?)")
+    expect_in("'<div class=\"latest-body latest-count-' + m.ultimasCount + '\" id=\"ultimasBody\">'", w, "SSR de Últimas")
 
 
 def _check_ads_inalterado():
