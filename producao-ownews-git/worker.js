@@ -9616,12 +9616,21 @@ function renderMeuOwnews(){
     '.owb-btn-text{background:none;border:none;padding:0;font-family:var(--ui);font-size:12px;color:var(--cyan-dim);cursor:pointer;text-decoration:underline;text-underline-offset:2px}' +
     '.owb-voice-preview{font-family:var(--ui);font-size:13px;color:var(--text-dim);background:rgba(255,255,255,.04);border-radius:6px;padding:10px 13px;margin-top:10px;border-left:3px solid rgba(255,255,255,.12);line-height:1.5;min-height:38px}' +
     '.owb-voice-preview:empty::before{content:"Escolha um tom para ver um exemplo.";color:var(--muted-dim)}' +
+    '.owb-conta{border:1px solid var(--line-soft);border-radius:10px;background:var(--navy-900)}' +
+    '.owb-conta summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:12px 16px}' +
+    '.owb-conta summary::-webkit-details-marker{display:none}' +
+    '.owb-conta-txt{font-family:var(--ui);font-size:14px;color:var(--text);min-width:0;flex:1 1 16em}' +
+    '.owb-conta-txt small{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}' +
+    '.owb-conta-opc{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan-dim);border:1px solid var(--line-soft);border-radius:99px;padding:1px 7px;margin-left:4px;vertical-align:1px}' +
+    '.owb-conta-btn{font-family:var(--ui);font-size:13px;font-weight:700;color:var(--cyan-dim);border:1px solid var(--cyan-dim);border-radius:8px;padding:7px 12px;white-space:nowrap}' +
+    '.owb-conta[open] .owb-conta-btn{opacity:.6}' +
+    '.owb-conta-corpo{padding:4px 16px 16px;border-top:1px solid var(--line-hair)}' +
     '</style>' +
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "OWBuddy" }]) +
     '<div class="hub-hero">' +
     '<span class="eyebrow">Seu parceiro na vida offshore.</span>' +
     '<h1>OWBuddy</h1>' +
-    '<p class="hub-lead">Sua escala, aeroporto, empresas e viagem — tudo salvo no seu aparelho. Crie uma conta se quiser sincronizar em qualquer dispositivo.</p>' +
+    '<p class="hub-lead">Funciona sem conta: escala, aeroporto, empresas, viagem e notícias salvas ficam neste aparelho. A Conta OW é opcional e sincroniza escala, certificados e datas pessoais entre aparelhos.</p>' +
     '</div>' +
 
     /* Tela Hoje — visível só quando escala está configurada */
@@ -9629,61 +9638,6 @@ function renderMeuOwnews(){
     '<div class="owb-hoje-momento" id="owbHojeMomento"></div>' +
     '<div class="owb-hoje-msg" id="owbHojeMsg" hidden></div>' +
     '<div class="owb-hoje-cards" id="owbHojeCards"></div>' +
-    '</div>' +
-
-    '<div class="agora-secao" id="owAuthWrap">' +
-    '<div id="owAuthLoggedOut">' +
-    '<div class="cta-comunidade" style="text-align:left">' +
-    '<h3 style="font-family:var(--ui);font-size:16px;font-weight:800;margin-bottom:6px">Entre para sincronizar seu OWBuddy</h3>' +
-    '<p style="margin-bottom:14px">Cadastro simples: só email e senha. Tudo mais é opcional — e o OWBuddy continua funcionando sem conta.</p>' +
-    '<form id="owFormLogin" class="form-pesquisa" style="margin:0">' +
-    '<div class="campo-form"><label for="owLoginEmail">Email</label><input type="email" id="owLoginEmail" autocomplete="email" required></div>' +
-    '<div class="campo-form"><label for="owLoginSenha">Senha</label><input type="password" id="owLoginSenha" autocomplete="current-password" required></div>' +
-    '<button type="submit" class="btn-enviar-pesquisa">ENTRAR</button>' +
-    '<div class="pesquisa-status" id="owLoginStatus"></div>' +
-    '</form>' +
-    '<p style="margin:12px 0 0;font-family:var(--ui);font-size:12.5px">' +
-    '<button type="button" id="owMostrarCadastro" class="compartilhar-link">Ainda não tenho conta</button> ' +
-    '<button type="button" id="owMostrarRecuperar" class="compartilhar-link">Esqueci minha senha</button>' +
-    '</p>' +
-    '<form id="owFormCadastro" class="form-pesquisa" hidden style="margin-top:14px">' +
-    '<div class="campo-form"><label for="owCadastroEmail">Email</label><input type="email" id="owCadastroEmail" autocomplete="email" required></div>' +
-    '<div class="campo-form"><label for="owCadastroSenha">Senha</label><input type="password" id="owCadastroSenha" autocomplete="new-password" minlength="6" required><span class="ajuda">Mínimo 6 caracteres.</span></div>' +
-    '<button type="submit" class="btn-enviar-pesquisa">CRIAR CONTA</button>' +
-    '<div class="pesquisa-status" id="owCadastroStatus"></div>' +
-    '</form>' +
-    '<form id="owFormRecuperar" class="form-pesquisa" hidden style="margin-top:14px">' +
-    '<div class="campo-form"><label for="owRecuperarEmail">Email</label><input type="email" id="owRecuperarEmail" autocomplete="email" required></div>' +
-    '<button type="submit" class="btn-enviar-pesquisa">ENVIAR LINK DE RECUPERAÇÃO</button>' +
-    '<div class="pesquisa-status" id="owRecuperarStatus"></div>' +
-    '</form>' +
-    '</div>' +
-    '</div>' +
-    '<div id="owAuthLoggedIn" hidden>' +
-    '<div class="escala-hero">' +
-    '<div class="escala-status-row">' +
-    '<span class="escala-status-label" id="owContaEmail" style="font-size:17px;overflow-wrap:anywhere"></span>' +
-    '<button type="button" class="escala-acao-btn" id="owBtnLogout">SAIR</button>' +
-    '</div>' +
-    '<p class="escala-status-legenda">Sua conta OWBuddy. Perfil e preferências abaixo são 100% opcionais e podem ser apagados quando quiser.</p>' +
-    '</div>' +
-    '<div class="agora-secao">' +
-    '<h3>Perfil (opcional)</h3>' +
-    '<div class="form-pesquisa">' +
-    '<div class="campo-form"><label for="owPerfilNome">Apelido</label><input type="text" id="owPerfilNome"></div>' +
-    '<div class="campo-form"><label for="owPerfilFuncao">Função</label><input type="text" id="owPerfilFuncao" placeholder="ex.: DPO, Plataformista, OIM..."></div>' +
-    '</div>' +
-    '<button type="button" class="btn-enviar-pesquisa" id="owBtnSalvarPerfil" style="margin-top:12px">SALVAR PERFIL</button>' +
-    '<div class="pesquisa-status" id="owPerfilStatus"></div>' +
-    '</div>' +
-    '<div class="agora-secao">' +
-    '<h3>Preferências de comunicação</h3>' +
-    '<label class="check-item" style="width:100%;justify-content:flex-start"><input type="checkbox" id="owConsentNoticias"> Quero receber notícias e alertas OWNews.</label>' +
-    '<label class="check-item" style="width:100%;justify-content:flex-start;margin-top:8px"><input type="checkbox" id="owConsentOfertas"> Quero receber oportunidades, cursos e ofertas de parceiros.</label>' +
-    '<button type="button" class="btn-enviar-pesquisa" id="owBtnSalvarConsentimento" style="margin-top:12px">SALVAR PREFERÊNCIAS</button>' +
-    '<div class="pesquisa-status" id="owConsentStatus"></div>' +
-    '</div>' +
-    '</div>' +
     '</div>' +
 
     '<div class="agora-secao" id="moNovidadesWrap" hidden>' +
@@ -9801,6 +9755,67 @@ function renderMeuOwnews(){
     '<button type="button" class="btn-enviar-pesquisa" id="owbBtnSalvar" style="margin-top:12px">SALVAR</button>' +
     '<div class="pesquisa-status" id="owbVoiceStatus"></div>' +
     '<div class="owb-voice-preview" id="owbPreview" aria-live="polite"></div>' +
+    '</div>' +
+
+    /* Conta OW (2026-10-18): utilidade primeiro, conta depois — o bloco de
+       login deixou de abrir a página e virou um item compacto e recolhido
+       no fim. Sem conta tudo funciona no aparelho; com conta, sincroniza só
+       o que a conta de fato guarda (escala, certificados, datas pessoais,
+       perfil e preferências — user_metadata). */
+    '<div class="agora-secao" id="owAuthWrap">' +
+    '<div id="owAuthLoggedOut">' +
+    '<details class="owb-conta">' +
+    '<summary><span class="owb-conta-txt"><strong>Conta OW</strong> <span class="owb-conta-opc">opcional</span><small>Sincroniza escala, certificados e datas pessoais entre aparelhos.</small></span><span class="owb-conta-btn">Entrar na Conta OW</span></summary>' +
+    '<div class="owb-conta-corpo">' +
+    '<form id="owFormLogin" class="form-pesquisa" style="margin:0">' +
+    '<div class="campo-form"><label for="owLoginEmail">Email</label><input type="email" id="owLoginEmail" autocomplete="email" required></div>' +
+    '<div class="campo-form"><label for="owLoginSenha">Senha</label><input type="password" id="owLoginSenha" autocomplete="current-password" required></div>' +
+    '<button type="submit" class="btn-enviar-pesquisa">ENTRAR</button>' +
+    '<div class="pesquisa-status" id="owLoginStatus"></div>' +
+    '</form>' +
+    '<p style="margin:12px 0 0;font-family:var(--ui);font-size:12.5px">' +
+    '<button type="button" id="owMostrarCadastro" class="compartilhar-link">Ainda não tenho conta</button> ' +
+    '<button type="button" id="owMostrarRecuperar" class="compartilhar-link">Esqueci minha senha</button>' +
+    '</p>' +
+    '<form id="owFormCadastro" class="form-pesquisa" hidden style="margin-top:14px">' +
+    '<div class="campo-form"><label for="owCadastroEmail">Email</label><input type="email" id="owCadastroEmail" autocomplete="email" required></div>' +
+    '<div class="campo-form"><label for="owCadastroSenha">Senha</label><input type="password" id="owCadastroSenha" autocomplete="new-password" minlength="6" required><span class="ajuda">Mínimo 6 caracteres.</span></div>' +
+    '<button type="submit" class="btn-enviar-pesquisa">CRIAR CONTA</button>' +
+    '<div class="pesquisa-status" id="owCadastroStatus"></div>' +
+    '</form>' +
+    '<form id="owFormRecuperar" class="form-pesquisa" hidden style="margin-top:14px">' +
+    '<div class="campo-form"><label for="owRecuperarEmail">Email</label><input type="email" id="owRecuperarEmail" autocomplete="email" required></div>' +
+    '<button type="submit" class="btn-enviar-pesquisa">ENVIAR LINK DE RECUPERAÇÃO</button>' +
+    '<div class="pesquisa-status" id="owRecuperarStatus"></div>' +
+    '</form>' +
+    '</div>' +
+    '</details>' +
+    '</div>' +
+    '<div id="owAuthLoggedIn" hidden>' +
+    '<div class="escala-hero">' +
+    '<div class="escala-status-row">' +
+    '<span class="escala-status-label" id="owContaEmail" style="font-size:17px;overflow-wrap:anywhere"></span>' +
+    '<button type="button" class="escala-acao-btn" id="owBtnLogout">SAIR</button>' +
+    '</div>' +
+    '<p class="escala-status-legenda">Sua conta OWBuddy. Perfil e preferências abaixo são 100% opcionais e podem ser apagados quando quiser.</p>' +
+    '</div>' +
+    '<div class="agora-secao">' +
+    '<h3>Perfil (opcional)</h3>' +
+    '<div class="form-pesquisa">' +
+    '<div class="campo-form"><label for="owPerfilNome">Apelido</label><input type="text" id="owPerfilNome"></div>' +
+    '<div class="campo-form"><label for="owPerfilFuncao">Função</label><input type="text" id="owPerfilFuncao" placeholder="ex.: DPO, Plataformista, OIM..."></div>' +
+    '</div>' +
+    '<button type="button" class="btn-enviar-pesquisa" id="owBtnSalvarPerfil" style="margin-top:12px">SALVAR PERFIL</button>' +
+    '<div class="pesquisa-status" id="owPerfilStatus"></div>' +
+    '</div>' +
+    '<div class="agora-secao">' +
+    '<h3>Preferências de comunicação</h3>' +
+    '<label class="check-item" style="width:100%;justify-content:flex-start"><input type="checkbox" id="owConsentNoticias"> Quero receber notícias e alertas OWNews.</label>' +
+    '<label class="check-item" style="width:100%;justify-content:flex-start;margin-top:8px"><input type="checkbox" id="owConsentOfertas"> Quero receber oportunidades, cursos e ofertas de parceiros.</label>' +
+    '<button type="button" class="btn-enviar-pesquisa" id="owBtnSalvarConsentimento" style="margin-top:12px">SALVAR PREFERÊNCIAS</button>' +
+    '<div class="pesquisa-status" id="owConsentStatus"></div>' +
+    '</div>' +
+    '</div>' +
     '</div>' +
 
     '<div class="hub-continue">' +
@@ -10374,9 +10389,9 @@ function renderCentralTrabalhador() {
     '<a class="owb-teaser" href="/meu-ownews">' +
     '<div class="owb-teaser-row">' +
     '<span class="owb-name">OWBuddy</span>' +
-    '<span class="owb-badge">EM BREVE</span>' +
+    '<span class="owb-badge">APP EM BREVE</span>' +
     '</div>' +
-    '<p class="owb-sub">Viagem, alertas e escala integrados — seu parceiro na vida offshore.</p>' +
+    '<p class="owb-sub">Viagem, alertas e escala integrados — já funciona aqui na web, sem conta.</p>' +
     '</a>' +
 
     /* Login pill — aparece para não-logados com dados locais */
@@ -16593,7 +16608,7 @@ function renderPrivacidade() {
     "</div>" +
     '<div class="area-group" id="quando-voce-escolhe">' +
     "<h2>Quando você escolhe usar um recurso com dados</h2>" +
-    '<p class="area-desc"><strong>Conta OWNews (opcional)</strong>: ao criar uma conta, seu e-mail, nome e senha são processados pelo nosso provedor de autenticação (Supabase). Se você usar "Salvar escala na conta" ou o Cruzar Escala, a configuração da sua escala é guardada junto da conta para sincronizar entre aparelhos. <strong>Newsletter</strong>: ao se inscrever, guardamos o e-mail informado para enviar o Radar da Semana. <strong>Alertas no navegador</strong>: ao ativar, guardamos a assinatura técnica de notificação que o próprio navegador gera (não contém nome nem e-mail). <strong>Pergunte ao OWNews</strong>: a pergunta digitada é processada por um modelo de inteligência artificial da Cloudflare (Workers AI); guardamos respostas a perguntas repetidas em cache e um contador por hora associado a um código derivado do endereço IP, só para limitar abuso. <strong>Pesquisa Salarial</strong>: respostas anônimas, sem nome, CPF ou e-mail.</p>' +
+    '<p class="area-desc"><strong>Conta OWNews (opcional)</strong>: ao criar uma conta, seu e-mail, nome e senha são processados pelo nosso provedor de autenticação (Supabase). Enquanto você está conectado, a configuração da sua escala, as datas pessoais, os certificados cadastrados, o perfil opcional (apelido e função) e as preferências de comunicação ficam guardados junto da conta para sincronizar entre aparelhos; o Cruzar Escala também usa a escala da conta. Viagem, aeroporto, empresas acompanhadas e notícias salvas no OWBuddy continuam só no aparelho. <strong>Newsletter</strong>: ao se inscrever, guardamos o e-mail informado para enviar o Radar da Semana. <strong>Alertas no navegador</strong>: ao ativar, guardamos a assinatura técnica de notificação que o próprio navegador gera (não contém nome nem e-mail). <strong>Pergunte ao OWNews</strong>: a pergunta digitada é processada por um modelo de inteligência artificial da Cloudflare (Workers AI); guardamos respostas a perguntas repetidas em cache e um contador por hora associado a um código derivado do endereço IP, só para limitar abuso. <strong>Pesquisa Salarial</strong>: respostas anônimas, sem nome, CPF ou e-mail.</p>' +
     "</div>" +
     '<div class="area-group">' +
     "<h2>O que não fazemos</h2>" +
@@ -17050,7 +17065,7 @@ function renderMinhaEscala() {
 
     '<div class="secao-label" style="margin-top:24px">Datas pessoais</div>' +
     '<div class="escala-datas-pessoais-topo">' +
-    '<p class="dado-contexto" style="margin:0">Aniversários, viagens e eventos — cruzados com sua escala. Salvos só no seu navegador.</p>' +
+    '<p class="dado-contexto" style="margin:0">Aniversários, viagens e eventos — cruzados com sua escala. Salvos no seu navegador; com a Conta OW, também sincronizados entre aparelhos.</p>' +
     '<button type="button" class="escala-btn-add-data" id="btnAbrirDataPessoal" aria-expanded="false" aria-controls="formDataPessoal">+ Adicionar</button>' +
     '</div>' +
     '<form class="form-pesquisa escala-form-compacto" id="formDataPessoal" style="margin-top:10px" hidden>' +
