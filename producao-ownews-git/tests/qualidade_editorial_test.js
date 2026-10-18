@@ -503,6 +503,26 @@ if (COLLECTOR) {
     expect(p.includes("if (camadaIA.titulo) artigo.title = camadaIA.titulo;") && p.includes("tituloTraduzido: tituloPublicado !== tituloFinal"), "pipeline não aplica título");
     expect(COLLECTOR.includes("gerarCamadaEditorialIA(env, a, corpo, 1, { manterTitulo: true })"), "retroprocessamento mexe no título do acervo");
   });
+  test("2ª redação cobre os motivos de FORMA (sem_ancora, incompleto) e nunca os de escopo", () => {
+    const a = COLLECTOR.indexOf("const BUDDY_IA_MOTIVOS_REESCRITA"), b = COLLECTOR.indexOf("async function gerarCamadaEditorialIA(");
+    const M = new Function(COLLECTOR.slice(a, b) + "\nreturn { R: BUDDY_IA_MOTIVOS_REESCRITA, dicas: dicasReescritaIA };")();
+    for (const m of ["impacto:sem_ancora", "corpo:paragrafo_incompleto", "buddy:frase_incompleta", "corpo:curto", "corpo:parafrase_rasa", "impacto:numero_sem_fonte"]) expect(M.R.test(m), "sem reescrita: " + m);
+    for (const m of ["fora_escopo", "impacto:sem_relevancia_offshore", "sem_material", "titulo:title_case"]) expect(!M.R.test(m), "reescrita indevida: " + m);
+    const d = M.dicas("impacto:sem_ancora,corpo:paragrafo_incompleto");
+    expect(/nome próprio/.test(d) && /ponto final/.test(d), d);
+    const g = funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes)");
+    expect(g.includes("dicasReescritaIA(artigo._motivos)") && g.includes("if (t === 1 && v.motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.test(m)))"), "retry sem dicas ou mais de 2 tentativas");
+    expect(g.includes("validarMateriaOWNews("), "gate não aplicado");
+  });
+  test("URL de imagem com entidade HTML (&amp;, &#x27;) é decodificada na coleta e na exibição", () => {
+    const d = new Function(funcao(COLLECTOR, "function decodificarEntidadesUrl(u)") + "\nreturn decodificarEntidadesUrl;")();
+    expect(d("https://x.biz/_next/image?url=%2Fa.jpg&amp;amp;w=3840&amp;q=75") === "https://x.biz/_next/image?url=%2Fa.jpg&w=3840&q=75", "amp");
+    expect(d("https://x.biz/MISC&#x27;s.jpg") === "https://x.biz/MISC's.jpg", "apóstrofo");
+    expect(funcao(COLLECTOR, "function extrairImagemPrincipal(html, urlPagina)").includes("decodificarEntidadesUrl(candidata)"), "extrator");
+    expect(COLLECTOR.includes("detalhes.imageUrl ? decodificarEntidadesUrl(detalhes.imageUrl) : null"), "gravação");
+    const f = funcao(FRONT, "function imagemComFallbackServidor(artigo)");
+    expect(f.includes(".replace(/&amp;/gi, '&')") && f.includes("&#x0*27;"), "SSR");
+  });
   test("observabilidade da IA não cria gravação nova no KV", () => {
     const a = funcao(COLLECTOR, "async function acumularGateEditorial(env, resultados)");
     expect((a.match(/\.put\(/g) || []).length === 1 && a.includes("entrada.ia_ok = true") && a.includes("entrada.ia_erro ="), "acumulador");

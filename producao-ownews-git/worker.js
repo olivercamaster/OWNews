@@ -3740,7 +3740,8 @@ function imagemInvalida(url){
    3) ilustração vetorial OWNews — só como último fallback técnico. */
 function imagemDe(noticia){
   if (noticia.image_url && !imagemInvalida(noticia.image_url)) {
-    return { src: noticia.image_url, ilustracao: false, variant: '', credito: null };
+    // "&amp;" gravado na URL (atributo HTML não decodificado na coleta) quebra a foto.
+    return { src: String(noticia.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'"), ilustracao: false, variant: '', credito: null };
   }
   // Sem foto utilizável da fonte: capa editorial OWNews da editoria
   // (nunca foto de outra unidade/navio).
@@ -6222,7 +6223,9 @@ function imagemFallbackServidor(artigo) {
 // Retorna a imagem real (se válida) ou a de fallback — nunca null.
 function imagemComFallbackServidor(artigo) {
   if (imagemValidaServidor(artigo.image_url)) {
-    return { src: artigo.image_url, credito: artigo.image_credit || null, ilustrativa: false };
+    // URL gravada com entidade HTML ("&amp;amp;w=3840", offshore-energy.biz)
+    // vira HTTP 400: normaliza na exibição — auditoria de 2026-10-18.
+    return { src: String(artigo.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'"), credito: artigo.image_credit || null, ilustrativa: false };
   }
   return imagemFallbackServidor(artigo);
 }

@@ -3899,7 +3899,30 @@ function extrairJsonIA(resposta) {
    { ok:true, buddy_summary, why_it_matters, corpo, relacao } — aprovado
    { ok:false, relacao, motivos }                             — reprovado (não publicar)
    { ok:false, erro }                                         — falha técnica (tentar depois) */
-const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|cliche_ia|generico/;
+// Motivos de FORMA: o texto pode ser corrigido sem mudar o fato, então vale
+// uma segunda redação (mesmo gate). Ampliado em 2026-10-18 — sem_ancora e
+// frase/parágrafo incompleto eram as reprovações mais comuns com a IA real e
+// não ganhavam segunda chance. Escopo (fora_escopo, sem_relevancia_offshore)
+// e material insuficiente nunca entram aqui.
+const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|longo|cliche_ia|generico|sem_ancora|incomplet|espaco_antes|parenteses|numero_sem_fonte|nome_sem_fonte|emprego_sem_base|proibido_impacto|maior_que_fonte|sensacionalista|ingles/;
+const BUDDY_IA_DICAS_REESCRITA = [
+  [/copia_|parafrase_rasa|frase_redundante/, 'Não reaproveite frases da matéria: reescreva com estrutura e vocabulário próprios.'],
+  [/repete_/, 'Buddy, corpo e impacto devem dizer coisas diferentes; não repita o título nem o buddy no corpo.'],
+  [/curto|paragrafos_1|frases_1/, 'O corpo precisa de 3 ou 4 parágrafos completos, com 2 ou 3 frases cada.'],
+  [/longo|maior_que_fonte/, 'Seja mais conciso: o texto não pode ser maior que a matéria.'],
+  [/incomplet/, 'Termine todas as frases e parágrafos com ponto final; nada cortado no meio.'],
+  [/impacto:sem_ancora|sem_ancora/, 'No impacto, cite ao menos um nome próprio (empresa, unidade, campo, bacia, órgão) ou número que aparece na matéria.'],
+  [/generico|cliche_ia|proibido_impacto/, 'Evite frases genéricas que serviriam para qualquer notícia; diga o que muda para quem trabalha no offshore com base no fato.'],
+  [/numero_sem_fonte|nome_sem_fonte/, 'Use só números e nomes que aparecem na matéria.'],
+  [/emprego_sem_base/, 'Não fale em vagas, empregos ou salários se a matéria não trata disso.'],
+  [/sensacionalista/, 'Tom factual, sem exclamação nem adjetivo de impacto.'],
+  [/ingles/, 'Escreva tudo em português do Brasil.'],
+  [/espaco_antes|parenteses/, 'Sem espaço antes de pontuação ou dentro de parênteses.']
+];
+function dicasReescritaIA(motivos) {
+  const m = String(motivos || '');
+  return BUDDY_IA_DICAS_REESCRITA.filter(([re]) => re.test(m)).map(([, d]) => '- ' + d).join('\n');
+}
 async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
@@ -3916,10 +3939,12 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
         { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + pedidoTitulo +
-          (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Reescreva com vocabulário e ordem próprios, sem frases da matéria, sem repetir o buddy no corpo.' : '') }
+          (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Corrija assim:\n' + (dicasReescritaIA(artigo._motivos) || '- Reescreva com vocabulário e ordem próprios, sem frases da matéria.') : '') }
       ],
       max_tokens: 1100,
-      temperature: t > 1 ? 0.6 : 0.3
+      // 0,6 deixava a 2ª redação telegráfica (frases cortadas) na sonda de
+      // 2026-10-18; 0,45 ainda varia o texto sem perder a forma.
+      temperature: t > 1 ? 0.45 : 0.3
     });
   } catch (e) {
     return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
@@ -4364,7 +4389,9 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       // Anti-repetição de imagem (ver IMAGENS_BANNER_CONHECIDAS acima): só
       // consulta a Supabase quando existe uma image_url candidata — nunca
       // gasta subrequest à toa em matéria que já não tem foto própria.
-      let imageUrlValidada = detalhes.imageUrl || null;
+      // Qualquer caminho (og:image, RSS, JSON-LD) chega aqui: entidade HTML
+      // na URL ("&amp;") gera link quebrado — normaliza antes de gravar.
+      let imageUrlValidada = detalhes.imageUrl ? decodificarEntidadesUrl(detalhes.imageUrl) : null;
       let imagemDescartadaPorRepeticao = false;
       if (imageUrlValidada) {
         const ehBannerRepetido = await imagemPareceBannerRepetidoDaFonte(env, imageUrlValidada, detalhes.imageCredit);
@@ -4683,6 +4710,14 @@ return {
   return paragrafos.join('\n\n');
 }
 
+/* Entidades HTML numa URL vinda de atributo (src/content). Diferente de
+   decodeHtmlEntities (texto), nunca troca entidade por espaço. */
+function decodificarEntidadesUrl(u) {
+  let r = String(u || '');
+  for (let i = 0; i < 3 && /&amp;/i.test(r); i++) r = r.replace(/&amp;/gi, '&');
+  return r.replace(/&#0*39;|&#x0*27;|&apos;/gi, "'").replace(/&quot;|&#0*34;|&#x0*22;/gi, '"');
+}
+
 function extrairImagemPrincipal(html, urlPagina) {
   const candidatas = [];
 
@@ -4751,7 +4786,11 @@ function extrairImagemPrincipal(html, urlPagina) {
 
   for (const candidata of unicas) {
     try {
-      const absoluta = new URL(candidata, urlPagina).href;
+      // Atributo HTML ainda escapado (offshore-energy.biz: "_next/image?url=…
+      // &amp;w=3840") virava URL inválida (HTTP 400) gravada no banco —
+      // achado na auditoria de 2026-10-18. Decodifica antes de absolutizar
+      // (repete enquanto houver "&amp;": há páginas com "&amp;amp;").
+      const absoluta = new URL(decodificarEntidadesUrl(candidata), urlPagina).href;
 
       // Rejeita imagens que claramente não são foto da notícia
       if (
