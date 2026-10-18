@@ -139,7 +139,7 @@ test('calcularMomento em 05/10 = FOLGA com 7 dias p/ embarque (Home)', () => {
 // ─── Calendário (Minha Escala) ────────────────────────────────────────────
 
 test('calendário de outubro: verde exatamente de 12 a 25; 10 e 11 em folga', () => {
-  const dias = D.gerarMesDias(CFG, [], [], [], 2026, 10, '2026-10-05');
+  const dias = D.gerarMesDias(CFG, [], [], 2026, 10, '2026-10-05');
   const verdes = dias.filter(d => d.kind === 'EMBARCADO').map(d => parseInt(d.iso.slice(8), 10));
   assert.deepEqual(verdes, [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
   const by = Object.fromEntries(dias.map(d => [d.iso, d]));
@@ -152,7 +152,7 @@ test('calendário de outubro: verde exatamente de 12 a 25; 10 e 11 em folga', ()
 });
 
 test('calendário de novembro: folga 1–8, embarque dia 9 (marcador), verde 9–22', () => {
-  const dias = D.gerarMesDias(CFG, [], [], [], 2026, 11, '2026-10-05');
+  const dias = D.gerarMesDias(CFG, [], [], 2026, 11, '2026-10-05');
   const by = Object.fromEntries(dias.map(d => [d.iso, d]));
   for (let i = 1; i <= 8; i++) assert.equal(by[`2026-11-0${i}`].kind, 'FOLGA', `01..08/11 folga (${i})`);
   assert.equal(by['2026-11-08'].diaDoBloco, 14);
@@ -241,7 +241,7 @@ test('dobra em 10–11/10 e férias em 20–22/10 não deslocam o ciclo nem a da
   ];
   const cfg = { ...CFG, excecoes };
   assert.equal(cfg.dataRef, '2026-10-12');
-  const dias = D.gerarMesDias(cfg, excecoes, [], [], 2026, 10, '2026-10-05');
+  const dias = D.gerarMesDias(cfg, excecoes, [], 2026, 10, '2026-10-05');
   const by = Object.fromEntries(dias.map(d => [d.iso, d]));
   assert.equal(by['2026-10-10'].kind, 'DOBRA');
   assert.equal(by['2026-10-11'].kind, 'DOBRA');

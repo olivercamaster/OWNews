@@ -1,14 +1,17 @@
 import type { Certificado, CertCalc, CertStatus } from './types';
+import { diasEntreISO, hojeISO, isoValido } from './escala';
 
 export function calcCertStatus(cert: Certificado, today: Date = new Date()): CertCalc {
   if (!cert.validade) {
     return { status: 'sem-data', critico: false, dias: null, label: 'Sem data' };
   }
 
-  const todayUTC = new Date(today);
-  todayUTC.setUTCHours(12, 0, 0, 0);
-  const validadeUTC = new Date(cert.validade + 'T12:00:00Z');
-  const dias = Math.round((validadeUTC.getTime() - todayUTC.getTime()) / 86400000);
+  // Dias de calendário a partir de HOJE NO FUSO DO APARELHO (setUTCHours virava
+  // o dia às 21:00 de Brasília e mostrava "vence amanhã" no dia do vencimento).
+  if (!isoValido(cert.validade)) {
+    return { status: 'sem-data', critico: false, dias: null, label: 'Data inválida' };
+  }
+  const dias = diasEntreISO(hojeISO(today), cert.validade);
 
   let status: CertStatus;
   let critico: boolean;

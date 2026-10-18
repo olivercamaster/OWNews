@@ -121,16 +121,16 @@ test('resumoEscala: DE_FOLGA', () => {
 
 test('marcadores de embarque/desembarque ignoram dobra/férias', () => {
   const exc = [{ id: 'f', tipo: 'ferias', ini: '2026-10-27', fim: '2026-10-31' }];
-  const d29 = D.infoParaDia(CFG, exc, [], [], '2026-10-29', '2026-10-05');
+  const d29 = D.infoParaDia(CFG, exc, [], '2026-10-29', '2026-10-05');
   assert.equal(d29.kind, 'FERIAS');
   assert.equal(d29.isEmbarque, true, 'dia 1 do embarque continua marcado mesmo dentro das férias');
-  const d15 = D.infoParaDia(CFG, [], [], [], '2026-10-15', '2026-10-05');
+  const d15 = D.infoParaDia(CFG, [], [], '2026-10-15', '2026-10-05');
   assert.equal(d15.isDesembarque, true);
   assert.equal(d15.kind, 'FOLGA');
 });
 
 test('gerarMesDias aceita todayISO explícito', () => {
-  const dias = D.gerarMesDias(CFG, [], [], [], 2026, 10, '2026-10-05');
+  const dias = D.gerarMesDias(CFG, [], [], 2026, 10, '2026-10-05');
   assert.equal(dias.length, 31);
   assert.equal(dias[4].isHoje, true);
   assert.equal(dias.filter(d => d.isHoje).length, 1);

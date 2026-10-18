@@ -77,12 +77,29 @@ export function diasEntreISO(aISO: string, bISO: string): number {
 
 // ─── Ciclo ──────────────────────────────────────────────────────────────────
 
+/** Limite de cada bloco de uma escala personalizada (dias). */
+export const DIAS_BLOCO_MAX = 120;
+
 export function diasDoCiclo(config: EscalaConfig): { dEm: number; dFo: number } | null {
   const preset = TIPOS_PRESET[config.tipo];
   const dEm = preset ? preset[0] : (parseInt(String(config.diasEmbarcado ?? ''), 10) || 0);
   const dFo = preset ? preset[1] : (parseInt(String(config.diasFolga ?? ''), 10) || 0);
-  if (!dEm || !dFo || isNaN(dEm) || isNaN(dFo)) return null;
+  if (!validarDiasBloco(dEm) || !validarDiasBloco(dFo)) return null;
   return { dEm, dFo };
+}
+
+/** Bloco válido: inteiro de 1 a DIAS_BLOCO_MAX. Usado pelas telas de configuração. */
+export function validarDiasBloco(n: unknown): boolean {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= DIAS_BLOCO_MAX;
+}
+
+const ISO_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** "YYYY-MM-DD" que existe no calendário (rejeita 2026-02-30). */
+export function isoValido(iso: unknown): iso is string {
+  if (typeof iso !== 'string' || !ISO_DIA.test(iso)) return false;
+  const ms = isoParaMs(iso);
+  return !isNaN(ms) && msParaISO(ms) === iso;
 }
 
 /**
@@ -94,19 +111,24 @@ export function diasDoCiclo(config: EscalaConfig): { dEm: number; dFo: number } 
  * Dobra e férias NÃO entram aqui: são apenas visuais (igual ao web).
  */
 export function calcEscala(config: EscalaConfig, today: Date = new Date()): EscalaCalc | null {
+  return calcEscalaISO(config, hojeISO(today));
+}
+
+/**
+ * REGRA CANÔNICA da escala, em dias de calendário: recebe o dia já resolvido
+ * ("YYYY-MM-DD") e nunca converte fuso. Telas, calendário, Cruzar e lembretes
+ * passam por aqui — calcEscala(today) só resolve "hoje" no fuso do aparelho.
+ */
+export function calcEscalaISO(config: EscalaConfig, iso: string): EscalaCalc | null {
   try {
     const dias = diasDoCiclo(config);
-    if (!dias) return null;
+    if (!dias || !isoValido(config.dataRef) || !isoValido(iso)) return null;
     const { dEm, dFo } = dias;
-
-    const refUTC = isoParaMs(config.dataRef);
-    if (isNaN(refUTC)) return null;
-
-    const anchor = config.tipoRef === 'embarquei' ? refUTC : refUTC - dEm * DIA_MS;
     const ciclo = dEm + dFo;
-    const agoraMs = normalizarDia(today);
-    const fase = ((Math.round((agoraMs - anchor) / DIA_MS) % ciclo) + ciclo) % ciclo;
-
+    // anchor = primeiro dia embarcado de um ciclo conhecido
+    const offset = config.tipoRef === 'embarquei' ? 0 : -dEm;
+    const desde = diasEntreISO(config.dataRef, iso) - offset;
+    const fase = ((desde % ciclo) + ciclo) % ciclo;
     return {
       embarcado: fase < dEm,
       diasRestantes: fase < dEm ? dEm - fase : ciclo - fase,
@@ -120,8 +142,9 @@ export function calcEscala(config: EscalaConfig, today: Date = new Date()): Esca
   }
 }
 
+/** @deprecated use calcEscalaISO (sem conversão de fuso). */
 export function calcEscalaParaDia(config: EscalaConfig, isoDate: string): EscalaCalc | null {
-  return calcEscala(config, new Date(isoDate + 'T12:00:00Z'));
+  return calcEscalaISO(config, isoDate);
 }
 
 // ─── Próximas transições ────────────────────────────────────────────────────

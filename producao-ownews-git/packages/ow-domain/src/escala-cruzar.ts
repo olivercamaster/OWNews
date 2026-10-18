@@ -1,8 +1,24 @@
-import type { EscalaConfig, EscalaSecundaria, JanelaJuntos } from './types';
-import { calcEscala, hojeISO, isoParaMs, msParaISO } from './escala';
+import type { EscalaConfig, EscalaSecundaria, Excecao, JanelaJuntos } from './types';
+import { calcEscalaISO, diasDoCiclo, hojeISO, isoParaMs, isoValido, msParaISO } from './escala';
 
-// Busca janelas de folga em comum — idêntico ao OWNews worker.js linha 17238
+/**
+ * A pessoa está livre (fora de bordo) neste dia? Usa a regra canônica
+ * calcEscalaISO e as exceções da PRÓPRIA escala: dobra = a bordo; férias = livre.
+ * (O OWNews web ignora as exceções no Cruzar; aqui elas contam, porque uma dobra
+ * marcada no calendário nunca pode virar "folga em comum".)
+ */
+export function estaLivreNoDia(config: EscalaConfig, iso: string, excecoes: Excecao[] = config.excecoes ?? []): boolean | null {
+  const calc = calcEscalaISO(config, iso);
+  if (!calc) return null;
+  const exc = excecoes.find(e => iso >= e.ini && iso <= e.fim);
+  if (exc?.tipo === 'dobra') return false;
+  if (exc?.tipo === 'ferias') return true;
+  return !calc.embarcado;
+}
+
+// Busca janelas de folga em comum — base: OWNews worker.js (Cruzar escalas).
 // `fromISO` é data LOCAL (hojeISO), nunca toISOString() — ver escala.ts.
+// Escala inválida (sem ciclo/data) → nenhuma janela (nunca "sempre de folga").
 export function encontrarJanelasJuntos(
   configA: EscalaConfig,
   configB: EscalaConfig,
@@ -11,16 +27,15 @@ export function encontrarJanelasJuntos(
   maxJanelas = 5,
 ): JanelaJuntos[] {
   const janelas: JanelaJuntos[] = [];
+  if (!diasDoCiclo(configA) || !diasDoCiclo(configB) || !isoValido(fromISO)) return janelas;
   let emJanela = false;
   let inicioJanela = '';
   const fromMs = isoParaMs(fromISO);
 
   for (let i = 0; i < maxDias; i++) {
     const ms = fromMs + i * 86400000;
-    const stA = calcEscala(configA, new Date(ms));
-    const stB = calcEscala(configB, new Date(ms));
-    const juntos = !stA?.embarcado && !stB?.embarcado;
     const iso = msParaISO(ms);
+    const juntos = estaLivreNoDia(configA, iso) === true && estaLivreNoDia(configB, iso) === true;
 
     if (juntos && !emJanela) {
       emJanela = true;
@@ -37,7 +52,7 @@ export function encontrarJanelasJuntos(
     }
   }
 
-  if (emJanela) {
+  if (emJanela && janelas.length < maxJanelas) {
     const fimMs = fromMs + (maxDias - 1) * 86400000;
     janelas.push({
       inicio: inicioJanela,

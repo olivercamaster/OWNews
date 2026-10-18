@@ -1,5 +1,5 @@
 import type { EscalaConfig, Excecao, EventoPessoal, DayInfo, DayKind, FeriadoBR } from './types';
-import { calcEscala, hojeISO } from './escala';
+import { calcEscalaISO, hojeISO } from './escala';
 
 // Algoritmo de Gauss/Meeus — idêntico ao OWNews worker.js linha 15980
 export function pascoaUTC(ano: number): number {
@@ -74,8 +74,7 @@ function kindParaDia(
   excecoes: Excecao[],
   iso: string,
 ): { kind: DayKind; diaDoBloco: number; isEmbarque: boolean; isDesembarque: boolean } {
-  const date = new Date(iso + 'T12:00:00Z');
-  const base = calcEscala(config, date);
+  const base = calcEscalaISO(config, iso);
   if (!base) return { kind: 'SEM_ESCALA', diaDoBloco: 0, isEmbarque: false, isDesembarque: false };
   const exc = excecoes.find(e => iso >= e.ini && iso <= e.fim);
   let kind: DayKind;
