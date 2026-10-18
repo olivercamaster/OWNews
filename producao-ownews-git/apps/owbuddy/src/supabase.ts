@@ -1,9 +1,9 @@
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase anon/publishable key — same project as OWNews web.
-// This key is already public (it's in the worker.js HTML sent to browsers).
-// NEVER use service_role key here.
+// Chave PUBLICÁVEL (anon) do mesmo projeto do OWNews web — já é pública no HTML
+// do site e só faz o que as políticas RLS permitem. NUNCA usar service_role aqui.
 const SUPABASE_URL = 'https://awyowuhwkqfyhwgdpepp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt';
 
@@ -15,3 +15,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
   },
 });
+
+// React Native: o refresh automático do token só deve rodar com o app em
+// primeiro plano (recomendação do supabase-js). Em segundo plano para; ao
+// voltar, renova antes de qualquer sync — sessão não "expira" com o app aberto.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', estado => {
+    if (estado === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}

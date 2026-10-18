@@ -1,18 +1,25 @@
 /**
  * Sincronização dispositivo ⇄ conta OW (Supabase user_metadata).
  *
- * AINDA NÃO é chamado por nenhuma tela (login no Buddy é opcional e não há
- * fluxo de conta ativo). Está aqui para que, quando a conta única OW entrar no
- * app, o Buddy fale o MESMO dialeto do OWNews web:
+ * Chamado pela tela Meu Buddy → Conta OW (login e botão Sincronizar). Conta é
+ * OPCIONAL: sem login nada disto roda e o app funciona 100% local.
+ * Fala o MESMO dialeto do OWNews web:
  *
- *   escala_config  ← fonte de verdade da Minha Escala (formato plano do web)
- *   certificados   ← merge por id, mais recente vence, tombstones _deleted
+ *   escala_config        ← fonte de verdade da Minha Escala (formato plano do web)
+ *   ownews_minha_escala  ← legado Buddy (builds antigos)
+ *   certificados         ← merge por id, mais recente vence, tombstones _deleted
+ *   ownews_checklist_mala← lista do Meu Embarque (só preenche aparelho sem lista)
+ *   ownews_buddy_prefs   ← tom/tratamento/apelido, mais recente vence
+ *
+ * NUNCA sincroniza: Minha Viagem (itinerário é privado — e a cópia parcial que
+ * builds antigos enviavam é apagada da conta no próximo sync), eventos/datas
+ * pessoais do app, escalas secundárias (Cruzar), cidade, notícias, lembretes.
  *
  * Regras (docs/OW_PLATAFORMA.md): nunca apagar dado do outro lado; nunca
  * sobrescrever uma escala mais nova editada no web; chaves legadas
  * `ownews_minha_escala` / `ownews_certificados` continuam sendo LIDAS.
  */
-import type { BuddyPrefs, ChecklistData, Viagem } from '@owbuddy/domain';
+import type { BuddyPrefs, ChecklistData } from '@owbuddy/domain';
 import {
   carimboParaISO,
   carimboParaMs,
@@ -22,20 +29,8 @@ import {
   nuvemDeveSubstituirLocal,
   podeGravarEscalaNaNuvem,
 } from '@owbuddy/domain';
-import { getBuddyPrefs, getCerts, getChecklist, getEscala, getViagem, setBuddyPrefs, setCerts, setChecklist, setEscala } from './storage';
-import { getUserMetadata, updateUserMetadata } from './auth';
-
-// Campos sensíveis que NUNCA saem do dispositivo
-const PRIVATE_VIAGEM_FIELDS: Array<keyof Viagem> = ['localizador', 'obs', 'assento', 'poltrona'];
-
-function stripPrivateViagemFields(v: Viagem | null | undefined): Partial<Viagem> | null {
-  if (!v) return null;
-  const safe = { ...v };
-  for (const field of PRIVATE_VIAGEM_FIELDS) {
-    delete safe[field];
-  }
-  return safe;
-}
+import { getBuddyPrefs, getCerts, getChecklist, getEscala, setBuddyPrefs, setCerts, setChecklist, setEscala } from './storage';
+import { getUserMetadata, mensagemErroConta, updateUserMetadata } from './auth';
 
 // Pull nuvem → local. Nunca destrutivo: só substitui quando a nuvem é mais nova
 // ou quando o dispositivo ainda não tem o dado.
@@ -77,12 +72,11 @@ export async function pullFromServer(): Promise<void> {
 
 // Push local → nuvem (PATCH: chaves ausentes aqui são mantidas pelo GoTrue)
 export async function pushToServer(): Promise<{ error: string | null }> {
-  const [meta, escala, certs, checklist, viagem, prefs] = await Promise.all([
+  const [meta, escala, certs, checklist, prefs] = await Promise.all([
     getUserMetadata(),
     getEscala(),
     getCerts(),
     getChecklist(),
-    getViagem(),
     getBuddyPrefs(),
   ]);
 
@@ -104,19 +98,20 @@ export async function pushToServer(): Promise<{ error: string | null }> {
     patch.certificados = mesclarCertificados(certs, meta?.certificados, meta?.ownews_certificados);
   }
   if (checklist?.ciclo) patch.ownews_checklist_mala = checklist;
-  const safeViagem = stripPrivateViagemFields(viagem);
-  if (safeViagem) patch.ownews_minha_viagem = safeViagem;
+  // Viagem nunca vai para a conta; remove a cópia parcial de builds antigos.
+  if (meta && meta.ownews_minha_viagem != null) patch.ownews_minha_viagem = null;
   if (prefs) patch.ownews_buddy_prefs = prefs;
 
   return updateUserMetadata(patch);
 }
 
-// Full sync: pull first (nuvem mais nova vence), then push deltas
+// Full sync: pull first (nuvem mais nova vence), then push deltas.
+// Falha (rede, sessão expirada) nunca apaga nem altera dado local.
 export async function syncAll(): Promise<{ error: string | null }> {
   try {
     await pullFromServer();
-    return pushToServer();
+    return await pushToServer();
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Sync error' };
+    return { error: mensagemErroConta({ message: e instanceof Error ? e.message : 'network' }) };
   }
 }

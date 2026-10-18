@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
+  Switch,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,14 +15,26 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getPreviewMensagem, DEFAULT_BUDDY_PREFS } from '@owbuddy/domain';
-import type { BuddyPrefs, BuddyTom, BuddyTrat } from '@owbuddy/domain';
+import Constants from 'expo-constants';
+import { getPreviewMensagem, DEFAULT_BUDDY_PREFS, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
+import type { BuddyPrefs, BuddyTom, BuddyTrat, PrefsLembretes } from '@owbuddy/domain';
 import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
 import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
 import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
-import { getSession, signInWithPassword, signInWithEmail, signOut, onAuthStateChange } from '../src/auth';
+import { getSession, signInWithPassword, signUp, recuperarSenha, signOut, onAuthStateChange } from '../src/auth';
 import { syncAll } from '../src/sync';
+import {
+  estadoPermissao,
+  getPrefsLembretes,
+  notificacoesDisponiveis,
+  pedirPermissao,
+  replanejarLembretes,
+  setPrefsLembretes,
+  type EstadoPermissao,
+} from '../src/notifications';
+
+const VERSAO_APP = Constants.expoConfig?.version ?? '';
 import type { Session } from '@supabase/supabase-js';
 
 // UI labels — mapped from internal domain values, backwards-compatible
@@ -46,7 +60,13 @@ export default function BuddyConfig() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginErro, setLoginErro] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [linkEnviado, setLinkEnviado] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [modoConta, setModoConta] = useState<'entrar' | 'criar'>('entrar');
+
+  // ── Lembretes (notificações locais) ──
+  const [lembretes, setLembretes] = useState<PrefsLembretes>(PREFS_LEMBRETES_PADRAO);
+  const [permissao, setPermissao] = useState<EstadoPermissao>('nao_perguntada');
+  const [agendados, setAgendados] = useState<number | null>(null);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
@@ -56,39 +76,91 @@ export default function BuddyConfig() {
     return () => { sub.then(s => s.unsubscribe()); };
   }, []);
 
-  const handleLogin = async () => {
-    setLoginErro(null);
-    if (!loginEmail.trim()) { setLoginErro('Informe o e-mail.'); return; }
-    if (!loginSenha.trim()) { setLoginErro('Informe a senha.'); return; }
-    setLoginLoading(true);
-    const { error } = await signInWithPassword(loginEmail.trim(), loginSenha);
-    setLoginLoading(false);
-    if (error) { setLoginErro('E-mail ou senha incorretos.'); return; }
-    analytics.track('conta_login_senha');
-    setSyncMsg('Sincronizando dados…');
+  const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+
+  const sincronizarAgora = async (prefixo: string) => {
+    setSyncMsg('Sincronizando…');
     setSyncLoading(true);
     const sync = await syncAll();
     setSyncLoading(false);
-    setSyncMsg(sync.error ? 'Login feito. Sync falhou: ' + sync.error : 'Dados sincronizados.');
+    setSyncMsg(sync.error ? `${prefixo}${sync.error}` : 'Escala, certificados e preferências sincronizados com a Conta OW.');
+    analytics.track(sync.error ? 'sync_failed' : 'sync_completed');
   };
 
-  const handleLinkMagico = async () => {
-    setLoginErro(null);
-    if (!loginEmail.trim()) { setLoginErro('Informe o e-mail para receber o link.'); return; }
+  const handleLogin = async () => {
+    setLoginErro(null); setAviso(null);
+    if (!emailValido(loginEmail)) { setLoginErro('Informe um e-mail válido.'); return; }
+    if (!loginSenha) { setLoginErro('Informe a senha.'); return; }
     setLoginLoading(true);
-    const { error } = await signInWithEmail(loginEmail.trim());
+    const { error } = await signInWithPassword(loginEmail.trim(), loginSenha);
     setLoginLoading(false);
     if (error) { setLoginErro(error); return; }
-    analytics.track('conta_login_otp');
-    setLinkEnviado(true);
+    setLoginSenha('');
+    analytics.track('conta_login_senha');
+    await sincronizarAgora('Você entrou, mas a sincronização falhou: ');
+  };
+
+  const handleCriar = async () => {
+    setLoginErro(null); setAviso(null);
+    if (!emailValido(loginEmail)) { setLoginErro('Informe um e-mail válido.'); return; }
+    if (loginSenha.length < 6) { setLoginErro('A senha precisa ter pelo menos 6 caracteres.'); return; }
+    setLoginLoading(true);
+    const r = await signUp(loginEmail.trim(), loginSenha);
+    setLoginLoading(false);
+    if (r.error) { setLoginErro(r.error); return; }
+    setLoginSenha('');
+    analytics.track('conta_cadastro');
+    if (r.precisaConfirmar) {
+      setAviso('Conta criada! Confirme pelo link enviado ao seu e-mail e depois entre aqui.');
+      setModoConta('entrar');
+    } else {
+      await sincronizarAgora('Conta criada, mas a sincronização falhou: ');
+    }
+  };
+
+  const handleRecuperar = async () => {
+    setLoginErro(null); setAviso(null);
+    if (!emailValido(loginEmail)) { setLoginErro('Digite seu e-mail acima para receber o link.'); return; }
+    setLoginLoading(true);
+    const { error } = await recuperarSenha(loginEmail.trim());
+    setLoginLoading(false);
+    if (error) { setLoginErro(error); return; }
+    analytics.track('conta_recuperar_senha');
+    setAviso('Se o e-mail tiver conta, chega um link para criar uma nova senha (abre no site do OWNews).');
   };
 
   const handleSync = async () => {
     setSyncMsg(null);
-    setSyncLoading(true);
-    const { error } = await syncAll();
-    setSyncLoading(false);
-    setSyncMsg(error ? 'Sync falhou: ' + error : 'Dados sincronizados com a conta OW.');
+    await sincronizarAgora('A sincronização falhou: ');
+  };
+
+  // ── Lembretes ──
+  const carregarLembretes = useCallback(async () => {
+    const [p, perm] = await Promise.all([getPrefsLembretes(), estadoPermissao()]);
+    setLembretes(p);
+    setPermissao(perm);
+  }, []);
+
+  const salvarLembretes = async (p: PrefsLembretes) => {
+    setLembretes(p);
+    await setPrefsLembretes(p);
+    setAgendados(await replanejarLembretes());
+  };
+
+  const alternarLembretes = async (ligar: boolean) => {
+    if (!ligar) {
+      await salvarLembretes({ ...lembretes, ativo: false });
+      analytics.track('lembretes_desativados');
+      return;
+    }
+    const perm = await pedirPermissao();
+    setPermissao(perm);
+    if (perm !== 'concedida') {
+      await salvarLembretes({ ...lembretes, ativo: false });
+      return;
+    }
+    await salvarLembretes({ ...lembretes, ativo: true });
+    analytics.track('lembretes_ativados');
   };
 
   const handleSair = async () => {
@@ -102,7 +174,8 @@ export default function BuddyConfig() {
   useFocusEffect(useCallback(() => {
     getBuddyPrefs().then(setPrefs);
     setSaved(false);
-  }, []));
+    carregarLembretes();
+  }, [carregarLembretes]));
 
   const update = (partial: Partial<BuddyPrefs>) => {
     setPrefs(p => ({ ...p, ...partial }));
@@ -185,7 +258,7 @@ export default function BuddyConfig() {
         />
         <View style={styles.privNote}>
           <Ionicons name="lock-closed-outline" size={12} color={colors.mutedDim} />
-          <Text style={styles.privText}>Guardado só neste dispositivo. Não vai a analytics.</Text>
+          <Text style={styles.privText}>Fica neste aparelho (e na Conta OW, se você entrar). Nunca vai para analytics.</Text>
         </View>
 
         {/* Save */}
@@ -198,14 +271,74 @@ export default function BuddyConfig() {
           <Text style={styles.saveBtnText}>{saved ? 'Salvo ✓' : 'Salvar preferências'}</Text>
         </TouchableOpacity>
 
-        {/* ── Conta OW ── */}
-        <Text style={styles.sectionTitle}>Conta OW</Text>
+        {/* ── Lembretes (notificações locais) ── */}
+        <Text style={styles.sectionTitle}>Lembretes</Text>
+        <View style={styles.contaCard}>
+          {!notificacoesDisponiveis() ? (
+            <Text style={styles.contaDesc}>Lembretes chegam na versão instalada do app (não disponíveis aqui).</Text>
+          ) : (
+            <>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.switchLabel}>Lembrar no celular</Text>
+                  <Text style={styles.switchSub}>Poucos avisos, criados neste aparelho. Nada é enviado a servidor.</Text>
+                </View>
+                <Switch
+                  value={lembretes.ativo}
+                  onValueChange={alternarLembretes}
+                  trackColor={{ true: colors.cyan, false: colors.line }}
+                  accessibilityLabel="Ativar lembretes"
+                />
+              </View>
+              {permissao === 'negada' && (
+                <View style={styles.avisoBox}>
+                  <Text style={styles.avisoText}>As notificações estão bloqueadas para o OWBuddy. O app funciona normalmente; para receber lembretes, libere nas configurações do celular.</Text>
+                  <TouchableOpacity onPress={() => Linking.openSettings().catch(() => {})} accessibilityRole="button">
+                    <Text style={styles.linkText}>Abrir configurações</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {lembretes.ativo && (
+                <>
+                  {([
+                    ['embarque', 'Próximo embarque', '3 dias antes e na véspera'],
+                    ['checklist', 'Meu Embarque', '2 dias antes, se faltar item'],
+                    ['certificados', 'Certificados', '30 e 7 dias antes do vencimento'],
+                    ['viagem', 'Minha Viagem', 'na véspera e 3 h antes'],
+                  ] as const).map(([k, label, sub]) => (
+                    <View key={k} style={styles.switchRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchLabelSm}>{label}</Text>
+                        <Text style={styles.switchSub}>{sub}</Text>
+                      </View>
+                      <Switch
+                        value={lembretes[k]}
+                        onValueChange={v => salvarLembretes({ ...lembretes, [k]: v })}
+                        trackColor={{ true: colors.cyan, false: colors.line }}
+                        accessibilityLabel={`Lembrete: ${label}`}
+                      />
+                    </View>
+                  ))}
+                  {agendados != null && (
+                    <Text style={styles.switchSub}>{agendados === 0 ? 'Nenhum lembrete pendente agora.' : `${agendados} lembrete(s) agendado(s).`}</Text>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* ── Conta OW (opcional) ── */}
+        <Text style={styles.sectionTitle}>Conta OW <Text style={styles.opcional}>· opcional</Text></Text>
         {session ? (
           <View style={styles.contaCard}>
             <View style={styles.contaRow}>
               <Ionicons name="person-circle-outline" size={22} color={colors.cyan} />
               <Text style={styles.contaEmail} numberOfLines={1}>{session.user.email}</Text>
             </View>
+            <Text style={styles.contaDesc}>
+              Sincroniza escala, certificados, lista do Meu Embarque e estas preferências com o OWNews. Viagem, eventos, Cruzar e notícias ficam só neste aparelho.
+            </Text>
             {syncMsg ? (
               <Text style={[styles.syncMsg, syncLoading && styles.syncMsgLoading]}>{syncMsg}</Text>
             ) : null}
@@ -229,63 +362,71 @@ export default function BuddyConfig() {
                 <Text style={styles.sairBtnText}>Sair</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.switchSub}>Sair não apaga nada deste aparelho.</Text>
           </View>
         ) : (
           <View style={styles.contaCard}>
-            {linkEnviado ? (
-              <View style={styles.linkEnviadoBox}>
-                <Ionicons name="mail-outline" size={22} color={colors.cyan} />
-                <Text style={styles.linkEnviadoText}>
-                  Link de acesso enviado para {loginEmail}. Verifique seu e-mail.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.contaDesc}>
-                  Sincronize sua escala, certificados e preferências com a sua conta OWNews em outros dispositivos.
-                </Text>
-                <TextInput
-                  style={styles.loginInput}
-                  value={loginEmail}
-                  onChangeText={v => { setLoginEmail(v); setLoginErro(null); }}
-                  placeholder="E-mail"
-                  placeholderTextColor={colors.mutedDim}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-                <TextInput
-                  style={styles.loginInput}
-                  value={loginSenha}
-                  onChangeText={v => { setLoginSenha(v); setLoginErro(null); }}
-                  placeholder="Senha"
-                  placeholderTextColor={colors.mutedDim}
-                  secureTextEntry
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
-                />
-                {loginErro ? <Text style={styles.loginErro}>{loginErro}</Text> : null}
+            <Text style={styles.contaDesc}>
+              O OWBuddy funciona sem conta. Com a Conta OW (a mesma do OWNews), sua escala, certificados e preferências aparecem também em outros aparelhos.
+            </Text>
+            <View style={styles.modoRow}>
+              {(['entrar', 'criar'] as const).map(m => (
                 <TouchableOpacity
-                  style={styles.loginBtn}
-                  onPress={handleLogin}
-                  disabled={loginLoading}
-                  accessibilityLabel="Entrar na conta OW"
+                  key={m}
+                  style={[styles.modoChip, modoConta === m && styles.modoChipAtivo]}
+                  onPress={() => { setModoConta(m); setLoginErro(null); setAviso(null); }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: modoConta === m }}
                 >
-                  {loginLoading
-                    ? <ActivityIndicator size="small" color={colors.navy950} />
-                    : <Text style={styles.loginBtnText}>Entrar</Text>
-                  }
+                  <Text style={[styles.modoText, modoConta === m && styles.modoTextAtivo]}>{m === 'entrar' ? 'Entrar' : 'Criar conta'}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.otpBtn}
-                  onPress={handleLinkMagico}
-                  disabled={loginLoading}
-                  accessibilityLabel="Receber link de acesso por e-mail"
-                >
-                  <Text style={styles.otpBtnText}>Entrar via link mágico</Text>
-                </TouchableOpacity>
-              </>
+              ))}
+            </View>
+            <TextInput
+              style={styles.loginInput}
+              value={loginEmail}
+              onChangeText={v => { setLoginEmail(v); setLoginErro(null); }}
+              placeholder="E-mail"
+              placeholderTextColor={colors.mutedDim}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
+              accessibilityLabel="E-mail da Conta OW"
+            />
+            <TextInput
+              style={styles.loginInput}
+              value={loginSenha}
+              onChangeText={v => { setLoginSenha(v); setLoginErro(null); }}
+              placeholder={modoConta === 'criar' ? 'Senha (mín. 6 caracteres)' : 'Senha'}
+              placeholderTextColor={colors.mutedDim}
+              secureTextEntry
+              autoComplete={modoConta === 'criar' ? 'new-password' : 'current-password'}
+              textContentType={modoConta === 'criar' ? 'newPassword' : 'password'}
+              returnKeyType="done"
+              onSubmitEditing={modoConta === 'criar' ? handleCriar : handleLogin}
+              accessibilityLabel="Senha da Conta OW"
+            />
+            {loginErro ? <Text style={styles.loginErro}>{loginErro}</Text> : null}
+            {aviso ? <Text style={styles.avisoText}>{aviso}</Text> : null}
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={modoConta === 'criar' ? handleCriar : handleLogin}
+              disabled={loginLoading}
+              accessibilityRole="button"
+              accessibilityLabel={modoConta === 'criar' ? 'Criar Conta OW' : 'Entrar na Conta OW'}
+            >
+              {loginLoading
+                ? <ActivityIndicator size="small" color={colors.navy950} />
+                : <Text style={styles.loginBtnText}>{modoConta === 'criar' ? 'Criar conta' : 'Entrar'}</Text>
+              }
+            </TouchableOpacity>
+            {modoConta === 'entrar' && (
+              <TouchableOpacity style={styles.otpBtn} onPress={handleRecuperar} disabled={loginLoading} accessibilityRole="button">
+                <Text style={styles.otpBtnText}>Esqueci minha senha</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -293,7 +434,7 @@ export default function BuddyConfig() {
         {/* Version */}
         <View style={styles.aboutBox}>
           <Text style={styles.aboutApp}>OWBuddy</Text>
-          <Text style={styles.aboutVersion}>Versão 0.1.4 · Build 6</Text>
+          <Text style={styles.aboutVersion}>Versão {VERSAO_APP}</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -303,6 +444,19 @@ export default function BuddyConfig() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48 },
+  switchLabel: { fontSize: 15, fontWeight: '600', color: colors.white },
+  switchLabelSm: { fontSize: 14, fontWeight: '600', color: colors.white },
+  switchSub: { fontSize: 12, color: colors.mutedDim, marginTop: 2, lineHeight: 16 },
+  avisoBox: { gap: 6, paddingVertical: spacing.xs },
+  avisoText: { fontSize: 13, color: colors.amber, lineHeight: 18 },
+  linkText: { fontSize: 14, color: colors.cyan, fontWeight: '700', paddingVertical: 6 },
+  opcional: { fontSize: 13, fontWeight: '400', color: colors.mutedDim },
+  modoRow: { flexDirection: 'row', gap: spacing.sm },
+  modoChip: { flex: 1, minHeight: 40, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  modoChipAtivo: { borderColor: colors.cyan, backgroundColor: colors.cyanFaint },
+  modoText: { fontSize: 14, color: colors.muted, fontWeight: '600' },
+  modoTextAtivo: { color: colors.cyan },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
 
   previewCard: {
