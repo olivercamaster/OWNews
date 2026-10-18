@@ -670,10 +670,12 @@ def _check_politica_filosofia():
     expect_in('o bloco "Fonte" diz quem publicou os fatos originalmente', bloco, "nome real do bloco")
 
 
-# Snapshot estrutural de "Últimas Notícias" (Home 3.0, db0816d). Missões de
+# Snapshot estrutural de "Últimas Notícias" (Home 3.0, db0816d; CSS compacto
+# autorizado pelo proprietário em 2026-10-18 — destaque menor e linhas sem
+# space-between; com 1-2 secundárias o destaque fica horizontal). Missões de
 # dados/editorial/AdSense NÃO podem mudar este bloco incidentalmente: se a
 # mudança for um redesign AUTORIZADO, atualize os hashes no mesmo commit.
-ULTIMAS_CSS_SHA1 = "0860d26cdeb8a0f706617ff6667c1e4993e4f808"
+ULTIMAS_CSS_SHA1 = "9e48bb755dff11fa86d18ce97a36d35dcd5defe5"
 ULTIMAS_MARKUP_SHA1 = "3b96e581085b9bf5ae67e9ecd357018d9d63941e"
 
 

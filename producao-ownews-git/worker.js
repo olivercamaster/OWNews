@@ -1664,7 +1664,7 @@ html[data-theme="light"] .central-home-cta{background:var(--navy-900);border-col
 .latest-feature{display:grid;gap:14px;cursor:pointer;padding-bottom:22px;border-bottom:1px solid var(--line-hair)}
 .latest-feature .thumb{width:100%;aspect-ratio:16/8;border-radius:8px;background-size:cover;background-position:center;background-color:var(--navy-900);position:relative}
 .latest-feature h3{font-size:24px;line-height:1.15;font-weight:600}
-.latest-feature p{font-family:var(--editorial);font-size:15.5px;line-height:1.5;color:var(--muted);max-width:68ch}
+.latest-feature p{font-family:var(--editorial);font-size:15.5px;line-height:1.5;color:var(--muted);max-width:68ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .row-list{display:flex;flex-direction:column}
 .row{display:flex;gap:14px;align-items:center;padding-block:13px;border-top:1px solid var(--line-hair);cursor:pointer;transition:opacity .15s}
 .row:first-child{border-top:0}
@@ -1678,14 +1678,29 @@ html[data-theme="light"] .central-home-cta{background:var(--navy-900);border-col
 .row-main .byline{margin-top:5px}
 
 @media(min-width:760px){
-  .latest-body{grid-template-columns:1.3fr 1fr;align-items:start}
-  .latest-body.latest-count-1{grid-template-columns:1fr}
-  .latest-count-2 .row-list{justify-content:center}
-  .latest-count-3 .row-list{justify-content:space-between;height:100%}
-  .latest-count-4 .row-list{justify-content:space-between;height:100%}
-  .latest-count-3,.latest-count-4{align-items:stretch}
-  .latest-feature{border-bottom:0;padding-bottom:0}
-  .latest-feature h3{font-size:27px}
+  /* Últimas compacta (2026-10-18, pedido do proprietário): imagem do
+     destaque limitada e coluna de linhas a partir do topo (sem
+     space-between esticando 2 linhas até o fim do destaque). Com 1-2
+     secundárias o destaque fica horizontal e as linhas vão para baixo,
+     lado a lado: a seção encolhe em vez de abrir um vão. */
+  .latest-body{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start;gap:22px 32px}
+  .latest-feature{border-bottom:0;padding-bottom:0;gap:10px}
+  .latest-feature .thumb{aspect-ratio:16/9;max-height:230px}
+  .latest-feature h3{font-size:24px;line-height:1.2}
+  .latest-feature p{font-size:15px}
+  .latest-body .row-list{justify-content:flex-start}
+  .latest-body .row{padding-block:11px}
+  .latest-body .row-thumb{width:88px;height:62px}
+  .latest-body .row-main h3{font-size:16px}
+  .latest-body.latest-count-1,.latest-body.latest-count-2,.latest-body.latest-count-3{grid-template-columns:1fr}
+  .latest-count-1 .latest-feature,.latest-count-2 .latest-feature,.latest-count-3 .latest-feature{grid-template-columns:minmax(0,5fr) minmax(0,6fr);grid-template-rows:auto auto auto auto 1fr;column-gap:28px;row-gap:8px}
+  .latest-count-1 .latest-feature .thumb,.latest-count-2 .latest-feature .thumb,.latest-count-3 .latest-feature .thumb{grid-row:1/span 5;max-height:250px}
+  .latest-count-2 .latest-feature,.latest-count-3 .latest-feature{padding-bottom:20px;border-bottom:1px solid var(--line-hair)}
+  .latest-count-3 .row-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px}
+  .latest-count-3 .row{border-top:0}
+  .latest-body:has(.row-list>.row:nth-child(3):last-child) .latest-feature .thumb{max-height:200px}
+  .latest-body .row-list:has(>.row:nth-child(3):last-child)>.row{padding-block:16px}
+  .latest-body .row-list:has(>.row:nth-child(3):last-child) .row-thumb{width:112px;height:78px}
 }
 
 /* Mercado & Energia (Home 3.0): editoria especializada — destaque médio
