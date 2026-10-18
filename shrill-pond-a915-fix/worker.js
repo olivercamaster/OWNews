@@ -2748,6 +2748,10 @@ async function acumularGateEditorial(env, resultados) {
         }
       }
       if (p || ei) entrada.fontes[nome] = { p, ei, cs, motivos };
+      for (const item of r.noticias || []) {
+        if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
+        if (item.motivo === 'ia_indisponivel') entrada.ia_erro = String((item.motivos_ia || [])[0] || 'ia_indisponivel').slice(0, 120);
+      }
     }
     const teveDados = Object.keys(entrada.fontes).length > 0;
     if (teveDados) acum.push(entrada);
@@ -2799,10 +2803,19 @@ async function obterGateEditorialStats(env) {
     }
     const e24h = acum.filter(e => e.ts >= agora - 86400000);
     const e7d  = acum.filter(e => e.ts >= agora - 7 * 86400000);
+    // Workers AI não expõe a cota restante ao binding: o painel mostra só o
+    // que o acumulador comprova (última resposta e última falha da IA).
+    const ultima = (f) => acum.filter(f).reduce((a, e) => (!a || e.ts > a.ts ? e : a), null);
+    const iaOk = ultima((e) => e.ia_ok), iaErro = ultima((e) => e.ia_erro);
     return {
       '24h': agregar(e24h),
       '7d':  agregar(e7d),
-      entradas_total: acum.length
+      entradas_total: acum.length,
+      ia: {
+        ultima_resposta: iaOk ? new Date(iaOk.ts).toISOString() : null,
+        ultima_falha: iaErro ? new Date(iaErro.ts).toISOString() : null,
+        ultima_falha_motivo: iaErro ? iaErro.ia_erro : null
+      }
     };
   } catch { return null; }
 }
@@ -3823,7 +3836,8 @@ const BUDDY_IA_ATIVO = true;
 const BUDDY_IA_MODELO = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const BUDDY_IA_SISTEMA =
   'Você é redator do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. A matéria recebida é só MATERIAL FACTUAL: o OWNews não republica o texto da fonte, escreve a própria nota. Responda SOMENTE com um objeto JSON: ' +
-  '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
+  '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "titulo": string, "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
+  'TITULO: o fato em uma frase factual de português do Brasil, até 110 caracteres, maiúscula só no início, em nomes próprios e siglas; sem exclamação, sem adjetivo de impacto, sem opinião. Se o título recebido já é assim, repita-o igual.\n\n' +
   'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto. Não repita o título.\n\n' +
   'CORPO: lista de 2 a 4 parágrafos curtos com os fatos e o contexto: o que aconteceu, quem, onde, quando, números, estágio, próximo passo confirmado — só o que a matéria sustenta. ' +
   'Sintetize com vocabulário e ordem próprios: nunca copie frases nem troque palavras de frases da matéria; nenhuma sequência de mais de 6 palavras igual ao texto. Atribua declarações ("segundo a Petrobras"). ' +
@@ -3834,6 +3848,43 @@ const BUDDY_IA_SISTEMA =
   'Se o efeito é indireto, diga concretamente como, sem especular. Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
   'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. ' +
   'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "vagas", "empregos", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
+
+/* Título publicado (Command + Check Final, 2026-10-18): o título também
+   passa por validação editorial. O da fonte fica quando já é bom; o
+   proposto pela IA só entra quando o original falha (inglês, Title Case,
+   sensacionalismo, erro de texto) ou é tradução automática — e também
+   precisa passar, sem número ou nome que não esteja na matéria. */
+const TITULO_SENSACIONAL_RE = /!|\b(bomba|chocante|inacredit[aá]vel|incr[ií]vel|urgente|exclusivo|veja|confira|explode|derrete|humilha|detona|vergonha|absurdo|esc[aâ]ndalo)\b/i;
+const TITULO_FUNCAO_MAIUSC_RE = /[A-Za-zÀ-ú0-9,]\s(Da|De|Do|Das|Dos|Para|Com|Em|No|Na|Nos|Nas|Por|Pelo|Pela|Ao|Aos|Sobre|Após|Entre|Contra|Que)\s/;
+function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
+  const t = sanearTextoPublicacao(String(titulo || '')).trim();
+  const m = [];
+  if (t.length < 20 || t.length > 160) m.push('tamanho');
+  if (detectarErrosTexto(t + '.').some((e) => e !== 'frase_incompleta' && e !== 'espaco_antes_pontuacao')) m.push('erro_texto');
+  if (tituloEmIngles(t)) m.push('ingles');
+  if (TITULO_SENSACIONAL_RE.test(t)) m.push('sensacionalista');
+  const pal = t.split(/\s+/).slice(1).filter((p) => /^[A-Za-zÀ-ú]{4,}$/.test(p));
+  // Title Case: nenhuma palavra comum em minúscula (nomes próprios
+  // compostos, como "Fórum Sebrae", convivem com verbos em minúscula).
+  const maiusc = pal.filter((p) => /^[A-ZÀ-Ú][a-zà-ú]+$/.test(p)).length;
+  if (TITULO_FUNCAO_MAIUSC_RE.test(t) || (maiusc >= 4 && !pal.some((p) => /^[a-zà-ú]/.test(p)))) m.push('title_case');
+  if (clicheIA(t)) m.push('cliche_ia');
+  if (tituloOriginal !== undefined) {
+    const base = String(tituloOriginal || '') + ' ' + String(fonteTexto || '');
+    const baseMin = base.toLowerCase();
+    if (!numerosSustentadosPelaFonte(t, base)) m.push('numero_sem_fonte');
+    if (t.split(/\s+/).slice(1).some((p) => { const n = p.replace(/[^A-Za-zÀ-ú0-9-]/g, ''); return n.length >= 3 && /^[A-ZÀ-Ú]/.test(n) && !baseMin.includes(n.toLowerCase()); })) m.push('nome_sem_fonte');
+  }
+  return m;
+}
+function escolherTituloOWNews(original, proposto, fonteTexto, preferirProposto) {
+  const mo = validarTituloOWNews(original, fonteTexto);
+  const p = sanearTextoPublicacao(String(proposto || '')).trim();
+  const mp = p && p !== String(original || '').trim() ? validarTituloOWNews(p, fonteTexto, original) : ['igual'];
+  if (!mp.length && (mo.length || preferirProposto)) return { ok: true, titulo: p };
+  if (!mo.length) return { ok: true, titulo: null };
+  return { ok: false, motivos: mo.map((x) => 'titulo:' + x) };
+}
 
 function extrairJsonIA(resposta) {
   const r = resposta && (resposta.response !== undefined ? resposta.response : resposta);
@@ -3849,17 +3900,22 @@ function extrairJsonIA(resposta) {
    { ok:false, relacao, motivos }                             — reprovado (não publicar)
    { ok:false, erro }                                         — falha técnica (tentar depois) */
 const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|cliche_ia|generico/;
-async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa) {
+async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
   const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
   if (material.length < 300) return { ok: false, relacao: null, motivos: ['sem_material'] };
+  const manterTitulo = !!(opcoes && opcoes.manterTitulo);
+  const errosTitulo = manterTitulo ? [] : validarTituloOWNews(artigo.title, material);
+  const pedidoTitulo = errosTitulo.length
+    ? '\n\nO TÍTULO acima não serve (' + errosTitulo.join(', ').replace('title_case', 'maiúsculas em todas as palavras') + '): escreva outro, com o mesmo fato.'
+    : (opcoes && opcoes.tituloTraduzido ? '\n\nO TÍTULO acima é tradução automática: escreva-o em português natural, com o mesmo fato.' : '');
   let saida;
   try {
     saida = await env.AI.run(BUDDY_IA_MODELO, {
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
-        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material +
+        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + pedidoTitulo +
           (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Reescreva com vocabulário e ordem próprios, sem frases da matéria, sem repetir o buddy no corpo.' : '') }
       ],
       max_tokens: 1100,
@@ -3878,11 +3934,14 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa) {
     // Uma segunda redação quando a reprovação é de forma — o gate não é
     // afrouxado, só se pede outro texto.
     if (t === 1 && v.motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.test(m))) {
-      return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: v.motivos.join(',') }), materialFonte, 2);
+      return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: v.motivos.join(',') }), materialFonte, 2, opcoes);
     }
     return { ok: false, relacao, motivos: v.motivos, tentativas: t };
   }
-  return { ok: true, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, corpo: v.corpo, relacao, tentativas: t };
+  // Acervo (retroprocessamento) mantém o título já publicado.
+  const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, material, opcoes && opcoes.tituloTraduzido);
+  if (!tit.ok) return { ok: false, relacao, motivos: tit.motivos, tentativas: t };
+  return { ok: true, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, corpo: v.corpo, titulo: tit.titulo, relacao, tentativas: t };
 }
 
 /* Arquivo interno do material da fonte (storage do BuddyIAPoller, SQLite
@@ -3973,7 +4032,7 @@ async function retroprocessarCamadaIA(env, limite) {
       if (r.ok) out.insuficiente++;
     } else {
       processados++;
-      const g = await gerarCamadaEditorialIA(env, a, corpo);
+      const g = await gerarCamadaEditorialIA(env, a, corpo, 1, { manterTitulo: true });
       subreq += g.tentativas || 1;
       if (g.erro) { out.erros++; out.interrompido = g.erro; break; }
       if (g.ok) { r = await aplicarMateriaOWNews(env, a, { acao: 'publicar', buddy_summary: g.buddy_summary, why_it_matters: g.why_it_matters, corpo: g.corpo }, corpo); subreq += 2; if (r.ok) out.aprovados++; }
@@ -4421,12 +4480,13 @@ slug: criarSlug(tituloPublicado),
         resultado.noticias.push({ titulo: artigo.title, status: 'editorial_incomplete', motivo: 'reprovada_recente', fonte });
         continue;
       }
-      const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte);
+      const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
       if (!camadaIA.ok && !camadaIA.erro) await registrarRejeicao(env, artigo.hash);
       if (camadaIA.ok) {
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
         artigo.content = camadaIA.corpo;
+        if (camadaIA.titulo) artigo.title = camadaIA.titulo;
         artigo.buddy_summary = camadaIA.buddy_summary;
         artigo.why_it_matters = camadaIA.why_it_matters;
         artigo.buddy_source = MATERIA_OWNEWS;
@@ -4447,6 +4507,8 @@ slug: criarSlug(tituloPublicado),
         const _isCS = !_corpo || _corpo === _resumo || _corpo.length <= _resumo.length + 20;
         const _motivoGate = camadaIA.erro ? 'ia_indisponivel'
           : (camadaIA.motivos || []).includes('fora_escopo') ? 'fora_escopo'
+          : (camadaIA.motivos || []).includes('sem_material') ? 'sem_material'
+          : (camadaIA.motivos || []).some((m) => m.startsWith('titulo:')) ? 'titulo_invalido'
           : _isCS && !corpoEnParaGate ? 'content=summary'
           : 'sem_buddy_valido';
         if (_isCS) resultado.content_summary_count = (resultado.content_summary_count || 0) + 1;
