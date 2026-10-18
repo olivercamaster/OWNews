@@ -927,12 +927,6 @@ html[data-theme="light"] .theme-btn .ico-lua{display:none}
 .oa-col .agora-secao,.oa-grid-2 .agora-secao{margin-top:0}
 .oa-lateral{display:flex;flex-direction:column;gap:16px}
 .oa-box{border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;background:var(--navy-900);scroll-margin-top:90px}
-.oa-horas{display:flex;flex-direction:column}
-.oa-hora{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line-hair)}
-.oa-hora-local{display:flex;flex-direction:column;min-width:0}
-.oa-hora-local strong{font-family:var(--ui);font-size:13px;color:var(--white)}
-.oa-hora-local small{font-size:11.5px;color:var(--muted-dim)}
-.oa-hora-val{font-family:var(--mono,monospace);font-size:14px;font-weight:600;color:var(--white);white-space:nowrap}
 #aeroportos,#noticias,#vagas-agora,#unidades-agora{scroll-margin-top:90px}
 /* ==== HOME: MAIS LIDAS + AGENDA (AdSense 3.0) ==== */
 .ml-ag-grid{display:grid;grid-template-columns:1fr;gap:8px 28px;align-items:start}
@@ -11527,13 +11521,10 @@ function renderOffshoreAgora(){
     return '<div class="agora-noticia-item"><span class="agora-noticia-meta">' + escaparHTML(meta) + '</span><a href="/radar/' + escaparHTML(u.slug) + '">' + escaparHTML(u.nome) + '</a></div>';
   }).join('');
 
-  const horariosHtml = HORARIOS_OFFSHORE_LOCAIS.map((l, i) =>
-    '<div class="oa-hora"><span class="oa-hora-local"><strong>' + escaparHTML(l.nome) + '</strong><small>' + escaparHTML(l.nota) + '</small></span><span class="oa-hora-val" id="horaLocal' + i + '">--:--</span></div>'
-  ).join('');
-
   // AdSense 3.0 (2026-10-17): painel em duas colunas no desktop (notícias à
-  // esquerda; mercado e hora nos polos à direita), âncoras internas e uma
-  // coluna no mobile. Mesmos dados reais e mesmos IDs do script abaixo.
+  // esquerda; mercado à direita), âncoras internas e uma coluna no mobile.
+  // O bloco "Hora nos polos offshore" saiu em 2026-10-18 (decisão de
+  // produto: pouco valor próprio); /horarios agora vai para o topo do painel.
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Offshore Agora" }]) +
     '<div class="hub-hero">' +
@@ -11541,7 +11532,7 @@ function renderOffshoreAgora(){
     '<h1>Offshore Agora</h1>' +
     '<p class="hub-lead">O que está acontecendo no offshore brasileiro: condições dos aeroportos que atendem as plataformas, as notícias das últimas 24 horas, mercado, vagas e unidades. Cada bloco mostra a hora da última atualização.</p>' +
     '</div>' +
-    '<nav class="mk-ancoras" aria-label="Seções do painel"><a href="#aeroportos">Aeroportos</a><a href="#noticias">Notícias 24h</a><a href="#mercado-agora">Mercado</a><a href="#horarios">Hora nos polos</a><a href="#vagas-agora">Vagas</a><a href="#unidades-agora">Unidades</a></nav>' +
+    '<nav class="mk-ancoras" aria-label="Seções do painel"><a href="#aeroportos">Aeroportos</a><a href="#noticias">Notícias 24h</a><a href="#mercado-agora">Mercado</a><a href="#vagas-agora">Vagas</a><a href="#unidades-agora">Unidades</a></nav>' +
 
     '<section class="agora-secao" id="aeroportos">' +
     '<h2 class="oa-h">Aeroportos offshore <span class="dado-contexto" id="oaAeroportosAtualizado"></span></h2>' +
@@ -11564,11 +11555,6 @@ function renderOffshoreAgora(){
     '<div class="mk-ind" id="oaMercadoMacro"><p class="agora-carregando">Carregando…</p></div>' +
     '<div id="oaMercadoOffshoreWrap" hidden><h3 class="oa-sub">Empresas do setor</h3><div class="mk-ind" id="oaMercadoOffshore"></div></div>' +
     '<a class="hub-cta-secundario" href="/mercado">Mercado Offshore completo →</a>' +
-    '</section>' +
-    '<section class="oa-box" id="horarios">' +
-    '<h2 class="oa-h">Hora nos polos offshore</h2>' +
-    '<div class="oa-horas">' + horariosHtml + '</div>' +
-    '<p class="oa-nota">Hora local calculada pelo seu navegador, com horário de verão quando o país adota. Útil para falar com base, sede ou equipe no exterior.</p>' +
     '</section>' +
     '</aside>' +
     '</div>' +
@@ -11640,7 +11626,6 @@ function renderOffshoreAgora(){
     'if(itensEmp.length){wrap.hidden=false;el.innerHTML=itensEmp.map(function(e){return "<div class=mk-ind-item><span class=mk-nome>"+esc(e.nome)+"</span><span class=mk-preco>"+fmtPreco(e.preco,e.moeda)+"</span>"+varHtml(e)+"</div>";}).join("");}else{wrap.hidden=true;}' +
     '}).catch(function(e){document.getElementById("oaMercadoMacro").innerHTML="<p class=\\"agora-carregando\\">Mercado indisponível no momento.</p>";console.warn("OWNews: mercado indisponível.",e);});}' +
 
-    'var LOCAIS=' + JSON.stringify(HORARIOS_OFFSHORE_LOCAIS.map((l) => l.tz)) + ';function horas(){var agora=new Date();LOCAIS.forEach(function(tz,i){var el=document.getElementById("horaLocal"+i);if(!el)return;try{el.textContent=new Intl.DateTimeFormat("pt-BR",{timeZone:tz,weekday:"short",hour:"2-digit",minute:"2-digit"}).format(agora);}catch(e){}});}horas();setInterval(horas,30000);' +
     'carregarAeroportos();carregarNoticias();carregarMercado();' +
     'setInterval(carregarAeroportos,10*60*1000);setInterval(carregarNoticias,10*60*1000);setInterval(carregarMercado,5*60*1000);' +
     '})();' +
@@ -13573,18 +13558,6 @@ function renderGlossario() {
     "/glossario"
   );
 }
-
-/* ---------- /horarios — Horários Offshore (Fase 34, Missão Mestre
-   Contínua, 2026-09-18). IDs de fuso IANA reais (Intl.DateTimeFormat cuida
-   do horário de verão automaticamente onde a região observa). */
-const HORARIOS_OFFSHORE_LOCAIS = [
-  { nome: "Rio de Janeiro · Macaé", tz: "America/Sao_Paulo", nota: "Bacias de Campos e Santos" },
-  { nome: "Georgetown", tz: "America/Guyana", nota: "Guiana · bloco Stabroek" },
-  { nome: "Houston", tz: "America/Chicago", nota: "Sedes de perfuração e serviços" },
-  { nome: "Aberdeen", tz: "Europe/London", nota: "Mar do Norte · Reino Unido" },
-  { nome: "Stavanger", tz: "Europe/Oslo", nota: "Mar do Norte · Noruega" },
-  { nome: "Luanda", tz: "Africa/Luanda", nota: "Offshore de Angola" }
-];
 
 function renderCursosEscolas() {
   const cards = CURSOS_REFERENCIA.map((c) =>
@@ -22390,12 +22363,16 @@ export default {
 
     // AdSense 3.0 (2026-10-17): ferramentas aposentadas. Calculadora de
     // Embarque era subconjunto da Minha Escala (mesma função, menos recurso);
-    // Horários Offshore virou o bloco "Hora nos polos" do Offshore Agora.
+    // Horários Offshore: o bloco "Hora nos polos" do Offshore Agora também
+    // saiu (2026-10-18); o sucessor é o próprio painel, sem âncora.
     if (url.pathname === "/calculadora-embarque") {
       return Response.redirect("https://ownews.com.br/minha-escala", 301);
     }
+    if (url.pathname === "/termos") {
+      return Response.redirect("https://ownews.com.br/termos-de-uso", 301);
+    }
     if (url.pathname === "/horarios") {
-      return Response.redirect("https://ownews.com.br/offshore-agora#horarios", 301);
+      return Response.redirect("https://ownews.com.br/offshore-agora", 301);
     }
 
     if (url.pathname === "/comparador-escalas") {
