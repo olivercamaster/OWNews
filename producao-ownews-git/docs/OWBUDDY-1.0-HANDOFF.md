@@ -266,6 +266,12 @@ ABIS=arm64-v8a /home/offshore/android-build/build-local.sh preview /home/offshor
 # AAB de loja (todas as ABIs)
 /home/offshore/android-build/build-local.sh production /home/offshore/android-build/owbuddy.aab
 ```
+Ambiente da VPS (8 GB, 2 CPUs, sem swap, sem KVM — não roda emulador):
+`~/.gradle/gradle.properties` limita memória (1 worker, Kotlin in-process) e
+`~/.gradle/init.d/sem-lint-vital.gradle` desliga o lint-vital do release (estourava
+Metaspace; não muda o APK). Antes de um build, confira que não sobrou daemon:
+`pgrep -fa jdk17` — mate só esses PIDs. Daemons esquecidos (~2 GB) derrubam o próximo build.
+
 O build local assina com a **keystore remota do EAS** (a mesma de todos os APKs),
 então instala por cima das versões anteriores. Requer commit limpo do app.
 Antes de cada build nativo: subir `android.versionCode` (e `version` se for novo
@@ -315,3 +321,18 @@ para aparelho nem TestFlight. Quando houver conta: `eas build -p ios --profile p
 
 Sempre com: commit por área, `git add <caminhos>` (nunca `git add .`), sem
 `reset --hard`, sem apagar arquivos não versionados do repo.
+
+## 20. Checkpoint 1.0 RC1 (2026-10-18)
+
+| Item | Valor |
+|---|---|
+| Versão / versionCode | 1.0.0 / 12 (runtime OTA `1.0.0`) |
+| Commit do build | `7a57db2` (branch `owbuddy/dev`) — tag `owbuddy-v1.0-rc1` |
+| APK de teste | `/home/offshore/android-build/owbuddy-1.0.0-vc12-preview.apk` (47 MB, arm64, canal `preview`) |
+| SHA-256 do APK | `d7973381a82a06751b2672d6a412bffdbcb84554ded3f6bfee62e7668d1d74f8` |
+| Certificado | SHA-256 `3c776bb3dd367d5f870fdb9fcd86740e18b959ba36587e73b1b167f09323d92e` (igual ao 0.1.8 → instala por cima) |
+| AAB (release candidate) | `/home/offshore/android-build/owbuddy-1.0.0-vc12-release.aab` (78 MB, arm64-v8a/armeabi-v7a/x86/x86_64, canal `production`, SHA-256 `5f384e1e4d1b5b040c39629c3cbef893695dd29edf152c506ddb71f6086dfbf4`, mesmo certificado) |
+| EAS | build LOCAL: não gera Build ID nem página no expo.dev |
+
+Baixar o APK para o computador: `scp offshore@<servidor>:/home/offshore/android-build/owbuddy-1.0.0-vc12-preview.apk .`
+(o repositório GitHub é público — não publicar APK em release lá).
