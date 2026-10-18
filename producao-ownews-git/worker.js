@@ -14700,11 +14700,20 @@ const RADAR_SITUACAO_LABEL = {
    marítimos públicos). Campo null = não confirmado nesta pesquisa —
    nunca inventado. A partir da Fase 2, um campo null simplesmente não
    aparece na interface (nem como "Não disponível") — ver campoOuNada(). */
+// Fontes e licenças repetidas no cadastro do Radar (2026-10-18: viraram
+// constantes para manter o worker abaixo de 2 MB; o texto exibido é o mesmo).
+const RADAR_FONTE_MARINHA_0126 = { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" };
+const RADAR_FONTE_MARINHA_1025 = { label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" };
+const RADAR_FONTE_MARINHA_BACIAS = { label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" };
+const RADAR_LIC_IMPRENSA = "Direitos reservados — uso autorizado via divulgação de imprensa";
+const RADAR_LIC_REPRODUZIDA = "Direitos reservados — foto de divulgação reproduzida pela imprensa especializada";
+const RADAR_LIC_INSTITUCIONAL = "Direitos reservados — imagem institucional do proprietário ou operador (divulgação)";
+
 const UNIDADES_RADAR = [
     {
     slug: "west-jupiter", nome: "West Jupiter", tipo: "drillship",
     codigo_petrobras: "NS-55",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Jupiter.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Jupiter.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     imo: "9655030", mmsi: "354150000", callsign: "3FCT3", bandeira: "Panamá",
     ano_construcao: 2014, estaleiro: "Samsung Heavy Industries (Geoje, Coreia do Sul)",
     comprimento_m: 227, boca_m: 42, calado_m: null, gt: 60555, dwt: 62500,
@@ -14722,7 +14731,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "fpso-alexandre-de-gusmao", nome: "FPSO Alexandre de Gusmão", tipo: "fpso",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Alexandre%20de%20Gusm%C3%A3o_Foto7_Divulga%C3%A7%C3%A3o%20Petrobras/677273e5-92ce-fae4-e6c9-ca09e5692af3", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/navio-plataforma-alexandre-de-gusm%C3%A3o-atinge-topo-de-produ%C3%A7%C3%A3o-no-pr%C3%A9-sal", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Alexandre%20de%20Gusm%C3%A3o_Foto7_Divulga%C3%A7%C3%A3o%20Petrobras/677273e5-92ce-fae4-e6c9-ca09e5692af3", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/navio-plataforma-alexandre-de-gusm%C3%A3o-atinge-topo-de-produ%C3%A7%C3%A3o-no-pr%C3%A9-sal", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "SBM Offshore (integração na China)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14735,6 +14744,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "p-74", nome: "P-74", tipo: "fpso",
+    foto_url: "https://www.portosenavios.com.br/images/180305-plataforma-p-74.jpg", foto_credito: "Foto: Alaor Filho / Mirá Imagem (divulgação Petrobras, via Portos e Navios)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.portosenavios.com.br/noticias/ind-naval-e-offshore/plataforma-p-74-chega-ao-campo-de-buzios-no-pre-sal-da-bacia-de-santos", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "EBR — São José do Norte, RS (módulos)",
     comprimento_m: 326.2, boca_m: 56.6, calado_m: null, gt: null, dwt: null,
@@ -14747,7 +14757,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-80", nome: "P-80", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P80_Estaleiro_Foto1_Divulgacao_Seatrium.jpg/a3c46a3b-f7ba-34e9-2107-06f5e26f3500", foto_credito: "Divulgação Seatrium / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P80_Estaleiro_Foto1_Divulgacao_Seatrium.jpg/a3c46a3b-f7ba-34e9-2107-06f5e26f3500", foto_credito: "Divulgação Seatrium / Agência Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
     ano_construcao: null, estaleiro: "Seatrium — módulos no BrasFELS (Angra dos Reis, RJ), integração em Tuas Boulevard Yard (Singapura)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14758,7 +14768,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "p-82", nome: "P-82", tipo: "fpso",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P82_Estaleiro_Foto1_Credito_Divulgacao_Petrobras.jpg", foto_credito: "Divulgação Petrobras / Seatrium", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/12495665/P82_Estaleiro_Foto1_Credito_Divulgacao_Petrobras.jpg", foto_credito: "Divulgação Petrobras / Seatrium", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/plataformas-da-petrobras-p-80-e-p-82-que-v%C3%A3o-operar-em-b%C3%BAzios-s%C3%A3o-batizadas-em-estaleiro-em-singapura", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "Seatrium — módulos em Aracruz (ES), integração em Tuas Boulevard Yard (Singapura)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14771,7 +14781,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-almirante-tamandare", nome: "FPSO Almirante Tamandaré", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Almirante%20Tamandar%C3%A9%20em%20%C3%A1guas%20brasileiras_Foto3/881007f2-cc71-ebdf-ef27-90ed2e379a91", foto_credito: "Divulgação SBM Offshore / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/en/w/plataforma-almirante-tamandar%C3%A9-instalada-no-campo-de-b%C3%BAzios-bate-recorde-de-produ%C3%A7%C3%A3o-de-petr%C3%B3leo", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/FPSO%20Almirante%20Tamandar%C3%A9%20em%20%C3%A1guas%20brasileiras_Foto3/881007f2-cc71-ebdf-ef27-90ed2e379a91", foto_credito: "Divulgação SBM Offshore / Agência Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/en/w/plataforma-almirante-tamandar%C3%A9-instalada-no-campo-de-b%C3%BAzios-bate-recorde-de-produ%C3%A7%C3%A3o-de-petr%C3%B3leo", image_status: "real",
     ano_construcao: null, estaleiro: "China Merchants Heavy Industry (projeto SBM Offshore)",
     comprimento_m: null, boca_m: null, calado_m: null, gt: 44000, dwt: null,
     owner: "SBM Offshore", manager: null, operador: "Petrobras",
@@ -14786,7 +14796,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-anna-nery", nome: "FPSO Anna Nery", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anna_nery_2.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/612a713b-b6ad-0258-8b7d-3a9a2f96954b", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anna-nery-sai-do-estaleiro-brasfels-rumo-ao-campo-de-marlim", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anna_nery_2.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/612a713b-b6ad-0258-8b7d-3a9a2f96954b", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anna-nery-sai-do-estaleiro-brasfels-rumo-ao-campo-de-marlim", image_status: "real",
     ano_construcao: null, estaleiro: "BrasFELS (módulos) e estaleiro na China (integração) — projeto Yinson",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Yinson", manager: null, operador: "Petrobras",
@@ -14798,7 +14808,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-anita-garibaldi", nome: "FPSO Anita Garibaldi", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anita_garibaldi_5.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/a131ec31-fb8d-35eb-f7b8-77b5985daded", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anita-garibaldi-sai-do-estaleiro-da-china-rumo-ao-brasil", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_anita_garibaldi_5.jpg__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/a131ec31-fb8d-35eb-f7b8-77b5985daded", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-anita-garibaldi-sai-do-estaleiro-da-china-rumo-ao-brasil", image_status: "real",
     ano_construcao: null, estaleiro: "DSIC — Dalian, China",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Modec", manager: null, operador: "Petrobras",
@@ -14810,7 +14820,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-71", nome: "P-71", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/p-71_9.png__1280x0_q85_ALIAS-cover_crop_subsampling-2%20(2).jpg/060d7d56-b041-1247-19a8-abdfbd73d956", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-coloca-em-producao-plataforma-p-71-no-pre-sal-da-bacia-de-santos", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/p-71_9.png__1280x0_q85_ALIAS-cover_crop_subsampling-2%20(2).jpg/060d7d56-b041-1247-19a8-abdfbd73d956", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-coloca-em-producao-plataforma-p-71-no-pre-sal-da-bacia-de-santos", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: 316, boca_m: 54, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14821,6 +14831,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "p-76", nome: "P-76", tipo: "fpso",
+    foto_url: "https://uploads.eixos.com.br/2019/02/TECHINT-01.jpg", foto_credito: "Foto: Techint (via eixos)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://eixos.com.br/energia/plataforma-p-76-liberada-pelo-ibama-para-produzir-no-pre-sal/", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14832,6 +14843,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "p-77", nome: "P-77", tipo: "fpso",
+    foto_url: "https://www.portosenavios.com.br/images/190319-plataforma-p-77.jpg", foto_credito: "Foto: Petrobras / divulgação (via Portos e Navios)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.portosenavios.com.br/noticias/offshore/petrobras-inicia-producao-da-p-77-quarta-plataforma-do-campo-de-buzios-no-pre-sal-da-bacia-de-santos", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14844,7 +14856,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-78", nome: "P-78", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Navio-plataforma%20P-78%20deixa%20o%20estaleiro%20Benoi,%20em%20Singapura_Foto4/5cfbdbcd-bbfa-10c2-db32-2c0bcfe86bc2", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-p-78-deixa-singapura-rumo-ao-campo-de-buzios", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Navio-plataforma%20P-78%20deixa%20o%20estaleiro%20Benoi,%20em%20Singapura_Foto4/5cfbdbcd-bbfa-10c2-db32-2c0bcfe86bc2", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/fpso-p-78-deixa-singapura-rumo-ao-campo-de-buzios", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14856,7 +14868,7 @@ const UNIDADES_RADAR = [
   {
     slug: "p-79", nome: "P-79", tipo: "fpso",
     imo: null, mmsi: null, callsign: null, bandeira: null,
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/P-79_Chegada_Campo%20de%20Buzios.jpeg/d4df50cd-fabf-2743-d354-60e454e39c13", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/plataforma-da-petrobras-p-79-chega-ao-campo-de-b%C3%BAzios", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/P-79_Chegada_Campo%20de%20Buzios.jpeg/d4df50cd-fabf-2743-d354-60e454e39c13", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/plataforma-da-petrobras-p-79-chega-ao-campo-de-b%C3%BAzios", image_status: "real",
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Petrobras", manager: null, operador: "Petrobras",
@@ -14892,7 +14904,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-almirante-barroso", nome: "FPSO Almirante Barroso (MV32)", tipo: "fpso",
     imo: "9291274", mmsi: "311000917", callsign: "C6EK2", bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_almirante_barroso_buzios_1.png__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/5fbde52c-0bb7-50cd-2aa9-1f29d552d194", foto_credito: "Divulgação Petrobras (unidade de propriedade/operação da MODEC — atenção: não é da SBM Offshore, apesar de o catálogo do site listar SBM)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-almirante-barroso-comeca-a-produzir-no-campo-de-buzios", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_almirante_barroso_buzios_1.png__1280x0_q85_ALIAS-cover_crop_subsampling-2.jpg/5fbde52c-0bb7-50cd-2aa9-1f29d552d194", foto_credito: "Divulgação Petrobras (unidade de propriedade/operação da MODEC — atenção: não é da SBM Offshore, apesar de o catálogo do site listar SBM)", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-almirante-barroso-comeca-a-produzir-no-campo-de-buzios", image_status: "real",
     ano_construcao: 2005, estaleiro: "Cosco Dalian (conversão do casco do petroleiro Eddie); módulos integrados no estaleiro BrasFELS, Angra dos Reis (RJ)",
     comprimento_m: 338, boca_m: 58, calado_m: null, gt: null, dwt: null,
     owner: "MODEC", manager: "MODEC", operador: "MODEC (afretada à Petrobras)",
@@ -14904,7 +14916,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-sepetiba", nome: "FPSO Sepetiba", tipo: "fpso",
     imo: "9881457", mmsi: "311000945", callsign: "C6EN4", bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_sepetiba_36_de_56_2/af46985e-c362-9a85-f5b5-5af9117af65a", foto_credito: "Divulgação Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-sepetiba-chega-ao-brasil-para-iniciar-a-producao-ate-o-fim-deste-ano", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/fpso_sepetiba_36_de_56_2/af46985e-c362-9a85-f5b5-5af9117af65a", foto_credito: "Divulgação Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/fpso-sepetiba-chega-ao-brasil-para-iniciar-a-producao-ate-o-fim-deste-ano", image_status: "real",
     ano_construcao: 2021, estaleiro: null,
     comprimento_m: 331, boca_m: 60, calado_m: null, gt: null, dwt: 250000,
     owner: "SBM Offshore", manager: "SBM Offshore", operador: "SBM Offshore (afretada à Petrobras)",
@@ -14916,7 +14928,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-maria-quiteria", nome: "FPSO Maria Quitéria", tipo: "fpso",
     imo: "9246645", mmsi: "311001154", callsign: "C6FO5", bandeira: "Bahamas",
-    foto_url: "https://www.yinson-production.com/wp-content/uploads/2024/10/MQ-004-1024x575.jpg", foto_credito: "Divulgação Yinson Production", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.yinson-production.com/news/yinson-productions-fpso-maria-quiteria-achieves-first-oil/", image_status: "real",
+    foto_url: "https://www.yinson-production.com/wp-content/uploads/2024/10/MQ-004-1024x575.jpg", foto_credito: "Divulgação Yinson Production", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.yinson-production.com/news/yinson-productions-fpso-maria-quiteria-achieves-first-oil/", image_status: "real",
     ano_construcao: 2003, estaleiro: null,
     comprimento_m: 333, boca_m: 57, calado_m: null, gt: null, dwt: 309021,
     owner: "Yinson Production", manager: "Yinson Production", operador: "Yinson Production (afretada à Petrobras)",
@@ -14928,7 +14940,7 @@ const UNIDADES_RADAR = [
   {
     slug: "fpso-atlanta", nome: "FPSO Atlanta", tipo: "fpso",
     imo: "8618217", mmsi: "636015533", callsign: "D5BJ5", bandeira: "Libéria",
-    foto_url: "https://www.portosenavios.com.br/images/240517-fpso-yinson.jpg", foto_credito: "Divulgação Yinson (via Portos e Navios)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.portosenavios.com.br/noticias/offshore/enauta-recebe-fpso-atlanta-para-operar-na-bacia-de-santos", image_status: "real",
+    foto_url: "https://www.portosenavios.com.br/images/240517-fpso-yinson.jpg", foto_credito: "Divulgação Yinson (via Portos e Navios)", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.portosenavios.com.br/noticias/offshore/enauta-recebe-fpso-atlanta-para-operar-na-bacia-de-santos", image_status: "real",
     ano_construcao: 1989, estaleiro: null,
     comprimento_m: 322, boca_m: 56, calado_m: null, gt: null, dwt: 238546,
     owner: "Yinson Production", manager: "Yinson Production", operador: "Yinson Production (afretada à Brava Energia, ex-Enauta)",
@@ -14939,6 +14951,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "deepwater-orion", nome: "Deepwater Orion", tipo: "drillship",
+    image_status: "fallback", // sem foto verificável da unidade (2026-10-18): Buscado: deepwater.com (só há spec PDF por sonda, sem foto direta; releases sem imagem), Wikimedia Commons, API de mídia da Drilling Contractor, Splas
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14951,6 +14964,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "deepwater-aquila", nome: "Deepwater Aquila", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784767891851.jpg?prefix=media", foto_credito: "Divulgação DSME, estaleiro (via Offshore Energy) — casco ainda com o nome anterior, West Aquila", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2023/09/14/transoceans-newbuild-drillship-going-to-brazil-for-its-inaugural-job", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "DSME (Daewoo Shipbuilding & Marine Engineering), Coreia do Sul",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -14963,6 +14977,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "deepwater-corcovado", nome: "Deepwater Corcovado", tipo: "drillship",
+    foto_url: "https://assets.spe.org/dims4/default/bd59f6a/2147483647/strip/true/crop/1212x579+0+0/resize/800x382!/quality/90/?url=http%3A%2F%2Fspe-brightspot.s3.us-east-2.amazonaws.com%2Fbe%2F6a%2Fe08d64da4db083ecc579d299c9ce%2Fdeepwater-corcovado.PNG", foto_credito: "Foto: Ocean Rig/Transocean (divulgação, via JPT/SPE)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://jpt.spe.org/drillship-duo-nets-1-billion-commitment-from-petrobras", image_status: "real",
     codigo_petrobras: "NS-40",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "Samsung Heavy Industries (unidade Samsung 10000 aprimorada)",
@@ -14976,6 +14991,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "deepwater-mykonos", nome: "Deepwater Mykonos", tipo: "drillship",
+    image_status: "fallback", // única foto achada (brazilenergyinsight.com) é bloqueada no navegador (ERR_BLOCKED_BY_ORB); demais eram ilustração — 2026-10-18
     codigo_petrobras: "NS-39",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: "Samsung Heavy Industries, Coreia do Sul",
@@ -14989,6 +15005,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "laguna-star", nome: "Laguna Star", tipo: "drillship",
+    foto_url: "https://image.dngroup.com/global/nhst/binary/9add4eb6f372452b795bb04508b37168?crop=1600%2C797%2Cx0%2Cy144%2Csafe&width=1200&format=jpg&quality=80", foto_credito: "Foto: Samsung Heavy Industries (via Upstream)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.upstreamonline.com/rigs-and-vessels/petrobras-charters-constellation-rig-for-brazil-offshore-work/2-1-1037723", image_status: "real",
     codigo_petrobras: "NS-44",
     imo: "9534884", mmsi: "538011070", callsign: null, bandeira: "Ilhas Marshall",
     ano_construcao: 2012, estaleiro: "Samsung Heavy Industries, Coreia do Sul",
@@ -15002,6 +15019,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "brava-star", nome: "Brava Star", tipo: "drillship",
+    foto_url: "https://drillingcontractor.org/wp-content/uploads/2024/04/Brava-Star-2-1024x767.jpg", foto_credito: "Foto: Constellation (divulgação, via Drilling Contractor/IADC)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://drillingcontractor.org/technology-advances-see-offshore-drilling-firmly-move-to-the-digital-realm-68811", image_status: "real",
     codigo_petrobras: "NS-45",
     imo: "9679397", mmsi: null, callsign: null, bandeira: "Ilhas Marshall",
     ano_construcao: 2015, estaleiro: null,
@@ -15015,6 +15033,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "amaralina-star", nome: "Amaralina Star", tipo: "drillship",
+    foto_url: "https://static.brasilenergia.com.br/upload/2024/12/1cbacc9e928640c0800c6a4145c394fa-770x0.png", foto_credito: "Foto: Divulgação Constellation (via Brasil Energia)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://brasilenergia.com.br/petroleoegas/empresas/navio-sonda-amaralina-star-inicia-operacao-para-a-petrobras", image_status: "real",
     codigo_petrobras: "NS-43",
     imo: "9527178", mmsi: "538010997", callsign: null, bandeira: "Ilhas Marshall",
     ano_construcao: 2012, estaleiro: null,
@@ -15028,6 +15047,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "norbe-viii", nome: "Norbe VIII", tipo: "drillship",
+    foto_url: "https://www.foresea.com/sites/default/files/2024-11/Norbe%20VIII%20-%20Site%20Home.png", foto_credito: "Foto: Divulgação Foresea", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://www.foresea.com/pt-br/norbe-viii-conclui-manutencao-programada-de-84-dias", image_status: "real",
     codigo_petrobras: "NS-32",
     imo: "9562568", mmsi: "311028400", callsign: "C6YB4", bandeira: "Bahamas",
     ano_construcao: 2011, estaleiro: null,
@@ -15041,6 +15061,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "odn-i", nome: "ODN I", tipo: "drillship",
+    foto_url: "https://www.foresea.com/sites/default/files/images/perfuracao-offshore/odn-i.jpeg", foto_credito: "Foto: Divulgação Foresea", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://www.foresea.com/perfuracao-offshore/#odn-i", image_status: "real",
     codigo_petrobras: "NS-41",
     imo: "9588524", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2012, estaleiro: "Coreia do Sul",
@@ -15056,7 +15077,7 @@ const UNIDADES_RADAR = [
     slug: "odn-ii", nome: "ODN II", tipo: "drillship",
     codigo_petrobras: "NS-42",
     imo: "9588706", mmsi: "311041300", callsign: null, bandeira: "Bahamas",
-    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Sonda%20NS-42%20(ODN-II)_Foto1_Divulga%C3%A7%C3%A3o%20Foresea.jpg/8c314af6-f771-f30e-30f2-0a09aff03d1b", foto_credito: "Divulgação Foresea / Agência Petrobras", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-descobre-hidrocarbonetos-em-%C3%A1guas-ultra-profundas-na-costa-do-amap%C3%A1", image_status: "real",
+    foto_url: "https://agencia.petrobras.com.br/documents/10623376/0/Sonda%20NS-42%20(ODN-II)_Foto1_Divulga%C3%A7%C3%A3o%20Foresea.jpg/8c314af6-f771-f30e-30f2-0a09aff03d1b", foto_credito: "Divulgação Foresea / Agência Petrobras", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://agencia.petrobras.com.br/w/negocio/petrobras-descobre-hidrocarbonetos-em-%C3%A1guas-ultra-profundas-na-costa-do-amap%C3%A1", image_status: "real",
     ano_construcao: 2012, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
     owner: "Foresea (ex-Ocyan)", manager: "Foresea", operador: "Foresea (contrato com Petrobras)",
@@ -15080,7 +15101,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-niteroi", nome: "Skandi Niterói", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d497956f88d43bc99ec6_Skandi_Niteroi_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-niteroi", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d497956f88d43bc99ec6_Skandi_Niteroi_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-niteroi", image_status: "real",
     imo: "9387243", mmsi: "710006260", callsign: null, bandeira: "Brasil",
     ano_construcao: 2011, estaleiro: null,
     comprimento_m: 142, boca_m: 27, calado_m: null, gt: null, dwt: 9000,
@@ -15092,7 +15113,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-vitoria", nome: "Skandi Vitória", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6364ea703dcce8ffc3697f32_Skandi_Vitoria_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-vitoria", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6364ea703dcce8ffc3697f32_Skandi_Vitoria_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-vitoria", image_status: "real",
     imo: "9387231", mmsi: "710005570", callsign: "PPZK", bandeira: "Brasil",
     ano_construcao: 2010, estaleiro: null,
     comprimento_m: 142.2, boca_m: 26.97, calado_m: null, gt: null, dwt: null,
@@ -15104,7 +15125,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-recife", nome: "Skandi Recife", tipo: "plsv",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d99d9a76cca6027a11d8_Skandi_Recife_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-recife", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d99d9a76cca6027a11d8_Skandi_Recife_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-recife", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: "Brasil",
     ano_construcao: 2018, estaleiro: "Vard Promar, Brasil",
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15116,6 +15137,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "coral-do-atlantico", nome: "Coral do Atlântico", tipo: "plsv",
+    image_status: "fallback", // sem foto verificável da unidade (2026-10-18): Buscado: Commons (nome, 'Top Coral do Atlântico' [nome anterior, mesmo IMO 9647540], categoria IMO 9647540 — vazio); TechnipFMC (403); Offshore Energy
     imo: "9647540", mmsi: "710400941", callsign: null, bandeira: "Bahamas",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: 17702, dwt: 12000,
@@ -15127,7 +15149,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-chieftain", nome: "Skandi Chieftain", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b333fc13f181142e5836_Skandi_Chieftain_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-chieftain", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b333fc13f181142e5836_Skandi_Chieftain_web04.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-chieftain", image_status: "real",
     imo: "9330692", mmsi: "710003847", callsign: "PU4824", bandeira: "Brasil",
     ano_construcao: 2005, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15139,7 +15161,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-olympia", nome: "Skandi Olympia", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d6b31f7aa62eaa50e5cb_Skandi_Olympia_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-olympia", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363d6b31f7aa62eaa50e5cb_Skandi_Olympia_web02.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-olympia", image_status: "real",
     imo: "9417359", mmsi: "710003848", callsign: "PU4825", bandeira: "Brasil",
     ano_construcao: 2009, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15151,7 +15173,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-commander", nome: "Skandi Commander", tipo: "rov_support",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b323bc4942a2acb4e7f1_Skandi_Commander_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-commander", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363b323bc4942a2acb4e7f1_Skandi_Commander_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-commander", image_status: "real",
     imo: "9382774", mmsi: "710030270", callsign: null, bandeira: "Brasil",
     ano_construcao: 2007, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15163,7 +15185,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "skandi-salvador", nome: "Skandi Salvador", tipo: "offshore_construction",
-    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363da8000a648e58c849c35_Skandi_Salvador_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.dof.com/fleet/skandi-salvador", image_status: "real",
+    foto_url: "https://cdn.prod.website-files.com/629f1b36bee3b058907852a0/6363da8000a648e58c849c35_Skandi_Salvador_web03.jpg", foto_credito: "Divulgação DOF", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.dof.com/fleet/skandi-salvador", image_status: "real",
     imo: "9389576", mmsi: "710000750", callsign: null, bandeira: "Brasil",
     ano_construcao: 2009, estaleiro: null,
     comprimento_m: 106, boca_m: 21, calado_m: null, gt: null, dwt: 3600,
@@ -15175,6 +15197,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "seven-rio", nome: "Seven Rio", tipo: "plsv",
+    foto_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/SEVEN_RIO_%2819853737215%29.jpg/1280px-SEVEN_RIO_%2819853737215%29.jpg", foto_credito: "Foto: Kees Torn / Wikimedia Commons (CC BY-SA 2.0)", foto_licenca: "CC BY-SA 2.0", foto_fonte_url: "https://commons.wikimedia.org/wiki/File:SEVEN_RIO_(19853737215).jpg", image_status: "real",
     imo: "9710878", mmsi: "710005645", callsign: "PU7054", bandeira: "Brasil",
     ano_construcao: 2015, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15186,6 +15209,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "seven-cruzeiro", nome: "Seven Cruzeiro", tipo: "plsv",
+    foto_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/SEVEN_CRUZEIRO_%2827206219373%29.jpg/1280px-SEVEN_CRUZEIRO_%2827206219373%29.jpg", foto_credito: "Foto: Kees Torn / Wikimedia Commons (CC BY-SA 2.0)", foto_licenca: "CC BY-SA 2.0", foto_fonte_url: "https://commons.wikimedia.org/wiki/File:SEVEN_CRUZEIRO_(27206219373).jpg", image_status: "real",
     imo: "9710880", mmsi: "235116421", callsign: null, bandeira: "Reino Unido",
     ano_construcao: null, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15197,6 +15221,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "seven-sun", nome: "Seven Sun", tipo: "plsv",
+    foto_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/IMO_9710969_SEVEN_SUN_%2805%29.JPG/1280px-IMO_9710969_SEVEN_SUN_%2805%29.JPG", foto_credito: "Foto: S.J. de Waard / Wikimedia Commons (CC BY-SA 3.0)", foto_licenca: "CC BY-SA 3.0", foto_fonte_url: "https://commons.wikimedia.org/wiki/File:IMO_9710969_SEVEN_SUN_(05).JPG", image_status: "real",
     imo: "9710969", mmsi: "235113737", callsign: null, bandeira: "Reino Unido",
     ano_construcao: 2016, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15208,6 +15233,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "seven-waves", nome: "Seven Waves", tipo: "plsv",
+    foto_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/SEVEN_WAVES_%2824499748195%29.jpg/1280px-SEVEN_WAVES_%2824499748195%29.jpg", foto_credito: "Foto: Kees Torn / Wikimedia Commons (CC BY-SA 2.0)", foto_licenca: "CC BY-SA 2.0", foto_fonte_url: "https://commons.wikimedia.org/wiki/File:SEVEN_WAVES_(24499748195).jpg", image_status: "real",
     imo: "9649029", mmsi: "235101697", callsign: "2GZA5", bandeira: "Reino Unido",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15219,7 +15245,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-sigma", nome: "Normand Sigma", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/DSC06447-1024x684.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sigma/", image_status: "real",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/DSC06447-1024x684.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.solstad.com/vessel/normand-sigma/", image_status: "real",
     imo: "9659062", mmsi: "259827000", callsign: "LGPE", bandeira: "Noruega",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: 87, boca_m: 21, calado_m: null, gt: null, dwt: 3954,
@@ -15231,7 +15257,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-sirius", nome: "Normand Sirius", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Sirius-e1700744516475-1024x611.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-sirius/", image_status: "real",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Sirius-e1700744516475-1024x611.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.solstad.com/vessel/normand-sirius/", image_status: "real",
     imo: "9659074", mmsi: "259941000", callsign: null, bandeira: "Noruega",
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15243,7 +15269,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-turquesa", nome: "Normand Turquesa", tipo: "ahts",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Turquesa-1024x768.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-turquesa/", image_status: "real",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/N.Turquesa-1024x768.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.solstad.com/vessel/normand-turquesa/", image_status: "real",
     imo: "9329966", mmsi: "710002990", callsign: null, bandeira: "Brasil",
     ano_construcao: 2007, estaleiro: null,
     comprimento_m: 80.4, boca_m: 18, calado_m: null, gt: null, dwt: 2640,
@@ -15255,7 +15281,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "normand-flower", nome: "Normand Flower", tipo: "offshore_construction",
-    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/flower-1024x683.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.solstad.com/vessel/normand-flower/", image_status: "real",
+    foto_url: "https://www.solstad.com/wp-content/uploads/2020/02/flower-1024x683.jpg", foto_credito: "Divulgação Solstad Offshore", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.solstad.com/vessel/normand-flower/", image_status: "real",
     imo: "9249489", mmsi: "258609000", callsign: null, bandeira: "Brasil",
     ano_construcao: 2002, estaleiro: null,
     comprimento_m: 93, boca_m: 21, calado_m: null, gt: null, dwt: 4115,
@@ -15267,6 +15293,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "psv-torda", nome: "PSV Torda", tipo: "psv",
+    image_status: "fallback", // sem foto verificável da unidade (2026-10-18): Buscado: Wilson Sons/Tidewater (sem foto do Torda), Portos e Navios (matéria do batismo usa imagem ilustrativa genérica '190416-ilustrativa-projeto-co
     imo: "9442067", mmsi: "710006540", callsign: null, bandeira: "Brasil",
     ano_construcao: 2011, estaleiro: "Wilson Sons, Guarujá (SP)",
     comprimento_m: 88, boca_m: 16, calado_m: 5, gt: 2987, dwt: null,
@@ -15278,7 +15305,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "west-auriga", nome: "West Auriga", tipo: "drillship",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Auriga.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Auriga.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9609392", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2013, estaleiro: null,
@@ -15288,12 +15315,12 @@ const UNIDADES_RADAR = [
     campo: "Bloco FZA-M-059, Bacia da Foz do Amazonas",
     capacidade: null,
     sobre: "Navio-sonda de águas ultraprofundas com capacidade para 200 pessoas, afretado pela Petrobras. Ancorada ao largo do Maranhão aguardando licença ambiental, iniciou perfuração na Bacia da Foz do Amazonas em outubro de 2025. CORREÇÃO (2026-09-17): esta unidade é amplamente citada como \"NS-62\" em publicações não-oficiais (LinkedIn), mas duas rodadas de pesquisa — incluindo busca direta na API de dados abertos do Ibama (zero resultados) e no censo completo da Marinha do Brasil (que lista outras unidades desta faixa numérica sem citar esta) — não encontraram nenhum documento oficial que confirme essa associação. O código foi removido da ficha estruturada até surgir uma fonte oficial citável.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }, { label: "CPG Click Petróleo e Gás - Perfuração West Auriga bloco Aram", url: "https://en.clickpetroleoegas.com.br/a-1-800-metros-de-profundidade-petrobras-avanca-na-perfuracao-de-novo-poco-no-bloco-de-aram-com-navio-sonda-west-auriga-ama01/" }, { label: "Petronotícias - Seadrill conquista contratos West Auriga e West Polaris", url: "https://petronoticias.com.br/seadrill-conquista-dois-contratos-com-a-petrobras-que-somam-us-11-bilhao/" }, { label: "Agência Petrobras — licença de operação exploratória no Amapá (contexto Foz do Amazonas)", url: "https://agencia.petrobras.com.br/w/petrobras-obt%C3%A9m-licen%C3%A7a-de-opera%C3%A7%C3%A3o-para-pesquisa-explorat%C3%B3ria-em-%C3%A1guas-profundas-do-amap%C3%A1" }]
+    fontes: [RADAR_FONTE_MARINHA_0126, { label: "CPG Click Petróleo e Gás - Perfuração West Auriga bloco Aram", url: "https://en.clickpetroleoegas.com.br/a-1-800-metros-de-profundidade-petrobras-avanca-na-perfuracao-de-novo-poco-no-bloco-de-aram-com-navio-sonda-west-auriga-ama01/" }, { label: "Petronotícias - Seadrill conquista contratos West Auriga e West Polaris", url: "https://petronoticias.com.br/seadrill-conquista-dois-contratos-com-a-petrobras-que-somam-us-11-bilhao/" }, { label: "Agência Petrobras — licença de operação exploratória no Amapá (contexto Foz do Amazonas)", url: "https://agencia.petrobras.com.br/w/petrobras-obt%C3%A9m-licen%C3%A7a-de-opera%C3%A7%C3%A3o-para-pesquisa-explorat%C3%B3ria-em-%C3%A1guas-profundas-do-amap%C3%A1" }]
   },
   {
     slug: "west-tellus", nome: "West Tellus", tipo: "drillship",
     codigo_petrobras: "NS-47",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Tellus.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Tellus.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9623934", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2012, estaleiro: null,
@@ -15303,12 +15330,12 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Seadrill, afretado pela Petrobras em contrato de 1.095 dias iniciado próximo ao West Jupiter, atuando na Bacia de Santos. Código Petrobras NS-47 confirmado em relatório oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }, { label: "Brasil Energia - West Tellus e West Jupiter perto de iniciar operação", url: "https://brasilenergia.com.br/petroleoegas/west-tellus-e-west-jupiter-perto-de-iniciar-operacao/" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126, { label: "Brasil Energia - West Tellus e West Jupiter perto de iniciar operação", url: "https://brasilenergia.com.br/petroleoegas/west-tellus-e-west-jupiter-perto-de-iniciar-operacao/" }]
   },
   {
     slug: "west-carina", nome: "West Carina", tipo: "drillship",
     codigo_petrobras: "NS-48", codigo_confianca: "baixa",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Carina.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Carina.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/08/Seadrill-Fleet-Status-Report-August-2026-vF.pdf", documento: "Fleet Status Report — agosto de 2026", data_ref: "2026-08-01" },
     imo: "9674127", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2014, estaleiro: null,
@@ -15326,7 +15353,7 @@ const UNIDADES_RADAR = [
   },
   {
     slug: "west-polaris", nome: "West Polaris", tipo: "drillship",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Polaris.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Polaris.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9372535", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2008, estaleiro: null,
@@ -15336,11 +15363,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Seadrill, afretado pela Petrobras em contrato anunciado junto ao West Auriga (1.064 dias, a partir do 4º trimestre de 2024), atuando na Bacia de Santos. Não foi localizado código NS-## associado a esta unidade.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }, { label: "Petronotícias - Seadrill conquista contratos West Auriga e West Polaris", url: "https://petronoticias.com.br/seadrill-conquista-dois-contratos-com-a-petrobras-que-somam-us-11-bilhao/" }]
+    fontes: [RADAR_FONTE_MARINHA_0126, { label: "Petronotícias - Seadrill conquista contratos West Auriga e West Polaris", url: "https://petronoticias.com.br/seadrill-conquista-dois-contratos-com-a-petrobras-que-somam-us-11-bilhao/" }]
   },
   {
     slug: "west-saturn", nome: "West Saturn", tipo: "drillship",
-    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Saturn.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
+    foto_url: "https://www.seadrill.com/wp-content/uploads/2025/04/West-Saturn.jpg", foto_credito: "Divulgação Seadrill", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.seadrill.com/fleet/", image_status: "real",
     fleet_status_fonte: { nome: "Seadrill Fleet Status Report", url: "https://www.seadrill.com/wp-content/uploads/2026/05/260511-Seadrill-Fleet-Status-Report-May-2026-vF.pdf", documento: "Fleet Status Report — maio de 2026", data_ref: "2026-05-11" },
     imo: "9657428", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2014, estaleiro: null,
@@ -15350,10 +15377,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Seadrill, afretado pela Equinor Brasil (não pela Petrobras) e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026. Não possui código Petrobras NS-## por não ser afretado pela estatal.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "norbe-ix", nome: "Norbe IX", tipo: "drillship",
+    foto_url: "https://www.foresea.com/sites/default/files/images/perfuracao-offshore/norbe-ix.jpeg", foto_credito: "Divulgação Foresea", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://www.foresea.com/perfuracao-offshore/#norbe-ix", image_status: "real",
     codigo_petrobras: "NS-33",
     imo: "9562570", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2010, estaleiro: null,
@@ -15363,10 +15391,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia do Espírito Santo",
     capacidade: null,
     sobre: "Navio-sonda operado pela Foresea (ex-Ocyan), recontratado pela Petrobras conforme reportagem especializada, atuando na Bacia do Espírito Santo. Código Petrobras NS-33 confirmado em documento oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }, { label: "Portos e Navios - Ocyan vence licitação e Norbe IX é recontratada", url: "https://www.portosenavios.com.br/noticias/offshore/ocyan-vence-licitacao-e-sonda-norbe-ix-e-recontratada-para-a-petrobras" }]
+    fontes: [RADAR_FONTE_MARINHA_BACIAS, RADAR_FONTE_MARINHA_0126, { label: "Portos e Navios - Ocyan vence licitação e Norbe IX é recontratada", url: "https://www.portosenavios.com.br/noticias/offshore/ocyan-vence-licitacao-e-sonda-norbe-ix-e-recontratada-para-a-petrobras" }]
   },
   {
     slug: "norbe-vi", nome: "Norbe VI", tipo: "semissubmersivel",
+    foto_url: "https://www.foresea.com/sites/default/files/images/perfuracao-offshore/norbe-vi.png", foto_credito: "Divulgação Foresea", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://www.foresea.com/perfuracao-offshore/#norbe-vi", image_status: "real",
     codigo_petrobras: "SS-81",
     imo: "8770584", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: null, estaleiro: null,
@@ -15376,10 +15405,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração operada pela Odebrecht Drilling, afretada pela Petrobras, atuando na Bacia de Santos. Código Petrobras SS-81 confirmado em documento oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_BACIAS, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "petrobras-10000", nome: "Petrobras 10000", tipo: "drillship",
+    foto_url: "https://gcaptain.com/wp-content/uploads/2012/08/Petrobras-10000.jpeg", foto_credito: "Reprodução gCaptain", foto_licenca: "Direitos reservados — imagem publicada na imprensa especializada; sem crédito/licença explícitos", foto_fonte_url: "https://gcaptain.com/petrobras-signs-newbuild-contracts", image_status: "real",
     codigo_petrobras: "NS-31",
     imo: "9404352", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2009, estaleiro: null,
@@ -15389,10 +15419,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda operado pela P&M Drilling International, afretado pela Petrobras e em operação na Bacia de Campos. Código Petrobras NS-31 confirmado em relatórios oficiais da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "carolina", nome: "Carolina", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784758253328.jpg?prefix=media", foto_credito: "Divulgação Ventura Offshore (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2024/06/05/25-year-old-brazilian-offshore-drilling-player-starts-its-new-growth-chapter", image_status: "real",
     codigo_petrobras: "NS-29",
     imo: "9562582", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2011, estaleiro: null,
@@ -15402,10 +15433,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Carolina Marine, afretado pela Petrobras e em operação na Bacia de Santos. Código Petrobras NS-29 confirmado em documento oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }, { label: "Brasil Energia - Navio-sonda Carolina inicia adaptações para Petrobras", url: "https://brasilenergia.com.br/petroleoegas/navio-sonda-carolina-inicia-adaptacoes-para-petrobras/" }]
+    fontes: [RADAR_FONTE_MARINHA_BACIAS, RADAR_FONTE_MARINHA_0126, { label: "Brasil Energia - Navio-sonda Carolina inicia adaptações para Petrobras", url: "https://brasilenergia.com.br/petroleoegas/navio-sonda-carolina-inicia-adaptacoes-para-petrobras/" }]
   },
   {
     slug: "etesco-takatsugu-j", nome: "Etesco Takatsugu J", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784812616251.jpg?prefix=media", foto_credito: "Divulgação (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2021/07/27/petrobras-renews-drillship-contract-in-brazil", image_status: "real",
     codigo_petrobras: "NS-38",
     imo: "9525235", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2011, estaleiro: null,
@@ -15415,10 +15447,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Etesco, afretado pela Petrobras e em operação na Bacia de Campos. Código Petrobras NS-38 confirmado em documento oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_BACIAS, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "atlantic-star", nome: "Atlantic Star", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1789387472541.jpg?prefix=media", foto_credito: "Divulgação Constellation (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2024/12/27/petrobras-opts-to-keep-constellation-rig-busy-for-301-more-days", image_status: "real",
     codigo_petrobras: "SS-45",
     imo: "7417616", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 1976, estaleiro: null,
@@ -15428,10 +15461,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração de bandeira Bahamas, operada pela Constellation, afretada pela Petrobras e em operação na Bacia de Campos. Código Petrobras SS-45 confirmado em relatórios oficiais da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "atlantic-zonda", nome: "Atlantic Zonda", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784729866265.jpg?prefix=media", foto_credito: "Divulgação Pelago Management (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2026/06/29/vantage-and-eldorado-merger-births-enhanced-offshore-drilling-player", image_status: "real",
     imo: "9685176", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2014, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15440,10 +15474,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Ventura Offshore, afretado pela Petrobras e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026. Não foi localizado código NS-## associado a esta unidade.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "alpha-star", nome: "Alpha Star", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784755153334.jpg?prefix=media", foto_credito: "Divulgação Constellation (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2024/09/09/shell-takes-constellation-rig-for-work-offshore-brazil", image_status: "real",
     codigo_petrobras: "SS-83",
     imo: "8770625", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2009, estaleiro: null,
@@ -15453,10 +15488,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração operada pela Constellation, afretada pela Petrobras e em operação na Bacia de Campos. Código Petrobras SS-83 confirmado em documento oficial da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Distribuição das Plataformas por Bacias", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PlataformasdistribuidasporBacias-4.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_BACIAS, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "gold-star", nome: "Gold Star", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784762705386.jpg?prefix=media", foto_credito: "Divulgação Keppel (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2024/01/19/five-year-gig-for-constellations-three-rigs-takes-norwegian-firm-to-brazil", image_status: "real",
     codigo_petrobras: "SS-73",
     imo: "8770041", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2007, estaleiro: null,
@@ -15466,10 +15502,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração operada pela Constellation, afretada pela Petrobras e em operação na Bacia de Campos, com declaração de conformidade válida até dezembro de 2027. Código Petrobras SS-73 confirmado em relatórios oficiais da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "lone-star", nome: "Lone Star", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784752286396.jpg?prefix=media", foto_credito: "Divulgação Constellation Oil Services (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2024/12/04/baker-hughes-onesubsea-and-constellation-sign-up-for-subsea-and-drilling-jobs-at-brazilian-oil-fields", image_status: "real",
     codigo_petrobras: "SS-79",
     imo: "8769858", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2006, estaleiro: null,
@@ -15479,10 +15516,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração operada pela Constellation, afretada pela Petrobras e em operação na Bacia de Campos. Código Petrobras SS-79 confirmado em relatórios oficiais da Marinha do Brasil; documentação de conformidade com validade em torno de janeiro de 2026, sugerindo possível renovação próxima.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "noble-courage", nome: "Noble Courage", tipo: "semissubmersivel",
+    foto_url: "https://noblecorp.com/wp-content/uploads/2026/05/Noble-Courage.webp", foto_credito: "Divulgação Noble Corporation", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://noblecorp.com/rig/noble-courage/", image_status: "real",
     codigo_petrobras: "SS-75",
     imo: "8768531", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2009, estaleiro: null,
@@ -15492,10 +15530,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia do Espírito Santo",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração incorporada à frota afretada pela Petrobras em maio de 2021 sob o nome Ocean Courage (código NS/SS-75). Posteriormente renomeada para Noble Courage após reestruturação da operadora. Relatório da Marinha do Brasil de janeiro de 2026 já lista a unidade sob o novo nome, operando na Bacia do Espírito Santo.",
-    fontes: [{ label: "Kincaid - Mais duas sondas na carteira da Petrobras", url: "https://www.kincaid.com.br/mais-duas-sondas-na-carteira-da-petrobras-ate-setembro/" }, { label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [{ label: "Kincaid - Mais duas sondas na carteira da Petrobras", url: "https://www.kincaid.com.br/mais-duas-sondas-na-carteira-da-petrobras-ate-setembro/" }, RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "ssv-victoria", nome: "SSV Victoria", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784733013529.jpg?prefix=media", foto_credito: "Divulgação Ventura Offshore (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2026/04/03/ventura-offshore-scores-multimillion-dollar-rig-extensions-with-petrobras", image_status: "real",
     codigo_petrobras: "SS-70",
     imo: "8769547", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2008, estaleiro: null,
@@ -15505,10 +15544,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração de bandeira liberiana, operada pela Hibernia Marine, afretada pela Petrobras e em operação na Bacia de Santos. Código Petrobras SS-70 confirmado em relatórios oficiais da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "siem-helix-1", nome: "Siem Helix 1", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784800236866.jpg?prefix=media", foto_credito: "Divulgação Siem Offshore / Sea1 Offshore (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2022/03/09/siem-offshore-and-helix-extend-well-intervention-vessels-deal", image_status: "real",
     codigo_petrobras: "NS-51",
     imo: "9733454", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2016, estaleiro: null,
@@ -15518,10 +15558,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Siem Offshore, afretado pela Trident Energy (não pela Petrobras) e em operação na Bacia de Campos. Código Petrobras NS-51 confirmado em relatórios oficiais da Marinha do Brasil, apesar do afretamento ser de outra operadora.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "siem-helix-2", nome: "Siem Helix 2", tipo: "drillship",
+    foto_url: "https://helixesg.com/images/block-images/siem-helix-2.jpg", foto_credito: "Divulgação Helix Energy Solutions", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://helixesg.com/our-assets/siem-helix-2", image_status: "real",
     codigo_petrobras: "NS-52",
     imo: "9733466", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2015, estaleiro: null,
@@ -15531,10 +15572,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Siem Offshore, afretado pela Petrobras e em operação na Bacia de Campos. Código Petrobras NS-52 confirmado em relatórios oficiais da Marinha do Brasil.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (22/10/2025)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO22OUT2025.pdf" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_1025, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "tidal-action", nome: "Tidal Action", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784739807309.jpg?prefix=media", foto_credito: "Divulgação (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2025/09/18/hanwhas-7th-gen-drillship-kicks-off-maiden-contract-with-petrobras", image_status: "real",
     imo: "9709740", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2025, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15543,11 +15585,11 @@ const UNIDADES_RADAR = [
     campo: "Campo de Roncador, Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda recém-construído (2025) afretado pela Constellation à Petrobras junto com a Laguna Star, para a campanha de poços de Roncador na Bacia de Campos, com início no 3º trimestre de 2025 em contrato de aproximadamente dois anos e meio. Não foi localizado código NS-## associado a esta unidade.",
-    fontes: [{ label: "Agência Petrobras - Contrato de navios-sonda para Roncador", url: "https://agencia.petrobras.com.br/w/negocio/petrobras-contrata-novos-navios-sondas-para-campanha-de-pocos-na-jazida-de-roncador" }, { label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [{ label: "Agência Petrobras - Contrato de navios-sonda para Roncador", url: "https://agencia.petrobras.com.br/w/negocio/petrobras-contrata-novos-navios-sondas-para-campanha-de-pocos-na-jazida-de-roncador" }, RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "valaris-ds-4", nome: "Valaris DS-4", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS4.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS4.jpg", foto_credito: "Divulgação Valaris", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9459943", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2010, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15556,11 +15598,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Valaris (via Ensco do Brasil), afretado pela Petrobras e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "valaris-ds-8", nome: "Valaris DS-8", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS8.jpg", foto_credito: "Divulgação Valaris", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/DS8.jpg", foto_credito: "Divulgação Valaris", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9659531", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2015, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15569,11 +15611,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Valaris (via Ensco do Brasil), afretado pela Petrobras e presente na Bacia de Campos conforme relatório da Marinha do Brasil de janeiro de 2026. REVISADO (2026-09-17): reclassificado como atividade recente confirmada — nenhuma fonte independente de 2026 (fora o censo de janeiro) foi encontrada confirmando operação contínua até a data desta auditoria.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "valaris-ds-17", nome: "Valaris DS-17", tipo: "drillship",
-    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/RELIANCE.jpg", foto_credito: "Divulgação Valaris (ex-Rowan Reliance)", foto_licenca: "Direitos reservados — uso autorizado via divulgação de imprensa", foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
+    foto_url: "https://s23.q4cdn.com/956522167/files/doc_rigspecs/RELIANCE.jpg", foto_credito: "Divulgação Valaris (ex-Rowan Reliance)", foto_licenca: RADAR_LIC_IMPRENSA, foto_fonte_url: "https://www.valaris.com/our-fleet/drillships/default.aspx", image_status: "real",
     imo: "9646950", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2013, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15582,10 +15624,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Valaris (via Ensco do Brasil), afretado pela Equinor (não pela Petrobras) e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "dhirubhai-deepwater-kg2", nome: "Dhirubhai Deepwater KG2", tipo: "drillship",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784779122166.jpg?prefix=media", foto_credito: "Divulgação Transocean (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2023/02/01/new-910-day-gig-for-transoceans-ultra-deepwater-drillship", image_status: "real",
     imo: "9410088", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2008, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15594,10 +15637,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda operado pela Transocean (via Triton KG2 GmbH), afretado pela Petrobras e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "hunter-queen", nome: "Hunter Queen", tipo: "semissubmersivel",
+    foto_url: "https://www.offshore-energy.biz/api/media/file/wp-import-1784748355155.jpg?prefix=media", foto_credito: "Divulgação PRIO (via Offshore Energy)", foto_licenca: RADAR_LIC_REPRODUZIDA, foto_fonte_url: "https://www.offshore-energy.biz/2025/03/03/hunter-queen-on-black-gold-hunt-all-systems-go-for-rigs-multi-well-drilling-campaign-off-brazil", image_status: "real",
     imo: "8770821", mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2011, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15606,10 +15650,11 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Campos",
     capacidade: null,
     sobre: "Unidade semissubmersível de perfuração afretada pela PetroRio (não Petrobras), em operação na Bacia de Campos conforme relatório da Marinha do Brasil de janeiro de 2026. Não se aplica código Petrobras NS/SS por não ser afretada pela estatal.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   },
   {
     slug: "noble-faye-kozack", nome: "Noble Faye Kozack", tipo: "drillship",
+    foto_url: "https://noblecorp.com/wp-content/uploads/2026/05/Noble-Faye-Kozack.webp", foto_credito: "Divulgação Noble Corporation", foto_licenca: RADAR_LIC_INSTITUCIONAL, foto_fonte_url: "https://noblecorp.com/rig/noble-faye-kozack/", image_status: "real",
     imo: null, mmsi: null, callsign: null, bandeira: null,
     ano_construcao: 2013, estaleiro: null,
     comprimento_m: null, boca_m: null, calado_m: null, gt: null, dwt: null,
@@ -15618,7 +15663,7 @@ const UNIDADES_RADAR = [
     campo: "Bacia de Santos",
     capacidade: null,
     sobre: "Navio-sonda de bandeira liberiana, operado pela NE Drilling do Brasil (Noble), afretado pela Petrobras e em operação na Bacia de Santos conforme relatório da Marinha do Brasil de janeiro de 2026.",
-    fontes: [{ label: "Marinha do Brasil - Relatório de Plataformas (05/01/2026)", url: "https://assets.marinha.mil.br/dpc/sites/www.marinha.mil.br.dpc/files/PLATAFORMAS-PETROLEO04JANEIRO2026.pdf" }]
+    fontes: [RADAR_FONTE_MARINHA_0126]
   }
 ];
 
@@ -15740,6 +15785,9 @@ const RADAR_CSS =
   ".radar-ficha-foto-real img{width:100%;height:100%;object-fit:cover;display:block}" +
   ".radar-ficha-foto-credito{position:absolute;right:0;bottom:0;left:0;background:linear-gradient(0deg,rgba(6,20,32,.85),transparent);color:var(--muted);font-family:var(--ui);font-size:10.5px;padding:16px 12px 6px;text-align:right}" +
   ".radar-ficha-foto svg{width:30%;max-width:180px;color:var(--acento,var(--cyan-dim));opacity:.75}" +
+  ".radar-ficha-foto-generica{aspect-ratio:auto;min-height:150px;flex-direction:column;gap:10px;padding:22px 16px}" +
+  ".radar-ficha-foto-generica svg{width:120px;max-width:40%}" +
+  ".radar-ficha-foto-aviso{font-family:var(--ui);font-size:12px;color:var(--muted);text-align:center;max-width:42ch}" +
   ".radar-secao{margin-top:30px}" +
   ".radar-secao h2{font-family:var(--ui);font-size:14px;font-weight:800;color:var(--white);text-transform:uppercase;letter-spacing:.03em;padding-bottom:10px;border-bottom:2px solid var(--line);margin-bottom:14px}" +
   ".radar-fontes-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}" +
@@ -16074,9 +16122,12 @@ function renderRadarIndex() {
     // unidade já tem `foto_url` catalogado (mesmo campo/fonte já usado
     // na ficha individual) — nunca inventa, cai pro ícone neutro de
     // sempre quando não há foto confiável associada.
-    'var fotoOuIcone=u.foto?("<span class=\'radar-card-foto\'><img src=\'"+u.foto+"\' alt=\'\' loading=\'lazy\' referrerpolicy=\'no-referrer\'></span>"):("<span class=\'radar-card-icone\'>"+ICONES[g]+"</span>");' +
+    'var fotoOuIcone=u.foto?("<span class=\'radar-card-foto\' data-g=\'"+g+"\'><img src=\'"+u.foto+"\' alt=\'\' loading=\'lazy\' referrerpolicy=\'no-referrer\'></span>"):("<span class=\'radar-card-icone\'>"+ICONES[g]+"</span>");' +
     'return "<article class=\\"radar-card\\" data-slug=\\""+u.slug+"\\" style=\\"--acento:var(--radar-"+g+")\\">"+fotoOuIcone+"<div class=\\"radar-card-info\\"><span class=\\"radar-card-tipo\\">"+identidadeUnidade(u)+tagSituacao(u)+"</span><h3>"+u.nome+"</h3>"+(fatos?"<span class=\\"radar-card-fatos\\">"+fatos+"</span>":"")+"</div><div class=\\"radar-card-acoes\\"><button type=\\"button\\" class=\\"radar-fav-btn"+(fav?" ativo":"")+"\\" data-slug=\\""+u.slug+"\\" aria-label=\\"Favoritar "+u.nome+"\\" aria-pressed=\\""+(fav?"true":"false")+"\\">"+(fav?"&#9733;":"&#9734;")+"</button><a class=\\"radar-card-link\\" href=\\"/radar/"+u.slug+"\\">Ver ficha &#8594;</a></div></article>";' +
     "}" +
+    // Foto que falhar no navegador (hotlink bloqueado, URL fora do ar) vira o
+    // ícone genérico do tipo — card nunca mostra imagem quebrada.
+    'document.addEventListener("error",function(ev){var t=ev.target,sp=t&&t.parentNode;if(!t||t.tagName!=="IMG"||!sp||!sp.classList||!sp.classList.contains("radar-card-foto"))return;sp.className="radar-card-icone";sp.innerHTML=ICONES[sp.getAttribute("data-g")]||"";},true);' +
     "var ultimasFiltradas=RADAR_UNIDADES.slice();" +
     "function renderLista(){" +
     'var termo=chaveBusca(document.getElementById("radarBusca").value);' +
@@ -16313,6 +16364,11 @@ async function renderRadarFicha(slug, env, ctx) {
 
   const tipoLabel = RADAR_TIPOS_LABEL[unidade.tipo] || unidade.tipo;
   const grupoIcone = RADAR_GRUPO_ICONE[unidade.tipo] || "plataforma";
+  // Fallback OWNews (2026-10-18): ilustração genérica do TIPO, rotulada como
+  // tal — nunca apresentada como foto da unidade. Também substitui a foto se
+  // ela falhar ao carregar no navegador.
+  const fotoGenerica = '<div class="radar-ficha-foto radar-ficha-foto-generica" style="--acento:var(--radar-' + grupoIcone + ')">' + RADAR_ICONES_GRUPO[grupoIcone] +
+    '<span class="radar-ficha-foto-aviso">Ilustração genérica OWNews (' + escaparHTML(RADAR_TIPOS_LABEL[unidade.tipo] || unidade.tipo) + ') — ainda sem foto verificada desta unidade.</span></div>';
   const prefixoIdentidade = (unidade.codigo_petrobras ? escaparHTML(unidade.codigo_petrobras) + " · " : "") + escaparHTML(tipoLabel);
   const situacaoLabel = (unidade.status_brasil && unidade.status_brasil !== "ativa_brasil") ? RADAR_SITUACAO_LABEL[unidade.status_brasil] : null;
 
@@ -16391,10 +16447,10 @@ async function renderRadarFicha(slug, env, ctx) {
     // 2 — Foto real (ou ícone placeholder)
     (unidade.foto_url
       ? '<figure class="radar-ficha-foto radar-ficha-foto-real" style="--acento:var(--radar-' + grupoIcone + ')">' +
-        '<img src="' + escaparHTML(unidade.foto_url) + '" alt="' + escaparHTML(unidade.nome) + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'figure\').outerHTML=\'<div class=&quot;radar-ficha-foto&quot; style=&quot;--acento:var(--radar-' + grupoIcone + ')&quot;>' + RADAR_ICONES_GRUPO[grupoIcone].replace(/"/g, "&quot;") + '</div>\'">' +
+        '<img src="' + escaparHTML(unidade.foto_url) + '" alt="' + escaparHTML(unidade.nome) + '" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'figure\').outerHTML=\'' + fotoGenerica.replace(/"/g, "&quot;").replace(/'/g, "&#39;") + '\'">' +
         (unidade.foto_credito ? '<figcaption class="radar-ficha-foto-credito">Foto: ' + escaparHTML(unidade.foto_credito) + "</figcaption>" : "") +
         "</figure>"
-      : '<div class="radar-ficha-foto" style="--acento:var(--radar-' + grupoIcone + ')">' + RADAR_ICONES_GRUPO[grupoIcone] + "</div>") +
+      : fotoGenerica) +
 
     // 3 — Sobre a unidade
     (unidade.sobre ? '<div class="radar-secao"><h2>Sobre a unidade</h2><p class="hub-lead" style="font-size:15px">' + escaparHTML(unidade.sobre) + "</p></div>" : "") +
@@ -23021,7 +23077,7 @@ export default {
         sobre: u.sobre || null,
         image_url: u.foto_url || null,
         image_credit: u.foto_credito || null,
-        image_status: u.image_status || (u.foto_url ? 'real' : 'ausente'),
+        image_status: u.foto_url ? 'real' : 'fallback',
         fleet_status_fonte: u.fleet_status_fonte || null,
         url: 'https://ownews.com.br/radar/' + u.slug,
       }));
