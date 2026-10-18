@@ -62,3 +62,20 @@ test('resetar: mesmo ciclo → não deve resetar', () => {
   const c = criarChecklistPadrao('2026-11-01');
   assert.equal(deveResetarChecklist(c, '2026-11-01'), false);
 });
+
+test('editarItem renomeia sem mexer no estado; texto vazio não muda nada', async () => {
+  const D = await import('../src/checklist.ts');
+  const base = { ciclo: '2026-11-09', items: [{ id: 'a', t: 'A', cat: 'roupas', ok: true }, { id: 'b', t: 'B', cat: 'roupas', ok: false }] };
+  const e = D.editarItem(base, 'a', '  Casaco  ');
+  assert.equal(e.items[0].t, 'Casaco');
+  assert.equal(e.items[0].ok, true);
+  assert.equal(D.editarItem(base, 'a', '   '), base);
+});
+
+test('desmarcarTodos mantém itens e ciclo', async () => {
+  const D = await import('../src/checklist.ts');
+  const base = { ciclo: '2026-11-09', items: [{ id: 'a', t: 'A', cat: 'roupas', ok: true }, { id: 'b', t: 'B', cat: 'roupas', ok: false }] };
+  const r = D.desmarcarTodos(base);
+  assert.equal(r.ciclo, base.ciclo);
+  assert.deepEqual(r.items.map(i => [i.id, i.ok]), [['a', false], ['b', false]]);
+});

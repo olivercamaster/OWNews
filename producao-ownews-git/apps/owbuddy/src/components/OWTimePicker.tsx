@@ -1,6 +1,7 @@
 /**
  * OWTimePicker — seletor de horário para o OWBuddy.
- * Modal com duas colunas scroll (horas 00–23, minutos 00/05/.../55).
+ * Modal com duas colunas scroll (horas 00–23, minutos 00–59) e o ":" sempre visível.
+ * Minuto a minuto: horário de voo/ônibus nunca é arredondado (antes 19:47 virava 19:45).
  * Pure React Native — sem dependência nativa adicional.
  * Compatível com Expo Go SDK 57, Android e iOS.
  *
@@ -25,7 +26,7 @@ import { colors, maritime, radius, spacing, typography } from '../theme';
 export { normalizeHora } from '../hora-utils';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 const ITEM_H = 48;
 const VISIBLE = 5; // quantos itens mostrar por coluna
 
@@ -36,21 +37,18 @@ interface OWTimePickerProps {
   onCancel: () => void;
 }
 
-function parseTime(v: string | undefined): { h: number; m: number } {
-  if (!v) return { h: 0, m: 0 };
-  // "HH:mm" → h, m
-  const parts = v.split(':');
-  const h = Math.min(23, Math.max(0, parseInt(parts[0] ?? '0', 10)));
-  const rawM = parseInt(parts[1] ?? '0', 10);
-  // Arredonda para o múltiplo de 5 mais próximo
-  const m = Math.min(55, Math.round(rawM / 5) * 5);
-  return { h, m };
+export function parseTime(v: string | undefined): { h: number; m: number } {
+  const m = v ? /^(\d{1,2}):(\d{2})$/.exec(v.trim()) : null;
+  if (!m) return { h: 8, m: 0 }; // sem valor: começa num horário plausível
+  const h = Math.min(23, Math.max(0, parseInt(m[1]!, 10) || 0));
+  const mi = Math.min(59, Math.max(0, parseInt(m[2]!, 10) || 0));
+  return { h, m: mi };
 }
 
 export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePickerProps) {
   const init = parseTime(value);
   const [selH, setSelH] = useState(init.h);
-  const [selM, setSelM] = useState(init.m / 5); // índice em MINUTES
+  const [selM, setSelM] = useState(init.m); // índice em MINUTES
 
   const hRef = useRef<FlatList>(null);
   const mRef = useRef<FlatList>(null);
@@ -60,7 +58,7 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
     if (visible) {
       const t = parseTime(value);
       setSelH(t.h);
-      setSelM(t.m / 5);
+      setSelM(t.m);
     }
   }, [visible, value]);
 
@@ -85,6 +83,7 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <Text style={styles.title}>Horário</Text>
+          <Text style={styles.preview} accessibilityLiveRegion="polite">{HOURS[selH]}:{MINUTES[selM]}</Text>
 
           <View style={styles.columns}>
             {/* Horas */}
@@ -99,6 +98,8 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                   renderItem={({ item, index }) => (
                     <TouchableOpacity
                       style={[styles.item, index === selH && styles.itemSel]}
+                      accessibilityLabel={`${item} horas`}
+                      accessibilityState={{ selected: index === selH }}
                       onPress={() => {
                         setSelH(index);
                         hRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
@@ -139,6 +140,8 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                   renderItem={({ item, index }) => (
                     <TouchableOpacity
                       style={[styles.item, index === selM && styles.itemSel]}
+                      accessibilityLabel={`${item} minutos`}
+                      accessibilityState={{ selected: index === selM }}
                       onPress={() => {
                         setSelM(index);
                         mRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
@@ -154,7 +157,7 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                   decelerationRate="fast"
                   onMomentumScrollEnd={(e) => {
                     const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-                    setSelM(Math.min(11, Math.max(0, idx)));
+                    setSelM(Math.min(59, Math.max(0, idx)));
                   }}
                   getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
                   style={{ height: ITEM_H * VISIBLE }}
@@ -199,7 +202,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: maritime.glassBorder,
   },
-  title: { ...typography.h3, textAlign: 'center', marginBottom: spacing.lg },
+  title: { ...typography.h3, textAlign: 'center', marginBottom: spacing.xs },
+  preview: { fontSize: 34, fontWeight: '700', color: colors.white, textAlign: 'center', marginBottom: spacing.md, fontVariant: ['tabular-nums'] },
   columns: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   colWrap: { alignItems: 'center', flex: 1 },
   colLabel: { ...typography.micro, color: colors.mutedDim, marginBottom: 8 },

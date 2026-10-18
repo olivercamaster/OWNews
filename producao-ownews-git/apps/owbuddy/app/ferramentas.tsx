@@ -102,10 +102,11 @@ function fmt(val: number): string {
   if (!isFinite(val) || isNaN(val)) return '—';
   const abs = Math.abs(val);
   if (abs === 0) return '0';
-  if (abs >= 1e6 || (abs > 0 && abs < 0.0001)) return val.toExponential(4);
-  if (abs >= 1000) return val.toFixed(2);
-  if (abs >= 1) return val.toFixed(4);
-  return val.toFixed(6);
+  // vírgula decimal (pt-BR); o campo de entrada aceita vírgula ou ponto
+  if (abs >= 1e6 || (abs > 0 && abs < 0.0001)) return val.toExponential(4).replace('.', ',');
+  if (abs >= 1000) return val.toFixed(2).replace('.', ',');
+  if (abs >= 1) return val.toFixed(4).replace('.', ',');
+  return val.toFixed(6).replace('.', ',');
 }
 
 export default function FerramentasScreen() {
@@ -185,10 +186,11 @@ export default function FerramentasScreen() {
           onChangeText={setRawValue}
           keyboardType="decimal-pad"
           selectTextOnFocus
+          accessibilityLabel={`Valor em ${fromUnit.label}`}
           placeholderTextColor={colors.mutedDim}
           placeholder="0"
         />
-        <TouchableOpacity style={styles.unitChip} onPress={cycleFromUnit}>
+        <TouchableOpacity style={styles.unitChip} onPress={cycleFromUnit} accessibilityLabel={`Unidade ${fromUnit.label}. Toque para trocar`}>
           <Text style={styles.unitChipText}>{fromUnit.label}</Text>
           <Ionicons name="swap-vertical-outline" size={14} color={colors.navy950} />
         </TouchableOpacity>
@@ -259,11 +261,14 @@ const styles = StyleSheet.create({
   },
   valueInput: {
     flex: 1,
+    minWidth: 0,
     fontSize: 32,
     fontWeight: '700',
     color: colors.white,
   },
   unitChip: {
+    flexShrink: 0,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,

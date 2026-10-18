@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,10 +9,12 @@ import { getEscala } from '../src/storage';
 import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../src/theme';
 import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
+import { buscarJson } from '../src/net';
 
 const API_URL = 'https://ownews.com.br/api/buddy/aeroportos';
 const OWNEWS_AEROPORTOS = 'https://ownews.com.br/aeroportos';
-const CACHE_TTL_MS = 60_000; // 1 min
+const CACHE_TTL_MS = 60_000; // 1 min — mesmo frescor do proxy
+const CACHE_KEY = 'owbuddy_cache_aeroportos_v1';
 
 type AeroportoVivo = {
   codigo: string;
@@ -22,6 +25,7 @@ type AeroportoVivo = {
   temperatura: number | null;
   icone: string | null;
   tempo: string | null;
+  /** "HH:MM UTC" da observação (REDEMET/METAR) — sem data. */
   horarioUTC: string | null;
 };
 
@@ -30,15 +34,38 @@ type ApiResult = {
   fetched_at: string;
 };
 
-let _cache: { data: ApiResult; ts: number } | null = null;
+type Carga = { data: ApiResult; salvoEm: number; offline: boolean };
 
-async function fetchAeroportos(): Promise<ApiResult> {
-  if (_cache && Date.now() - _cache.ts < CACHE_TTL_MS) return _cache.data;
-  const resp = await fetch(API_URL);
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  const data: ApiResult = await resp.json();
-  _cache = { data, ts: Date.now() };
-  return data;
+/** Rede → cache persistente; sem rede → último dado salvo, marcado como antigo. */
+async function carregarAeroportos(): Promise<Carga | null> {
+  let salvo: { data: ApiResult; salvoEm: number } | null = null;
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY);
+    salvo = raw ? JSON.parse(raw) : null;
+  } catch {}
+  if (salvo && Date.now() - salvo.salvoEm < CACHE_TTL_MS) return { ...salvo, offline: false };
+  const r = await buscarJson<ApiResult>(API_URL, 10_000);
+  if (r.ok && Array.isArray(r.data?.aeroportos) && r.data.aeroportos.length > 0) {
+    const novo = { data: r.data, salvoEm: Date.now() };
+    AsyncStorage.setItem(CACHE_KEY, JSON.stringify(novo)).catch(() => {});
+    return { ...novo, offline: false };
+  }
+  return salvo ? { ...salvo, offline: true } : null;
+}
+
+/** "17:00 UTC" → "14:00" em Brasília (UTC−3, sem horário de verão desde 2019). */
+function horaObservacaoBrasilia(horarioUTC: string | null): string | null {
+  const m = horarioUTC ? /(\d{1,2}):(\d{2})/.exec(horarioUTC) : null;
+  if (!m) return null;
+  const h = (Number(m[1]) + 21) % 24;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
+function horaCurta(ms: number): string {
+  const d = new Date(ms);
+  const hoje = new Date().toDateString() === d.toDateString();
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return hoje ? hora : `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hora}`;
 }
 
 function statusInfo(status: string | null): { label: string; color: string } {
@@ -49,7 +76,7 @@ function statusInfo(status: string | null): { label: string; color: string } {
 }
 
 export default function AeroportosScreen() {
-  const [result, setResult] = useState<ApiResult | null>(null);
+  const [carga, setCarga] = useState<Carga | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
   const [meuCodigo, setMeuCodigo] = useState<string | null>(null);
@@ -57,20 +84,16 @@ export default function AeroportosScreen() {
   const load = useCallback(async () => {
     const escala = await getEscala();
     setMeuCodigo(escala?.aeroporto ?? null);
-    try {
-      const data = await fetchAeroportos();
-      setResult(data);
-      setErro(false);
-    } catch {
-      setErro(true);
-    } finally {
-      setLoading(false);
-    }
+    const c = await carregarAeroportos();
+    setCarga(c);
+    setErro(!c);
+    setLoading(false);
   }, []);
 
   useEffect(() => { analytics.screen('Aeroportos'); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const result = carga?.data ?? null;
   const meuAero = meuCodigo
     ? result?.aeroportos.find(a => a.codigo === meuCodigo) ?? null
     : null;
@@ -95,10 +118,17 @@ export default function AeroportosScreen() {
       {erro && !loading && (
         <View style={styles.erroCard}>
           <Ionicons name="cloud-offline-outline" size={18} color={colors.mutedDim} />
-          <Text style={styles.erroText}>Não foi possível carregar as condições ao vivo.</Text>
-          <TouchableOpacity onPress={load}>
+          <Text style={styles.erroText}>Sem conexão. As condições dos aeroportos precisam de internet.</Text>
+          <TouchableOpacity onPress={() => { setLoading(true); load(); }} hitSlop={10}>
             <Text style={styles.retryLink}>Tentar novamente</Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {carga?.offline && (
+        <View style={styles.erroCard}>
+          <Ionicons name="cloud-offline-outline" size={18} color={colors.amber} />
+          <Text style={styles.erroText}>Sem conexão · mostrando dados salvos às {horaCurta(carga.salvoEm)}. Podem estar desatualizados.</Text>
         </View>
       )}
 
@@ -116,7 +146,7 @@ export default function AeroportosScreen() {
           <Text style={styles.sectionLabel}>BASES MONITORADAS</Text>
           {outros.map(a => <AeroCard key={a.codigo} aero={a} />)}
           <Text style={styles.atualizacao}>
-            Atualizado {result.fetched_at ? new Date(result.fetched_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+            Consultado às {horaCurta(carga!.salvoEm)} · horário de cada observação no cartão (Brasília)
           </Text>
         </>
       )}
@@ -125,7 +155,7 @@ export default function AeroportosScreen() {
         style={styles.cta}
         onPress={() => {
           analytics.track('aeroportos_web_opened');
-          Linking.openURL(OWNEWS_AEROPORTOS);
+          Linking.openURL(OWNEWS_AEROPORTOS).catch(() => {});
         }}
         accessibilityRole="button"
         accessibilityLabel="Abrir Aeroportos no OWNews"
@@ -162,8 +192,8 @@ function AeroCard({ aero, destaque = false }: { aero: AeroportoVivo; destaque?: 
             <Text style={styles.climaTemp}>{aero.temperatura}°C</Text>
           )}
           {aero.tempo ? <Text style={styles.climaTempo}>{aero.tempo}</Text> : null}
-          {aero.horarioUTC ? (
-            <Text style={styles.climaHora}>Obs. {aero.horarioUTC} UTC</Text>
+          {horaObservacaoBrasilia(aero.horarioUTC) ? (
+            <Text style={styles.climaHora}>Obs. {horaObservacaoBrasilia(aero.horarioUTC)}</Text>
           ) : null}
         </View>
       )}

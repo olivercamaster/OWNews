@@ -15,6 +15,8 @@ import {
   toggleItem,
   addItem,
   removeItem,
+  editarItem,
+  desmarcarTodos,
   resumoEscala,
   sincronizarChecklistComCiclo,
   getAeroporto,
@@ -84,6 +86,7 @@ export default function MeuEmbarque() {
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
+  const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
@@ -130,6 +133,27 @@ export default function MeuEmbarque() {
     ]);
   };
 
+  // Toque longo: editar ou remover (ação destrutiva sempre confirmada).
+  const opcoes = (item: ChecklistItem) => {
+    Alert.alert(item.t, undefined, [
+      { text: 'Editar', onPress: () => setEditando({ id: item.id, texto: item.t }) },
+      { text: 'Remover', style: 'destructive', onPress: () => remove(item.id, item.t) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const salvarEdicao = async () => {
+    if (data && editando) await persist(editarItem(data, editando.id, editando.texto));
+    setEditando(null);
+  };
+
+  const desmarcar = () => {
+    Alert.alert('Desmarcar todos?', 'Os itens continuam na lista, só voltam a ficar pendentes.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Desmarcar', onPress: () => { if (data) persist(desmarcarTodos(data)); } },
+    ]);
+  };
+
   if (!data || !resumo) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const counts = contarPendentes(data);
@@ -151,10 +175,10 @@ export default function MeuEmbarque() {
             <View style={styles.buddyIntro}>
               <View style={styles.buddyIntroRow}>
                 <Ionicons name="person-circle-outline" size={16} color={colors.cyanDim} />
-                <Text style={styles.buddyIntroTitle}>O Buddy acompanha seu embarque</Text>
+                <Text style={styles.buddyIntroTitle}>Vai lembrando. Eu guardo pra você.</Text>
               </View>
               <Text style={styles.buddyIntroSub}>
-                Marque o que já resolveu. Perto do embarque, eu te lembro do que ainda estiver pendente.
+                Marque o que já resolveu. Com os lembretes ligados (Meu Buddy), eu aviso 2 dias antes do embarque se ainda faltar algo. Toque e segure um item para editar ou remover.
               </Text>
             </View>
 
@@ -217,12 +241,34 @@ export default function MeuEmbarque() {
           </View>
         )}
         renderItem={({ item }) => (
-          <MalaItem item={item} onToggle={toggle} onRemove={remove} />
+          editando?.id === item.id ? (
+            <View style={styles.itemRow}>
+              <TextInput
+                style={[styles.addInput, { flex: 1 }]}
+                value={editando.texto}
+                onChangeText={t => setEditando({ id: item.id, texto: t })}
+                autoFocus
+                maxLength={60}
+                returnKeyType="done"
+                onSubmitEditing={salvarEdicao}
+                accessibilityLabel="Editar item"
+              />
+              <TouchableOpacity onPress={salvarEdicao} hitSlop={10} accessibilityLabel="Salvar item">
+                <Ionicons name="checkmark-circle" size={28} color={colors.cyan} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditando(null)} hitSlop={10} accessibilityLabel="Cancelar edição">
+                <Ionicons name="close-circle-outline" size={28} color={colors.mutedDim} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <MalaItem item={item} onToggle={toggle} onOptions={opcoes} />
+          )
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         SectionSeparatorComponent={() => <View style={styles.sectionSep} />}
         ListFooterComponent={
           /* ── Adicionar ── */
+          <>
           <View style={styles.addRow}>
             <TextInput
               style={styles.addInput}
@@ -238,6 +284,13 @@ export default function MeuEmbarque() {
               <Ionicons name="add" size={26} color={colors.navy950} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
             </TouchableOpacity>
           </View>
+          {counts.feitos > 0 && (
+            <TouchableOpacity style={styles.resetBtn} onPress={desmarcar} accessibilityRole="button">
+              <Ionicons name="refresh-outline" size={15} color={colors.mutedDim} />
+              <Text style={styles.resetText}>Desmarcar todos</Text>
+            </TouchableOpacity>
+          )}
+          </>
         }
       />
     </OWBackground>
@@ -247,18 +300,22 @@ export default function MeuEmbarque() {
 function MalaItem({
   item,
   onToggle,
-  onRemove,
+  onOptions,
 }: {
   item: ChecklistItem;
   onToggle: (id: string) => void;
-  onRemove: (id: string, label: string) => void;
+  onOptions: (item: ChecklistItem) => void;
 }) {
   return (
     <TouchableOpacity
       style={styles.itemRow}
       onPress={() => onToggle(item.id)}
-      onLongPress={() => onRemove(item.id, item.t)}
-      delayLongPress={500}
+      onLongPress={() => onOptions(item)}
+      delayLongPress={450}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: item.ok }}
+      accessibilityLabel={item.t}
+      accessibilityHint="Toque para marcar. Toque e segure para editar ou remover."
     >
       <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
         {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
@@ -270,6 +327,8 @@ function MalaItem({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
+  resetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'center', minHeight: 44, paddingHorizontal: spacing.md, marginBottom: spacing.md },
+  resetText: { fontSize: 13, color: colors.mutedDim, fontWeight: '600' },
   listContent: {},
 
   buddyIntro: {

@@ -177,3 +177,15 @@ export function removeItem(data: ChecklistData, id: string): ChecklistData {
     items: data.items.filter(item => item.id !== id),
   };
 }
+
+/** Renomeia um item (texto vazio = sem mudança). */
+export function editarItem(data: ChecklistData, id: string, texto: string): ChecklistData {
+  const t = texto.trim();
+  if (!t) return data;
+  return { ...data, items: data.items.map(item => (item.id === id ? { ...item, t } : item)) };
+}
+
+/** Reset controlado: desmarca tudo, mantém os itens e o ciclo. */
+export function desmarcarTodos(data: ChecklistData): ChecklistData {
+  return { ...data, items: data.items.map(item => (item.ok ? { ...item, ok: false } : item)) };
+}

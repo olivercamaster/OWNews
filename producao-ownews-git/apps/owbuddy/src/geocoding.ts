@@ -1,3 +1,4 @@
+import { buscarJson } from './net';
 import type { City } from './cities';
 
 interface GeoResult {
@@ -14,10 +15,10 @@ export async function searchCities(query: string): Promise<City[]> {
   if (q.length < 2) return [];
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=pt&format=json`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return [];
-    const data = await res.json() as { results?: GeoResult[] };
-    if (!data.results?.length) return [];
+    const r = await buscarJson<{ results?: GeoResult[] }>(url, 8000);
+    if (!r.ok) return [];
+    const data = r.data;
+    if (!data?.results?.length) return [];
     return data.results.map(r => ({
       name: r.name,
       state: r.admin1 ?? r.country ?? '',

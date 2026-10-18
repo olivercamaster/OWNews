@@ -4,11 +4,10 @@
  * Hierarquia visual (fundo → frente):
  *   1. Gradiente navy profundo com brilho diagonal e sombra de profundidade.
  *   2. Curvas batimétricas orgânicas — textura sutil (~3%), nunca grade.
- *   3. Mascote OFICIAL OWBuddy como grande marca-d'água tom sobre tom
- *      (assets/buddy-watermark.png: máscara alfa derivada do mascote oficial —
- *      capacete OW + óculos com plataforma + sorriso). Opacidade muito baixa,
- *      nunca compete com cards ou texto. Primeiro se percebe "identidade premium";
- *      só depois "o Buddy está ali".
+ *   3. (Opcional, DESLIGADO por padrão) mascote como marca-d'água.
+ *      Decisão OWBuddy 1.0 (2026-10-18): o Buddy é FUNCIONAL — ícone, splash e o
+ *      card "Buddy resume" da notícia —, nunca marca-d'água grande/decorativa.
+ *      A prop continua existindo só para não quebrar telas; ninguém deve ligá-la.
  *   4. Conteúdo da tela.
  *
  * React Native puro + expo-linear-gradient. Compatível com Expo Go SDK 57.
@@ -28,7 +27,7 @@ interface OWBackgroundProps {
   showWatermark?: boolean;
 }
 
-export function OWBackground({ children, showWatermark = true }: OWBackgroundProps) {
+export function OWBackground({ children, showWatermark = false }: OWBackgroundProps) {
   return (
     <View style={styles.root}>
       {/* 1. Gradiente premium */}

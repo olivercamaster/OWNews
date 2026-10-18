@@ -4,6 +4,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { City } from './cities';
 import { formatHoraBR } from './format';
+import { buscarJson } from './net';
 
 const WEATHER_KEY = 'owbuddy_weather_cache';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
@@ -54,12 +55,9 @@ export async function fetchWeather(city: City): Promise<WeatherData | null> {
       `&current=temperature_2m,weathercode` +
       `&timezone=America%2FSao_Paulo`;
 
-    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!resp.ok) return null;
-
-    const json = (await resp.json()) as {
-      current: { temperature_2m: number; weathercode: number };
-    };
+    const r = await buscarJson<{ current?: { temperature_2m?: number; weathercode?: number } }>(url, 8000);
+    if (!r.ok || typeof r.data?.current?.temperature_2m !== 'number') return null;
+    const json = r.data as { current: { temperature_2m: number; weathercode: number } };
 
     const data: WeatherData = {
       city: city.name,
@@ -86,7 +84,8 @@ export async function getWeather(city: City | null): Promise<WeatherData | null>
     Date.now() - cached.cachedAt < CACHE_TTL_MS;
   if (isFreshAndSameCity) return cached;
   const fresh = await fetchWeather(city);
-  return fresh ?? cached ?? null;
+  // Sem rede: só reaproveita o cache se for da MESMA cidade (nunca mostra o clima de outra).
+  return fresh ?? (cached && cached.city === city.name ? cached : null);
 }
 
 export function isCacheStale(cachedAt: number): boolean {
@@ -95,5 +94,10 @@ export function isCacheStale(cachedAt: number): boolean {
 
 /** "Atualizado às 14:32" or "14:32" */
 export function weatherCacheLabel(cachedAt: number): string {
-  return `Atualizado às ${formatHoraBR(cachedAt)}`;
+  const d = new Date(cachedAt);
+  const hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  return mesmoDia
+    ? `Atualizado às ${formatHoraBR(cachedAt)}`
+    : `Atualizado em ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${formatHoraBR(cachedAt)}`;
 }

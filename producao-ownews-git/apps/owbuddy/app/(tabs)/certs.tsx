@@ -71,6 +71,8 @@ export default function MeusCerts() {
         onPress: async () => {
           const all = await getCerts();
           await setCerts(all.map(c => c.id === id ? { ...c, _deleted: true, updated_at: new Date().toISOString() } : c));
+          analytics.track('certificate_deleted');
+          setForm(null);
           await load();
         },
       },
@@ -84,6 +86,7 @@ export default function MeusCerts() {
         onChange={setForm}
         onSave={save}
         onCancel={() => setForm(null)}
+        onDelete={form.id ? () => del(form.id!, form.nome ?? '') : undefined}
       />
     </OWBackground>
   );
@@ -148,7 +151,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-function CertForm({ form, onChange, onSave, onCancel }: { form: Partial<Certificado>; onChange: (v: Partial<Certificado>) => void; onSave: () => void; onCancel: () => void }) {
+function CertForm({ form, onChange, onSave, onCancel, onDelete }: { form: Partial<Certificado>; onChange: (v: Partial<Certificado>) => void; onSave: () => void; onCancel: () => void; onDelete?: () => void }) {
   const [showPickerValidade, setShowPickerValidade] = useState(false);
   const [showPickerEmissao, setShowPickerEmissao] = useState(false);
   return (
@@ -188,6 +191,15 @@ function CertForm({ form, onChange, onSave, onCancel }: { form: Partial<Certific
           <TouchableOpacity style={fStyles.cancelBtn} onPress={onCancel}><Text style={fStyles.cancelText}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity style={fStyles.saveBtn} onPress={onSave}><Text style={fStyles.saveText}>Salvar</Text></TouchableOpacity>
         </View>
+        {onDelete ? (
+          <TouchableOpacity style={fStyles.deleteBtn} onPress={onDelete} accessibilityRole="button">
+            <Ionicons name="trash-outline" size={16} color={colors.red} />
+            <Text style={fStyles.deleteText}>Remover certificado</Text>
+          </TouchableOpacity>
+        ) : null}
+        <Text style={fStyles.privNote}>
+          Ferramenta pessoal de lembrete: a validade oficial é a do documento emitido. Fica neste aparelho; com Conta OW, sincroniza com a sua conta.
+        </Text>
       </ScrollView>
 
       <OWDatePicker visible={showPickerValidade} value={form.validade} title="Data de validade"
@@ -210,6 +222,9 @@ function Field({ label, value, onChange, placeholder, keyboardType, maxLength }:
 }
 
 const fStyles = StyleSheet.create({
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: spacing.md },
+  deleteText: { color: colors.red, fontWeight: '600', fontSize: 14 },
+  privNote: { fontSize: 12, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.md, lineHeight: 17 },
   sectionLabel: { ...typography.micro, marginBottom: spacing.md },
   fieldWrap: { marginBottom: spacing.sm },
   label: { ...typography.small, marginBottom: 4, marginTop: spacing.sm },

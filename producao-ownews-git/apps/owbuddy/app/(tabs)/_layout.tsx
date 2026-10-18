@@ -1,3 +1,4 @@
+import { Text, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,21 @@ function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
       size={24}
       color={focused ? colors.cyan : colors.mutedDim}
     />
+  );
+}
+
+/** Rótulo que encolhe para caber (telas de 360dp) em vez de virar "Certific…". */
+function TabLabel({ children, color }: { children: string; color: ColorValue }) {
+  return (
+    <Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.8}
+      allowFontScaling={false}
+      style={{ color, fontSize: 11, lineHeight: 14, fontWeight: '600', textAlign: 'center' }}
+    >
+      {children}
+    </Text>
   );
 }
 
@@ -33,13 +49,13 @@ export default function TabLayout() {
           borderTopWidth: 0,
           borderWidth: 1,
           borderColor: maritime.navBorder,
-          marginHorizontal: 16,
+          marginHorizontal: 10,
           marginBottom: bottomSafe + maritime.navMarginBottom,
           borderRadius: radius.xl,
           height: maritime.navHeight,
-          paddingBottom: 10,
-          paddingTop: 8,
-          paddingHorizontal: 8,
+          paddingBottom: 8,
+          paddingTop: 6,
+          paddingHorizontal: 2,
           // Elevation (Android)
           elevation: 16,
           // Shadow (iOS)
@@ -49,10 +65,14 @@ export default function TabLayout() {
           shadowRadius: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
+          lineHeight: 14,
           fontWeight: '600',
-          letterSpacing: 0.2,
+          letterSpacing: 0,
         },
+        tabBarItemStyle: { paddingHorizontal: 0 },
+        tabBarLabel: ({ children, color }) => <TabLabel color={color}>{children}</TabLabel>,
+        tabBarAllowFontScaling: false,
         // Stack header style — gradient background (no LinearGradient in header, use solid)
         headerStyle: { backgroundColor: '#08283a' },
         headerTintColor: colors.white,

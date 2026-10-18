@@ -31,7 +31,7 @@ async function openInApp(url: string): Promise<void> {
     // módulo nativo não disponível neste build
   }
   // fallback: abre no browser padrão do sistema
-  await Linking.openURL(url);
+  await Linking.openURL(url).catch(() => {});
 }
 
 export default function Loja() {

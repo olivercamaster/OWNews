@@ -141,7 +141,7 @@ export const maritime = {
   // Nav flutuante — contraste garantido sobre qualquer trecho do gradiente
   navBg:           'rgba(4, 18, 30, 0.97)',
   navBorder:       'rgba(120, 200, 240, 0.16)',
-  navHeight:       62,
+  navHeight:       64,
   navMarginBottom: 8,
 
   // Carta náutica ultra-suave: SÓ textura (curvas batimétricas orgânicas), nunca
@@ -151,7 +151,7 @@ export const maritime = {
 
   // Mascote oficial OWBuddy (assets/buddy-watermark.png — máscara alfa gerada a partir
   // do mascote oficial, capacete + óculos + sorriso). Tom sobre tom, grande, centrado.
-  // Regra permanente: nunca remover, nunca competir com texto/cards. Ajuste fino só aqui.
+  // OWBuddy 1.0: marca-d'água DESLIGADA (OWBackground showWatermark=false por padrão).
   watermarkTint:    '#9fd3ee',
   watermarkOpacity: 0.08,
 } as const;
