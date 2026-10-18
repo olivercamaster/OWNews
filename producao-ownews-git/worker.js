@@ -20706,7 +20706,7 @@ function renderCCDashboard() {
     '}' +
 
     // --- PIPELINE EDITORIAL (Command + Check Final, 2026-10-18) ---
-    'function ccLn(n,v,c){return \'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(n)+\'</span><span class="cc-linha-valor"\'+(c?\' style="color:\'+c+\'"\':\'\')+\'>\'+v+\'</span></div>\';}' +
+    'function ccLn(n,v,c){return \'<div class="cc-linha" style="flex-wrap:wrap"><span class="cc-linha-nome" style="white-space:normal;flex:1 0 9em">\'+esc(n)+\'</span><span class="cc-linha-valor" style="flex:0 1 auto;margin-left:auto;text-align:right\'+(c?\';color:\'+c:\'\')+\'">\'+v+\'</span></div>\';}' +
     'function ccHorasDesde(iso){var t=Date.parse(iso);return isNaN(t)?null:(Date.now()-t)/36e5;}' +
     'function renderPipeline(e){' +
     'var h=\'<div class="cc-secao"><h2>Pipeline editorial</h2>\';' +
