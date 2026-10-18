@@ -1,3 +1,5 @@
+> **Histórico.** A referência atual do app é [`OWBUDDY-1.0-HANDOFF.md`](OWBUDDY-1.0-HANDOFF.md) (2026-10-18). Em conflito, vale o handoff.
+
 # OWNews — App-Ready Architecture
 
 **Status:** Fundação implementada (2026-10-04)

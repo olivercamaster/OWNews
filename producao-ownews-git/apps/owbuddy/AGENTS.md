@@ -1,3 +1,13 @@
+# OWBuddy — leia primeiro
+
+- Documento principal: `../../docs/OWBUDDY-1.0-HANDOFF.md` (decisões, arquitetura, build, OTA, o que não mexer).
+- Contratos com o OWNews: `../../docs/OWBUDDY-CONTRATOS.md`.
+- Neste projeto as rotas ficam em `app/` (não em `src/app/`); serviços em `src/`; regras puras em `../../packages/ow-domain`.
+- Antes de concluir qualquer tarefa: `npm run verificar` (tsc + testes).
+- Regra de escala: só `calcEscalaISO` (ow-domain). Notícia: só o contrato canônico do OWNews.
+
+---
+
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
 ## Expo has changed — do not trust your training data

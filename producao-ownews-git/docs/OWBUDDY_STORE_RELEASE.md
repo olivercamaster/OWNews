@@ -1,3 +1,5 @@
+> **Histórico.** A referência atual do app é [`OWBUDDY-1.0-HANDOFF.md`](OWBUDDY-1.0-HANDOFF.md) (2026-10-18). Em conflito, vale o handoff.
+
 # OWBuddy — Preparação de Lançamento nas Lojas
 
 **Status:** Estrutura preparada. NÃO publicado. NÃO há conta de desenvolvedor.
