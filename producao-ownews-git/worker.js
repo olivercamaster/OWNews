@@ -22983,7 +22983,7 @@ export default {
         // o que mostrar; nada é gerado automaticamente aqui.
         const selectFeedBase = 'id,title,summary,image_url,image_credit,original_url,published_at,editorial_score,content';
         const selectFeedCamada = selectFeedBase + ',buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source';
-        const montarFeedUrl = (sel) => sbUrl + '/rest/v1/articles?select=' + sel + '&status=eq.published&order=published_at.desc&limit=20';
+        const montarFeedUrl = (sel) => sbUrl + '/rest/v1/articles?select=' + sel + '&status=eq.published&order=published_at.desc&limit=40';
         let sbResp = null;
         if (camadaColunasDisponiveis !== false) {
           sbResp = await fetch(montarFeedUrl(selectFeedCamada), { headers: { apikey: sbKey } });
@@ -22993,8 +22993,11 @@ export default {
         }
         if (!sbResp) sbResp = await fetch(montarFeedUrl(selectFeedBase), { headers: { apikey: sbKey } });
         const brutos = sbResp.ok ? await sbResp.json() : [];
+        // OWBuddy 1.0: só matéria indexável (Buddy+corpo+Impacto válidos), com o
+        // corpo OWNews; `summary` (lead da fonte) não sai mais. Mesmo gate da web.
         const articles = (Array.isArray(brutos) ? brutos : []).map((a) => {
           const camada = resolverCamadaEditorial(a);
+          if (classificarIndexacaoNoticia(a, camada).estado !== 'INDEXABLE') return null;
           const explica = explicaRelacionadosParaNoticia(a, camada).map((s) => {
             const e = explicaPorSlug(s);
             return e ? { slug: s, titulo: e.titulo, url: 'https://ownews.com.br/explica/' + s } : null;
@@ -23002,8 +23005,9 @@ export default {
           return {
             id: a.id,
             title: a.title,
-            summary: a.summary,
-            image_url: a.image_url,
+            summary: null,
+            corpo: camada.corpo,
+            image_url: a.image_url ? String(a.image_url).replace(/&amp;/gi, '&') : null,
             image_credit: a.image_credit || null,
             original_url: a.original_url,
             published_at: a.published_at,
@@ -23015,9 +23019,9 @@ export default {
             buddy_source: camada ? camada.fonte : null,
             explica,
             thin: ehMateriaThin(a, camada),
-            indexacao: classificarIndexacaoNoticia(a, camada).estado
+            indexacao: 'INDEXABLE'
           };
-        });
+        }).filter(Boolean).slice(0, 20);
         return new Response(JSON.stringify({ articles, schema_version: 2, updated_at: new Date().toISOString() }), {
           headers: {
             "Content-Type": "application/json; charset=UTF-8",

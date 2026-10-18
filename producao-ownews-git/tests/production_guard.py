@@ -427,6 +427,10 @@ def _check_buddy_feed_fields():
     for campo in ("buddy_summary:", "why_it_matters:", "buddy_reviewed_at:", "explica,", "thin:", "schema_version: 2"):
         expect_in(campo, bloco, campo)
     expect_in("resolverCamadaEditorial(a)", bloco, "feed usa resolver")
+    # OWBuddy 1.0: app recebe o corpo OWNews e nunca o lead da fonte; só matéria indexável.
+    expect_in("corpo: camada.corpo,", bloco, "feed expõe corpo OWNews")
+    expect_in("summary: null,", bloco, "feed não expõe lead da fonte")
+    expect_in("classificarIndexacaoNoticia(a, camada).estado !== 'INDEXABLE') return null", bloco, "feed só indexável")
 
 
 # ── ADSENSE RECOVERY 2.0 — Buddy universal + thin isolado + quality gate ─────
