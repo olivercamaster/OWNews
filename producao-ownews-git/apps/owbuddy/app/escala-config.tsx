@@ -12,7 +12,7 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { calcularMomento, descreverMomento, AEROPORTOS_ESCALA, ESCALA_TIPOS } from '@owbuddy/domain';
+import { calcularMomento, descreverMomento, diasDoCiclo, AEROPORTOS_ESCALA, DIAS_BLOCO_MAX, ESCALA_TIPOS } from '@owbuddy/domain';
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
@@ -36,16 +36,22 @@ export default function EscalaConfigScreen() {
     const updated = { ...form, ...partial };
     setForm(updated);
     setErro('');
-    if (updated.tipo && updated.dataRef && updated.tipoRef) {
+    if (updated.tipo && updated.dataRef && updated.tipoRef && diasDoCiclo(updated as EscalaConfig)) {
       try {
         const m = calcularMomento(updated as EscalaConfig);
         setPreview(descreverMomento(m));
       } catch { setPreview(''); }
+    } else {
+      setPreview('');
     }
   };
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
+    if (!diasDoCiclo(form as EscalaConfig)) {
+      setErro(`Informe dias embarcado e de folga entre 1 e ${DIAS_BLOCO_MAX}.`);
+      return;
+    }
     const existing = await getEscala();
     const { updated_at: _u, origem: _o, ...editavel } = form;
     const isoConfig: EscalaConfig = {
@@ -89,8 +95,8 @@ export default function EscalaConfigScreen() {
         </View>
 
         {isCustom && (<>
-          <Field label="Dias embarcado" value={String(form.diasEmbarcado ?? '')} onChange={v => update({ diasEmbarcado: parseInt(v, 10) || undefined })} keyboardType="numeric" placeholder="Ex: 21" />
-          <Field label="Dias de folga" value={String(form.diasFolga ?? '')} onChange={v => update({ diasFolga: parseInt(v, 10) || undefined })} keyboardType="numeric" placeholder="Ex: 28" />
+          <Field label="Dias embarcado" value={String(form.diasEmbarcado ?? '')} onChange={v => update({ diasEmbarcado: parseInt(v.replace(/\D/g, ''), 10) || undefined })} keyboardType="numeric" placeholder="Ex: 21" maxLength={3} />
+          <Field label="Dias de folga" value={String(form.diasFolga ?? '')} onChange={v => update({ diasFolga: parseInt(v.replace(/\D/g, ''), 10) || undefined })} keyboardType="numeric" placeholder="Ex: 28" maxLength={3} />
         </>)}
 
         <Text style={styles.sectionLabel}>Data de referência</Text>
@@ -138,7 +144,7 @@ export default function EscalaConfigScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={colors.mutedDim} />
           <Text style={styles.infoText}>
-            O primeiro dia embarcado é dia 1 do embarque. Feriados não alteram o ciclo.
+            "Embarquei" em 12: o dia 12 é o 1º dia a bordo. "Desembarquei" em 12: o dia 12 é o 1º dia de folga. Feriados, dobras e férias não alteram o ciclo.
           </Text>
         </View>
 

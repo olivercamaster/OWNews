@@ -40,6 +40,7 @@ import { colors, spacing, radius, typography, surface, maritime } from '../src/t
 import { OWBackground } from '../src/components/OWBackground';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
+import { confirmarRemocao } from '../src/confirmar';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -71,24 +72,26 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return result;
 }
 
-// Ícones únicos por tipo de evento presentes no dia (sem repetição)
-function EventDots({ eventos }: { eventos: EventoPessoal[] }) {
-  const tipos = [...new Set(eventos.map(e => e.tipo))];
-  if (tipos.length === 0) return null;
-  return (
-    <View style={styles.iconRow}>
-      {tipos.slice(0, 3).map(t => {
-        const m = TIPO_META[t];
-        return <Ionicons key={t} name={m.icon} size={7} color={m.color} />;
-      })}
-    </View>
-  );
+const MESES_EXTENSO = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+/** Leitor de tela: "12 de outubro, embarque, embarcado dia 1, viagem". */
+function rotuloDia(day: DayInfo): string {
+  const partes = [`${parseInt(day.iso.slice(8), 10)} de ${MESES_EXTENSO[parseInt(day.iso.slice(5, 7), 10) - 1]}`];
+  if (day.isHoje) partes.push('hoje');
+  if (day.isEmbarque) partes.push('embarque');
+  if (day.isDesembarque) partes.push('desembarque');
+  const k: Record<DayKind, string> = { EMBARCADO: 'embarcado', FOLGA: 'folga', DOBRA: 'dobra', FERIAS: 'férias', SEM_ESCALA: '' };
+  if (k[day.kind]) partes.push(`${k[day.kind]} dia ${day.diaDoBloco}`);
+  if (day.feriado) partes.push(day.feriado.nome);
+  for (const t of new Set(day.eventosPessoais.map(e => e.tipo))) partes.push(TIPO_META[t].label);
+  return partes.join(', ');
 }
 
 function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
   const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
+  const tipos = [...new Set(day.eventosPessoais.map(e => e.tipo))];
   return (
     <TouchableOpacity
       style={[
@@ -97,27 +100,32 @@ function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
       ]}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={rotuloDia(day)}
     >
-      {day.isEmbarque && (
-        <View style={styles.transitionTag}><Text style={styles.embarqueTagText}>↓EMB</Text></View>
-      )}
-      {day.isDesembarque && (
-        <View style={styles.transitionTag}><Text style={styles.desembarqueTagText}>↑DSM</Text></View>
+      {/* Marcador de transição: etiqueta sólida e legível (antes: texto de 7px) */}
+      {day.isEmbarque ? (
+        <View style={[styles.transitionTag, { backgroundColor: colors.green }]}><Text style={styles.transitionTagText}>EMB</Text></View>
+      ) : day.isDesembarque ? (
+        <View style={[styles.transitionTag, { backgroundColor: colors.amber }]}><Text style={styles.transitionTagText}>DEB</Text></View>
+      ) : (
+        <View style={styles.transitionSpacer} />
       )}
       {day.isHoje ? (
         <View style={styles.hojeRing}>
-          <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+          <Text style={[styles.dayNum, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
         </View>
       ) : (
-        <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+        <Text style={[styles.dayNum, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
       )}
       <View style={styles.iconRow}>
         {day.feriado?.tipo === 'feriado'     && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
         {day.feriado?.tipo === 'comemorativa' && <View style={[styles.dot, { backgroundColor: colors.mutedDim }]} />}
-        {[...new Set(day.eventosPessoais.map(e => e.tipo))].slice(0, 3).map(t => {
+        {tipos.slice(0, 2).map(t => {
           const m = TIPO_META[t];
-          return <Ionicons key={t} name={m.icon} size={7} color={m.color} />;
+          return <Ionicons key={t} name={m.icon} size={11} color={m.color} />;
         })}
+        {tipos.length > 2 && <Text style={styles.maisEventos}>+</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -264,7 +272,12 @@ function DayBottomSheet({
                   >
                     <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => onDeleteEvento(ev.id)} hitSlop={10} style={{ marginLeft: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => confirmarRemocao('Remover evento?', ev.nome, () => onDeleteEvento(ev.id))}
+                    hitSlop={10}
+                    style={{ marginLeft: 6 }}
+                    accessibilityLabel={`Remover ${ev.nome}`}
+                  >
                     <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
                 </View>
@@ -336,14 +349,18 @@ export default function EscalaScreen() {
     }
   };
 
-  if (!config) {
+  if (!config || !calc) {
     return (
       <View style={styles.setupRoot}>
         <Ionicons name="calendar-outline" size={64} color={colors.cyanDim} />
         <Text style={styles.setupTitle}>Minha Escala</Text>
-        <Text style={styles.setupSub}>Configure sua escala para ver o calendário, os próximos embarques e muito mais.</Text>
+        <Text style={styles.setupSub}>
+          {config
+            ? 'Sua escala salva está incompleta (ciclo ou data). Revise os ajustes — nada foi apagado.'
+            : 'Configure sua escala para ver o calendário, os próximos embarques e muito mais.'}
+        </Text>
         <TouchableOpacity style={styles.setupBtn} onPress={() => router.push('/escala-config')}>
-          <Text style={styles.setupBtnText}>Configurar escala</Text>
+          <Text style={styles.setupBtnText}>{config ? 'Revisar escala' : 'Configurar escala'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -374,7 +391,7 @@ export default function EscalaScreen() {
                 </View>
                 <View style={styles.heroRight}>
                   <Text style={styles.heroCountdown}>{calc.diasRestantes}</Text>
-                  <Text style={styles.heroCountdownLabel}>dias p/ desembarque</Text>
+                  <Text style={styles.heroCountdownLabel}>{calc.diasRestantes === 1 ? 'dia p/ desembarque' : 'dias p/ desembarque'}</Text>
                 </View>
               </View>
               <View style={styles.progressBar}>
@@ -398,7 +415,7 @@ export default function EscalaScreen() {
                 </View>
                 <View style={styles.heroRight}>
                   <Text style={[styles.heroCountdown, { color: colors.amber }]}>{calc?.diasRestantes ?? '—'}</Text>
-                  <Text style={styles.heroCountdownLabel}>dias p/ embarque</Text>
+                  <Text style={styles.heroCountdownLabel}>{calc?.diasRestantes === 1 ? 'dia p/ embarque' : 'dias p/ embarque'}</Text>
                 </View>
               </View>
               <View style={styles.progressBar}>
@@ -453,9 +470,9 @@ export default function EscalaScreen() {
 
         {/* ── Legend ── */}
         <View style={styles.legend}>
-          <LegendItem color="#6de88a" tag="↓EMB" label="Embarque" />
+          <LegendItem color={colors.green} tag="EMB" label="Embarque" />
           <LegendItem color="#4caf50" label="Embarcado" />
-          <LegendItem color={colors.amber} tag="↑DSM" label="Desembarque" />
+          <LegendItem color={colors.amber} tag="DEB" label="Desembarque" />
           <LegendItem color={colors.white} label="Folga" />
           <LegendItem color="#ffc107" label="Dobra" />
           <LegendItem color="#7986cb" label="Férias" />
@@ -499,7 +516,11 @@ export default function EscalaScreen() {
                   <Text style={styles.listRowText}>{e.tipo === 'dobra' ? 'Dobra' : 'Férias'}</Text>
                   <Text style={styles.listRowDate}>{formatDateBR(e.ini)} → {formatDateBR(e.fim)}</Text>
                 </View>
-                <TouchableOpacity onPress={() => removeExcecao(e.id)} hitSlop={10}>
+                <TouchableOpacity
+                  onPress={() => confirmarRemocao(e.tipo === 'dobra' ? 'Remover dobra?' : 'Remover férias?', `${formatDateBR(e.ini)} → ${formatDateBR(e.fim)}`, () => removeExcecao(e.id))}
+                  hitSlop={10}
+                  accessibilityLabel={e.tipo === 'dobra' ? 'Remover dobra' : 'Remover férias'}
+                >
                   <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
                 </TouchableOpacity>
               </View>
@@ -534,7 +555,12 @@ export default function EscalaScreen() {
                   >
                     <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteEvento(ev.id)} hitSlop={10} style={{ marginLeft: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => confirmarRemocao('Remover evento?', ev.nome, () => deleteEvento(ev.id))}
+                    hitSlop={10}
+                    style={{ marginLeft: 6 }}
+                    accessibilityLabel={`Remover ${ev.nome}`}
+                  >
                     <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
                 </View>
@@ -570,9 +596,9 @@ function LegendItem({ color, label, dot, tag, icon }: { color: string; label: st
   return (
     <View style={styles.legendItem}>
       {tag
-        ? <Text style={[styles.legendTagText, { color }]}>{tag}</Text>
+        ? <View style={[styles.legendTag, { backgroundColor: color }]}><Text style={styles.transitionTagText}>{tag}</Text></View>
         : icon
-          ? <Ionicons name={icon} size={9} color={color} />
+          ? <Ionicons name={icon} size={13} color={color} />
           : dot
             ? <View style={[styles.dot, { backgroundColor: color }]} />
             : <View style={[styles.legendSwatch, { backgroundColor: color }]} />
@@ -613,8 +639,8 @@ const styles = StyleSheet.create({
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.sm,
     borderWidth: 1, borderColor: colors.line,
   },
-  actionBtn: { alignItems: 'center', gap: 3, flex: 1 },
-  actionLabel: { fontSize: 10, color: colors.mutedDim, fontWeight: '500' },
+  actionBtn: { alignItems: 'center', gap: 3, flex: 1, minHeight: 44, justifyContent: 'center' },
+  actionLabel: { fontSize: 12, color: colors.muted, fontWeight: '600' },
 
   calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   calTitle: { fontSize: 16, fontWeight: '700', color: colors.white },
@@ -623,21 +649,22 @@ const styles = StyleSheet.create({
   weekRow: { flexDirection: 'row' },
   dayHeaderCell: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   dayHeaderText: { fontSize: 11, fontWeight: '600', color: colors.mutedDim },
-  dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, margin: 0.5, position: 'relative', paddingTop: 2 },
+  dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, margin: 0.5 },
   dayEmpty: { margin: 0.5 },
-  dayNum: { fontSize: 12, fontWeight: '600' },
-  iconRow: { flexDirection: 'row', gap: 1, marginTop: 1, height: 8, alignItems: 'center' },
-  dot: { width: 4, height: 4, borderRadius: 2 },
-  hojeRing: { borderWidth: 1.5, borderColor: 'rgba(247,250,252,0.75)', borderRadius: 10, paddingHorizontal: 3, paddingVertical: 1, alignItems: 'center', justifyContent: 'center' },
-  transitionTag: { position: 'absolute', top: 1, left: 0, right: 0, alignItems: 'center' },
-  embarqueTagText: { fontSize: 7, fontWeight: '800', color: '#6de88a', letterSpacing: 0.3 },
-  desembarqueTagText: { fontSize: 7, fontWeight: '800', color: colors.amber, letterSpacing: 0.3 },
+  dayNum: { fontSize: 15, fontWeight: '700', lineHeight: 18 },
+  iconRow: { flexDirection: 'row', gap: 2, marginTop: 1, height: 12, alignItems: 'center' },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  maisEventos: { fontSize: 10, fontWeight: '800', color: colors.muted, lineHeight: 12 },
+  hojeRing: { borderWidth: 2, borderColor: colors.white, borderRadius: 11, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center' },
+  transitionTag: { borderRadius: 3, paddingHorizontal: 3, height: 12, justifyContent: 'center', marginBottom: 1 },
+  transitionTagText: { fontSize: 9, lineHeight: 11, fontWeight: '800', color: colors.navy950, letterSpacing: 0.3 },
+  transitionSpacer: { height: 13 },
 
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md, rowGap: spacing.sm, marginBottom: spacing.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendSwatch: { width: 10, height: 10, borderRadius: 2 },
-  legendLabel: { fontSize: 10, color: colors.mutedDim },
-  legendTagText: { fontSize: 7, fontWeight: '800', letterSpacing: 0.3 },
+  legendSwatch: { width: 12, height: 12, borderRadius: 3 },
+  legendLabel: { fontSize: 12, color: colors.muted },
+  legendTag: { borderRadius: 3, paddingHorizontal: 3, height: 13, justifyContent: 'center' },
 
   sectionCard: {
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,

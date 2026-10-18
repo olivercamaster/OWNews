@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,12 +11,13 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ESCALA_TIPOS } from '@owbuddy/domain';
+import { DIAS_BLOCO_MAX, ESCALA_TIPOS, diasDoCiclo } from '@owbuddy/domain';
 import type { EscalaSecundaria, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { OWDatePicker } from '../src/components/OWDatePicker';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { formatDateBR } from '../src/format';
+import { confirmarRemocao } from '../src/confirmar';
 
 const TIPOS = ESCALA_TIPOS;
 
@@ -55,6 +56,25 @@ export default function EscalaSecundariaForm() {
   const isCustom = tipo === 'custom';
   const isOutro = relacaoChip === 'Outro';
 
+  // Edição: carrega a escala salva (antes o formulário abria vazio e salvar apagava os dados).
+  useEffect(() => {
+    if (!params.id) return;
+    getEscalasCruzar().then(lista => {
+      const s = lista.find(x => x.id === params.id);
+      if (!s) return;
+      setNome(s.nome);
+      const chip = RELACAO_OPTS.find(o => o.value === s.relacao && o.value !== 'Outro');
+      if (chip) setRelacaoChip(chip.value);
+      else if (s.relacao) { setRelacaoChip('Outro'); setRelacaoCustom(s.relacao); }
+      if (s.icon) setIcon(s.icon);
+      setTipo(s.tipo);
+      setDiasEmb(s.diasEmbarcado ? String(s.diasEmbarcado) : '');
+      setDiasFolga(s.diasFolga ? String(s.diasFolga) : '');
+      setDataRef(s.dataRef);
+      setTipoRef(s.tipoRef);
+    });
+  }, [params.id]);
+
   const onSelectRelacao = (opt: RelacaoChip) => {
     setRelacaoChip(opt.value);
     setIcon(opt.icon);
@@ -69,6 +89,10 @@ export default function EscalaSecundariaForm() {
   const save = async () => {
     if (!nome.trim()) { setErro('Informe o nome da pessoa.'); return; }
     if (!dataRef) { setErro('Selecione a data de referência.'); return; }
+    if (isCustom && !diasDoCiclo({ tipo, diasEmbarcado: parseInt(diasEmb, 10), diasFolga: parseInt(diasFolga, 10), dataRef, tipoRef })) {
+      setErro(`Informe dias embarcado e de folga entre 1 e ${DIAS_BLOCO_MAX}.`);
+      return;
+    }
 
     const escalas = await getEscalasCruzar();
     const sec: EscalaSecundaria = {
@@ -164,7 +188,8 @@ export default function EscalaSecundariaForm() {
           <TextInput
             style={styles.input}
             value={diasEmb}
-            onChangeText={setDiasEmb}
+            onChangeText={v => { setDiasEmb(v.replace(/\D/g, '')); setErro(''); }}
+            maxLength={3}
             keyboardType="numeric"
             placeholder="Ex: 21"
             placeholderTextColor={colors.mutedDim}
@@ -173,7 +198,8 @@ export default function EscalaSecundariaForm() {
           <TextInput
             style={styles.input}
             value={diasFolga}
-            onChangeText={setDiasFolga}
+            onChangeText={v => { setDiasFolga(v.replace(/\D/g, '')); setErro(''); }}
+            maxLength={3}
             keyboardType="numeric"
             placeholder="Ex: 28"
             placeholderTextColor={colors.mutedDim}
@@ -217,7 +243,7 @@ export default function EscalaSecundariaForm() {
         </TouchableOpacity>
 
         {isEdit && (
-          <TouchableOpacity style={styles.deleteBtn} onPress={excluir}>
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => confirmarRemocao('Excluir escala?', nome, excluir)}>
             <Text style={styles.deleteText}>Excluir escala</Text>
           </TouchableOpacity>
         )}

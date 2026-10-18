@@ -171,6 +171,8 @@ export function normalizeEscalaSecundaria(raw: unknown): EscalaSecundaria | null
       tipoRef: normalizarTipoRef(raw.tipoRef),
     };
     if (typeof raw.relacao === 'string' && raw.relacao) sec.relacao = raw.relacao;
+    // ícone escolhido pelo usuário (emoji curto) — antes era descartado e virava 🔗
+    if (typeof raw.icon === 'string' && raw.icon.trim() && raw.icon.length <= 16) sec.icon = raw.icon;
     if (tipo === 'custom') { sec.diasEmbarcado = dEm; sec.diasFolga = dFo; }
     return sec;
   } catch {

@@ -9,10 +9,11 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { encontrarJanelasJuntos, secundariaParaConfig, hojeISO } from '@owbuddy/domain';
+import { diasDoCiclo, encontrarJanelasJuntos, secundariaParaConfig, hojeISO } from '@owbuddy/domain';
 import type { EscalaSecundaria, JanelaJuntos } from '@owbuddy/domain';
 import { getEscala, getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { confirmarRemocao } from '../src/confirmar';
 
 const MESES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
@@ -24,6 +25,7 @@ function fmtData(iso: string): string {
 export default function EscalaCruzarScreen() {
   const [escalas, setEscalas] = useState<EscalaSecundaria[]>([]);
   const [janelas, setJanelas] = useState<{ nome: string; janelas: JanelaJuntos[] }[]>([]);
+  const [semEscala, setSemEscala] = useState(false);
 
   useFocusEffect(useCallback(() => {
     load();
@@ -33,6 +35,7 @@ export default function EscalaCruzarScreen() {
     const [config, secs] = await Promise.all([getEscala(), getEscalasCruzar()]);
     setEscalas(secs);
 
+    setSemEscala(!config);
     if (!config) { setJanelas([]); return; }
     const hoje = hojeISO();
     const resultados = secs.map(sec => ({
@@ -64,14 +67,27 @@ export default function EscalaCruzarScreen() {
         <View style={styles.emptyCard}>
           <Ionicons name="people-outline" size={40} color={colors.mutedDim} />
           <Text style={styles.emptyText}>Nenhuma escala adicionada ainda.</Text>
-          <Text style={styles.emptyHint}>Adicione a escala de um familiar, parceiro ou colega para descobrir as próximas folgas em comum.</Text>
+          <Text style={styles.emptyHint}>Adicione a escala de um familiar, companheira/o ou colega para descobrir as próximas folgas em comum.</Text>
         </View>
+      )}
+
+      {semEscala && escalas.length > 0 && (
+        <TouchableOpacity style={styles.emptyCard} onPress={() => router.push('/escala-config')}>
+          <Text style={styles.emptyHint}>Configure a sua escala para ver as folgas em comum.</Text>
+        </TouchableOpacity>
       )}
 
       {escalas.map((sec, i) => {
         const resultado = janelas[i];
+        const invalida = !diasDoCiclo(secundariaParaConfig(sec));
         return (
-          <View key={sec.id} style={styles.card}>
+          <TouchableOpacity
+            key={sec.id}
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/escala-secundaria-form', params: { id: sec.id } })}
+            accessibilityLabel={`Editar escala de ${sec.nome}`}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardLeft}>
                 <Text style={styles.cardIcon}>{sec.icon ?? '🔗'}</Text>
@@ -81,12 +97,17 @@ export default function EscalaCruzarScreen() {
                   <Text style={styles.cardEscala}>{sec.tipo === 'custom' ? `${sec.diasEmbarcado}×${sec.diasFolga}` : sec.tipo}</Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => remover(sec.id)} hitSlop={10}>
-                <Ionicons name="trash-outline" size={18} color={colors.mutedDim} />
-              </TouchableOpacity>
+              <View style={styles.cardAcoes}>
+                <Ionicons name="pencil-outline" size={18} color={colors.mutedDim} />
+                <TouchableOpacity onPress={() => confirmarRemocao('Remover escala?', sec.nome, () => remover(sec.id))} hitSlop={10} accessibilityLabel={`Remover escala de ${sec.nome}`}>
+                  <Ionicons name="trash-outline" size={18} color={colors.mutedDim} />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {resultado?.janelas.length === 0 ? (
+            {semEscala ? null : invalida ? (
+              <Text style={styles.semJanela}>Ciclo incompleto — toque para corrigir.</Text>
+            ) : resultado?.janelas.length === 0 ? (
               <Text style={styles.semJanela}>Nenhuma folga em comum nos próximos 6 meses.</Text>
             ) : (
               <>
@@ -101,7 +122,7 @@ export default function EscalaCruzarScreen() {
                 ))}
               </>
             )}
-          </View>
+          </TouchableOpacity>
         );
       })}
     </ScrollView>
@@ -134,7 +155,8 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, flex: 1 },
-  cardIcon: { fontSize: 24, marginTop: 2 },
+  cardIcon: { fontSize: 28, marginTop: 2 },
+  cardAcoes: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardNome: { fontSize: 16, fontWeight: '700', color: colors.white },
   cardRelacao: { fontSize: 12, color: colors.cyanDim, marginTop: 1 },
   cardEscala: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },

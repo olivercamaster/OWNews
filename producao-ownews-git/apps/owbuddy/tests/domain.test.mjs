@@ -290,3 +290,11 @@ test('ITENS_PADRAO usa apenas cats canônicas e inclui documentos', () => {
   const docItems = D.ITENS_PADRAO.filter(i => i.cat === 'documentos');
   assert.ok(docItems.length >= 1, 'deve haver ao menos 1 item de documentos no padrão');
 });
+
+test('escala secundária preserva relação e ícone escolhido (ícone visível no Cruzar)', () => {
+  const [s] = D.normalizeEscalasSecundarias([{ id: 's1', nome: 'Ana', relacao: 'Companheira/o', icon: '❤️', tipo: '14x21', dataRef: '2026-10-20', tipoRef: 'embarquei' }]);
+  assert.equal(s.icon, '❤️');
+  assert.equal(s.relacao, 'Companheira/o');
+  const [semIcone] = D.normalizeEscalasSecundarias([{ id: 's2', nome: 'Rui', tipo: '14x14', dataRef: '2026-10-20' }]);
+  assert.equal(semIcone.icon, undefined);
+});
