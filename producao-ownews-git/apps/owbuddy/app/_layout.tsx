@@ -1,8 +1,22 @@
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '../src/theme';
+import { instalarNotificacoes, replanejarLembretes } from '../src/notifications';
+import { aoMudarDadosDoLembrete } from '../src/storage';
 
 export default function RootLayout() {
+  // Lembretes locais: handler + toque → rota; replaneja ao abrir, ao voltar
+  // para o app e quando escala/checklist/certificados/viagem mudam.
+  useEffect(() => {
+    const limpar = instalarNotificacoes();
+    replanejarLembretes();
+    const app = AppState.addEventListener('change', s => { if (s === 'active') replanejarLembretes(); });
+    const dados = aoMudarDadosDoLembrete(() => { replanejarLembretes(); });
+    return () => { limpar(); app.remove(); dados(); };
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />
@@ -45,13 +59,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="meteorologia"
-          options={{
-            title: 'Meteorologia',
-            headerStyle: { backgroundColor: colors.navy800 },
-          }}
-        />
-        <Stack.Screen
           name="aeroportos"
           options={{
             title: 'Aeroportos',
@@ -85,22 +92,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="escala-data-form"
-          options={{
-            title: 'Data Especial',
-            headerStyle: { backgroundColor: colors.navy800 },
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen
-          name="escala-viagem-form"
-          options={{
-            title: 'Viagem na Folga',
-            headerStyle: { backgroundColor: colors.navy800 },
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen
           name="escala-cruzar"
           options={{
             title: 'Cruzar Escalas',
@@ -110,7 +101,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="escala-secundaria-form"
           options={{
-            title: 'Nova Escala Secundária',
+            title: 'Escala secundária',
             headerStyle: { backgroundColor: colors.navy800 },
             presentation: 'modal',
           }}

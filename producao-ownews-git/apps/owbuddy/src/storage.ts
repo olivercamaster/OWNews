@@ -18,6 +18,19 @@ export const KEYS = {
   ESCALAS_CRUZAR:  'ownews_cruzar_v2',
 } as const;
 
+// Avisos de mudança (usado para replanejar lembretes locais sem import circular).
+type Ouvinte = () => void;
+const ouvintes = new Set<Ouvinte>();
+let avisoPendente: ReturnType<typeof setTimeout> | null = null;
+export function aoMudarDadosDoLembrete(cb: Ouvinte): () => void {
+  ouvintes.add(cb);
+  return () => { ouvintes.delete(cb); };
+}
+function avisarMudanca(): void {
+  if (avisoPendente) clearTimeout(avisoPendente);
+  avisoPendente = setTimeout(() => { avisoPendente = null; ouvintes.forEach(cb => cb()); }, 400);
+}
+
 async function get<T>(key: string): Promise<T | null> {
   try {
     const raw = await AsyncStorage.getItem(key);
@@ -57,10 +70,12 @@ export async function setEscala(
 ): Promise<void> {
   const origem = meta?.origem ?? 'dispositivo';
   await set(KEYS.ESCALA, toEscalaEnvelope({ ...cfg, origem }, meta?.updatedAt));
+  avisarMudanca();
 }
 
 export async function deleteEscala(): Promise<void> {
   await remove(KEYS.ESCALA);
+  avisarMudanca();
 }
 
 // Certificados
@@ -70,6 +85,7 @@ export async function getCerts(): Promise<Certificado[]> {
 
 export async function setCerts(certs: Certificado[]): Promise<void> {
   await set(KEYS.CERTS, certs);
+  avisarMudanca();
 }
 
 // Checklist
@@ -79,6 +95,7 @@ export async function getChecklist(): Promise<ChecklistData | null> {
 
 export async function setChecklist(data: ChecklistData): Promise<void> {
   await set(KEYS.CHECKLIST, data);
+  avisarMudanca();
 }
 
 // Viagem
@@ -88,10 +105,12 @@ export async function getViagem(): Promise<Viagem | null> {
 
 export async function setViagem(v: Viagem): Promise<void> {
   await set(KEYS.VIAGEM, { ...v, updated_at: new Date().toISOString() });
+  avisarMudanca();
 }
 
 export async function deleteViagem(): Promise<void> {
   await remove(KEYS.VIAGEM);
+  avisarMudanca();
 }
 
 // Buddy prefs

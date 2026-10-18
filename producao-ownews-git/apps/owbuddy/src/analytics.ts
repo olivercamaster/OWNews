@@ -35,7 +35,12 @@ type EventName =
   | 'converter_used'
   | 'conta_login_senha'
   | 'conta_login_otp'
-  | 'conta_logout';
+  | 'conta_logout'
+  | 'conta_cadastro'
+  | 'conta_recuperar_senha'
+  | 'lembretes_ativados'
+  | 'lembretes_desativados'
+  | 'lembrete_aberto';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

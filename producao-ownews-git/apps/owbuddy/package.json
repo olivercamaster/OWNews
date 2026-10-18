@@ -13,11 +13,14 @@
     "expo-linear-gradient": "~57.0.2",
     "expo-linking": "~57.0.11",
     "expo-network": "~57.0.2",
+    "expo-notifications": "~57.0.23",
     "expo-router": "~57.0.24",
+    "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.25",
     "expo-web-browser": "^57.0.3",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -31,7 +34,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --test tests/*.test.mjs ../../packages/ow-domain/tests/*.test.mjs",
+    "test:contrato": "node tests/contrato-live.mjs",
+    "verificar": "npm run typecheck && npm test"
   },
   "private": true
 }

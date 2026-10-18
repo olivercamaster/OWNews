@@ -3,29 +3,47 @@
     "name": "OWBuddy",
     "slug": "owbuddy",
     "owner": "offshoreworks",
-    "version": "0.1.9",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "owbuddy",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#061c2b",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "br.com.ownews.owbuddy"
+      "supportsTablet": false,
+      "bundleIdentifier": "br.com.ownews.owbuddy",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "pt-BR",
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "package": "br.com.ownews.owbuddy",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#061c2b",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -33,7 +51,23 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/buddy-watermark.png",
+          "imageWidth": 140,
+          "resizeMode": "contain",
+          "backgroundColor": "#061c2b"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#12a8ee"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
