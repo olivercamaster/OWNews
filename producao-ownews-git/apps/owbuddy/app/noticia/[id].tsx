@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,14 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
 import { colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
-import { getArticle } from '../../src/articleStore';
-import { fetchFeed } from '../../src/api';
-import { setArticles } from '../../src/articleStore';
+import { fetchFeed, guardarNoticiaAberta, noticiaLocal, paragrafos } from '../../src/api';
+import { urlExternaSegura } from '../../src/net';
 import { analytics } from '../../src/analytics';
 import type { Article } from '../../src/api';
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -35,6 +35,12 @@ function sourceNameFrom(article: Article): string {
   }
 }
 
+function abrirExterno(url: string | null | undefined) {
+  const u = urlExternaSegura(url);
+  if (u) Linking.openURL(u).catch(() => {});
+}
+
+/** BUDDY RESUME — mesmo rótulo da web. Buddy oficial pequeno, funcional. */
 function BuddyCard({ summary }: { summary: string }) {
   return (
     <View style={styles.buddyCard}>
@@ -42,10 +48,12 @@ function BuddyCard({ summary }: { summary: string }) {
         source={require('../../assets/buddy-watermark.png')}
         style={styles.buddyImg}
         resizeMode="contain"
+        accessibilityElementsHidden
+        importantForAccessibility="no"
       />
       <View style={styles.buddyContent}>
-        <Text style={styles.buddyTitle}>Buddy te explica</Text>
-        <Text style={styles.buddySub}>Não quer ler a matéria toda?{'\n'}O Buddy resume e te explica.</Text>
+        <Text style={styles.buddyTitle} accessibilityRole="header">Buddy resume</Text>
+        <Text style={styles.buddySub}>Em poucas palavras, o que aconteceu?</Text>
         <View style={styles.buddyDivider} />
         <Text style={styles.buddyText}>{summary}</Text>
       </View>
@@ -58,172 +66,170 @@ function OffshoreCard({ text }: { text: string }) {
     <View style={styles.offshoreCard}>
       <View style={styles.offshoreHeaderRow}>
         <Ionicons name="navigate-circle-outline" size={16} color={colors.amber} />
-        <Text style={styles.offshoreTitle}>O que isso representa para o offshore?</Text>
+        <Text style={styles.offshoreTitle} accessibilityRole="header">O que isso impacta para o offshore</Text>
       </View>
       <Text style={styles.offshoreText}>{text}</Text>
     </View>
   );
 }
 
+type Estado =
+  | { tipo: 'carregando' }
+  | { tipo: 'ok'; article: Article; salva: boolean }
+  | { tipo: 'indisponivel'; offline: boolean };
+
 export default function NoticiaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const [article, setArticle] = useState<Article | null>(() => getArticle(id));
-  const [loading, setLoading] = useState(!article);
-  const [error, setError] = useState(false);
-  const [fromCache, setFromCache] = useState(false);
+  const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
 
-  useEffect(() => {
-    if (article) {
-      analytics.track('news_open', { article_id: id });
+  const carregar = useCallback(async () => {
+    setEstado({ tipo: 'carregando' });
+    // 1) cópia local (feed em cache ou matéria já aberta) — abre sem internet
+    const local = await noticiaLocal(String(id));
+    if (local) {
+      setEstado({ tipo: 'ok', article: local, salva: false });
+      guardarNoticiaAberta(local);
       return;
     }
-    // Se o store estiver vazio (ex: deep link), busca o feed e tenta de novo
-    setLoading(true);
-    fetchFeed().then(result => {
-      if (result.status === 'ok' || result.status === 'offline_cached') {
-        setArticles(result.articles);
-        setFromCache(result.status === 'offline_cached');
-        const found = result.articles.find(a => a.id === id) ?? null;
-        setArticle(found);
-        if (!found) setError(true);
-      } else {
-        setError(true);
-      }
-      setLoading(false);
-    });
+    // 2) link direto para matéria fora do cache: tenta o feed atual
+    const r = await fetchFeed(true);
+    const achada = r.status === 'ok' || r.status === 'offline_cached' ? r.articles.find(a => a.id === id) ?? null : null;
+    if (achada) {
+      setEstado({ tipo: 'ok', article: achada, salva: r.status === 'offline_cached' });
+      guardarNoticiaAberta(achada);
+    } else {
+      setEstado({ tipo: 'indisponivel', offline: r.status === 'offline_empty' || r.status === 'offline_cached' });
+    }
   }, [id]);
 
-  const handleShare = async () => {
-    if (!article) return;
-    analytics.track('news_share', { article_id: id });
-    await Share.share({
-      message: `${article.title}\n\n${article.url}`,
-      url: article.url,
-      title: article.title,
-    });
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    if (estado.tipo === 'ok') analytics.track('news_open', { article_id: estado.article.id });
+  }, [estado.tipo === 'ok' ? estado.article.id : null]);
+
+  const urlOWNews = `https://ownews.com.br/noticia?id=${encodeURIComponent(String(id ?? ''))}`;
+
+  const handleShare = async (article: Article) => {
+    analytics.track('news_share', { article_id: article.id });
+    // Compartilha a URL canônica do OWNews, nunca a fonte.
+    await Share.share({ message: `${article.title}\n\n${article.url}`, url: article.url, title: article.title }).catch(() => {});
   };
 
-  const handleOpenSource = () => {
-    if (!article) return;
-    analytics.track('news_source_open', { article_id: id });
-    Linking.openURL(article.original_url);
-  };
+  const voltar = () => (router.canGoBack() ? router.back() : router.replace('/noticias'));
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={colors.cyan} size="large" />
-        <Text style={styles.loadingText}>Carregando…</Text>
-      </View>
-    );
-  }
-
-  if (error || !article) {
-    return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <Ionicons name="cloud-offline-outline" size={48} color={colors.mutedDim} />
-        <Text style={styles.errorTitle}>Não foi possível carregar esta notícia.</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => {
-          setError(false); setLoading(true);
-          fetchFeed().then(result => {
-            if (result.status === 'ok' || result.status === 'offline_cached') {
-              setArticles(result.articles);
-              const found = result.articles.find(a => a.id === id) ?? null;
-              setArticle(found);
-              if (!found) setError(true);
-            } else { setError(true); }
-            setLoading(false);
-          });
-        }}>
-          <Text style={styles.retryText}>Tentar novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const sourceName = sourceNameFrom(article);
-
-  return (
-    <OWBackground>
-      {/* Header custom com back + share */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={22} color={colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerLabel} numberOfLines={1}>OWNews</Text>
-        <TouchableOpacity style={styles.headerBtn} onPress={handleShare} hitSlop={12}>
+  const header = (article: Article | null) => (
+    <View style={[styles.header, { paddingTop: insets.top }]}>
+      <TouchableOpacity style={styles.headerBtn} onPress={voltar} hitSlop={12} accessibilityLabel="Voltar">
+        <Ionicons name="arrow-back" size={22} color={colors.white} />
+      </TouchableOpacity>
+      <Text style={styles.headerLabel} numberOfLines={1}>OWNews</Text>
+      {article ? (
+        <TouchableOpacity style={styles.headerBtn} onPress={() => handleShare(article)} hitSlop={12} accessibilityLabel="Compartilhar notícia">
           <Ionicons name="share-outline" size={22} color={colors.white} />
         </TouchableOpacity>
-      </View>
+      ) : <View style={styles.headerBtn} />}
+    </View>
+  );
+
+  if (estado.tipo === 'carregando') {
+    return (
+      <OWBackground showWatermark={false}>
+        {header(null)}
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.cyan} size="large" />
+        </View>
+      </OWBackground>
+    );
+  }
+
+  if (estado.tipo === 'indisponivel') {
+    return (
+      <OWBackground showWatermark={false}>
+        {header(null)}
+        <View style={styles.center}>
+          <Ionicons name={estado.offline ? 'cloud-offline-outline' : 'newspaper-outline'} size={48} color={colors.mutedDim} />
+          <Text style={styles.errorTitle}>
+            {estado.offline ? 'Sem conexão e esta notícia não está salva no aparelho.' : 'Esta notícia não está mais na lista do app.'}
+          </Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={carregar}>
+            <Text style={styles.retryText}>Tentar novamente</Text>
+          </TouchableOpacity>
+          {!estado.offline && (
+            <TouchableOpacity onPress={() => abrirExterno(urlOWNews)} accessibilityRole="link">
+              <Text style={styles.sourceLinkText}>Abrir no OWNews</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </OWBackground>
+    );
+  }
+
+  const { article } = estado;
+  const sourceName = sourceNameFrom(article);
+  const data = formatDate(article.published_at);
+
+  return (
+    <OWBackground showWatermark={false}>
+      {header(article)}
 
       <ScrollView
         style={styles.root}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Offline badge */}
-        {fromCache && (
+        {estado.salva && (
           <View style={styles.offlineBadge}>
             <Ionicons name="cloud-offline-outline" size={12} color={colors.amber} />
             <Text style={styles.offlineBadgeText}>Conteúdo salvo · você está offline</Text>
           </View>
         )}
 
-        {/* Hero image */}
+        <View style={styles.body}>
+          <View style={styles.sourcePill}>
+            <Text style={styles.sourcePillText}>OWNews · {sourceName}</Text>
+          </View>
+          <Text style={styles.title} accessibilityRole="header">{article.title}</Text>
+          {data ? <Text style={styles.date}>{data}</Text> : null}
+        </View>
+
         {article.image_url ? (
           <View style={styles.heroWrap}>
             <Image
               source={{ uri: article.image_url }}
               style={styles.heroImage}
               resizeMode="cover"
+              accessibilityIgnoresInvertColors
             />
             {article.image_credit && (
               <Text style={styles.imageCredit}>{article.image_credit}</Text>
             )}
           </View>
-        ) : (
-          <View style={[styles.heroWrap, styles.heroFallback]}>
-            <Ionicons name="newspaper-outline" size={40} color={colors.mutedDim} />
-          </View>
-        )}
+        ) : null}
 
         <View style={styles.body}>
-          {/* Source label */}
-          <View style={styles.sourcePill}>
-            <Text style={styles.sourcePillText}>OWNews · {sourceName}</Text>
+          <BuddyCard summary={article.buddy_summary} />
+
+          <View style={styles.corpo}>
+            {paragrafos(article.corpo).map((p, i) => (
+              <Text key={i} style={styles.corpoParagrafo}>{p}</Text>
+            ))}
           </View>
 
-          {/* Headline */}
-          <Text style={styles.title}>{article.title}</Text>
+          <OffshoreCard text={article.why_it_matters} />
 
-          {/* Date */}
-          <Text style={styles.date}>{formatDate(article.published_at)}</Text>
-
-          {/* Editorial summary */}
-          {!!article.summary && (
-            <Text style={styles.summary}>{article.summary}</Text>
-          )}
-
-          {/* Buddy te explica */}
-          {!!article.buddy_summary && (
-            <BuddyCard summary={article.buddy_summary} />
-          )}
-
-          {/* Offshore impact */}
-          {!!article.why_it_matters && (
-            <OffshoreCard text={article.why_it_matters} />
-          )}
-
-          {/* Explica links */}
-          {!!(article.explica && article.explica.length > 0) && (
+          {article.explica.length > 0 && (
             <View style={styles.explicaSection}>
               <Text style={styles.explicaTitle}>Entenda melhor</Text>
               {article.explica.map(item => (
                 <TouchableOpacity
                   key={item.slug}
                   style={styles.explicaItem}
-                  onPress={() => Linking.openURL(item.url)}
+                  onPress={() => abrirExterno(item.url)}
+                  accessibilityRole="link"
                 >
                   <Ionicons name="book-outline" size={14} color={colors.cyanDim} />
                   <Text style={styles.explicaText}>{item.titulo}</Text>
@@ -233,20 +239,26 @@ export default function NoticiaScreen() {
             </View>
           )}
 
-          {/* Fonte / Proveniência */}
           <View style={styles.sourceSection}>
             <View style={styles.sourceSectionHeader}>
               <Ionicons name="link-outline" size={14} color={colors.mutedDim} />
-              <Text style={styles.sourceSectionLabel}>Fonte / Proveniência</Text>
+              <Text style={styles.sourceSectionLabel}>Fonte</Text>
             </View>
-            <Text style={styles.sourceSectionText}>Fonte: {sourceName}</Text>
-            <TouchableOpacity style={styles.sourceLink} onPress={handleOpenSource}>
-              <Text style={styles.sourceLinkText}>Acessar fonte original</Text>
-              <Ionicons name="open-outline" size={13} color={colors.cyanDim} />
-            </TouchableOpacity>
+            <Text style={styles.sourceSectionText}>
+              Os fatos foram publicados originalmente por {sourceName}. O OWNews escreveu o resumo, o texto e a análise de impacto, com apoio de IA e checagens automáticas.
+            </Text>
+            {urlExternaSegura(article.original_url) ? (
+              <TouchableOpacity
+                style={styles.sourceLink}
+                onPress={() => { analytics.track('news_source_open', { article_id: article.id }); abrirExterno(article.original_url); }}
+                accessibilityRole="link"
+              >
+                <Text style={styles.sourceLinkText}>Acessar fonte original</Text>
+                <Ionicons name="open-outline" size={13} color={colors.cyanDim} />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
-          {/* OWNews branding */}
           <Text style={styles.brandingLine}>OWNews · by OffshoreWorks</Text>
         </View>
       </ScrollView>
@@ -300,7 +312,8 @@ const styles = StyleSheet.create({
 
   title: { fontSize: 22, fontWeight: '800', color: colors.white, lineHeight: 29, letterSpacing: -0.3 },
   date: { fontSize: 12, color: colors.mutedDim },
-  summary: { fontSize: 16, color: colors.muted, lineHeight: 24 },
+  corpo: { marginTop: spacing.md, gap: spacing.md },
+  corpoParagrafo: { fontSize: 16.5, lineHeight: 26, color: colors.white },
 
   // Buddy card — identidade visual alinhada com .eco-buddy do OWNews
   buddyCard: {

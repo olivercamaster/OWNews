@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  TouchableOpacity,
   RefreshControl,
   StyleSheet,
   Text,
@@ -14,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, surface, screen, maritime } from '../src/theme';
 import { OWBackground } from '../src/components/OWBackground';
 import { fetchFeed, type Article, type FeedResult } from '../src/api';
-import { setArticles } from '../src/articleStore';
 import { analytics } from '../src/analytics';
 
 function relativeTime(isoDate: string): string {
@@ -38,7 +38,6 @@ function ArticleCard({ item }: { item: Article }) {
     analytics.track('news_opened', { article_id: item.id });
     router.push(`/noticia/${item.id}`);
   };
-  const hasBuddy = !!item.buddy_summary;
   const source = sourceNameFrom(item);
 
   return (
@@ -51,7 +50,7 @@ function ArticleCard({ item }: { item: Article }) {
       accessibilityLabel={item.title}
     >
       {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.thumb} />
+        <Image source={{ uri: item.image_url }} style={styles.thumb} resizeMethod="resize" accessibilityIgnoresInvertColors />
       ) : (
         <View style={[styles.thumb, styles.thumbFallback]}>
           <Ionicons name="newspaper-outline" size={28} color={colors.mutedDim} />
@@ -62,17 +61,8 @@ function ArticleCard({ item }: { item: Article }) {
           <Text style={styles.cardSource} numberOfLines={1}>{source}</Text>
         )}
         <Text style={styles.cardTitle} numberOfLines={3}>{item.title}</Text>
-        {!!item.summary && (
-          <Text style={styles.cardSummary} numberOfLines={2}>{item.summary}</Text>
-        )}
         <View style={styles.cardFooter}>
           <Text style={styles.cardMeta}>{relativeTime(item.published_at)}</Text>
-          {hasBuddy && (
-            <View style={styles.buddyBadge}>
-              <Ionicons name="chatbubble-ellipses-outline" size={10} color={colors.cyanDim} />
-              <Text style={styles.buddyBadgeText}>Buddy</Text>
-            </View>
-          )}
         </View>
       </View>
     </Pressable>
@@ -85,11 +75,8 @@ export default function NoticiasScreen() {
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    const r = await fetchFeed();
+    const r = await fetchFeed(isRefresh);
     setResult(r);
-    if (r.status === 'ok' || r.status === 'offline_cached') {
-      setArticles(r.articles);
-    }
     if (isRefresh) setRefreshing(false);
     analytics.screen('Noticias');
   }, []);
@@ -104,12 +91,17 @@ export default function NoticiasScreen() {
     );
   }
 
-  if (result.status === 'offline_empty') {
+  if (result.status === 'offline_empty' || result.status === 'error') {
     return (
       <View style={styles.center}>
         <Ionicons name="cloud-offline-outline" size={48} color={colors.mutedDim} />
-        <Text style={styles.emptyTitle}>Sem conexão</Text>
-        <Text style={styles.emptyText}>Nenhuma notícia em cache. Conecte-se para carregar.</Text>
+        <Text style={styles.emptyTitle}>{result.status === 'error' ? 'Notícias indisponíveis' : 'Sem conexão'}</Text>
+        <Text style={styles.emptyText}>
+          {result.status === 'error' ? result.message : 'Nenhuma notícia salva no aparelho ainda. Conecte-se para carregar.'}
+        </Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => load(true)}>
+          <Text style={styles.retryText}>Tentar novamente</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -123,7 +115,9 @@ export default function NoticiasScreen() {
       {isOffline && (
         <View style={styles.offlineBanner}>
           <Ionicons name="cloud-offline-outline" size={14} color={colors.amber} />
-          <Text style={styles.offlineBannerText}>Modo offline — exibindo cache</Text>
+          <Text style={styles.offlineBannerText}>
+            Sem conexão · notícias salvas às {new Date(result.cachedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} de {new Date(result.cachedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+          </Text>
         </View>
       )}
       {!articles.length ? (
@@ -184,17 +178,12 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1, paddingVertical: spacing.sm, paddingRight: spacing.sm, gap: 3 },
   cardSource: { fontSize: 10, fontWeight: '700', color: colors.cyanDim, letterSpacing: 0.4, textTransform: 'uppercase' },
   cardTitle: { ...typography.h3, fontSize: 14, lineHeight: 19 },
-  cardSummary: { ...typography.small, fontSize: 12, lineHeight: 17 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   cardMeta: { ...typography.micro, fontSize: 10, color: colors.mutedDim },
-  buddyBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: colors.cyan + '18', borderRadius: 99,
-    paddingHorizontal: 6, paddingVertical: 2,
-  },
-  buddyBadgeText: { fontSize: 9, fontWeight: '700', color: colors.cyanDim },
 
   separator: { height: spacing.sm },
   emptyTitle: { ...typography.h3, color: colors.muted },
   emptyText: { ...typography.small, textAlign: 'center', color: colors.mutedDim },
+  retryBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minHeight: 44, justifyContent: 'center' },
+  retryText: { color: colors.navy950, fontWeight: '700' },
 });

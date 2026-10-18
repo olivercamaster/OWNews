@@ -1,40 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { buscarJson } from './net';
+import { normalizarArtigo, normalizarFeed, OWNEWS_BASE_URL, type Article } from './contratos';
+export { paragrafos, type Article, type ExplicaItem } from './contratos';
 
-const BASE_URL = 'https://ownews.com.br';
+// Contratos documentados em docs/OWBUDDY-CONTRATOS.md (mudou lá → muda aqui e no teste).
+const BASE_URL = OWNEWS_BASE_URL;
 const FEED_URL = `${BASE_URL}/api/buddy/feed`;
 const VAGAS_URL = `${BASE_URL}/api/buddy/vagas`;
 const UNIDADES_URL = `${BASE_URL}/api/buddy/unidades`;
 
-const CACHE_KEY_FEED = 'owbuddy_cache_feed_v2';
+// v3: feed só com matéria OWNews completa (Buddy + corpo + Impacto + fonte).
+// O cache v2 tinha o lead da fonte em `summary` — não é mais lido.
+const CACHE_KEY_FEED = 'owbuddy_cache_feed_v3';
+const CACHE_KEY_ABERTAS = 'owbuddy_noticias_abertas_v1';
 const CACHE_KEY_VAGAS = 'owbuddy_cache_vagas';
 const CACHE_KEY_UNIDADES = 'owbuddy_cache_unidades_v1';
 const FEED_TTL_MS = 5 * 60 * 1000;       // 5 min
 const VAGAS_TTL_MS = 60 * 60 * 1000;     // 1 h
 const UNIDADES_TTL_MS = 60 * 60 * 1000;  // 1 h
-
-export type ExplicaItem = {
-  slug: string;
-  titulo: string;
-  url: string;
-};
-
-export type Article = {
-  id: string;
-  title: string;
-  summary: string | null;
-  image_url: string | null;
-  image_credit: string | null;
-  original_url: string;
-  published_at: string;
-  editorial_score: number;
-  url: string;
-  buddy_summary: string | null;
-  why_it_matters: string | null;
-  buddy_reviewed_at: string | null;
-  buddy_source: string | null;
-  explica: ExplicaItem[] | null;
-  thin: boolean | null;
-};
+const ABERTAS_MAX = 40;
 
 export type FleetStatusFonte = {
   nome: string;
@@ -57,7 +41,7 @@ export type Unidade = {
   sobre: string | null;
   image_url: string | null;
   image_credit: string | null;
-  image_status: 'real' | 'ilustrativa' | 'ausente';
+  image_status: 'real' | 'fallback' | 'ilustrativa' | 'ausente';
   fleet_status_fonte: FleetStatusFonte | null;
   url: string;
 };
@@ -79,7 +63,8 @@ async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
   try {
     const raw = await AsyncStorage.getItem(key);
     if (!raw) return null;
-    return JSON.parse(raw) as CacheEntry<T>;
+    const e = JSON.parse(raw) as CacheEntry<T>;
+    return e && typeof e.cachedAt === 'number' ? e : null;
   } catch {
     return null;
   }
@@ -96,28 +81,60 @@ function isStale(cachedAt: number, ttl: number): boolean {
   return Date.now() - cachedAt > ttl;
 }
 
+const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
 export type FeedResult =
   | { status: 'ok'; articles: Article[]; fromCache: boolean; cachedAt?: number }
   | { status: 'offline_cached'; articles: Article[]; cachedAt: number }
   | { status: 'offline_empty' }
   | { status: 'error'; message: string };
 
-export async function fetchFeed(): Promise<FeedResult> {
+/** `forcar` ignora o TTL (puxar para atualizar). */
+export async function fetchFeed(forcar = false): Promise<FeedResult> {
   const cached = await readCache<Article[]>(CACHE_KEY_FEED);
-  if (cached && !isStale(cached.cachedAt, FEED_TTL_MS)) {
+  if (!forcar && cached && !isStale(cached.cachedAt, FEED_TTL_MS)) {
     return { status: 'ok', articles: cached.data, fromCache: true, cachedAt: cached.cachedAt };
   }
-  try {
-    const resp = await fetch(FEED_URL, { signal: AbortSignal.timeout(10_000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json() as { articles: Article[] };
-    const articles = json.articles ?? [];
+  const r = await buscarJson<unknown>(FEED_URL);
+  if (r.ok) {
+    const articles = normalizarFeed(r.data);
+    // Resposta vazia/fora do contrato não apaga um cache bom.
+    if (articles.length === 0 && cached && cached.data.length > 0) {
+      return { status: 'offline_cached', articles: cached.data, cachedAt: cached.cachedAt };
+    }
     await writeCache(CACHE_KEY_FEED, articles);
     return { status: 'ok', articles, fromCache: false };
-  } catch {
-    if (cached) return { status: 'offline_cached', articles: cached.data, cachedAt: cached.cachedAt };
-    return { status: 'offline_empty' };
   }
+  if (cached) return { status: 'offline_cached', articles: cached.data, cachedAt: cached.cachedAt };
+  return r.motivo === 'offline' || r.motivo === 'timeout'
+    ? { status: 'offline_empty' }
+    : { status: 'error', message: 'As notícias não puderam ser carregadas agora.' };
+}
+
+/** Guarda a matéria aberta para ler de novo sem internet (últimas ABERTAS_MAX). */
+export async function guardarNoticiaAberta(a: Article): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY_ABERTAS);
+    const lista: Article[] = raw ? JSON.parse(raw) : [];
+    const nova = [a, ...lista.filter(x => x && x.id !== a.id)].slice(0, ABERTAS_MAX);
+    await AsyncStorage.setItem(CACHE_KEY_ABERTAS, JSON.stringify(nova));
+  } catch {}
+}
+
+/** Procura a matéria no feed em cache e nas já abertas — funciona offline. */
+export async function noticiaLocal(id: string): Promise<Article | null> {
+  try {
+    const feed = await readCache<Article[]>(CACHE_KEY_FEED);
+    const noFeed = feed?.data.find(a => a.id === id);
+    if (noFeed) return noFeed;
+    const raw = await AsyncStorage.getItem(CACHE_KEY_ABERTAS);
+    const lista: unknown[] = raw ? JSON.parse(raw) : [];
+    for (const item of lista) {
+      const a = normalizarArtigo(item);
+      if (a && a.id === id) return a;
+    }
+  } catch {}
+  return null;
 }
 
 export type VagasResult =
@@ -126,22 +143,19 @@ export type VagasResult =
   | { status: 'offline_empty' }
   | { status: 'error'; message: string };
 
-export async function fetchVagas(): Promise<VagasResult> {
+export async function fetchVagas(forcar = false): Promise<VagasResult> {
   const cached = await readCache<Vaga[]>(CACHE_KEY_VAGAS);
-  if (cached && !isStale(cached.cachedAt, VAGAS_TTL_MS)) {
+  if (!forcar && cached && !isStale(cached.cachedAt, VAGAS_TTL_MS)) {
     return { status: 'ok', vagas: cached.data, fromCache: true, cachedAt: cached.cachedAt };
   }
-  try {
-    const resp = await fetch(VAGAS_URL, { signal: AbortSignal.timeout(10_000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json() as { vagas: Vaga[] };
-    const vagas = json.vagas ?? [];
+  const r = await buscarJson<{ vagas?: unknown }>(VAGAS_URL);
+  if (r.ok && Array.isArray(r.data?.vagas)) {
+    const vagas = (r.data.vagas as Vaga[]).filter(v => v && str(v.id) && str(v.titulo) && str(v.empresa));
     await writeCache(CACHE_KEY_VAGAS, vagas);
     return { status: 'ok', vagas, fromCache: false };
-  } catch {
-    if (cached) return { status: 'offline_cached', vagas: cached.data, cachedAt: cached.cachedAt };
-    return { status: 'offline_empty' };
   }
+  if (cached) return { status: 'offline_cached', vagas: cached.data, cachedAt: cached.cachedAt };
+  return { status: 'offline_empty' };
 }
 
 export type UnidadesResult =
@@ -150,20 +164,17 @@ export type UnidadesResult =
   | { status: 'offline_empty' }
   | { status: 'error'; message: string };
 
-export async function fetchUnidades(): Promise<UnidadesResult> {
+export async function fetchUnidades(forcar = false): Promise<UnidadesResult> {
   const cached = await readCache<Unidade[]>(CACHE_KEY_UNIDADES);
-  if (cached && !isStale(cached.cachedAt, UNIDADES_TTL_MS)) {
+  if (!forcar && cached && !isStale(cached.cachedAt, UNIDADES_TTL_MS)) {
     return { status: 'ok', unidades: cached.data, fromCache: true, cachedAt: cached.cachedAt };
   }
-  try {
-    const resp = await fetch(UNIDADES_URL, { signal: AbortSignal.timeout(10_000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json() as { unidades: Unidade[] };
-    const unidades = json.unidades ?? [];
+  const r = await buscarJson<{ unidades?: unknown }>(UNIDADES_URL);
+  if (r.ok && Array.isArray(r.data?.unidades)) {
+    const unidades = (r.data.unidades as Unidade[]).filter(u => u && str(u.slug) && str(u.nome));
     await writeCache(CACHE_KEY_UNIDADES, unidades);
     return { status: 'ok', unidades, fromCache: false };
-  } catch {
-    if (cached) return { status: 'offline_cached', unidades: cached.data, cachedAt: cached.cachedAt };
-    return { status: 'offline_empty' };
   }
+  if (cached) return { status: 'offline_cached', unidades: cached.data, cachedAt: cached.cachedAt };
+  return { status: 'offline_empty' };
 }

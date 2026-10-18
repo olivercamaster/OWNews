@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import { colors, spacing, radius, typography, surface } from '../../src/theme';
 import { fetchUnidades } from '../../src/api';
 import { analytics } from '../../src/analytics';
 import type { Unidade } from '../../src/api';
+import { abrirLinkExterno } from '../../src/links';
 
 const TIPO_ICON: Record<string, string> = {
   fpso: 'boat',
@@ -179,7 +179,7 @@ export default function UnidadeScreen() {
                 style={styles.fleetLink}
                 onPress={() => {
                   analytics.track('unidade_radar_web_opened', { slug: unidade.slug, origem: 'fleet_status' });
-                  Linking.openURL(unidade.fleet_status_fonte!.url);
+                  abrirLinkExterno(unidade.fleet_status_fonte!.url);
                 }}
               >
                 <Text style={styles.fleetLinkText}>Ver relatório oficial</Text>
@@ -193,7 +193,7 @@ export default function UnidadeScreen() {
             style={styles.radarLink}
             onPress={() => {
               analytics.track('unidade_radar_web_opened', { slug: unidade.slug, origem: 'ficha' });
-              Linking.openURL(unidade.url);
+              abrirLinkExterno(unidade.url);
             }}
           >
             <Ionicons name="globe-outline" size={16} color={colors.cyanDim} />

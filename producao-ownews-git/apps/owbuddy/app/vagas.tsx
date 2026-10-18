@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -15,6 +14,7 @@ import { colors, spacing, radius, typography, surface, maritime } from '../src/t
 import { OWBackground } from '../src/components/OWBackground';
 import { fetchVagas, type Vaga, type VagasResult } from '../src/api';
 import { analytics } from '../src/analytics';
+import { abrirLinkExterno } from '../src/links';
 
 const OFFSHORE_LABELS: Record<string, string> = {
   OFFSHORE: 'Offshore',
@@ -26,7 +26,7 @@ function VagaCard({ item }: { item: Vaga }) {
   const [pressed, setPressed] = useState(false);
   const handlePress = () => {
     analytics.track('vaga_opened', { vaga_id: item.id });
-    if (item.application_url) Linking.openURL(item.application_url);
+    abrirLinkExterno(item.application_url);
   };
   const tag = OFFSHORE_LABELS[item.offshore_onshore ?? ''] || null;
   return (
