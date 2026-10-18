@@ -327,7 +327,7 @@ def run_static():
     test("paginaChrome: boot script, CSS claro, botão #temaBtn, toggle (uma única definição de cada)", lambda: _check_tema_chrome())
     test("tema claro é paleta própria (não inversão): fundo off-white, texto navy, color-scheme:light", lambda: _check_tema_paleta())
     test("Buddy oficial: constante BUDDY_HEAD_PNG + rota /icons/buddy-head.png imutável", lambda: _check_buddy_asset())
-    test("Buddy só onde tem função (≤ 3 usos: Buddy te explica, Ecossistema, /owbuddy) e sem animação", lambda: _check_buddy_usos())
+    test("Buddy só onde tem função (lista fechada: Buddy te explica, Ecossistema, /owbuddy, /newsletter) e sem animação", lambda: _check_buddy_usos())
     test("Buddy resume: pergunta oficial + Buddy pequeno + card de impacto separado (Editorial Original 4.0)", lambda: _check_buddy_explica_markup())
     test("Ecossistema: card OWBuddy com copy oficial e CTA para /owbuddy (sem loja/download)", lambda: _check_ecossistema())
     test("rota /owbuddy + renderOWBuddyLanding + sitemap; sem link de loja", lambda: _check_owbuddy_route())
@@ -569,8 +569,21 @@ def _check_buddy_asset():
 
 def _check_buddy_usos():
     w = worker()
-    usos = w.count('src="/icons/buddy-head.png"')
-    expect(usos == 3, f"Buddy aparece em {usos} templates (esperado 3: explica, ecossistema, /owbuddy)")
+    # Lista explícita (não só contagem). Atualizada em 2026-10-18: o 4º uso
+    # (faixa "Buddy te explica" da landing /newsletter, commit 12f084f de
+    # 2026-10-10) tem função — anuncia a seção "Buddy te explica" do e-mail —
+    # e é estático, 52px, aria-hidden. A contagem fixa em 3 ficou obsoleta
+    # e falhava desde então sem ninguém decidir; qualquer uso NOVO continua
+    # reprovando aqui até ser incluído nesta lista com justificativa.
+    permitidos = {
+        "eco-buddy-img": "Home — bloco Ecossistema OffshoreWorks",
+        "buddy-explica-buddy": "notícia — bloco Buddy resume / Buddy te explica",
+        "owb-hero-img": "/owbuddy — apresentação do OWBuddy",
+        "nl-buddy-img": "/newsletter — faixa da seção Buddy te explica",
+    }
+    usos = re.findall(r'<img[^>]*src="/icons/buddy-head\.png"[^>]*>', w)
+    classes = [(re.search(r'class="([^"]+)"', u) or [None, "?"])[1] for u in usos]
+    expect(sorted(classes) == sorted(permitidos), f"Buddy em usos não autorizados: {classes} (permitidos: {sorted(permitidos)})")
     css = w.split("const CSS_TEMA_CLARO = `", 1)[1].split("`;", 1)[0] + w.split("const CSS_CAMADA_EDITORIAL", 1)[1][:6000]
     expect_not_in("@keyframes", css, "animação no Buddy/tema")
     expect_not_in("position:fixed", css, "Buddy flutuante")
