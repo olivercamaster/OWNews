@@ -19992,8 +19992,11 @@ async function ccColetarEditorial(env) {
     slug: ev.slug, nome: ev.nome, dataInicio: ev.dataInicio, cidade: ev.cidade, pais: ev.pais
   }));
 
-  const igFrag = await ccFetchComTimeout(INSTAGRAM_PUBLISHER_URL + '/saude-fragment', 5000);
-  const gateStats = await ccFetchComTimeout(SHRILL_POND_URL + '/api/gate-editorial', 6000, { headers: headersInternosShrill(env) });
+  const [igFrag, gateStats, pipeline] = await Promise.all([
+    ccFetchComTimeout(INSTAGRAM_PUBLISHER_URL + '/saude-fragment', 5000),
+    ccFetchComTimeout(SHRILL_POND_URL + '/api/gate-editorial', 6000, { headers: headersInternosShrill(env) }),
+    ccColetarPipeline()
+  ]);
 
   return {
     freshness: saude.HOME_FRESHNESS || "DESCONHECIDO",
@@ -20005,6 +20008,8 @@ async function ccColetarEditorial(env) {
     proximoTrigger: saude.proximo_trigger || null,
     duracao_ms: saude.duracao_ms || null,
     automacao: auto.encontrados != null ? {
+      ultimo_sucesso: auto.ultimo_sucesso || null,
+      erro_execucao: auto.erro_execucao || null,
       encontrados: auto.encontrados,
       relevantes: auto.relevantes,
       descartados: auto.descartados,
@@ -20050,8 +20055,8 @@ async function ccColetarEditorial(env) {
       scan: saude.agenda_scan || null
     },
     revisao_pendente: saude.revisao_pendente || 0,
-    buddy_cobertura: saude.buddy_cobertura || null,
     gate_editorial: gateStats || null,
+    pipeline,
     instagram: igFrag ? {
       habilitado: igFrag.habilitado,
       dry_run: igFrag.dry_run,
@@ -20062,6 +20067,39 @@ async function ccColetarEditorial(env) {
       ultimo_heartbeat_vps: igFrag.ultimo_heartbeat_vps || null,
     } : null,
   };
+}
+
+/* Pipeline editorial (Command + Check Final, 2026-10-18): estado SERVIDO de
+   cada notícia publicada, pelo mesmo classificador do /noticia e do
+   sitemap. Só leitura da Supabase (chave pública) — nenhum KV. */
+async function ccColetarPipeline() {
+  const r = await ccFetchComTimeout("https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,title,published_at,created_at,summary,content,buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source&status=eq.published&order=published_at.desc&limit=1000", 8000, { headers: { apikey: "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt" } });
+  if (!Array.isArray(r)) return null;
+  const agora = Date.now(), jan = { "24h": 864e5, "7d": 7 * 864e5, total: Infinity };
+  const out = { total: r.length, limite_consulta: r.length >= 1000, estados: {}, origem: {}, janelas: {}, indexaveis_sem: { buddy: 0, impacto: 0, corpo: 0 }, ultima_insercao: null };
+  for (const k in jan) out.janelas[k] = { publicadas: 0, indexaveis: 0, completas: 0 };
+  for (const a of r) {
+    const camada = resolverCamadaEditorial(a);
+    const idx = classificarIndexacaoNoticia(a, camada).estado;
+    out.estados[idx] = (out.estados[idx] || 0) + 1;
+    const o = a.buddy_source || "legado";
+    out.origem[o] = (out.origem[o] || 0) + 1;
+    const c = camada || {};
+    if (idx === "INDEXABLE") {
+      if (!c.buddy_summary) out.indexaveis_sem.buddy++;
+      if (!c.why_it_matters) out.indexaveis_sem.impacto++;
+      if (!c.corpo) out.indexaveis_sem.corpo++;
+    }
+    const idade = agora - Date.parse(a.published_at);
+    for (const k in jan) {
+      if (!(idade <= jan[k])) continue;
+      const j = out.janelas[k];
+      j.publicadas++;
+      if (idx === "INDEXABLE") { j.indexaveis++; if (c.buddy_summary && c.why_it_matters && c.corpo) j.completas++; }
+    }
+    if (a.created_at && (!out.ultima_insercao || a.created_at > out.ultima_insercao)) out.ultima_insercao = a.created_at;
+  }
+  return out;
 }
 
 const SHRILL_POND_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
@@ -20667,11 +20705,49 @@ function renderCCDashboard() {
     'document.getElementById("ccPainelFerramentas").innerHTML=html;' +
     '}' +
 
+    // --- PIPELINE EDITORIAL (Command + Check Final, 2026-10-18) ---
+    'function ccLn(n,v,c){return \'<div class="cc-linha"><span class="cc-linha-nome">\'+esc(n)+\'</span><span class="cc-linha-valor"\'+(c?\' style="color:\'+c+\'"\':\'\')+\'>\'+v+\'</span></div>\';}' +
+    'function ccHorasDesde(iso){var t=Date.parse(iso);return isNaN(t)?null:(Date.now()-t)/36e5;}' +
+    'function renderPipeline(e){' +
+    'var h=\'<div class="cc-secao"><h2>Pipeline editorial</h2>\';' +
+    'var au=e.automacao||{};var hc=ccHorasDesde(au.ultimo_sucesso||e.ultimoTrigger);' +
+    'if(au.erro_execucao)h+=ccLn(\'Collector\',\'ERRO — \'+esc(au.erro_execucao),\'var(--red)\');' +
+    'else if(hc==null)h+=ccLn(\'Collector\',\'sem registro\',\'var(--muted)\');' +
+    'else h+=ccLn(\'Collector\',(hc>11?\'ATRASADO\':\'OPERACIONAL\')+\' · última execução \'+esc(fmtHora(au.ultimo_sucesso||e.ultimoTrigger)),hc>11?\'var(--yellow)\':\'var(--green)\');' +
+    'var ia=(e.gate_editorial&&e.gate_editorial.ia)||null;' +
+    'if(!ia||(!ia.ultima_resposta&&!ia.ultima_falha))h+=ccLn(\'Workers AI\',\'sem registro ainda (aparece após a próxima coleta)\',\'var(--muted)\');' +
+    'else if(ia.ultima_falha&&(!ia.ultima_resposta||ia.ultima_falha>ia.ultima_resposta))h+=ccLn(\'Workers AI\',\'SEM RESPOSTA desde \'+esc(fmtHora(ia.ultima_falha))+\' · \'+esc(ia.ultima_falha_motivo||\'\'),\'var(--red)\');' +
+    'else h+=ccLn(\'Workers AI\',\'RESPONDENDO · última resposta \'+esc(fmtHora(ia.ultima_resposta)),\'var(--green)\');' +
+    'var g=(e.gate_editorial&&e.gate_editorial[\'24h\'])||null;' +
+    'if(g){var mt=g.motivos||{};var aval=(g.publicadas||0)+(g.editorial_incomplete||0)-(mt.ia_indisponivel||0)-(mt.reprovada_recente||0);' +
+    'h+=ccLn(\'Matéria OWNews (gate, 24h)\',fmtNum(g.publicadas||0)+\' aprovadas de \'+fmtNum(Math.max(aval,0))+\' avaliadas pela IA\',aval>0&&!g.publicadas?\'var(--yellow)\':\'var(--green)\');' +
+    'h+=ccLn(\'Aguardando IA (24h)\',fmtNum(mt.ia_indisponivel||0)+\' tentativas sem resposta\',mt.ia_indisponivel?\'var(--yellow)\':\'\');}' +
+    'var p=e.pipeline;' +
+    'if(p&&p.ultima_insercao){var hi=ccHorasDesde(p.ultima_insercao);h+=ccLn(\'Última notícia nova no banco\',esc(fmtHora(p.ultima_insercao))+\' (há \'+Math.round(hi)+\' h)\',hi>12?\'var(--yellow)\':\'\');}' +
+    'h+=\'<p class="cc-nota">Não há fila: falha técnica da IA volta na coleta seguinte; reprovação do gate espera 3 dias. A cota restante do Workers AI não é exposta pela Cloudflare ao Worker — o painel mostra só respostas e falhas registradas.</p></div>\';' +
+    'if(!p){h+=\'<div class="cc-secao"><h2>Acervo servido</h2><p class="cc-nota">Supabase indisponível agora.</p></div>\';return h;}' +
+    'var es=p.estados||{},o=p.origem||{},s=p.indexaveis_sem||{};' +
+    'h+=\'<div class="cc-secao"><h2>Acervo servido — mesmo critério do /noticia e do sitemap</h2>\';' +
+    'h+=ccLn(\'Publicadas\',fmtNum(p.total));' +
+    'h+=ccLn(\'Indexáveis\',fmtNum(es.INDEXABLE||0),\'var(--green)\');' +
+    'h+=ccLn(\'Noindex\',fmtNum(es.NOINDEX||0));' +
+    'h+=ccLn(\'Editorial incompleto\',fmtNum(es.EDITORIAL_INCOMPLETE||0),es.EDITORIAL_INCOMPLETE?\'var(--yellow)\':\'\');' +
+    'h+=ccLn(\'Descartadas (fora de escopo / sem material)\',fmtNum(es.DESCARTAR||0));' +
+    'var falta=(s.buddy||0)+(s.impacto||0)+(s.corpo||0);' +
+    'h+=ccLn(\'Indexáveis sem Buddy / Impacto / corpo\',fmtNum(s.buddy||0)+\' / \'+fmtNum(s.impacto||0)+\' / \'+fmtNum(s.corpo||0),falta?\'var(--red)\':\'var(--green)\');' +
+    'h+=ccLn(\'Matéria OWNews · insuficientes · duplicadas · fora de escopo\',fmtNum(o.ownews||0)+\' · \'+fmtNum(o.insuficiente||0)+\' · \'+fmtNum(o.duplicada||0)+\' · \'+fmtNum(o.ia_fora_escopo||0));' +
+    'var outros=p.total-(o.ownews||0)-(o.insuficiente||0)-(o.duplicada||0)-(o.ia_fora_escopo||0);' +
+    'if(outros>0)h+=ccLn(\'Outros estados (legado)\',fmtNum(outros),\'var(--yellow)\');' +
+    '[\'24h\',\'7d\',\'total\'].forEach(function(k){var j=p.janelas[k];h+=ccLn(k===\'total\'?\'Total\':\'Últimos \'+k.replace(\'h\',\' h\').replace(\'d\',\' dias\'),fmtNum(j.publicadas)+\' publicadas · \'+fmtNum(j.indexaveis)+\' indexáveis · \'+fmtNum(j.completas)+\' com os 3 blocos\');});' +
+    'if(p.limite_consulta)h+=\'<p class="cc-nota" style="color:var(--yellow)">A consulta chegou a 1.000 notícias: números parciais (o sitemap usa o mesmo limite).</p>\';' +
+    'h+=\'</div>\';' +
+    'return h;}' +
     // --- EDITORIAL ---
     'function renderEditorial(e){' +
     'var html="";' +
     'var freshOk=e.freshness==="OK";' +
     'html+=\'<div class="cc-status-badge \'+(freshOk?"ok":"atencao")+\'">\'+(freshOk?"🟢 EDITORIAL OK":"🟠 ATENÇÃO EDITORIAL")+\'</div>\';' +
+    'html+=renderPipeline(e);' +
     'html+=\'<div class="cc-grid cc-grid-3" style="margin-bottom:18px">\';' +
     'function card(lbl,val){return\'<div class="cc-card"><div class="cc-card-label">\'+esc(lbl)+\'</div><div class="cc-card-valor">\'+fmtNum(val)+\'</div></div>\';}' +
     'if(e.artigos24h!=null)html+=card("Publicadas 24h",e.artigos24h);' +
@@ -20690,7 +20766,7 @@ function renderCCDashboard() {
     'var gValCor=gSemDados?"var(--muted)":gTudoBloqueado?"var(--red)":"var(--green)";' +
     'html+=\'<div class="cc-tg-val" style="color:\'+gValCor+\'">\'+gValLabel+"</div>";' +
     'if(!gSemDados){' +
-    'html+=\'<div class="cc-tg-sub">Coletadas→publicadas: \'+fmtNum(gTotal)+"→"+fmtNum(gPub)+(gTaxa!=null?" ("+gTaxa+"%)")+"</div>";' +
+    'html+=\'<div class="cc-tg-sub">Coletadas→publicadas: \'+fmtNum(gTotal)+"→"+fmtNum(gPub)+(gTaxa!=null?" ("+gTaxa+"%)":"")+"</div>";' +
     'html+=\'<div class="cc-tg-sub">Editorial incompleto: \'+fmtNum(gEI)+(gTotal?" de "+fmtNum(gTotal):"")+"</div>";' +
     'var gMot=g24.motivos||{};var gMotKeys=Object.keys(gMot).sort(function(a,b){return gMot[b]-gMot[a];});' +
     'if(gMotKeys.length){html+=\'<div class="cc-tg-sub" style="margin-top:4px;color:var(--muted-dim)">Motivos (24h):</div>\';' +
@@ -20712,18 +20788,6 @@ function renderCCDashboard() {
     'if(!fOk&&fMotDest)html+=\'<div style="padding:0 0 4px 16px;font-size:11px;color:var(--muted-dim)">\'+esc(fMotDest)+"</div>";' +
     '});' +
     'html+=\'</div>\';}}' +
-    // Buddy + Impacto coverage (with regression alert)
-    'if(e.buddy_cobertura){var bc=e.buddy_cobertura;var bc24=bc["24h"]||null;' +
-    'var gateRodou=e.gate_editorial&&e.gate_editorial.entradas_total>0;' +
-    'var buddyOk=bc.pct_buddy>=80;var impactoOk=bc.pct_impacto>=60;' +
-    'html+=\'<div class="cc-tg-card" style="border-left:3px solid \'+(buddyOk&&impactoOk?"var(--green)":"var(--yellow)")+\'">\';' +
-    'html+=\'<div class="cc-tg-titulo">Buddy + Impacto — Cobertura</div>\';' +
-    'if(buddyOk&&impactoOk){html+=\'<div class="cc-tg-val" style="color:var(--green)">✓ Cobertura OK (7d)</div>\';}' +
-    'else{html+=\'<div class="cc-tg-val" style="color:var(--yellow)">⚠ Cobertura histórica incompleta — gate ativo para novos artigos</div>\';}' +
-    'html+=\'<div class="cc-tg-sub">7d — Ambos válidos: \'+fmtNum(bc.pct_ambos)+"% ("+fmtNum(bc.ambos_validos||0)+"/"+fmtNum(bc.total)+")</div>";' +
-    'html+=\'<div class="cc-tg-sub" style="color:\'+(bc.pct_buddy<80?"var(--yellow)":"var(--muted-dim)")+\'">Buddy: \'+fmtNum(bc.pct_buddy)+"% &nbsp;·&nbsp; Impacto: "+fmtNum(bc.pct_impacto)+"%</div>";' +
-    'if(bc24){html+=\'<div class="cc-tg-sub" style="margin-top:4px;border-top:1px solid var(--line-hair);padding-top:4px">24h — \'+fmtNum(bc24.total)+" artigos publicados: "+fmtNum(bc24.ambos_validos||0)+" com ambos ("+fmtNum(bc24.pct_ambos||0)+"%)</div>";}' +
-    'html+=\'</div>\';}' +
     // Automação stats
     'html+=\'<div class="cc-secao"><h2>Última execução do coletor</h2>\';' +
     'if(e.automacao){var a=e.automacao;' +

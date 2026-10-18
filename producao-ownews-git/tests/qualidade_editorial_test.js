@@ -55,9 +55,12 @@ const M = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
 )(esc, (s) => String(s || ""));
 
 let pass = 0, fail = 0;
+const PENDENTES = [];
 function test(nome, fn) {
-  try { fn(); pass++; console.log("  ✓ " + nome); }
-  catch (e) { fail++; console.log("  ✗ " + nome + "\n      " + e.message); }
+  const ok = () => { pass++; console.log("  ✓ " + nome); };
+  const ko = (e) => { fail++; console.log("  ✗ " + nome + "\n      " + e.message); };
+  try { const r = fn(); if (r && typeof r.then === "function") PENDENTES.push(r.then(ok, ko)); else ok(); }
+  catch (e) { ko(e); }
 }
 function expect(c, msg) { if (!c) throw new Error(msg || "falhou"); }
 
@@ -449,11 +452,111 @@ if (COLLECTOR) {
     expect(p.includes("artigo.buddy_source = 'duplicada'") && p.includes("Object.assign({}, contexto, { recentes })"), "dedupe por evento ausente");
   });
   test("gate da IA exige Buddy + corpo + impacto (validarMateriaOWNews)", () => {
-    expect(funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa)").includes("validarMateriaOWNews("));
+    expect(funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes)").includes("validarMateriaOWNews("));
     expect(funcao(COLLECTOR, "async function aplicarMateriaOWNews(env, a, mat, fonteMaterial)").includes("validarMateriaOWNews(mat, a, fonte)"), "rota admin sem gate");
+  });
+  // ── Título publicado (Command + Check Final, 2026-10-18) ─────────────────
+  const qCol = corpoBloco(COLLECTOR, Q_INI, Q_FIM);
+  const titSrc = COLLECTOR.slice(COLLECTOR.indexOf("const TITULO_SENSACIONAL_RE"), COLLECTOR.indexOf("function extrairJsonIA("));
+  const T = new Function(qCol + "\n" + titSrc + "\nreturn { validarTituloOWNews, escolherTituloOWNews };")();
+  const FONTE_T = "A Fugro obteve US$ 168 milhões do Banco Europeu de Investimento (BEI) para desenvolver embarcações de superfície não tripuladas (USV) até 2031.";
+  test("título: Title Case importado da fonte é reprovado", () => {
+    expect(T.validarTituloOWNews("Petrobrás Arremata o Seu Segundo Bloco no Leilão ao Adquirir Cruzeiro do Sul, na Bacia de Santos", "").includes("title_case"));
+    expect(T.validarTituloOWNews("Aguila Adquire Dois Blocos na Bacia de Tacutu", "").includes("title_case"));
+  });
+  test("título: nome próprio composto com verbo em minúscula passa", () => {
+    expect(T.validarTituloOWNews("EPE participa do Fórum Sebrae Oportunidades no Óleo e Gás", "").length === 0);
+    expect(T.validarTituloOWNews("Como os governos reagiram à crise do petróleo? Para 100 países, prioridade foi conter preços", "").length === 0);
+  });
+  test("título: inglês, sensacionalismo e clickbait são reprovados", () => {
+    expect(T.validarTituloOWNews("Transocean Ltd. Announces Second Quarter 2026 Earnings Release Date", "").includes("ingles"));
+    expect(T.validarTituloOWNews("Bomba: Petrobras explode contrato de sondas no pré-sal!", "").includes("sensacionalista"));
+    expect(T.validarTituloOWNews("Confira o que muda nos leilões da ANP para as petroleiras", "").includes("sensacionalista"));
+  });
+  test("título da IA não pode trazer número nem nome fora da matéria", () => {
+    expect(T.validarTituloOWNews("Fugro recebe US$ 200 milhões do BEI para desenvolver USV", FONTE_T, "x").includes("numero_sem_fonte"));
+    expect(T.validarTituloOWNews("Fugro recebe financiamento da Shell para desenvolver USV", FONTE_T, "x").includes("nome_sem_fonte"));
+    expect(T.validarTituloOWNews("Fugro recebe financiamento do BEI para desenvolver USV", FONTE_T, "x").length === 0);
+  });
+  test("escolha do título: original bom fica, mesmo com proposta da IA", () => {
+    const r = T.escolherTituloOWNews("Fugro assegura financiamento do BEI para desenvolver USV", "Fugro recebe financiamento do BEI para desenvolver USV", FONTE_T, false);
+    expect(r.ok && r.titulo === null, JSON.stringify(r));
+  });
+  test("escolha do título: original ruim é trocado pelo da IA válido", () => {
+    const r = T.escolherTituloOWNews("Fugro Assegura Financiamento do BEI Para Desenvolver USV", "Fugro recebe financiamento do BEI para desenvolver USV", FONTE_T, false);
+    expect(r.ok && r.titulo === "Fugro recebe financiamento do BEI para desenvolver USV", JSON.stringify(r));
+  });
+  test("escolha do título: tradução automática prefere o título da IA quando válido", () => {
+    const r = T.escolherTituloOWNews("Fugro assegura financiamento de BEI para o desenvolvimento de USV", "Fugro recebe financiamento do BEI para desenvolver USV", FONTE_T, true);
+    expect(r.ok && r.titulo === "Fugro recebe financiamento do BEI para desenvolver USV", JSON.stringify(r));
+  });
+  test("escolha do título: original ruim e IA ruim/igual → não publica", () => {
+    const a = T.escolherTituloOWNews("Fugro Assegura Financiamento do BEI Para Desenvolver USV", "Fugro Assegura Financiamento do BEI Para Desenvolver USV", FONTE_T, false);
+    const b = T.escolherTituloOWNews("Fugro Assegura Financiamento do BEI Para Desenvolver USV", "Fugro recebe US$ 900 milhões do BEI", FONTE_T, false);
+    expect(!a.ok && a.motivos[0] === "titulo:title_case" && !b.ok, JSON.stringify([a, b]));
+  });
+  test("pipeline aplica o título validado; acervo (retroprocessamento) mantém o título", () => {
+    const g = funcao(COLLECTOR, "async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes)");
+    expect(g.includes("escolherTituloOWNews(") && g.includes("manterTitulo"), "gerador sem validação de título");
+    const ini = COLLECTOR.indexOf("async function processarNoticiasComDedupe(");
+    const p = COLLECTOR.slice(ini, COLLECTOR.indexOf("\n/* =========================\n   LEITURA DA MATÉRIA", ini));
+    expect(p.includes("if (camadaIA.titulo) artigo.title = camadaIA.titulo;") && p.includes("tituloTraduzido: tituloPublicado !== tituloFinal"), "pipeline não aplica título");
+    expect(COLLECTOR.includes("gerarCamadaEditorialIA(env, a, corpo, 1, { manterTitulo: true })"), "retroprocessamento mexe no título do acervo");
+  });
+  test("observabilidade da IA não cria gravação nova no KV", () => {
+    const a = funcao(COLLECTOR, "async function acumularGateEditorial(env, resultados)");
+    expect((a.match(/\.put\(/g) || []).length === 1 && a.includes("entrada.ia_ok = true") && a.includes("entrada.ia_erro ="), "acumulador");
+    const o = funcao(COLLECTOR, "async function obterGateEditorialStats(env)");
+    expect(!o.includes(".put(") && o.includes("ultima_resposta") && o.includes("ultima_falha"), "stats");
   });
 }
 
-console.log("\n" + "─".repeat(50));
-console.log("TOTAL: " + pass + " passed, " + fail + " failed");
-process.exit(fail ? 1 : 0);
+console.log("\n== COMMAND CENTER ==");
+{
+  const estilo = FRONT.slice(FRONT.indexOf("const CC_ESTILO ="), FRONT.indexOf("function renderCCDashboard()"));
+  const html = new Function(estilo + "\n" + funcao(FRONT, "function renderCCDashboard()") + "\nreturn renderCCDashboard();")();
+  test("script do Command Center é JavaScript válido (SyntaxError travava em 'Carregando…')", () => {
+    const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    expect(scripts.length > 0, "sem script");
+    scripts.forEach((sc) => new Function(sc));
+  });
+  test("Command Center: noindex,nofollow, robots.txt bloqueia, fora do sitemap", () => {
+    expect(html.includes('content="noindex,nofollow,noarchive"'), "sem noindex");
+    expect(FRONT.includes("Disallow: /command-center\\nDisallow: /api/cc/"), "robots.txt");
+    expect(!funcao(FRONT, "async function gerarSitemap()").includes("command-center"), "sitemap");
+  });
+  test("toda rota /api/cc/* exige sessão (ccAutenticado)", () => {
+    const re = /url\.pathname === "\/api\/cc\/[^"]+"/g; let m, n = 0;
+    while ((m = re.exec(FRONT))) { n++; expect(FRONT.slice(m.index, m.index + 260).includes("ccAutenticado(request, env)"), "rota aberta: " + m[0]); }
+    expect(n >= 6, "rotas não encontradas");
+  });
+  test("pipeline do Command: mesmo classificador do sitemap, sem KV", async () => {
+    const f = funcao(FRONT, "async function ccColetarPipeline()");
+    expect(f.includes("classificarIndexacaoNoticia(a, camada)") && f.includes("resolverCamadaEditorial(a)") && !/KV|\.put\(/.test(f), "pipeline");
+  });
+  test("pipeline do Command conta estados e blocos corretamente", () => {
+    const corpo = "A Petrobras contratou a sonda NS-40 para a campanha de perfuração no campo de Búzios, com início previsto para março e duração de 180 dias, segundo comunicado da companhia.\n\nA unidade sai do estaleiro em Niterói e será mobilizada para a Bacia de Santos depois da inspeção da Marinha, etapa obrigatória antes da operação.";
+    const agora = new Date().toISOString();
+    const linhas = [
+      { id: "1", title: "Petrobras contrata sonda NS-40 para campanha em Búzios", published_at: agora, created_at: agora, summary: "x", content: corpo, buddy_source: "ownews",
+        buddy_summary: "A Petrobras fechou contrato para usar a sonda NS-40 em Búzios. A campanha começa em março.",
+        why_it_matters: "A NS-40 entra na campanha de Búzios em março, o que muda a programação de apoio marítimo da Bacia de Santos nesse período." },
+      { id: "2", title: "Porto de Santos amplia área de armazenagem", published_at: agora, created_at: agora, summary: "x", content: "y".repeat(100), buddy_source: "insuficiente" },
+      { id: "3", title: "Mesma notícia vinda de outra fonte de mercado", published_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z", summary: "x", content: "y".repeat(100), buddy_source: "duplicada" }
+    ];
+    const src = funcao(FRONT, "async function ccColetarPipeline()");
+    return new Function("ccFetchComTimeout", "resolverCamadaEditorial", "classificarIndexacaoNoticia", "return (" + src + ")();")(
+      async () => linhas, M.resolverCamadaEditorial, M.classificarIndexacaoNoticia).then((p) => {
+      expect(p.total === 3 && p.estados.NOINDEX === 2 && p.origem.ownews === 1 && p.janelas["24h"].publicadas === 2 && p.janelas.total.publicadas === 3, JSON.stringify(p));
+      const idx = p.estados.INDEXABLE || 0;
+      expect(p.janelas.total.indexaveis === idx && p.janelas.total.completas === idx && p.indexaveis_sem.buddy + p.indexaveis_sem.impacto + p.indexaveis_sem.corpo === 0, JSON.stringify(p));
+      expect(p.ultima_insercao === agora, "ultima_insercao");
+    });
+  });
+}
+
+Promise.all(PENDENTES).then(() => {
+  console.log("\n" + "─".repeat(50));
+  console.log("TOTAL: " + pass + " passed, " + fail + " failed");
+  process.exit(fail ? 1 : 0);
+});
