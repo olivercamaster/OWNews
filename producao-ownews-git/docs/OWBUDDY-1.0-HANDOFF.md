@@ -380,3 +380,119 @@ Baixar o APK para o computador: `scp offshore@<servidor>:/home/offshore/android-
 - **Rótulos da barra:** tamanho por largura de tela (`useWindowDimensions`), igual em todas as
   plataformas — `adjustsFontSizeToFit` não existe na web.
 
+## Camada parceiro pessoal + Home personalizável (2026-10-19)
+
+Princípio: OWNews sabe o que acontece no offshore; o OWBuddy sabe o que acontece na vida
+offshore do usuário. Tudo LOCAL, offline, determinístico — sem IA, sem rede para calcular.
+
+### Buddy Agora (`packages/ow-domain/src/buddy-agora.ts`)
+- `gerarAcontecimentos({escala, checklist, certs, viagem, eventos, pagamento})` → lista
+  normalizada `Acontecimento {id, tipo, subtipo, titulo, dataISO, hora, dias, faixa,
+  criticidade, recorrencia, origem, rota, rotaParams, acao, detalhe, notificavel, meta}`.
+  Nada é armazenado: tudo derivado dos dados que já existem.
+- Fontes: escala (embarque/desembarque via `resumoEscala`), checklist (só em folga, ≤ 7 dias,
+  mesma regra de ciclo do Meu Embarque), viagem, certificados existentes (≤ 30 dias, nada
+  duplicado), Datas importantes, Meu Pagamento.
+- Ordem: faixa (Hoje → Amanhã → 7 dias → 30 dias → depois) → criticidade (certificado ≤ 7 d →
+  viagem → embarque/desembarque → checklist → curso → consulta/compromisso/trabalho/documento e
+  certificado > 7 d → aniversário → pessoal/outro → pagamento) → data → hora → título → id.
+- Uma ação por item: aniversário → presente; viagem → transporte; certificado → ver certificado;
+  curso → ver detalhes; pagamento → ver regra; embarque → ver checklist.
+- Home (`acontecimentosParaHome`): até 3 (1 no compacto), ≤ 30 dias, sem embarque/desembarque
+  (o card da escala já mostra; e o checklist também quando o card está NORMAL no
+  pré-embarque); pagamento só dentro da janela de aviso. "Ver todos" → `/proximos`.
+
+### Datas importantes (`datas-importantes.ts`, `ocorrencia.ts`)
+- Estendem `EventoPessoal` (mesma chave `owbuddy_eventos_pessoais`, mesmo calendário):
+  novos tipos ANIVERSARIO, CONSULTA, TRABALHO, DOCUMENTO, PESSOAL (+ CURSO, COMPROMISSO,
+  OUTRO; VIAGEM e DATA_ESPECIAL continuam válidos como legado). Campos opcionais novos:
+  `recorrencia` ('anual'), `pessoa`, `relacao`, `lembrete_dias` (ausente = padrão do tipo;
+  [] = sem lembrete). Eventos antigos sem esses campos funcionam igual (sem migração).
+- Anual: mesmo dia/mês; 29/02 → 28/02 em ano não bissexto. Calendário usa `eventoOcorreEm`.
+- Relação com a escala: `estadoEscalaNoDia` (escala-calendario, mesma regra do calendário,
+  respeita dobra/férias) → "Você estará embarcado/de folga/de férias nessa data", "É dia de
+  embarque/desembarque".
+- Cadastro: `/escala-evento-form` ("Lembrar de algo"); aniversário nasce anual; confirmação de
+  exclusão funciona na web (`confirmarRemocao`).
+- Presentes: `presentes.ts` — lista editorial fixa filtrada por faixa/categoria; à distância
+  primeiro quando você estará embarcado. Sem preço real, loja, compra ou afiliado
+  (cada ideia pode ganhar `destino` no futuro).
+
+### Meu Pagamento (`pagamento.ts`, tela `/pagamento`, chave `owbuddy_pagamento_v1`)
+- Só a REGRA (nunca valor): último/primeiro/quinto dia útil, dia fixo, personalizado
+  (n-ésimo dia útil 1–20). Dia fixo: antecipar / próximo dia útil / sem ajuste; dia 29–31 em
+  mês menor = último dia. Aviso: 0/1/3/7/15 dias (padrão 7).
+- Dias úteis = seg–sex menos, se marcado (padrão), os 10 FERIADOS NACIONAIS de lei derivados de
+  `datasImportantesDoAno` (mesma lista do OWNews): 01/01, Sexta-feira Santa, 21/04, 01/05,
+  07/09, 12/10, 02/11, 15/11, 20/11, 25/12. Carnaval (ponto facultativo), Páscoa e datas
+  estaduais/municipais NÃO entram — a tela diz isso.
+- Textos: "Pagamento previsto", "Pela regra que você cadastrou", "Estimativa…". Nunca
+  "será pago". "Antecipar" pode puxar o pagamento para o fim do mês anterior (tratado).
+
+### Transporte (`src/transporte.ts`, `TransporteSheet`, Minha Viagem, Preciso de…)
+- Uber: link universal OFICIAL `https://m.uber.com/looking?drop[0]={lat,long,addressLine1,
+  addressLine2}` (developer.uber.com › Ride Requests › Deep links). Abre o app se instalado;
+  senão loja/m.uber.com. Origem fica com a Uber. Destino só com coordenadas conhecidas:
+  aeroporto de PARTIDA da viagem de avião reconhecido por código IATA/ICAO ou nome (tabela de
+  19 aeroportos) e a base da escala (`AEROPORTOS_ESCALA`). Sem destino: abre sem `drop`.
+  `UBER_CLIENT_ID` vazio (opcional; preencher se registrarmos app na Uber).
+- 99: SEM deep link/link universal documentado (auditado 2026-10-19). Não inventamos esquema.
+  O botão abre a página oficial: Android `play.google.com/...id=com.taxis99`, iOS
+  `apps.apple.com/br/app/id553663691` (ambas mostram "Abrir" se instalado), web `99app.com`.
+  O usuário informa o destino dentro da 99.
+- Nenhuma localização pedida, nenhum histórico, nada de background location. Nenhuma corrida
+  ou pagamento é feito pelo OWBuddy.
+
+### Notificações (`lembretes.ts`, `src/notifications.ts`)
+- Categorias (Meu Buddy → Lembretes): Escala, Viagem, Checklist, Certificados, Datas
+  importantes, Pagamento. Prefs antigas são mescladas com o padrão (as novas nascem ligadas;
+  o interruptor geral continua DESLIGADO por padrão).
+- Datas: dias antes conforme o evento (aniversário/curso 7 e 1; compromisso/consulta 1) às
+  09:00; pagamento: N dias antes às 09:00. Um aviso por evento por dia (id estável). Texto
+  na tela bloqueada só com o TIPO e a data ("Aniversário em 7 dias") — nunca nome, pessoa,
+  título ou observação. Teto 30 agendados. Na web: só preferências (não há notificação).
+- Rotas permitidas ao tocar: /escala, /mala, /viagem, /certs, /proximos, /pagamento.
+- Validar no APK RC (não validável no navegador).
+
+### Home personalizável (`home-prefs.ts`, `/personalizar-home`, chave `owbuddy_home_prefs`)
+- Schema v1: `{v, ordem, ocultos, tamanhos, estiloSaudacao, fraseDoDia, clima, preset,
+  dicaVista}`. `normalizarPrefsHome` migra qualquer coisa: descarta módulo desconhecido,
+  insere módulo novo após o vizinho da ordem padrão, nunca oculta 'momento', ignora tamanho
+  fora dos presets. Upgrade não reseta a Home.
+- Módulos: momento (NORMAL/COMPACTO, nunca oculto), escala, embarque, viagem, certs
+  (NORMAL/COMPACTO), proximos (NORMAL=3 / COMPACTO=1), vagas e unidades (COMPACTO/NORMAL/
+  DESTAQUE), noticias (NORMAL com manchete / COMPACTO), aeroportos, ferramentas (atalhos
+  Preciso de… · Ferramentas · Loja). Protegidos fora do sistema: topo (saudação/frase/clima),
+  botões Personalizar e Meu Buddy, barra inferior.
+- Composição: tiles consecutivos do mesmo grupo viram grade 2×2 (ímpar no fim ocupa a
+  largura); linhas consecutivas viram um cartão de lista; rótulo de seção quando o grupo muda.
+- Reordenar: alça ≡ (PanResponder — toque e mouse) e ↑/↓ (+ ações de acessibilidade).
+- Presets: Equilibrado (padrão), Minha rotina, Carreira, Minimalista — só ordem/visibilidade/
+  tamanhos; depois tudo é editável. "Restaurar layout padrão" não mexe em saudação, clima,
+  nem em dado nenhum.
+- Prefs carregam junto com os dados (um Promise.all) → sem cards trocando de lugar.
+  Vagas/Notícias só buscam rede se o módulo estiver visível.
+- Ocultar card ≠ desligar acontecimentos/lembretes (Buddy Agora calcula com todos os dados).
+- Saudação (`saudacoes.ts`): Bom dia (5–11h) / Boa tarde (12–17h) / Boa noite; nome = apelido
+  de Meu Buddy (sem segunda preferência). Estilos Parceiro, Direto, Motivacional, Discreto.
+  Frase do dia: 96 frases editoriais locais; índice = dia local % tamanho do pool (estilo +
+  período) → muda todo dia e só repete após percorrer a lista. Sem IA, sem religião/política.
+- Clima: o mesmo Open-Meteo de antes (`src/weather.ts`, cidade escolhida à mão, cache 30 min).
+  `frescorClima`: ≤ 1 h atual; ≤ 6 h "às HH:MM"; mais antigo → só a cidade ("clima sem
+  atualização recente"). É clima urbano — nunca meteorologia offshore/operacional.
+- Buddy+ (futuro): `DefModulo.plano` existe; no 1.0 tudo é 'free'. Candidatos: temas, estilos
+  visuais, widgets, presets extras, sincronização entre aparelhos. Nada bloqueado agora.
+
+### Privacidade e analytics
+- Datas, pessoa, relação, empresa, regra, viagem, layout: só no aparelho; não sincronizam.
+- Analytics (console, sem envio) só com tipo/ação: event_created/updated/deleted (event_type),
+  payment_rule_configured (regra/ajuste/aviso), transport_opened (serviço, com_destino),
+  gift_ideas_opened, preciso_de_opened, proximos_opened, home_* , greeting_style_changed,
+  daily_phrase_toggled, weather_enabled/disabled. Nunca nome, pessoa, título, obs, cidade.
+
+### Limitações conhecidas
+- 99 sem destino pré-preenchido (sem integração oficial). Uber sem `client_id` próprio.
+- Feriados só nacionais; estaduais/municipais e Carnaval não entram no "dia útil".
+- Destino do Uber só para aeroportos da tabela e base da escala; texto livre não é geocodificado.
+- Notificações nativas, link universal da Uber abrindo o app e loja da 99: validar no APK RC.
+
