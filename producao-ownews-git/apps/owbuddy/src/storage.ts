@@ -16,6 +16,7 @@ export const KEYS = {
   VIAGENS_FOLGA:    'owbuddy_viagens_folga',
   EVENTOS_PESSOAIS: 'owbuddy_eventos_pessoais',
   ESCALAS_CRUZAR:  'ownews_cruzar_v2',
+  MALA_OCULTAR_OK:  'owbuddy_mala_ocultar_concluidos',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -96,6 +97,15 @@ export async function getChecklist(): Promise<ChecklistData | null> {
 export async function setChecklist(data: ChecklistData): Promise<void> {
   await set(KEYS.CHECKLIST, data);
   avisarMudanca();
+}
+
+// Preferência de exibição do Meu Embarque (só deste aparelho; nunca sincroniza).
+export async function getOcultarConcluidos(): Promise<boolean> {
+  return (await get<boolean>(KEYS.MALA_OCULTAR_OK)) === true;
+}
+
+export async function setOcultarConcluidos(v: boolean): Promise<void> {
+  await set(KEYS.MALA_OCULTAR_OK, v);
 }
 
 // Viagem

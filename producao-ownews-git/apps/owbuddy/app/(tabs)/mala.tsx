@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
-  Alert,
+  Modal,
+  Pressable,
   SectionList,
   StyleSheet,
   Text,
@@ -17,6 +18,9 @@ import {
   removeItem,
   editarItem,
   desmarcarTodos,
+  ehItemPadrao,
+  contarPadraoOcultos,
+  restaurarItensPadrao,
   resumoEscala,
   sincronizarChecklistComCiclo,
   getAeroporto,
@@ -25,7 +29,8 @@ import {
   ORDEM_CATS,
 } from '@owbuddy/domain';
 import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain';
-import { getEscala, getChecklist, setChecklist } from '../../src/storage';
+import { getEscala, getChecklist, setChecklist, getOcultarConcluidos, setOcultarConcluidos } from '../../src/storage';
+import { confirmar } from '../../src/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
@@ -41,7 +46,8 @@ function labelEmbarque(dias: number): string {
 
 /** Mensagem contextual do Buddy — lembrete inline quando embarque se aproxima. */
 function labelBuddy(feitos: number, total: number, pendentes: number, diasParaEmbarque: number | null): string {
-  if (pendentes === 0) return 'Tudo preparado. Bom embarque!';
+  if (total === 0) return 'Sua lista está vazia. Adicione o que você costuma levar.';
+  if (pendentes === 0) return 'Tudo pronto. Bom embarque!';
   if (diasParaEmbarque != null) {
     if (diasParaEmbarque <= 0) {
       return pendentes === 1 ? 'Embarque hoje — ainda falta 1 item.' : `Embarque hoje — faltam ${pendentes} itens.`;
@@ -63,10 +69,11 @@ type Section = {
   data: ChecklistItem[];
 };
 
-function buildSections(data: ChecklistData): Section[] {
+function buildSections(data: ChecklistData, ocultarConcluidos: boolean): Section[] {
   // Agrupar por categoria canônica, na ordem definida
   const map = new Map<string, ChecklistItem[]>(ORDEM_CATS.map(c => [c, []]));
   for (const item of data.items) {
+    if (ocultarConcluidos && item.ok) continue; // só esconde da tela; nada é apagado
     const cat = item.cat ?? 'personalizados';
     const bucket = map.get(cat) ?? map.get('personalizados')!;
     bucket.push(item);
@@ -87,10 +94,14 @@ export default function MeuEmbarque() {
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
   const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
+  // Menu de ações do item (⋯ ou toque longo). `confirmando` = 2º passo antes de excluir.
+  const [menu, setMenu] = useState<{ item: ChecklistItem; confirmando: boolean } | null>(null);
+  const [ocultarOk, setOcultarOk] = useState(false);
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
-    const [escala, checklist] = await Promise.all([getEscala(), getChecklist()]);
+    const [escala, checklist, ocultar] = await Promise.all([getEscala(), getChecklist(), getOcultarConcluidos()]);
+    setOcultarOk(ocultar);
     const r = resumoEscala(escala);
     setResumo(r);
     setAeroportoNome(escala?.aeroporto ? (getAeroporto(escala.aeroporto)?.nome ?? escala.aeroporto) : null);
@@ -122,24 +133,31 @@ export default function MeuEmbarque() {
     setNovoItem('');
   };
 
-  const remove = (id: string, label: string) => {
-    Alert.alert('Remover item', `Remover "${label}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: () => { if (data) persist(removeItem(data, id)); },
-      },
-    ]);
+  const abrirMenu = (item: ChecklistItem) => setMenu({ item, confirmando: false });
+
+  const editar = () => {
+    if (!menu) return;
+    setEditando({ id: menu.item.id, texto: menu.item.t });
+    setMenu(null);
   };
 
-  // Toque longo: editar ou remover (ação destrutiva sempre confirmada).
-  const opcoes = (item: ChecklistItem) => {
-    Alert.alert(item.t, undefined, [
-      { text: 'Editar', onPress: () => setEditando({ id: item.id, texto: item.t }) },
-      { text: 'Remover', style: 'destructive', onPress: () => remove(item.id, item.t) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+  // Personalizado: excluir de vez (com confirmação). Padrão: só sai da lista pessoal.
+  const excluirOuOcultar = () => {
+    if (!menu || !data) return;
+    if (!ehItemPadrao(menu.item.id) && !menu.confirmando) {
+      setMenu({ ...menu, confirmando: true });
+      return;
+    }
+    persist(removeItem(data, menu.item.id));
+    setMenu(null);
+  };
+
+  const restaurarPadrao = () => { if (data) persist(restaurarItensPadrao(data)); };
+
+  const alternarConcluidos = () => {
+    const v = !ocultarOk;
+    setOcultarOk(v);
+    setOcultarConcluidos(v);
   };
 
   const salvarEdicao = async () => {
@@ -148,19 +166,19 @@ export default function MeuEmbarque() {
   };
 
   const desmarcar = () => {
-    Alert.alert('Desmarcar todos?', 'Os itens continuam na lista, só voltam a ficar pendentes.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Desmarcar', onPress: () => { if (data) persist(desmarcarTodos(data)); } },
-    ]);
+    confirmar('Desmarcar todos?', 'Os itens continuam na lista, só voltam a ficar pendentes.', 'Desmarcar',
+      () => { if (data) persist(desmarcarTodos(data)); });
   };
 
   if (!data || !resumo) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const counts = contarPendentes(data);
   const pct = counts.total > 0 ? Math.round((counts.feitos / counts.total) * 100) : 0;
-  const tudo = counts.pendentes === 0;
+  const tudo = counts.total > 0 && counts.pendentes === 0;
   const temEscala = resumo.estado !== 'SEM_ESCALA';
-  const sections = buildSections(data);
+  const sections = buildSections(data, ocultarOk);
+  const ocultosPadrao = contarPadraoOcultos(data);
+  const corProgresso = tudo ? colors.green : colors.cyan;
 
   return (
     <OWBackground>
@@ -178,7 +196,7 @@ export default function MeuEmbarque() {
                 <Text style={styles.buddyIntroTitle}>Vai lembrando. Eu guardo pra você.</Text>
               </View>
               <Text style={styles.buddyIntroSub}>
-                Marque o que já resolveu. Com os lembretes ligados (Meu Buddy), eu aviso 2 dias antes do embarque se ainda faltar algo. Toque e segure um item para editar ou remover.
+                Marque o que já resolveu. Com os lembretes ligados (Meu Buddy), eu aviso 2 dias antes do embarque se ainda faltar algo. Use ⋯ para editar, excluir ou ocultar um item.
               </Text>
             </View>
 
@@ -208,29 +226,53 @@ export default function MeuEmbarque() {
             )}
 
             {/* ── Contador ── */}
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.counterBig}>
-                  {counts.feitos}
-                  <Text style={{ color: colors.mutedDim, fontSize: 28 }}> / {counts.total}</Text>
-                </Text>
-                <Text style={styles.counterSub}>
-                  {tudo ? 'Tudo preparado' : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
-                </Text>
+            <View style={[styles.counterCard, tudo && styles.counterCardDone]}>
+              <View style={styles.header}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.counterBig, tudo && { color: colors.green }]}>
+                    {counts.feitos}
+                    <Text style={{ color: tudo ? colors.green : colors.mutedDim, fontSize: 26 }}> / {counts.total}</Text>
+                  </Text>
+                  <Text style={[styles.counterSub, tudo && styles.counterSubDone]}>
+                    {tudo
+                      ? 'Tudo preparado'
+                      : counts.total === 0
+                        ? 'Lista vazia'
+                        : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
+                  </Text>
+                </View>
+                {tudo ? (
+                  <View style={styles.doneCircle}>
+                    <Ionicons name="checkmark" size={30} color={colors.navy950} />
+                  </View>
+                ) : (
+                  <View style={[styles.progressCircle, { borderColor: corProgresso }]}>
+                    <Text style={[styles.progressPct, { color: corProgresso }]}>{pct}%</Text>
+                  </View>
+                )}
               </View>
-              <View style={[styles.progressCircle, { borderColor: tudo ? colors.green : colors.cyan }]}>
-                <Text style={[styles.progressPct, { color: tudo ? colors.green : colors.cyan }]}>{pct}%</Text>
+              <View style={styles.progressBg}>
+                <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: corProgresso }]} />
               </View>
+              <Text style={[styles.buddyMsg, tudo && styles.buddyMsgDone]}>
+                {labelBuddy(counts.feitos, counts.total, counts.pendentes, resumo.diasParaEmbarque ?? null)}
+              </Text>
             </View>
 
-            {/* ── Barra ── */}
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: tudo ? colors.green : colors.cyan }]} />
-            </View>
-
-            <Text style={styles.buddyMsg}>
-              {labelBuddy(counts.feitos, counts.total, counts.pendentes, resumo.diasParaEmbarque ?? null)}
-            </Text>
+            {/* ── Ocultar / mostrar concluídos (só exibição; nada é apagado) ── */}
+            {counts.feitos > 0 && (
+              <TouchableOpacity style={styles.toggleOk} onPress={alternarConcluidos} accessibilityRole="button">
+                <Ionicons name={ocultarOk ? 'eye-outline' : 'eye-off-outline'} size={15} color={colors.cyanDim} />
+                <Text style={styles.toggleOkText}>
+                  {ocultarOk ? `Mostrar concluídos (${counts.feitos})` : 'Ocultar concluídos'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {ocultarOk && sections.length === 0 && counts.total > 0 && (
+              <Text style={styles.allHidden}>
+                {counts.feitos === 1 ? 'O item concluído está oculto.' : `Os ${counts.feitos} itens concluídos estão ocultos.`}
+              </Text>
+            )}
           </>
         }
         renderSectionHeader={({ section }) => (
@@ -261,7 +303,7 @@ export default function MeuEmbarque() {
               </TouchableOpacity>
             </View>
           ) : (
-            <MalaItem item={item} onToggle={toggle} onOptions={opcoes} />
+            <MalaItem item={item} onToggle={toggle} onOptions={abrirMenu} />
           )
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -290,9 +332,66 @@ export default function MeuEmbarque() {
               <Text style={styles.resetText}>Desmarcar todos</Text>
             </TouchableOpacity>
           )}
+          {ocultosPadrao > 0 && (
+            <TouchableOpacity style={styles.resetBtn} onPress={restaurarPadrao} accessibilityRole="button">
+              <Ionicons name="arrow-undo-outline" size={15} color={colors.mutedDim} />
+              <Text style={styles.resetText}>
+                Restaurar itens padrão ({ocultosPadrao} {ocultosPadrao === 1 ? 'oculto' : 'ocultos'})
+              </Text>
+            </TouchableOpacity>
+          )}
           </>
         }
       />
+
+      {/* ── Ações do item: sheet por toque (funciona igual no Android, iOS e web) ── */}
+      <Modal visible={!!menu} transparent animationType="fade" onRequestClose={() => setMenu(null)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setMenu(null)} accessibilityLabel="Fechar">
+          <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.md) }]} onPress={() => {}}>
+            {menu && (menu.confirmando ? (
+              <>
+                <Text style={styles.sheetTitle}>Excluir “{menu.item.t}”?</Text>
+                <Text style={styles.sheetSub}>Item personalizado — sai da sua lista de vez.</Text>
+                <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnDanger]} onPress={excluirOuOcultar} accessibilityRole="button">
+                  <Ionicons name="trash-outline" size={18} color={colors.white} />
+                  <Text style={[styles.sheetBtnText, { color: colors.white }]}>Excluir item</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sheetBtn} onPress={() => setMenu(null)} accessibilityRole="button">
+                  <Text style={[styles.sheetBtnText, styles.sheetCancel]}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetTitle} numberOfLines={2}>{menu.item.t}</Text>
+                <Text style={styles.sheetSub}>
+                  {ehItemPadrao(menu.item.id) ? 'Item padrão do OWBuddy' : 'Item personalizado'}
+                </Text>
+                <TouchableOpacity style={styles.sheetBtn} onPress={editar} accessibilityRole="button">
+                  <Ionicons name="create-outline" size={18} color={colors.cyanDim} />
+                  <Text style={styles.sheetBtnText}>Editar nome</Text>
+                </TouchableOpacity>
+                {ehItemPadrao(menu.item.id) ? (
+                  <TouchableOpacity style={styles.sheetBtn} onPress={excluirOuOcultar} accessibilityRole="button">
+                    <Ionicons name="eye-off-outline" size={18} color={colors.muted} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetBtnText}>Ocultar da minha lista</Text>
+                      <Text style={styles.sheetBtnHint}>Volta com “Restaurar itens padrão”</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.sheetBtn} onPress={excluirOuOcultar} accessibilityRole="button">
+                    <Ionicons name="trash-outline" size={18} color={colors.red} />
+                    <Text style={[styles.sheetBtnText, { color: colors.red }]}>Excluir item</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.sheetBtn} onPress={() => setMenu(null)} accessibilityRole="button">
+                  <Text style={[styles.sheetBtnText, styles.sheetCancel]}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </OWBackground>
   );
 }
@@ -307,21 +406,32 @@ function MalaItem({
   onOptions: (item: ChecklistItem) => void;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.itemRow}
-      onPress={() => onToggle(item.id)}
-      onLongPress={() => onOptions(item)}
-      delayLongPress={450}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: item.ok }}
-      accessibilityLabel={item.t}
-      accessibilityHint="Toque para marcar. Toque e segure para editar ou remover."
-    >
-      <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
-        {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
-      </View>
-      <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
-    </TouchableOpacity>
+    <View style={styles.itemRow}>
+      <TouchableOpacity
+        style={styles.itemMain}
+        onPress={() => onToggle(item.id)}
+        onLongPress={() => onOptions(item)}
+        delayLongPress={450}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.ok }}
+        accessibilityLabel={item.t}
+        accessibilityHint="Toque para marcar ou desmarcar."
+      >
+        <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
+          {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
+        </View>
+        <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.moreBtn}
+        onPress={() => onOptions(item)}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={`Opções de ${item.t}`}
+      >
+        <Ionicons name="ellipsis-horizontal" size={18} color={colors.mutedDim} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -382,10 +492,28 @@ const styles = StyleSheet.create({
   },
   semEscalaText: { flex: 1, fontSize: 13, color: colors.muted },
 
+  counterCard: {
+    marginHorizontal: spacing.md, marginTop: spacing.md,
+    backgroundColor: maritime.glass, borderRadius: radius.lg,
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
+    paddingBottom: spacing.sm,
+  },
+  counterCardDone: { borderColor: colors.green + '55', backgroundColor: 'rgba(18, 70, 66, 0.55)' },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm,
   },
+  counterSubDone: { color: colors.green, fontWeight: '700', fontSize: 15 },
+  doneCircle: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.green,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  toggleOk: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end',
+    minHeight: 40, paddingHorizontal: spacing.md, marginTop: 2,
+  },
+  toggleOkText: { fontSize: 13, color: colors.cyanDim, fontWeight: '600' },
+  allHidden: { ...typography.small, color: colors.mutedDim, textAlign: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   counterBig: { fontSize: 36, fontWeight: '700', color: colors.white },
   counterSub: { ...typography.small, marginTop: 2 },
   progressCircle: {
@@ -402,8 +530,9 @@ const styles = StyleSheet.create({
 
   buddyMsg: {
     ...typography.small, fontStyle: 'italic', color: colors.mutedDim,
-    textAlign: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.sm,
+    textAlign: 'center', paddingHorizontal: spacing.lg, marginBottom: 2,
   },
+  buddyMsgDone: { fontStyle: 'normal', color: colors.white, fontWeight: '600', fontSize: 14 },
 
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -417,16 +546,19 @@ const styles = StyleSheet.create({
   separator: { height: 1, backgroundColor: 'rgba(22, 68, 94, 0.3)', marginLeft: spacing.md + 22 + spacing.sm },
 
   itemRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 13,
-    paddingHorizontal: spacing.md, gap: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 4,
+    paddingLeft: spacing.md, paddingRight: spacing.xs, gap: spacing.sm, minHeight: 48,
   },
+  itemMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 9 },
+  moreBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
   checkbox: {
     width: 22, height: 22, borderRadius: 5, borderWidth: 2,
     borderColor: colors.line, alignItems: 'center', justifyContent: 'center',
   },
   checkboxDone: { backgroundColor: colors.green, borderColor: colors.green },
   itemText: { flex: 1, ...typography.body },
-  itemTextDone: { color: colors.mutedDim, textDecorationLine: 'line-through' },
+  // Concluído: check verde + texto mais apagado. Sem risco — lista 100% não vira "parede riscada".
+  itemTextDone: { color: colors.mutedDim },
 
   addRow: {
     flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm,
@@ -439,6 +571,24 @@ const styles = StyleSheet.create({
     color: colors.white, fontSize: 15,
     borderWidth: 1, borderColor: maritime.glassBorder,
   },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(2, 10, 18, 0.62)', justifyContent: 'flex-end', alignItems: 'center' },
+  sheet: {
+    width: '100%', maxWidth: 560,
+    backgroundColor: surface.header, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
+    paddingTop: spacing.lg, paddingHorizontal: spacing.md,
+  },
+  sheetTitle: { ...typography.h3, paddingHorizontal: spacing.xs },
+  sheetSub: { ...typography.small, color: colors.mutedDim, paddingHorizontal: spacing.xs, marginTop: 2, marginBottom: spacing.sm },
+  sheetBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 52,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: maritime.glassBorder,
+  },
+  sheetBtnDanger: { backgroundColor: colors.red, borderTopWidth: 0, borderRadius: radius.md, justifyContent: 'center', marginTop: spacing.xs, marginBottom: spacing.xs },
+  sheetBtnText: { fontSize: 15, fontWeight: '600', color: colors.white },
+  sheetBtnHint: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
+  sheetCancel: { flex: 1, textAlign: 'center', color: colors.muted },
   addBtn: {
     width: 44, height: 44, backgroundColor: colors.cyan,
     borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',

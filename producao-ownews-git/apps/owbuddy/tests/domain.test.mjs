@@ -298,3 +298,78 @@ test('escala secundária preserva relação e ícone escolhido (ícone visível 
   const [semIcone] = D.normalizeEscalasSecundarias([{ id: 's2', nome: 'Rui', tipo: '14x14', dataRef: '2026-10-20' }]);
   assert.equal(semIcone.icon, undefined);
 });
+
+// ─── Polimento Home + Meu Embarque (2026-10-19) ───────────────────────────
+
+const cfg14 = (dataRef, tipoRef = 'embarquei') => ({ tipo: '14x14', dataRef, tipoRef });
+const ctx = (config, hoje, lista) => D.contextoHome(
+  D.resumoEscala(config, new Date(hoje + 'T12:00:00')),
+  D.calcularMomento(config, new Date(hoje + 'T12:00:00')),
+  lista,
+);
+
+test('contextoHome: sem escala convida a configurar', () => {
+  const c = ctx(null, '2026-10-19', null);
+  assert.equal(c.tipo, 'SEM_ESCALA');
+  assert.match(c.detalhe, /Configure sua escala/);
+});
+
+test('contextoHome: embarcado → dia X de Y e desembarque previsto (números da regra canônica)', () => {
+  const c = ctx(cfg14('2026-10-14'), '2026-10-19', null);
+  assert.equal(c.tipo, 'EMBARCADO');
+  assert.equal(c.titulo, 'Você está embarcado');
+  assert.equal(c.destaque, 'Dia 6 de 14');
+  const r = D.resumoEscala(cfg14('2026-10-14'), new Date('2026-10-19T12:00:00'));
+  assert.equal(c.detalhe, `Desembarque previsto em ${r.diasParaDesembarque} dias.`);
+});
+
+test('contextoHome: pré-embarque (≤ 5 dias, calcularMomento) usa a lista do ciclo', () => {
+  // embarque em 21/10 → hoje 19/10 = 2 dias
+  const c = ctx(cfg14('2026-10-21'), '2026-10-19', { total: 11, feitos: 9, pendentes: 2 });
+  assert.equal(c.tipo, 'PRE_EMBARQUE');
+  assert.equal(c.titulo, 'Embarque em 2 dias');
+  assert.equal(c.destaque, '9 de 11 itens preparados');
+  assert.equal(c.detalhe, 'Você ainda tem 2 coisas para conferir.');
+  const pronto = ctx(cfg14('2026-10-20'), '2026-10-19', { total: 11, feitos: 11, pendentes: 0 });
+  assert.equal(pronto.titulo, 'Embarque amanhã');
+  assert.equal(pronto.detalhe, 'Tudo pronto. Bom embarque!');
+});
+
+test('contextoHome: folga longe do embarque', () => {
+  // embarque em 28/10 → 9 dias
+  const c = ctx(cfg14('2026-10-28'), '2026-10-19', { total: 11, feitos: 0, pendentes: 11 });
+  assert.equal(c.tipo, 'FOLGA');
+  assert.equal(c.titulo, 'Você está de folga');
+  assert.equal(c.detalhe, '9 dias para o próximo embarque.');
+});
+
+test('checklist: ocultar item padrão e restaurar sem tocar nos personalizados', () => {
+  let c = D.criarChecklistPadrao('2026-10-29');
+  const total = c.items.length;
+  c = D.toggleItem(c, 'aso');
+  c = D.addItem(c, 'Livro');
+  c = D.removeItem(c, 'chinelo');           // "ocultar" padrão
+  assert.equal(D.ehItemPadrao('chinelo'), true);
+  assert.equal(D.contarPadraoOcultos(c), 1);
+  const custom = c.items.find(i => i.t === 'Livro');
+  assert.equal(D.ehItemPadrao(custom.id), false);
+  const r = D.restaurarItensPadrao(c);
+  assert.equal(D.contarPadraoOcultos(r), 0);
+  assert.equal(r.items.length, total + 1);
+  assert.equal(r.items.find(i => i.id === 'aso').ok, true, 'marcação preservada');
+  assert.ok(r.items.some(i => i.t === 'Livro'), 'personalizado preservado');
+  assert.equal(D.restaurarItensPadrao(r), r, 'nada a restaurar → mesma referência');
+});
+
+test('checklist: item padrão oculto continua oculto na virada de ciclo', () => {
+  let c = D.removeItem(D.criarChecklistPadrao('2026-10-01'), 'academia');
+  const r = D.sincronizarChecklistComCiclo(c, '2026-10-29');
+  assert.equal(r.resetado, true);
+  assert.equal(r.data.items.some(i => i.id === 'academia'), false);
+});
+
+test('checklist: lista vazia por escolha do usuário não é recriada', () => {
+  const r = D.sincronizarChecklistComCiclo({ items: [], ciclo: '2026-10-29' }, '2026-10-29');
+  assert.equal(r.data.items.length, 0);
+  assert.equal(D.contarPadraoOcultos(r.data), D.ITENS_PADRAO.length);
+});

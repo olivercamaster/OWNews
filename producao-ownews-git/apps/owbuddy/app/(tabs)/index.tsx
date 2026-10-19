@@ -23,13 +23,14 @@ import {
   viagemEHoje,
   calcCertStatus,
   getAeroporto,
-  MOMENTO_LABEL,
+  contextoHome,
+  sincronizarChecklistComCiclo,
 } from '@owbuddy/domain';
-import type { EscalaConfig, EscalaResumo, BuddyPrefs, Viagem, ChecklistData, Certificado } from '@owbuddy/domain';
+import type { EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem } from '@owbuddy/domain';
 import type { AeroportoEscala } from '@owbuddy/domain';
 import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography, iconSize, surface } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
 import { saudacao, formatDateBR } from '../../src/format';
 import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
@@ -37,18 +38,16 @@ import { useConnectivity } from '../../src/connectivity';
 import { CITIES, type City } from '../../src/cities';
 import { searchCities } from '../../src/geocoding';
 import { analytics } from '../../src/analytics';
+import { fetchVagas } from '../../src/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
 
-const MOMENTO_CHIP = MOMENTO_LABEL;
-
-const MOMENTO_COLOR: Record<string, string> = {
-  FOLGA:               colors.cyanDim,
-  EMBARQUE_DISTANTE:   colors.cyanDim,
-  EMBARQUE_PROXIMO:    colors.cyan,
-  VESPERA_EMBARQUE:    colors.amber,
-  EMBARCADO:           colors.green,
-  DESEMBARQUE_PROXIMO: colors.amber,
-  SEM_ESCALA:          colors.mutedDim,
+// Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
+const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = {
+  SEM_ESCALA:   colors.cyanDim,
+  PRE_EMBARQUE: colors.amber,
+  EMBARCADO:    colors.green,
+  FOLGA:        colors.cyanDim,
 };
 
 type HomeState = {
@@ -64,6 +63,8 @@ export default function TelaHoje() {
   const [state, setState] = useState<HomeState | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Só número REAL do /api/buddy/vagas (cache 1 h; offline usa o último cache). Sem dado → sem contador.
+  const [vagasTotal, setVagasTotal] = useState<number | null>(null);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<City[]>([]);
@@ -82,6 +83,9 @@ export default function TelaHoje() {
       getCityPref(),
     ]);
     setState({ escala, prefs, viagem, checklist, certs, city });
+    fetchVagas().then(r => {
+      setVagasTotal((r.status === 'ok' || r.status === 'offline_cached') && r.vagas.length > 0 ? r.vagas.length : null);
+    }).catch(() => setVagasTotal(null));
     if (city) {
       const w = await getWeather(city);
       setWeather(w);
@@ -150,25 +154,30 @@ export default function TelaHoje() {
     paddingBottom: bottomNavSpace(insets.bottom),
   }];
 
-  if (!state) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
+  if (!state) return <OWBackground watermark="home"><View style={styles.root} /></OWBackground>;
 
   const { escala, prefs, viagem, checklist, certs } = state;
   const momento = calcularMomento(escala);
   const resumo = resumoEscala(escala);
   const aeroporto = escala?.aeroporto ? getAeroporto(escala.aeroporto) : undefined;
-  const msg = gerarMensagemMomento(momento, prefs);
-  const accentColor = MOMENTO_COLOR[momento.tipo] ?? colors.mutedDim;
-  const checkCount = checklist ? contarPendentes(checklist) : null;
+  // Contagem da lista do PRÓXIMO embarque — mesma regra de ciclo do Meu Embarque
+  // (sincronizarChecklistComCiclo), só para exibir; quem grava é a tela Meu Embarque.
+  const listaCiclo = sincronizarChecklistComCiclo(checklist, resumo.proximoEmbarqueISO).data;
+  const checkCount: HomeChecklistContagem = contarPendentes(listaCiclo);
+  const contexto = contextoHome(resumo, momento, checkCount);
+  // Voz do Buddy (tom escolhido em Meu Buddy) — no tom "discreto" repetiria o hero.
+  const voz = prefs.tom && prefs.tom !== 'discreto' ? gerarMensagemMomento(momento, prefs) : '';
   const critCerts = certs
     .filter(c => !c._deleted && c.validade)
     .filter(c => calcCertStatus(c).critico);
+  const totalCerts = certs.filter(c => !c._deleted).length;
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
   const greeting = saudacao();
   const nome = prefs.apelido?.trim();
-  const greetingLabel = nome ? `${greeting}, ${nome}` : `${greeting}, Buddy!`;
+  const greetingLabel = nome ? `${greeting}, ${nome}` : `${greeting}!`;
 
   return (
-    <OWBackground>
+    <OWBackground watermark="home">
       <ScrollView
         style={styles.root}
         contentContainerStyle={contentStyle}
@@ -182,17 +191,26 @@ export default function TelaHoje() {
           </View>
         )}
 
-        {/* ── Greeting ── */}
+        {/* ── Saudação + clima numa linha ── */}
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
-            <Text style={styles.greetingText}>{greetingLabel}</Text>
-            {momento.tipo !== 'SEM_ESCALA' && (
-              <View style={[styles.momentoChip, { borderColor: accentColor }]}>
-                <Text style={[styles.momentoChipText, { color: accentColor }]}>
-                  {MOMENTO_CHIP[momento.tipo]}
-                </Text>
-              </View>
-            )}
+            <Text style={styles.greetingText} numberOfLines={1}>{greetingLabel}</Text>
+            <TouchableOpacity onPress={openCityPicker} activeOpacity={0.7} style={styles.weatherInline} accessibilityLabel="Cidade e clima">
+              {state.city && weather ? (
+                <>
+                  <Ionicons name="location-outline" size={12} color={colors.cyanDim} />
+                  <Text style={styles.weatherInlineText} numberOfLines={1}>
+                    {weather.city} · <Text style={styles.weatherInlineTemp}>{weather.tempC}°</Text> {weather.description}
+                    {isCacheStale(weather.cachedAt) ? ` · ${weatherCacheLabel(weather.cachedAt)}` : ''}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="partly-sunny-outline" size={13} color={colors.mutedDim} />
+                  <Text style={styles.weatherInlineText}>Definir cidade para ver o clima</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={styles.configBtn}
@@ -204,80 +222,18 @@ export default function TelaHoje() {
           </TouchableOpacity>
         </View>
 
-        {/* ── City + Weather ── */}
-        <TouchableOpacity
-          style={styles.weatherCard}
-          onPress={openCityPicker}
-          activeOpacity={0.8}
-        >
-          {state.city && weather ? (
-            <>
-              <View style={styles.weatherLeft}>
-                <Ionicons name="location-outline" size={13} color={colors.cyanDim} />
-                <Text style={styles.weatherCity}>{weather.city}, {weather.state}</Text>
-              </View>
-              <View style={styles.weatherRight}>
-                <Text style={styles.weatherTemp}>{weather.tempC}°</Text>
-                <Text style={styles.weatherDesc}>{weather.description}</Text>
-              </View>
-              {isCacheStale(weather.cachedAt) && (
-                <Text style={styles.weatherAge}>{weatherCacheLabel(weather.cachedAt)}</Text>
-              )}
-            </>
-          ) : (
-            <View style={styles.weatherEmpty}>
-              <Ionicons name="partly-sunny-outline" size={16} color={colors.mutedDim} />
-              <Text style={styles.weatherEmptyText}>Toque para configurar sua cidade</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {/* ── Momento offshore (contextual, dados da Minha Escala) ── */}
+        <HomeHero
+          contexto={contexto}
+          progresso={contexto.tipo === 'PRE_EMBARQUE'
+            ? (checkCount.total > 0 ? checkCount.feitos / checkCount.total : 0)
+            : resumo.progresso}
+          dataISO={contexto.tipo === 'EMBARCADO' ? resumo.proximoDesembarqueISO : resumo.proximoEmbarqueISO}
+          aeroporto={aeroporto ? `${aeroporto.code} · ${aeroporto.nome}` : null}
+          voz={voz}
+        />
 
-        {/* ── Buddy message ── */}
-        {msg ? (
-          <View style={styles.msgBubble}>
-            <Text style={styles.msgText}>{msg}</Text>
-          </View>
-        ) : null}
-
-        {/* ── Escala: 3 estados (SEM_ESCALA / DE_FOLGA / EMBARCADO) ── */}
-        <HomeEscalaCard resumo={resumo} aeroporto={aeroporto} />
-
-        {/* ── Ações principais (list rows — não card soup) ── */}
-        <Text style={styles.sectionLabel}>Meu painel</Text>
-        <View style={styles.actionList}>
-          <ActionRow
-            icon="calendar-outline"
-            label="Minha Escala"
-            sub={escala ? 'Ver calendário e ciclo' : 'Configurar agora'}
-            accent={escala ? colors.cyan : colors.mutedDim}
-            onPress={() => router.push(escala ? '/escala' : '/escala-config')}
-          />
-          <ActionRow
-            icon="checkbox-outline"
-            label="Meu Embarque"
-            sub="Checklist e lembretes até o embarque"
-            badge={checkCount && checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
-            onPress={() => router.navigate('/mala')}
-          />
-          <ActionRow
-            icon="airplane-outline"
-            label="Minha Viagem"
-            sub={viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem de embarque'}
-            accent={viagemBreve ? colors.amber : undefined}
-            onPress={() => router.navigate('/viagem')}
-          />
-          <ActionRow
-            icon="document-text-outline"
-            label="Certificados"
-            sub={critCerts.length > 0 ? `${critCerts.length} vence(m) em breve` : 'Controle de validades'}
-            badge={critCerts.length > 0 ? String(critCerts.length) : undefined}
-            badgeColor={colors.red}
-            onPress={() => router.navigate('/certs')}
-            last
-          />
-        </View>
-
-        {/* ── Alerta certificados ── */}
+        {/* ── Alertas pontuais ── */}
         {critCerts.length > 0 && (
           <TouchableOpacity style={[styles.alertCard, styles.alertCardWarn]} onPress={() => router.navigate('/certs')}>
             <Ionicons name="warning-outline" size={18} color={colors.amber} />
@@ -289,10 +245,8 @@ export default function TelaHoje() {
             <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
           </TouchableOpacity>
         )}
-
-        {/* ── Alerta viagem iminente ── */}
         {viagem && viagemBreve && (
-          <TouchableOpacity style={[styles.alertCard, styles.alertCardViagem]} onPress={() => router.navigate('/viagem')}>
+          <TouchableOpacity style={[styles.alertCard, styles.alertCardWarn]} onPress={() => router.navigate('/viagem')}>
             <Ionicons name="airplane" size={16} color={colors.amber} />
             <Text style={[styles.alertText, { color: colors.amber }]}>
               Viagem{' '}
@@ -303,15 +257,75 @@ export default function TelaHoje() {
           </TouchableOpacity>
         )}
 
-        {/* ── Informação offshore ── */}
-        <Text style={styles.sectionLabel}>Informação offshore</Text>
-        <View style={styles.chipRow}>
-          <ChipButton icon="newspaper-outline" label="Notícias" onPress={() => router.push('/noticias')} />
-          <ChipButton icon="airplane-outline" label="Aeroportos" onPress={() => router.push('/aeroportos')} />
-          <ChipButton icon="briefcase-outline" label="Vagas" onPress={() => router.push('/vagas')} />
-          <ChipButton icon="boat-outline" label="Unidades" onPress={() => router.push('/unidades')} />
-          <ChipButton icon="hammer-outline" label="Ferramentas" onPress={() => router.push('/ferramentas')} />
+        {/* ── Núcleo pessoal (2 × 2) ── */}
+        <Text style={styles.sectionLabel}>Meu offshore</Text>
+        <View style={styles.grid}>
+          <HomeTile
+            icon="calendar-outline"
+            label="Minha Escala"
+            sub={resumo.calc ? `${resumo.calc.dEm} × ${resumo.calc.dFo} · calendário` : 'Configurar agora'}
+            accent={escala ? colors.cyan : colors.mutedDim}
+            onPress={() => router.push(escala ? '/escala' : '/escala-config')}
+          />
+          <HomeTile
+            icon="checkbox-outline"
+            label="Meu Embarque"
+            sub={checkCount.total === 0
+              ? 'Montar minha lista'
+              : checkCount.pendentes === 0
+                ? 'Tudo preparado'
+                : `${checkCount.feitos}/${checkCount.total} preparados`}
+            accent={checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined}
+            badge={checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
+            onPress={() => router.navigate('/mala')}
+          />
+          <HomeTile
+            icon="airplane-outline"
+            label="Minha Viagem"
+            sub={viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem'}
+            accent={viagemBreve ? colors.amber : undefined}
+            onPress={() => router.navigate('/viagem')}
+          />
+          <HomeTile
+            icon="document-text-outline"
+            label="Certificados"
+            sub={critCerts.length > 0
+              ? `${critCerts.length} vence(m) em breve`
+              : totalCerts > 0 ? `${totalCerts} em dia` : 'Controle de validades'}
+            accent={critCerts.length > 0 ? colors.amber : undefined}
+            badge={critCerts.length > 0 ? String(critCerts.length) : undefined}
+            badgeColor={colors.red}
+            onPress={() => router.navigate('/certs')}
+          />
         </View>
+
+        {/* ── Offshore agora ── */}
+        <Text style={styles.sectionLabel}>Offshore agora</Text>
+        <View style={styles.grid}>
+          <HomeTile
+            destaque
+            icon="briefcase-outline"
+            label="Vagas"
+            sub={vagasTotal != null ? `${vagasTotal} ${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'}` : 'Vagas verificadas'}
+            onPress={() => router.push('/vagas')}
+          />
+          <HomeTile
+            destaque
+            icon="boat-outline"
+            label="Unidades"
+            sub="FPSOs, sondas e navios"
+            onPress={() => router.push('/unidades')}
+          />
+        </View>
+        <View style={styles.actionList}>
+          <ActionRow icon="newspaper-outline" label="Notícias" sub="O que importa no setor hoje" onPress={() => router.push('/noticias')} />
+          <ActionRow icon="cloudy-outline" label="Aeroportos" sub="Condições nas bases offshore" onPress={() => router.push('/aeroportos')} last />
+        </View>
+        <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7}>
+          <Ionicons name="hammer-outline" size={14} color={colors.mutedDim} />
+          <Text style={styles.toolsLinkText}>Ferramentas offshore</Text>
+          <Ionicons name="chevron-forward" size={13} color={colors.mutedDim} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* ── City Search Modal ── */}
@@ -369,97 +383,143 @@ export default function TelaHoje() {
   );
 }
 
-/**
- * Cartão de escala da Home. Três estados explícitos, todos vindos de
- * resumoEscala() — nenhuma aritmética de datas aqui.
- *  SEM_ESCALA → convite para configurar
- *  DE_FOLGA   → countdown + data do embarque + aeroporto + checklist pronto
- *  EMBARCADO  → dia X de Y + progresso + data/countdown do desembarque
- */
-function HomeEscalaCard({
-  resumo,
-  aeroporto,
-}: {
-  resumo: EscalaResumo;
-  aeroporto?: AeroportoEscala;
-}) {
-  if (resumo.estado === 'SEM_ESCALA' || !resumo.calc) {
-    return (
-      <TouchableOpacity style={styles.alertCard} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
-        <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
-        <Text style={styles.alertText}>Configure sua escala para ver seu momento offshore</Text>
-        <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
-      </TouchableOpacity>
-    );
-  }
-
-  const { calc } = resumo;
-
-  if (resumo.estado === 'EMBARCADO') {
-    const dias = resumo.diasParaDesembarque ?? calc.diasRestantes;
-    return (
-      <TouchableOpacity style={[styles.escalaCard, styles.escalaCardEmbarcado]} onPress={() => router.push('/escala')} activeOpacity={0.85}>
-        <View style={styles.escalaRow}>
-          <View>
-            <Text style={[styles.escalaLabel, { color: colors.green }]}>EMBARCADO</Text>
-            <Text style={styles.escalaValue}>Dia {calc.diaDoBloco} de {calc.dEm}</Text>
-            {resumo.proximoDesembarqueISO && (
-              <Text style={styles.escalaSub}>desembarca {formatDateBR(resumo.proximoDesembarqueISO)}</Text>
-            )}
-          </View>
-          <View style={styles.escalaRight}>
-            <Text style={[styles.escalaCountdown, { color: colors.green }]}>{dias}</Text>
-            <Text style={styles.escalaUnit}>{dias === 1 ? 'dia p/ desembarque' : 'dias p/ desembarque'}</Text>
-          </View>
-        </View>
-        <View style={styles.escalaProgress}>
-          <View style={[styles.escalaFill, { width: `${Math.round(resumo.progresso * 100)}%` as `${number}%`, backgroundColor: colors.green }]} />
-        </View>
-        {aeroporto && <Text style={styles.escalaBadge}>{aeroporto.code} · {aeroporto.nome}</Text>}
-      </TouchableOpacity>
-    );
-  }
-
-  // DE_FOLGA
-  const dias = resumo.diasParaEmbarque ?? calc.diasRestantes;
-  const countdown = dias <= 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : `Em ${dias} dias`;
+/** Reflexo frio no topo da superfície — acabamento "marítimo", nunca cromado. */
+function Sheen() {
   return (
-    <TouchableOpacity style={[styles.escalaCard, styles.escalaCardFolga]} onPress={() => router.push('/escala')} activeOpacity={0.85}>
-      <View style={styles.escalaRow}>
-        <View>
-          <Text style={[styles.escalaLabel, { color: colors.amber }]}>PRÓXIMO EMBARQUE</Text>
-          <Text style={styles.escalaValue}>{countdown}</Text>
-          {resumo.proximoEmbarqueISO && (
-            <Text style={styles.escalaSub}>
-              {formatDateBR(resumo.proximoEmbarqueISO)} · folga dia {calc.diaDoBloco} de {calc.dFo}
-            </Text>
-          )}
+    <LinearGradient
+      pointerEvents="none"
+      colors={maritime.sheenGradient as unknown as [string, string, ...string[]]}
+      locations={maritime.sheenLocations as unknown as [number, number, ...number[]]}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
+
+/**
+ * Hero contextual da Home. Todo o texto vem de contextoHome() (ow-domain),
+ * que só lê resumoEscala()/calcularMomento() — nenhuma aritmética de datas aqui.
+ */
+function HomeHero({
+  contexto, progresso, dataISO, aeroporto, voz,
+}: {
+  contexto: HomeContexto;
+  progresso: number;
+  dataISO: string | null;
+  aeroporto: string | null;
+  voz: string;
+}) {
+  const cor = CONTEXTO_COR[contexto.tipo];
+
+  if (contexto.tipo === 'SEM_ESCALA') {
+    return (
+      <TouchableOpacity style={[styles.hero, styles.heroVazio]} onPress={() => router.push('/escala-config')} activeOpacity={0.85}>
+        <Sheen />
+        <Text style={styles.heroTitulo}>{contexto.titulo}</Text>
+        <Text style={styles.heroDetalhe}>{contexto.detalhe}</Text>
+        <View style={styles.heroCta}>
+          <Text style={styles.heroCtaText}>Configurar escala</Text>
+          <Ionicons name="arrow-forward" size={15} color={colors.navy950} />
         </View>
-        {aeroporto && (
-          <View style={styles.escalaRight}>
-            <Text style={[styles.escalaCountdown, { fontSize: 14, color: colors.cyanDim }]}>{aeroporto.code}</Text>
-            <Text style={styles.escalaUnit}>{aeroporto.nome}</Text>
-          </View>
-        )}
+      </TouchableOpacity>
+    );
+  }
+
+  const destino = contexto.tipo === 'PRE_EMBARQUE' ? '/mala' : '/escala';
+  const pct = `${Math.round(Math.min(1, Math.max(0, progresso)) * 100)}%` as `${number}%`;
+  return (
+    <TouchableOpacity
+      style={[styles.hero, { borderColor: cor + '40' }]}
+      onPress={() => router.navigate(destino)}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={`${contexto.titulo}. ${contexto.destaque ?? ''}. ${contexto.detalhe}`}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={maritime.heroGradient as unknown as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Sheen />
+      <View style={styles.heroTop}>
+        <View style={[styles.heroChip, { backgroundColor: cor + '1f' }]}>
+          <View style={[styles.heroDot, { backgroundColor: cor }]} />
+          <Text style={[styles.heroChipText, { color: cor }]}>{contexto.kicker.toUpperCase()}</Text>
+        </View>
+        {dataISO ? (
+          <Text style={styles.heroData}>
+            {contexto.tipo === 'EMBARCADO' ? 'Desembarque ' : 'Embarque '}{formatDateBR(dataISO)}
+          </Text>
+        ) : null}
       </View>
-      <View style={styles.escalaProgress}>
-        <View style={[styles.escalaFill, { width: `${Math.round(resumo.progresso * 100)}%` as `${number}%`, backgroundColor: colors.amber }]} />
+      <Text style={styles.heroTitulo}>{contexto.titulo}</Text>
+      {contexto.destaque ? <Text style={[styles.heroDestaque, { color: cor }]}>{contexto.destaque}</Text> : null}
+      <View style={styles.heroBar}>
+        <View style={[styles.heroBarFill, { width: pct, backgroundColor: cor }]} />
       </View>
+      <View style={styles.heroBottom}>
+        <Text style={styles.heroDetalhe}>{contexto.detalhe}</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+      </View>
+      {aeroporto ? (
+        <View style={styles.heroAero}>
+          <Ionicons name="location-outline" size={12} color={colors.cyanDim} />
+          <Text style={styles.heroAeroText}>{aeroporto}</Text>
+        </View>
+      ) : null}
+      {voz ? <Text style={styles.heroVoz}>“{voz}”</Text> : null}
     </TouchableOpacity>
   );
 }
 
-/** Action row — ícone + label + sub + badge. Usado no painel principal. */
+/** Bloco compacto da grade 2 × 2 (núcleo pessoal e Offshore agora). */
+function HomeTile({
+  icon, label, sub, onPress, accent, badge, badgeColor, destaque,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  sub: string;
+  onPress: () => void;
+  accent?: string;
+  badge?: string;
+  badgeColor?: string;
+  destaque?: boolean;
+}) {
+  const cor = accent ?? colors.cyanDim;
+  return (
+    <TouchableOpacity
+      style={[styles.tile, destaque && styles.tileDestaque]}
+      onPress={onPress}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}. ${sub}`}
+    >
+      <Sheen />
+      <View style={styles.tileTop}>
+        <View style={[styles.tileIcon, { backgroundColor: cor + '1c' }]}>
+          <Ionicons name={icon} size={19} color={cor} />
+        </View>
+        {badge ? (
+          <View style={[styles.actionBadge, { backgroundColor: badgeColor ?? colors.cyan }]}>
+            <Text style={styles.actionBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
+      <Text style={styles.tileSub} numberOfLines={1}>{sub}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Linha de lista compacta (Notícias, Aeroportos). */
 function ActionRow({
-  icon, label, sub, onPress, accent, badge, badgeColor, last,
+  icon, label, sub, onPress, last,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   sub?: string;
   onPress: () => void;
-  accent?: string;
-  badge?: string;
-  badgeColor?: string;
   last?: boolean;
 }) {
   return (
@@ -468,33 +528,14 @@ function ActionRow({
       onPress={onPress}
       activeOpacity={0.72}
     >
-      <View style={[styles.actionIconWrap, { backgroundColor: (accent ?? colors.cyanDim) + '18' }]}>
-        <Ionicons name={icon} size={18} color={accent ?? colors.cyanDim} />
+      <View style={[styles.actionIconWrap, { backgroundColor: colors.cyanDim + '18' }]}>
+        <Ionicons name={icon} size={17} color={colors.cyanDim} />
       </View>
       <View style={styles.actionContent}>
         <Text style={styles.actionLabel}>{label}</Text>
         {sub ? <Text style={styles.actionSub} numberOfLines={1}>{sub}</Text> : null}
       </View>
-      {badge ? (
-        <View style={[styles.actionBadge, { backgroundColor: badgeColor ?? colors.cyan }]}>
-          <Text style={styles.actionBadgeText}>{badge}</Text>
-        </View>
-      ) : null}
       <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
-    </TouchableOpacity>
-  );
-}
-
-/** Chip compacto — linha de 4 chips para atalhos de informação */
-function ChipButton({ icon, label, onPress }: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.chip} onPress={onPress} activeOpacity={0.72}>
-      <Ionicons name={icon} size={16} color={colors.cyanDim} />
-      <Text style={styles.chipLabel}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -519,92 +560,101 @@ const styles = StyleSheet.create({
   },
   offlineText: { fontSize: 12, color: colors.amber, flex: 1 },
 
-  // Greeting
+  // Greeting + clima inline
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     marginTop: spacing.sm,
   },
   greetingLeft: { flex: 1, marginRight: spacing.sm },
-  greetingText: { fontSize: 30, fontWeight: '700', color: colors.white, marginBottom: 10 },
-  momentoChip: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-  },
-  momentoChipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
-  configBtn: { paddingTop: 4 },
+  greetingText: { fontSize: 28, fontWeight: '700', color: colors.white, letterSpacing: -0.3 },
+  weatherInline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start', minHeight: 24 },
+  weatherInlineText: { fontSize: 13, color: colors.muted, flexShrink: 1 },
+  weatherInlineTemp: { fontWeight: '700', color: colors.white },
+  configBtn: { paddingTop: 2 },
 
-  // Weather
-  weatherCard: {
-    backgroundColor: maritime.glass,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  // Hero contextual
+  hero: {
+    borderRadius: radius.lg,
+    padding: spacing.md + 2,
     marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
-  },
-  weatherLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  weatherCity: { fontSize: 13, color: colors.muted, fontWeight: '500' },
-  weatherRight: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  weatherTemp: { fontSize: 18, fontWeight: '700', color: colors.white },
-  weatherDesc: { fontSize: 12, color: colors.muted },
-  weatherAge: { fontSize: 10, color: colors.mutedDim, position: 'absolute', bottom: 3, right: spacing.sm },
-  weatherEmpty: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  weatherEmptyText: { fontSize: 13, color: colors.mutedDim },
-
-  // Buddy message
-  msgBubble: {
+    borderTopColor: maritime.edgeLight,
     backgroundColor: maritime.glassElevated,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.cyan,
-    borderWidth: 1,
-    borderColor: maritime.glassBorder,
+    overflow: 'hidden',
     ...maritime.cardShadow,
   },
-  msgText: { ...typography.body, lineHeight: 22 },
+  heroVazio: { gap: spacing.sm },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm + 2 },
+  heroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.xl, paddingHorizontal: 10, paddingVertical: 4 },
+  heroDot: { width: 6, height: 6, borderRadius: 3 },
+  heroChipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.9 },
+  heroData: { fontSize: 12, color: colors.muted, fontWeight: '600' },
+  heroTitulo: { fontSize: 23, fontWeight: '700', color: colors.white, letterSpacing: -0.2 },
+  heroDestaque: { fontSize: 16, fontWeight: '700', marginTop: 4 },
+  heroBar: { height: 4, backgroundColor: 'rgba(3, 16, 26, 0.55)', borderRadius: 2, overflow: 'hidden', marginTop: spacing.md },
+  heroBarFill: { height: '100%', borderRadius: 2 },
+  heroBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm + 2 },
+  heroDetalhe: { flex: 1, fontSize: 14, color: colors.muted, lineHeight: 20 },
+  heroAero: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm },
+  heroAeroText: { fontSize: 12, color: colors.cyanDim, fontWeight: '600' },
+  heroVoz: { fontSize: 13, color: colors.mutedDim, fontStyle: 'italic', marginTop: spacing.sm },
+  heroCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: colors.cyan, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 9, marginTop: spacing.xs,
+  },
+  heroCtaText: { fontSize: 14, fontWeight: '700', color: colors.navy950 },
 
   // Section titles
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.white,
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
-  },
   sectionLabel: {
     ...typography.micro,
     marginBottom: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
 
-  // Action list (painel principal)
+  // Grade 2 × 2
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm + 2,
+    marginBottom: spacing.sm + 2,
+  },
+  tile: {
+    width: '48.5%',
+    minHeight: 104,
+    backgroundColor: maritime.glass,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: maritime.glassBorder,
+    borderTopColor: maritime.edgeLight,
+    padding: spacing.sm + 6,
+    overflow: 'hidden',
+    ...maritime.cardShadow,
+  },
+  tileDestaque: { borderColor: 'rgba(18, 168, 238, 0.30)', borderTopColor: 'rgba(120, 210, 250, 0.40)' },
+  tileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm + 2 },
+  tileIcon: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  tileLabel: { fontSize: 15, fontWeight: '700', color: colors.white },
+  tileSub: { fontSize: 12, color: colors.muted, marginTop: 2 },
+
+  // Lista compacta (Notícias, Aeroportos)
   actionList: {
     backgroundColor: maritime.glass,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
     overflow: 'hidden',
-    ...maritime.cardShadow,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: 13,
+    paddingVertical: 12,
     gap: spacing.sm,
   },
   actionRowBorder: {
@@ -612,8 +662,8 @@ const styles = StyleSheet.create({
     borderBottomColor: maritime.glassBorder,
   },
   actionIconWrap: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -622,53 +672,18 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 14, fontWeight: '600', color: colors.white },
   actionSub: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
   actionBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
   },
-  actionBadgeText: { fontSize: 10, fontWeight: '700', color: colors.navy950 },
+  actionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.navy950 },
 
-  // Chips offshore (linha horizontal)
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: maritime.glass,
-    borderRadius: radius.xl,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: maritime.glassBorder,
-  },
-  chipLabel: { fontSize: 12, fontWeight: '600', color: colors.muted },
-
-  // Escala status card (3 estados)
-  escalaCard: {
-    backgroundColor: maritime.glassElevated, borderRadius: radius.lg, padding: spacing.lg,
-    marginBottom: spacing.md, borderWidth: 1, borderColor: maritime.glassBorder, gap: spacing.md,
-    ...maritime.cardShadow,
-  },
-  escalaCardEmbarcado: { borderColor: colors.green + '55' },
-  escalaCardFolga: { borderColor: colors.amber + '44' },
-  escalaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  escalaLabel: { fontSize: 10, fontWeight: '700', color: colors.mutedDim, letterSpacing: 1 },
-  escalaValue: { fontSize: 20, fontWeight: '700', color: colors.white, marginTop: 4 },
-  escalaSub: { fontSize: 13, color: colors.mutedDim, marginTop: 4 },
-  escalaRight: { alignItems: 'flex-end' },
-  escalaCountdown: { fontSize: 36, fontWeight: '700', color: colors.green },
-  escalaUnit: { fontSize: 11, color: colors.mutedDim },
-  escalaBadge: { fontSize: 11, color: colors.cyanDim, fontWeight: '600' },
-  escalaProgress: { height: 4, backgroundColor: 'rgba(6, 28, 43, 0.6)', borderRadius: 2, overflow: 'hidden' },
-  escalaFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
+  // Ferramentas — prioridade menor, link discreto
+  toolsLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, minHeight: 44, paddingHorizontal: spacing.md },
+  toolsLinkText: { fontSize: 13, color: colors.mutedDim, fontWeight: '600' },
 
   // Alert cards
   alertCard: {
@@ -684,10 +699,7 @@ const styles = StyleSheet.create({
     borderColor: maritime.glassBorder,
   },
   alertCardWarn: { borderColor: colors.amber + '44' },
-  alertCardViagem: { borderColor: colors.amber + '44' },
   alertText: { flex: 1, fontSize: 13, color: colors.muted },
-
-  // Offshore - estilos removidos (agora usa chipRow/chip)
 
   // City search modal
   modalRoot: { flex: 1, backgroundColor: surface.header },

@@ -29,7 +29,9 @@ ferramentas.
    vindos prontos do `/api/buddy/feed`. O app não gera, não resume, não completa
    e nunca mostra texto da fonte. Compartilhar usa a URL do OWNews.
 5. **Buddy oficial e funcional** (ícone, splash, card "Buddy resume"). Nunca
-   marca-d'água grande/decorativa, nunca mascote novo. Asset: `assets/buddy-watermark.png`.
+   mascote novo. Asset: `assets/buddy-watermark.png`. Marca-d'água: SÓ na Home
+   (`OWBackground watermark="home"`, canto superior direito, ~5%) — decisão do
+   dono em 2026-10-19; nenhuma outra tela.
 6. **Notificações só LOCAIS**, desligadas por padrão, cadência conservadora,
    texto sem dado privado. Sem push remoto na 1.0.
 7. **Privacidade:** viagem, checklist, eventos, Cruzar e nickname nunca vão para
@@ -336,3 +338,27 @@ Sempre com: commit por área, `git add <caminhos>` (nunca `git add .`), sem
 
 Baixar o APK para o computador: `scp offshore@<servidor>:/home/offshore/android-build/owbuddy-1.0.0-vc12-preview.apk .`
 (o repositório GitHub é público — não publicar APK em release lá).
+
+## Polimento Home + Meu Embarque (2026-10-19)
+
+- **Home contextual:** `contextoHome()` (ow-domain/home-contexto.ts) transforma
+  `resumoEscala()` + `calcularMomento()` em SEM_ESCALA / PRE_EMBARQUE (≤ 5 dias,
+  mesmo corte do momento) / EMBARCADO / FOLGA. Só texto — nenhuma conta de datas.
+  A contagem do checklist na Home passa por `sincronizarChecklistComCiclo` (só
+  exibe; quem grava é o Meu Embarque).
+- **Home:** hero contextual → "Meu offshore" (grade 2 × 2) → "Offshore agora"
+  (Vagas e Unidades em destaque, Notícias/Aeroportos em lista, Ferramentas como
+  link). O contador de Vagas é o tamanho real de `/api/buddy/vagas` (cache 1 h);
+  sem dado, sem número. Unidades não carrega nada na Home.
+- **Meu Embarque:** botão ⋯ em cada item (e toque longo) abre um sheet próprio
+  (Modal) — Alert com botões não existe na web. Personalizado: editar / excluir
+  (2º toque confirma). Padrão: editar / ocultar (sai da lista; volta com
+  "Restaurar itens padrão" → `restaurarItensPadrao`). Formato `{items, ciclo}`
+  inalterado. Lista vazia não é mais recriada (era escolha do usuário).
+- **Concluídos:** sem riscado; 100% vira "11 / 11 · Tudo preparado · Tudo pronto.
+  Bom embarque!". "Ocultar concluídos" é preferência local
+  (`owbuddy_mala_ocultar_concluidos`), nunca apaga nem sincroniza.
+- **Web:** `app/_layout.tsx` limita a coluna a 560 px no navegador (no app é View neutro).
+- Categorias: mantidas; item novo continua em Personalizados (escolher categoria
+  ficou para depois, para não complicar o fluxo).
+

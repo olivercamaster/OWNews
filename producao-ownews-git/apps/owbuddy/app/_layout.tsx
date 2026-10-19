@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '../src/theme';
@@ -18,7 +18,8 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <View style={styles.webFrame}>
+      <View style={styles.webColumn}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -126,6 +127,18 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
       </Stack>
-    </>
+      </View>
+    </View>
   );
 }
+
+// Web em monitor largo: o app continua mobile — coluna central com largura de
+// celular grande, fundo navy nas laterais. No Android/iOS é um View neutro (flex:1).
+const styles = StyleSheet.create({
+  webFrame: Platform.OS === 'web'
+    ? { flex: 1, backgroundColor: '#020b13', alignItems: 'center' }
+    : { flex: 1 },
+  webColumn: Platform.OS === 'web'
+    ? { flex: 1, width: '100%', maxWidth: 560, overflow: 'hidden' }
+    : { flex: 1 },
+});

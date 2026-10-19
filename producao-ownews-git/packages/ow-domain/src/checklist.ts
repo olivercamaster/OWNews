@@ -134,7 +134,8 @@ export function sincronizarChecklistComCiclo(
   data: ChecklistData | null,
   nextEmbarqueISO: string | null,
 ): { data: ChecklistData; alterado: boolean; resetado: boolean } {
-  if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+  // Lista vazia é escolha do usuário (ocultou tudo) — não recria; "Restaurar itens padrão" traz de volta.
+  if (!data || !Array.isArray(data.items)) {
     return { data: criarChecklistPadrao(nextEmbarqueISO), alterado: true, resetado: false };
   }
   if (nextEmbarqueISO && data.ciclo !== nextEmbarqueISO) {
@@ -188,4 +189,29 @@ export function editarItem(data: ChecklistData, id: string, texto: string): Chec
 /** Reset controlado: desmarca tudo, mantém os itens e o ciclo. */
 export function desmarcarTodos(data: ChecklistData): ChecklistData {
   return { ...data, items: data.items.map(item => (item.ok ? { ...item, ok: false } : item)) };
+}
+
+// ─── Itens padrão: ocultar / restaurar ─────────────────────────────────────
+// O catálogo base (ITENS_PADRAO) nunca é alterado. "Ocultar" um item padrão é
+// tirá-lo da lista pessoal (mesmo formato {items, ciclo} do OWNews web);
+// "Restaurar" devolve os que faltam, desmarcados, na ordem do catálogo.
+
+const IDS_PADRAO = new Set(ITENS_PADRAO.map(i => i.id));
+
+export function ehItemPadrao(id: string): boolean {
+  return IDS_PADRAO.has(id);
+}
+
+/** Quantos itens do catálogo padrão não estão na lista pessoal. */
+export function contarPadraoOcultos(data: ChecklistData): number {
+  const presentes = new Set(data.items.map(i => i.id));
+  return ITENS_PADRAO.filter(i => !presentes.has(i.id)).length;
+}
+
+/** Devolve à lista os itens padrão ocultos; personalizados e marcações ficam intactos. */
+export function restaurarItensPadrao(data: ChecklistData): ChecklistData {
+  const presentes = new Set(data.items.map(i => i.id));
+  const faltando = ITENS_PADRAO.filter(i => !presentes.has(i.id)).map(i => ({ ...i, ok: false }));
+  if (faltando.length === 0) return data;
+  return { ...data, items: [...data.items, ...faltando] };
 }

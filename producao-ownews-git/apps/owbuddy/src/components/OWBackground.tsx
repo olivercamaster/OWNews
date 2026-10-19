@@ -4,10 +4,12 @@
  * Hierarquia visual (fundo → frente):
  *   1. Gradiente navy profundo com brilho diagonal e sombra de profundidade.
  *   2. Curvas batimétricas orgânicas — textura sutil (~3%), nunca grade.
- *   3. (Opcional, DESLIGADO por padrão) mascote como marca-d'água.
+ *   3. (Opcional) mascote oficial como marca-d'água.
  *      Decisão OWBuddy 1.0 (2026-10-18): o Buddy é FUNCIONAL — ícone, splash e o
- *      card "Buddy resume" da notícia —, nunca marca-d'água grande/decorativa.
- *      A prop continua existindo só para não quebrar telas; ninguém deve ligá-la.
+ *      card "Buddy resume" da notícia. `showWatermark` (grande, centrado) segue
+ *      desligado em todas as telas.
+ *      Exceção do dono (2026-10-19): `watermark="home"` — SÓ na Home, canto
+ *      superior direito, opacidade ~5%, atrás do conteúdo. Não usar em outras telas.
  *   4. Conteúdo da tela.
  *
  * React Native puro + expo-linear-gradient. Compatível com Expo Go SDK 57.
@@ -25,9 +27,11 @@ interface OWBackgroundProps {
   children: React.ReactNode;
   /** false em telas de loading/transição (evita piscar). */
   showWatermark?: boolean;
+  /** Marca-d'água da Home (exclusiva da Home). */
+  watermark?: 'home';
 }
 
-export function OWBackground({ children, showWatermark = false }: OWBackgroundProps) {
+export function OWBackground({ children, showWatermark = false, watermark }: OWBackgroundProps) {
   return (
     <View style={styles.root}>
       {/* 1. Gradiente premium */}
@@ -63,6 +67,19 @@ export function OWBackground({ children, showWatermark = false }: OWBackgroundPr
           <Image
             source={BUDDY}
             style={styles.buddy}
+            resizeMode="contain"
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
+        </View>
+      )}
+
+      {/* 3b. Buddy da Home — grande, canto superior direito, quase imperceptível */}
+      {watermark === 'home' && (
+        <View style={[StyleSheet.absoluteFill, styles.clip]} pointerEvents="none">
+          <Image
+            source={BUDDY}
+            style={styles.buddyHome}
             resizeMode="contain"
             accessibilityElementsHidden
             importantForAccessibility="no"
@@ -137,5 +154,15 @@ const styles = StyleSheet.create({
     left: '-4%',
     opacity: maritime.watermarkOpacity,
     tintColor: maritime.watermarkTint,
+  } as const,
+  buddyHome: {
+    position: 'absolute',
+    width: 360,
+    height: 360,
+    top: -36,
+    right: -112,
+    opacity: maritime.homeWatermarkOpacity,
+    tintColor: maritime.watermarkTint,
+    transform: [{ rotate: '-8deg' }],
   } as const,
 });

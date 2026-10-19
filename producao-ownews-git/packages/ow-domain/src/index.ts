@@ -9,3 +9,4 @@ export * from './certs';
 export * from './viagem';
 export * from './checklist';
 export * from './lembretes';
+export * from './home-contexto';

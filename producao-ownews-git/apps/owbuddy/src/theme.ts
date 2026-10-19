@@ -114,7 +114,9 @@ export const screen = {
 export const maritime = {
   // Gradiente premium (topo → base): navy profundo → petróleo/naval → navy profundo.
   // Variação de luminosidade real, não um bloco azul chapado.
-  bgGradient: ['#04121d', '#06243a', '#083247', '#06273c', '#041622'] as string[],
+  // Polimento 2026-10-19: um pouco mais de profundidade tonal (topo mais fundo, faixa
+  // central levemente mais fria) — mesmo azul-marinho oficial, sem gradiente chamativo.
+  bgGradient: ['#03101a', '#06223a', '#0a3049', '#072a40', '#04131f'] as string[],
   bgLocations: [0, 0.28, 0.55, 0.80, 1] as number[],
   // Brilho diagonal (luz vinda do canto superior esquerdo) e sombra de profundidade na base.
   // Ambos são LinearGradient — zero blur, zero custo de GPU relevante.
@@ -138,6 +140,15 @@ export const maritime = {
     elevation: 3,
   },
 
+  // Acabamento "marítimo/metalizado" discreto: reflexo frio no topo das superfícies
+  // principais (LinearGradient, zero blur) + aresta superior um pouco mais clara.
+  // Nada de cromado: o reflexo some antes da metade do card.
+  sheenGradient:  ['rgba(190, 230, 255, 0.075)', 'rgba(190, 230, 255, 0.018)', 'rgba(190, 230, 255, 0)'] as string[],
+  sheenLocations: [0, 0.35, 0.7] as number[],
+  // Hero da Home: variação tonal muito sutil de azul-marinho (diagonal).
+  heroGradient:   ['rgba(24, 76, 108, 0.97)', 'rgba(16, 58, 88, 0.97)', 'rgba(10, 42, 66, 0.97)'] as string[],
+  edgeLight:      'rgba(170, 220, 250, 0.20)',
+
   // Nav flutuante — contraste garantido sobre qualquer trecho do gradiente
   navBg:           'rgba(4, 18, 30, 0.97)',
   navBorder:       'rgba(120, 200, 240, 0.16)',
@@ -154,6 +165,9 @@ export const maritime = {
   // OWBuddy 1.0: marca-d'água DESLIGADA (OWBackground showWatermark=false por padrão).
   watermarkTint:    '#9fd3ee',
   watermarkOpacity: 0.08,
+  // Decisão do dono (2026-10-19): SÓ a Home tem o Buddy como marca-d'água — grande,
+  // canto superior direito, quase imperceptível. Nenhuma outra tela.
+  homeWatermarkOpacity: 0.05,
 } as const;
 
 /** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */
