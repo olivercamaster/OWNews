@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -35,12 +34,13 @@ import {
   setEscala,
   getEventosPessoais,
   setEventosPessoais,
-} from '../src/storage';
-import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
-import { OWBackground } from '../src/components/OWBackground';
-import { formatDateBR } from '../src/format';
-import { analytics } from '../src/analytics';
-import { confirmarRemocao } from '../src/confirmar';
+} from '../../src/storage';
+import { bottomNavSpace, colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { OWBackground } from '../../src/components/OWBackground';
+import { formatDateBR } from '../../src/format';
+import { analytics } from '../../src/analytics';
+import { confirmarRemocao } from '../../src/confirmar';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -63,8 +63,18 @@ const TIPO_META: Record<EventoTipo, { icon: IoniconsName; color: string; label: 
   OUTRO:        { icon: 'ellipsis-horizontal-circle-outline', color: colors.mutedDim, label: 'Outro'        },
 };
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CELL_SIZE = Math.floor((SCREEN_W - spacing.md * 2 - 6) / 7);
+// Calendário: 7 colunas de largura FIXA calculada da largura REAL do container (onLayout) —
+// celular, tablet, rotação e coluna web de 560 px. Antes vinha de Dimensions lido uma vez no
+// load do módulo (no navegador largo: células gigantes). Conteúdo nenhum (EMB/DEB, hoje,
+// ícones) altera o tamanho: a célula tem width/height explícitos e overflow escondido.
+const CELL_GAP = 1;
+const COMPACTA = StyleSheet.create({
+  tag: { height: 10, paddingHorizontal: 2, marginBottom: 0 },
+  tagText: { fontSize: 7.5, lineHeight: 9 },
+  spacer: { height: 10 },
+  num: { fontSize: 13, lineHeight: 15 },
+  icons: { height: 10, marginTop: 0 },
+});
 
 function chunk<T>(arr: T[], n: number): T[][] {
   const result: T[][] = [];
@@ -87,16 +97,18 @@ function rotuloDia(day: DayInfo): string {
   return partes.join(', ');
 }
 
-function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
+function DayCell({ day, size, onPress }: { day: DayInfo; size: number; onPress: () => void }) {
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
   const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
   const tipos = [...new Set(day.eventosPessoais.map(e => e.tipo))];
+  // Célula pequena (320–360 dp): mesma estrutura, só escala tipografia/etiqueta — nunca o tamanho.
+  const c = size < 46 ? COMPACTA : null;
   return (
     <TouchableOpacity
       style={[
         styles.dayCell,
-        { backgroundColor: s.bg, borderColor: s.border ?? 'transparent', width: CELL_SIZE, height: CELL_SIZE },
+        { backgroundColor: s.bg, borderColor: s.border ?? 'transparent', width: size, height: size },
       ]}
       onPress={onPress}
       activeOpacity={0.7}
@@ -105,25 +117,25 @@ function DayCell({ day, onPress }: { day: DayInfo; onPress: () => void }) {
     >
       {/* Marcador de transição: etiqueta sólida e legível (antes: texto de 7px) */}
       {day.isEmbarque ? (
-        <View style={[styles.transitionTag, { backgroundColor: colors.green }]}><Text style={styles.transitionTagText}>EMB</Text></View>
+        <View style={[styles.transitionTag, c?.tag, { backgroundColor: colors.green }]}><Text style={[styles.transitionTagText, c?.tagText]}>EMB</Text></View>
       ) : day.isDesembarque ? (
-        <View style={[styles.transitionTag, { backgroundColor: colors.amber }]}><Text style={styles.transitionTagText}>DEB</Text></View>
+        <View style={[styles.transitionTag, c?.tag, { backgroundColor: colors.amber }]}><Text style={[styles.transitionTagText, c?.tagText]}>DEB</Text></View>
       ) : (
-        <View style={styles.transitionSpacer} />
+        <View style={[styles.transitionSpacer, c?.spacer]} />
       )}
       {day.isHoje ? (
         <View style={styles.hojeRing}>
-          <Text style={[styles.dayNum, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
+          <Text style={[styles.dayNum, c?.num, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
         </View>
       ) : (
-        <Text style={[styles.dayNum, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
+        <Text style={[styles.dayNum, c?.num, { color: numColor }]} maxFontSizeMultiplier={1.2}>{dayNum}</Text>
       )}
-      <View style={styles.iconRow}>
+      <View style={[styles.iconRow, c?.icons]}>
         {day.feriado?.tipo === 'feriado'     && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
         {day.feriado?.tipo === 'comemorativa' && <View style={[styles.dot, { backgroundColor: colors.mutedDim }]} />}
         {tipos.slice(0, 2).map(t => {
           const m = TIPO_META[t];
-          return <Ionicons key={t} name={m.icon} size={11} color={m.color} />;
+          return <Ionicons key={t} name={m.icon} size={c ? 9 : 11} color={m.color} />;
         })}
         {tipos.length > 2 && <Text style={styles.maisEventos}>+</Text>}
       </View>
@@ -144,24 +156,28 @@ function CalendarMonth({ config, excecoes, eventosPessoais, ano, mes, onDayPress
   const cells: (DayInfo | null)[] = [...Array(firstDow).fill(null), ...dias];
   while (cells.length % 7 !== 0) cells.push(null);
   const weeks = chunk(cells, 7);
+  const [largura, setLargura] = useState(0);
+  const size = largura > 0 ? Math.floor((largura - CELL_GAP * 6) / 7) : 0;
 
   return (
-    <View style={styles.calendar}>
-      <View style={styles.weekRow}>
-        {DIAS_SEMANA.map((d, i) => (
-          <View key={i} style={[styles.dayHeaderCell, { width: CELL_SIZE }]}>
-            <Text style={styles.dayHeaderText}>{d}</Text>
+    <View style={styles.calendar} onLayout={e => setLargura(e.nativeEvent.layout.width)}>
+      {size > 0 && (<>
+        <View style={styles.weekRow}>
+          {DIAS_SEMANA.map((d, i) => (
+            <View key={i} style={[styles.dayHeaderCell, { width: size }]}>
+              <Text style={styles.dayHeaderText}>{d}</Text>
+            </View>
+          ))}
+        </View>
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.weekRow}>
+            {week.map((day, di) => day
+              ? <DayCell key={di} day={day} size={size} onPress={() => onDayPress(day)} />
+              : <View key={di} style={{ width: size, height: size }} />
+            )}
           </View>
         ))}
-      </View>
-      {weeks.map((week, wi) => (
-        <View key={wi} style={styles.weekRow}>
-          {week.map((day, di) => day
-            ? <DayCell key={di} day={day} onPress={() => onDayPress(day)} />
-            : <View key={di} style={[styles.dayEmpty, { width: CELL_SIZE, height: CELL_SIZE }]} />
-          )}
-        </View>
-      ))}
+      </>)}
     </View>
   );
 }
@@ -299,6 +315,8 @@ export default function EscalaScreen() {
   const [eventosPessoais, setEPState] = useState<EventoPessoal[]>([]);
   const [viewMes, setViewMes] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
+  // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
+  const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
     const [cfg, ep] = await Promise.all([getEscala(), getEventosPessoais()]);
@@ -351,7 +369,7 @@ export default function EscalaScreen() {
 
   if (!config || !calc) {
     return (
-      <View style={styles.setupRoot}>
+      <View style={[styles.setupRoot, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
         <Ionicons name="calendar-outline" size={64} color={colors.cyanDim} />
         <Text style={styles.setupTitle}>Minha Escala</Text>
         <Text style={styles.setupSub}>
@@ -375,14 +393,14 @@ export default function EscalaScreen() {
 
   return (
     <OWBackground>
-      <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
 
         {/* ── Status hero ── */}
         <View style={[styles.heroCard, { borderColor: calc?.embarcado ? '#1a5c30' : colors.line }]}>
           {calc?.embarcado ? (
             <>
               <View style={styles.heroRow}>
-                <View>
+                <View style={styles.heroLeft}>
                   <Text style={styles.heroLabel}>EMBARCADO</Text>
                   <Text style={styles.heroValue}>Dia {calc.diaDoBloco} de {calc.dEm}</Text>
                   {proximoDesembarqueISO && (
@@ -406,7 +424,7 @@ export default function EscalaScreen() {
           ) : (
             <>
               <View style={styles.heroRow}>
-                <View>
+                <View style={styles.heroLeft}>
                   <Text style={styles.heroLabel}>DE FOLGA</Text>
                   <Text style={styles.heroValue}>Dia {calc?.diaDoBloco ?? '—'} de {calc?.dFo ?? '—'}</Text>
                   {proximoEmbarqueISO && (
@@ -622,13 +640,14 @@ const styles = StyleSheet.create({
     backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, gap: spacing.sm,
   },
-  heroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  heroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
+  heroLeft: { flex: 1, minWidth: 0 },
   heroLabel: { fontSize: 11, fontWeight: '700', color: colors.mutedDim, letterSpacing: 1 },
   heroValue: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 2 },
   heroDate: { fontSize: 12, color: colors.mutedDim, marginTop: 2 },
-  heroRight: { alignItems: 'flex-end' },
+  heroRight: { alignItems: 'flex-end', maxWidth: 104 },
   heroCountdown: { fontSize: 28, fontWeight: '700', color: '#4caf50' },
-  heroCountdownLabel: { fontSize: 11, color: colors.mutedDim, marginTop: -2 },
+  heroCountdownLabel: { fontSize: 11, color: colors.mutedDim, marginTop: -2, textAlign: 'right' },
   heroBadge: { fontSize: 12, color: colors.cyanDim, fontWeight: '600' },
   progressBar: { height: 6, backgroundColor: colors.navy800, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 3 },
@@ -645,12 +664,11 @@ const styles = StyleSheet.create({
   calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   calTitle: { fontSize: 16, fontWeight: '700', color: colors.white },
 
-  calendar: { marginBottom: spacing.md },
-  weekRow: { flexDirection: 'row' },
+  weekRow: { flexDirection: 'row', justifyContent: 'center', columnGap: CELL_GAP, marginBottom: CELL_GAP },
   dayHeaderCell: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
   dayHeaderText: { fontSize: 11, fontWeight: '600', color: colors.mutedDim },
-  dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, margin: 0.5 },
-  dayEmpty: { margin: 0.5 },
+  dayCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 4, borderWidth: 1, overflow: 'hidden' },
+  calendar: { marginBottom: spacing.md },
   dayNum: { fontSize: 15, fontWeight: '700', lineHeight: 18 },
   iconRow: { flexDirection: 'row', gap: 2, marginTop: 1, height: 12, alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3 },

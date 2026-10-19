@@ -75,8 +75,20 @@ test('Screen: Ferramentas → /ferramentas (stack)', () => {
 });
 
 // Missão 007 Adendo — Minha Escala
-test('Screen: Escala hub → /escala (stack)', () => {
-  assert.ok(existsSync(stackRoute('escala')), 'escala.tsx não encontrado');
+test('Tab: Escala hub → /escala (tab — OWBuddy 1.0 RC)', () => {
+  assert.ok(existsSync(tabRoute('escala')), '(tabs)/escala.tsx não encontrado');
+  assert.ok(!existsSync(stackRoute('escala')), 'app/escala.tsx duplicaria a rota /escala');
+});
+
+test('Barra inferior: Início · Escala · Embarque · Viagem · Certificados; Loja fora da barra mas com rota', () => {
+  const txt = readFileSync(resolve(appDir, '(tabs)/_layout.tsx'), 'utf8');
+  const ordem = [...txt.matchAll(/<Tabs\.Screen\s+name="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(ordem, ['index', 'escala', 'mala', 'viagem', 'certs', 'loja']);
+  const blocoLoja = txt.slice(txt.indexOf('name="loja"'));
+  assert.match(blocoLoja, /href:\s*null/, 'Loja deve ficar fora da barra (href: null)');
+  assert.ok(existsSync(tabRoute('loja')), 'rota /loja precisa continuar existindo');
+  const home = readFileSync(tabRoute('index'), 'utf8');
+  assert.match(home, /router\.push\('\/loja'\)/, 'Loja precisa de acesso secundário na Home');
 });
 test('Screen: Exceção form → /escala-excecao-form (stack modal)', () => {
   assert.ok(existsSync(stackRoute('escala-excecao-form')), 'escala-excecao-form.tsx não encontrado');

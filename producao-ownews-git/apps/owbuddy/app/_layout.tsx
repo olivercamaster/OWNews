@@ -78,13 +78,6 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="escala"
-          options={{
-            title: 'Minha Escala',
-            headerStyle: { backgroundColor: colors.navy800 },
-          }}
-        />
-        <Stack.Screen
           name="escala-excecao-form"
           options={{
             title: 'Adicionar Dobra / Férias',

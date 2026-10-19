@@ -1,4 +1,4 @@
-import { Text, type ColorValue } from 'react-native';
+import { Platform, Text, View, useWindowDimensions, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,23 +16,45 @@ function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
   );
 }
 
-/** Rótulo que encolhe para caber (telas de 360dp) em vez de virar "Certific…". */
+// Largura útil da barra. Web: o app vive na coluna de 560 px (app/_layout.tsx).
+function larguraApp(width: number): number {
+  return Platform.OS === 'web' ? Math.min(width, 560) : width;
+}
+
+/**
+ * Rótulo que cabe inteiro ("Certificados") de 320 a 430 dp. A fonte sai da largura REAL
+ * de cada aba (5 abas) — igual em Android, iOS e web; adjustsFontSizeToFit fica como rede
+ * extra no nativo (na web ele não existe). Um View com a largura da aba devolve ao texto o padding
+ * interno de 5 px do item do react-navigation, que sobrava vazio.
+ */
 function TabLabel({ children, color }: { children: string; color: ColorValue }) {
+  const { width } = useWindowDimensions();
+  const larg = larguraApp(width);
+  const aba = (larg - 2 * margemBarra(larg) - 2) / 5;
+  const fontSize = Math.max(8.5, Math.min(11, Math.floor((aba / 6.9) * 2) / 2));
   return (
-    <Text
-      numberOfLines={1}
-      adjustsFontSizeToFit
-      minimumFontScale={0.8}
-      allowFontScaling={false}
-      style={{ color, fontSize: 11, lineHeight: 14, fontWeight: '600', textAlign: 'center' }}
-    >
-      {children}
-    </Text>
+    <View style={{ width: Math.floor(aba), alignSelf: 'center', alignItems: 'center' }}>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        allowFontScaling={false}
+        style={{ color, fontSize, lineHeight: 14, fontWeight: '600', textAlign: 'center' }}
+      >
+        {children}
+      </Text>
+    </View>
   );
+}
+
+function margemBarra(larg: number): number {
+  return larg < 340 ? 4 : 8;
 }
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const margem = margemBarra(larguraApp(width));
   const bottomSafe = Math.max(insets.bottom, 8);
 
   return (
@@ -49,13 +71,13 @@ export default function TabLayout() {
           borderTopWidth: 0,
           borderWidth: 1,
           borderColor: maritime.navBorder,
-          marginHorizontal: 10,
+          marginHorizontal: margem,
           marginBottom: bottomSafe + maritime.navMarginBottom,
           borderRadius: radius.xl,
           height: maritime.navHeight,
           paddingBottom: 8,
           paddingTop: 6,
-          paddingHorizontal: 2,
+          paddingHorizontal: 0,
           // Elevation (Android)
           elevation: 16,
           // Shadow (iOS)
@@ -91,6 +113,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="escala"
+        options={{
+          title: 'Escala',
+          headerTitle: 'Minha Escala',
+          tabBarIcon: ({ focused }) => <TabIcon name="calendar" focused={focused} />,
+          headerStyle: { backgroundColor: '#07223a' },
+        }}
+      />
+      <Tabs.Screen
         name="mala"
         options={{
           title: 'Embarque',
@@ -118,7 +149,9 @@ export default function TabLayout() {
         name="loja"
         options={{
           title: 'Loja',
-          tabBarIcon: ({ focused }) => <TabIcon name="storefront" focused={focused} />,
+          // OWBuddy 1.0: Loja fora da barra (as 5 posições são da ferramenta pessoal).
+          // A rota /loja continua existindo — acesso pelo link secundário da Home.
+          href: null,
           headerShown: false,
         }}
       />
