@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   calcularMomento,
@@ -26,23 +21,37 @@ import {
   getAeroporto,
   contextoHome,
   sincronizarChecklistComCiclo,
+  gerarAcontecimentos,
+  acontecimentosParaHome,
+  saudacaoTopo,
+  fraseDoDia,
+  modulosVisiveis,
+  tamanhoDe,
+  DEF_MODULO,
 } from '@owbuddy/domain';
-import type { EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem } from '@owbuddy/domain';
-import type { AeroportoEscala } from '@owbuddy/domain';
-import { getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref } from '../../src/storage';
+import type {
+  EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem,
+  EventoPessoal, ConfigPagamento, PrefsHome, ModuloHome, Acontecimento, AcontecimentoTipo,
+} from '@owbuddy/domain';
+import {
+  getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref,
+  getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome,
+} from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
-import { saudacao, formatDateBR } from '../../src/format';
-import { getWeather, isCacheStale, weatherCacheLabel, type WeatherData } from '../../src/weather';
+import { CityPicker } from '../../src/components/CityPicker';
+import { TransporteSheet } from '../../src/components/TransporteSheet';
+import { formatDateBR, formatHoraBR } from '../../src/format';
+import { getWeather, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
-import { CITIES, type City } from '../../src/cities';
-import { searchCities } from '../../src/geocoding';
+import type { City } from '../../src/cities';
 import { analytics } from '../../src/analytics';
 import { fetchFeed, fetchVagas } from '../../src/api';
-import { contadorVagasHome, noticiaRecenteHome } from '../../src/frescor';
+import { contadorVagasHome, frescorClima, noticiaRecenteHome } from '../../src/frescor';
+import { AcontecimentoLinha } from '../../src/components/AcontecimentoLinha';
+import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
-
 
 // Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
 const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = {
@@ -52,6 +61,8 @@ const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = {
   FOLGA:        colors.cyanDim,
 };
 
+const ROTULO_GRUPO: Partial<Record<string, string>> = { pessoal: 'Meu offshore', offshore: 'Offshore agora' };
+
 type HomeState = {
   escala: EscalaConfig | null;
   prefs: BuddyPrefs;
@@ -59,7 +70,13 @@ type HomeState = {
   checklist: ChecklistData | null;
   certs: Certificado[];
   city: City | null;
+  eventos: EventoPessoal[];
+  pagamento: ConfigPagamento | null;
+  home: PrefsHome;
 };
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+type Peca = { id: ModuloHome; forma: 'bloco' | 'tile' | 'linha'; render: () => React.ReactNode; grupo: string };
 
 export default function TelaHoje() {
   const [state, setState] = useState<HomeState | null>(null);
@@ -70,36 +87,34 @@ export default function TelaHoje() {
   // Manchete canônica do OWNews (/api/buddy/feed) só se publicada nas últimas 48 h.
   const [manchete, setManchete] = useState<{ id: string; title: string } | null>(null);
   const [showCityPicker, setShowCityPicker] = useState(false);
-  const [cityQuery, setCityQuery] = useState('');
-  const [cityResults, setCityResults] = useState<City[]>([]);
-  const [citySearching, setCitySearching] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [transporte, setTransporte] = useState(false);
   const online = useConnectivity();
   const prevOnline = useRef(online);
 
   const load = useCallback(async () => {
-    const [escala, prefs, viagem, checklist, certs, city] = await Promise.all([
-      getEscala(),
-      getBuddyPrefs(),
-      getViagem(),
-      getChecklist(),
-      getCerts(),
-      getCityPref(),
+    // Tudo LOCAL e de uma vez (inclusive o layout da Home): a primeira pintura já sai na
+    // ordem do usuário — sem cards trocando de lugar depois de carregar.
+    const [escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home] = await Promise.all([
+      getEscala(), getBuddyPrefs(), getViagem(), getChecklist(), getCerts(), getCityPref(),
+      getEventosPessoais(), getPagamento(), getPrefsHome(),
     ]);
-    setState({ escala, prefs, viagem, checklist, certs, city });
-    fetchVagas().then(r => {
-      if (r.status !== 'ok' && r.status !== 'offline_cached') { setVagasTotal(null); return; }
-      const obtidoEm = r.status === 'ok' && !r.fromCache ? Date.now() : r.cachedAt;
-      setVagasTotal(contadorVagasHome(r.vagas.length, obtidoEm, r.updatedAt));
-    }).catch(() => setVagasTotal(null));
-    fetchFeed().then(r => {
-      const n = r.status === 'ok' || r.status === 'offline_cached' ? noticiaRecenteHome(r.articles) : null;
-      setManchete(n ? { id: n.id, title: n.title } : null);
-    }).catch(() => setManchete(null));
-    if (city) {
-      const w = await getWeather(city);
-      setWeather(w);
+    setState({ escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home });
+    const visiveis = new Set(modulosVisiveis(home));
+    // Rede só para o que está visível (e com cache): Vagas, Notícias e clima.
+    if (visiveis.has('vagas')) {
+      fetchVagas().then(r => {
+        if (r.status !== 'ok' && r.status !== 'offline_cached') { setVagasTotal(null); return; }
+        const obtidoEm = r.status === 'ok' && !r.fromCache ? Date.now() : r.cachedAt;
+        setVagasTotal(contadorVagasHome(r.vagas.length, obtidoEm, r.updatedAt));
+      }).catch(() => setVagasTotal(null));
     }
+    if (visiveis.has('noticias')) {
+      fetchFeed().then(r => {
+        const n = r.status === 'ok' || r.status === 'offline_cached' ? noticiaRecenteHome(r.articles) : null;
+        setManchete(n ? { id: n.id, title: n.title } : null);
+      }).catch(() => setManchete(null));
+    }
+    if (city && home.clima) setWeather(await getWeather(city));
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -107,15 +122,15 @@ export default function TelaHoje() {
     load();
   }, [load]));
 
-  // Refresh weather when coming back online
+  // Atualiza o clima ao voltar a ficar online
   useEffect(() => {
-    if (online && !prevOnline.current && state?.city) {
+    if (online && !prevOnline.current && state?.city && state.home.clima) {
       getWeather(state.city).then(setWeather);
       analytics.markOnline();
     }
     if (!online) analytics.markOffline();
     prevOnline.current = online;
-  }, [online, state?.city]);
+  }, [online, state?.city, state?.home.clima]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -123,38 +138,20 @@ export default function TelaHoje() {
     setRefreshing(false);
   }, [load]);
 
-  // Debounced geocoding search
-  useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (cityQuery.trim().length < 2) {
-      setCityResults([]);
-      return;
-    }
-    setCitySearching(true);
-    searchTimer.current = setTimeout(async () => {
-      analytics.track('city_searched', { query_length: cityQuery.trim().length });
-      const results = await searchCities(cityQuery);
-      setCityResults(results);
-      setCitySearching(false);
-    }, 350);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [cityQuery]);
-
-  const openCityPicker = () => {
-    setCityQuery('');
-    setCityResults([]);
-    setShowCityPicker(true);
-  };
-
   const selectCity = async (city: City) => {
     await setCityPref(city);
     setShowCityPicker(false);
-    setCityQuery('');
-    setCityResults([]);
     setState(s => s ? { ...s, city } : s);
     analytics.track('city_configured');
-    const w = await getWeather(city);
-    setWeather(w);
+    setWeather(await getWeather(city));
+  };
+
+  const dispensarDica = async (abrir: boolean) => {
+    if (!state) return;
+    const home = { ...state.home, dicaVista: true };
+    setState({ ...state, home });
+    await setPrefsHome(home);
+    if (abrir) router.push('/personalizar-home');
   };
 
   // Reserva no fim do scroll para a nav flutuante nunca cobrir o último card (Android + iOS).
@@ -166,7 +163,8 @@ export default function TelaHoje() {
 
   if (!state) return <OWBackground watermark="home"><View style={styles.root} /></OWBackground>;
 
-  const { escala, prefs, viagem, checklist, certs } = state;
+  const { escala, prefs, viagem, checklist, certs, eventos, pagamento, home } = state;
+  const agora = new Date();
   const momento = calcularMomento(escala);
   const resumo = resumoEscala(escala);
   const aeroporto = escala?.aeroporto ? getAeroporto(escala.aeroporto) : undefined;
@@ -182,9 +180,116 @@ export default function TelaHoje() {
     .filter(c => calcCertStatus(c).critico);
   const totalCerts = certs.filter(c => !c._deleted).length;
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
-  const greeting = saudacao();
   const nome = prefs.apelido?.trim();
-  const greetingLabel = nome ? `${greeting}, ${nome}` : `${greeting}!`;
+  const saudacao = saudacaoTopo(agora, home.estiloSaudacao, nome);
+  const frase = home.fraseDoDia ? fraseDoDia(agora, home.estiloSaudacao) : null;
+  const tamMomento = tamanhoDe(home, 'momento');
+
+  // Buddy Agora: SEMPRE calculado com todos os dados — ocultar um card não desliga nada.
+  const acontecimentos = gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento, hoje: agora });
+  // O card da escala (normal) já mostra embarque/desembarque e, no pré-embarque, a lista.
+  const excluir: AcontecimentoTipo[] = ['EMBARQUE', 'DESEMBARQUE'];
+  if (tamMomento === 'NORMAL' && contexto.tipo === 'PRE_EMBARQUE') excluir.push('CHECKLIST');
+  const tamProximos = tamanhoDe(home, 'proximos');
+  const proximos = acontecimentosParaHome(acontecimentos, { max: tamProximos === 'COMPACTO' ? 1 : 3, excluirTipos: excluir });
+
+  const acionar = (a: Acontecimento) => {
+    const acao = a.acao;
+    if (!acao) return;
+    if (acao.tipo === 'presente') {
+      analytics.track('gift_ideas_opened', { origem: 'home' });
+      router.push({ pathname: '/presentes', params: { evento: a.meta?.eventoId ?? '' } });
+    } else if (acao.tipo === 'transporte') {
+      setTransporte(true);
+    } else {
+      router.push({ pathname: acao.rota as never, params: acao.params ?? {} });
+    }
+  };
+
+  // ── Peças da Home na ordem do usuário ──
+  const pecas: Peca[] = [];
+  for (const id of modulosVisiveis(home)) {
+    const t = tamanhoDe(home, id);
+    const grupo = DEF_MODULO[id].grupo;
+    const tileOuLinha = (props: TileProps): Peca => t === 'COMPACTO'
+      ? { id, grupo, forma: 'linha', render: () => <ActionRow icon={props.icon} label={props.label} sub={props.sub} onPress={props.onPress} accent={props.accent} /> }
+      : { id, grupo, forma: 'tile', render: () => <HomeTile {...props} /> };
+    switch (id) {
+      case 'momento':
+        pecas.push({ id, grupo, forma: 'bloco', render: () => t === 'COMPACTO'
+          ? <HeroCompacto contexto={contexto} />
+          : <HomeHero
+              contexto={contexto}
+              progresso={contexto.tipo === 'PRE_EMBARQUE'
+                ? (checkCount.total > 0 ? checkCount.feitos / checkCount.total : 0)
+                : resumo.progresso}
+              dataISO={contexto.tipo === 'EMBARCADO' ? resumo.proximoDesembarqueISO : resumo.proximoEmbarqueISO}
+              aeroporto={aeroporto ? `${aeroporto.code} · ${aeroporto.nome}` : null}
+              voz={voz}
+            /> });
+        break;
+      case 'proximos':
+        pecas.push({ id, grupo, forma: 'bloco', render: () => (
+          <ProximosDias itens={proximos.itens} total={proximos.total} onAcao={acionar} />
+        ) });
+        break;
+      case 'escala':
+        pecas.push(tileOuLinha({ icon: 'calendar-outline', label: 'Minha Escala',
+          sub: resumo.calc ? `${resumo.calc.dEm} × ${resumo.calc.dFo} · calendário` : 'Configurar agora',
+          accent: escala ? colors.cyan : colors.mutedDim, onPress: () => router.navigate(escala ? '/escala' : '/escala-config') }));
+        break;
+      case 'embarque':
+        pecas.push(tileOuLinha({ icon: 'checkbox-outline', label: 'Meu Embarque',
+          sub: checkCount.total === 0 ? 'Montar minha lista' : checkCount.pendentes === 0 ? 'Tudo preparado' : `${checkCount.feitos}/${checkCount.total} preparados`,
+          accent: checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined, onPress: () => router.navigate('/mala') }));
+        break;
+      case 'viagem':
+        pecas.push(tileOuLinha({ icon: 'airplane-outline', label: 'Minha Viagem',
+          sub: viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem',
+          accent: viagemBreve ? colors.amber : undefined, onPress: () => router.navigate('/viagem') }));
+        break;
+      case 'certs':
+        pecas.push(tileOuLinha({ icon: 'document-text-outline', label: 'Certificados',
+          sub: critCerts.length > 0 ? `${critCerts.length} vence(m) em breve` : totalCerts > 0 ? `${totalCerts} em dia` : 'Controle de validades',
+          accent: critCerts.length > 0 ? colors.amber : undefined, onPress: () => router.navigate('/certs') }));
+        break;
+      case 'vagas': {
+        const sub = vagasTotal != null ? `${vagasTotal} ${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'}` : 'Vagas verificadas';
+        if (t === 'DESTAQUE') {
+          pecas.push({ id, grupo, forma: 'bloco', render: () => (
+            <CardDestaque icon="briefcase-outline" titulo="Vagas" numero={vagasTotal}
+              texto={vagasTotal != null ? `${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'} nos portais oficiais das empresas` : 'Vagas verificadas nos portais oficiais das empresas'}
+              cta="Ver vagas" onPress={() => router.push('/vagas')} />
+          ) });
+        } else pecas.push(tileOuLinha({ icon: 'briefcase-outline', label: 'Vagas', sub, destaque: true, onPress: () => router.push('/vagas') }));
+        break;
+      }
+      case 'unidades':
+        if (t === 'DESTAQUE') {
+          pecas.push({ id, grupo, forma: 'bloco', render: () => (
+            <CardDestaque icon="boat-outline" titulo="Radar de Unidades" numero={null}
+              texto="FPSOs, sondas e navios que operam no Brasil — fotos, operador e campo."
+              cta="Explorar unidades" onPress={() => router.push('/unidades')} />
+          ) });
+        } else pecas.push(tileOuLinha({ icon: 'boat-outline', label: 'Unidades', sub: 'FPSOs, sondas e navios', destaque: true, onPress: () => router.push('/unidades') }));
+        break;
+      case 'noticias':
+        pecas.push({ id, grupo, forma: 'linha', render: () => (
+          <ActionRow icon="newspaper-outline" label="Notícias"
+            sub={t === 'NORMAL' && manchete ? manchete.title : 'O que importa no setor hoje'}
+            subLines={t === 'NORMAL' && manchete ? 2 : 1} onPress={() => router.push('/noticias')} />
+        ) });
+        break;
+      case 'aeroportos':
+        pecas.push({ id, grupo, forma: 'linha', render: () => (
+          <ActionRow icon="cloudy-outline" label="Aeroportos" sub="Condições nas bases offshore" onPress={() => router.push('/aeroportos')} />
+        ) });
+        break;
+      case 'ferramentas':
+        pecas.push({ id, grupo, forma: 'bloco', render: () => <Atalhos /> });
+        break;
+    }
+  }
 
   return (
     <OWBackground watermark="home">
@@ -201,47 +306,52 @@ export default function TelaHoje() {
           </View>
         )}
 
-        {/* ── Saudação + clima numa linha ── */}
+        {/* ── Topo protegido: saudação, frase do dia, clima da cidade escolhida ── */}
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
-            <Text style={styles.greetingText} numberOfLines={1}>{greetingLabel}</Text>
-            <TouchableOpacity onPress={openCityPicker} activeOpacity={0.7} style={styles.weatherInline} accessibilityLabel="Cidade e clima">
-              {state.city && weather ? (
-                <>
-                  <Ionicons name="location-outline" size={12} color={colors.cyanDim} />
-                  <Text style={styles.weatherInlineText} numberOfLines={1}>
-                    {weather.city} · <Text style={styles.weatherInlineTemp}>{weather.tempC}°</Text> {weather.description}
-                    {isCacheStale(weather.cachedAt) ? ` · ${weatherCacheLabel(weather.cachedAt)}` : ''}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="partly-sunny-outline" size={13} color={colors.mutedDim} />
-                  <Text style={styles.weatherInlineText}>Definir cidade para ver o clima</Text>
-                </>
-              )}
+            <Text style={styles.greetingText} numberOfLines={2}>{saudacao}</Text>
+            {frase ? <Text style={styles.frase} numberOfLines={2}>“{frase}”</Text> : null}
+            {home.clima && (
+              <TouchableOpacity onPress={() => setShowCityPicker(true)} activeOpacity={0.7} style={styles.weatherInline} accessibilityLabel="Cidade e clima">
+                <LinhaClima city={state.city} weather={weather} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.topoAcoes}>
+            <TouchableOpacity
+              style={styles.topoBtn}
+              onPress={() => { analytics.track('home_customize_open'); router.push('/personalizar-home'); }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Personalizar Home"
+            >
+              <Ionicons name="options-outline" size={24} color={colors.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.topoBtn}
+              onPress={() => router.push('/buddy-config')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Meu Buddy (configurações)"
+            >
+              <Ionicons name="person-circle-outline" size={30} color={colors.muted} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.configBtn}
-            onPress={() => router.push('/buddy-config')}
-            hitSlop={12}
-            accessibilityLabel="Configurações do Buddy"
-          >
-            <Ionicons name="person-circle-outline" size={32} color={colors.muted} />
-          </TouchableOpacity>
         </View>
 
-        {/* ── Momento offshore (contextual, dados da Minha Escala) ── */}
-        <HomeHero
-          contexto={contexto}
-          progresso={contexto.tipo === 'PRE_EMBARQUE'
-            ? (checkCount.total > 0 ? checkCount.feitos / checkCount.total : 0)
-            : resumo.progresso}
-          dataISO={contexto.tipo === 'EMBARCADO' ? resumo.proximoDesembarqueISO : resumo.proximoEmbarqueISO}
-          aeroporto={aeroporto ? `${aeroporto.code} · ${aeroporto.nome}` : null}
-          voz={voz}
-        />
+        {/* ── Descoberta (uma vez) ── */}
+        {!home.dicaVista && (
+          <View style={styles.dica}>
+            <Ionicons name="color-wand-outline" size={16} color={colors.cyanDim} />
+            <Text style={styles.dicaTexto}>Agora você pode deixar o Buddy do seu jeito.</Text>
+            <TouchableOpacity onPress={() => dispensarDica(true)} accessibilityRole="button" style={styles.dicaBtn}>
+              <Text style={styles.dicaBtnTexto}>Personalizar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => dispensarDica(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dispensar dica">
+              <Ionicons name="close" size={16} color={colors.mutedDim} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── Alertas pontuais ── */}
         {critCerts.length > 0 && (
@@ -255,152 +365,185 @@ export default function TelaHoje() {
             <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
           </TouchableOpacity>
         )}
-        {viagem && viagemBreve && (
-          <TouchableOpacity style={[styles.alertCard, styles.alertCardWarn]} onPress={() => router.navigate('/viagem')}>
-            <Ionicons name="airplane" size={16} color={colors.amber} />
-            <Text style={[styles.alertText, { color: colors.amber }]}>
-              Viagem{' '}
-              {viagemEHoje(viagem) ? 'hoje' : 'amanhã'}
-              {viagem.hora ? ` · ${viagem.hora}` : ''}
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
-          </TouchableOpacity>
-        )}
 
-        {/* ── Núcleo pessoal (2 × 2) ── */}
-        <Text style={styles.sectionLabel}>Meu offshore</Text>
-        <View style={styles.grid}>
-          <HomeTile
-            icon="calendar-outline"
-            label="Minha Escala"
-            sub={resumo.calc ? `${resumo.calc.dEm} × ${resumo.calc.dFo} · calendário` : 'Configurar agora'}
-            accent={escala ? colors.cyan : colors.mutedDim}
-            onPress={() => router.push(escala ? '/escala' : '/escala-config')}
-          />
-          <HomeTile
-            icon="checkbox-outline"
-            label="Meu Embarque"
-            sub={checkCount.total === 0
-              ? 'Montar minha lista'
-              : checkCount.pendentes === 0
-                ? 'Tudo preparado'
-                : `${checkCount.feitos}/${checkCount.total} preparados`}
-            accent={checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined}
-            onPress={() => router.navigate('/mala')}
-          />
-          <HomeTile
-            icon="airplane-outline"
-            label="Minha Viagem"
-            sub={viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem'}
-            accent={viagemBreve ? colors.amber : undefined}
-            onPress={() => router.navigate('/viagem')}
-          />
-          <HomeTile
-            icon="document-text-outline"
-            label="Certificados"
-            sub={critCerts.length > 0
-              ? `${critCerts.length} vence(m) em breve`
-              : totalCerts > 0 ? `${totalCerts} em dia` : 'Controle de validades'}
-            accent={critCerts.length > 0 ? colors.amber : undefined}
-            onPress={() => router.navigate('/certs')}
-          />
-        </View>
-
-        {/* ── Offshore agora ── */}
-        <Text style={styles.sectionLabel}>Offshore agora</Text>
-        <View style={styles.grid}>
-          <HomeTile
-            destaque
-            icon="briefcase-outline"
-            label="Vagas"
-            sub={vagasTotal != null ? `${vagasTotal} ${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'}` : 'Vagas verificadas'}
-            onPress={() => router.push('/vagas')}
-          />
-          <HomeTile
-            destaque
-            icon="boat-outline"
-            label="Unidades"
-            sub="FPSOs, sondas e navios"
-            onPress={() => router.push('/unidades')}
-          />
-        </View>
-        <View style={styles.actionList}>
-          <ActionRow
-            icon="newspaper-outline"
-            label="Notícias"
-            sub={manchete ? manchete.title : 'O que importa no setor hoje'}
-            subLines={manchete ? 2 : 1}
-            onPress={() => router.push('/noticias')}
-          />
-          <ActionRow icon="cloudy-outline" label="Aeroportos" sub="Condições nas bases offshore" onPress={() => router.push('/aeroportos')} last />
-        </View>
-        {/* Secundários: Ferramentas e Loja (Loja saiu da barra inferior no 1.0) */}
-        <View style={styles.secondaryRow}>
-          <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7} accessibilityRole="button">
-            <Ionicons name="hammer-outline" size={15} color={colors.cyanDim} />
-            <Text style={styles.toolsLinkText}>Ferramentas offshore</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/loja')} activeOpacity={0.7} accessibilityRole="button">
-            <Ionicons name="storefront-outline" size={15} color={colors.cyanDim} />
-            <Text style={styles.toolsLinkText}>Loja OffshoreWorks</Text>
-          </TouchableOpacity>
-        </View>
+        <Composicao pecas={pecas} />
       </ScrollView>
 
-      {/* ── City Search Modal ── */}
-      <Modal visible={showCityPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCityPicker(false)} style={{ zIndex: 999 }}>
-        <View style={styles.modalRoot}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Buscar cidade</Text>
-            <TouchableOpacity onPress={() => setShowCityPicker(false)} hitSlop={12}>
-              <Ionicons name="close" size={24} color={colors.muted} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.searchRow}>
-            <Ionicons name="search-outline" size={16} color={colors.mutedDim} />
-            <TextInput
-              style={styles.searchInput}
-              value={cityQuery}
-              onChangeText={setCityQuery}
-              placeholder="Digite o nome da cidade..."
-              placeholderTextColor={colors.mutedDim}
-              autoFocus
-              autoCorrect={false}
-            />
-            {citySearching && <ActivityIndicator size="small" color={colors.cyan} />}
-            {!citySearching && cityQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setCityQuery('')} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color={colors.mutedDim} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <FlatList
-            data={cityResults.length > 0 ? cityResults : CITIES}
-            keyExtractor={c => `${c.name}-${c.lat}-${c.lon}`}
-            ListHeaderComponent={cityResults.length === 0 && cityQuery.length < 2
-              ? <Text style={styles.modalSub}>Cidades frequentes — ou busque qualquer cidade</Text>
-              : cityResults.length === 0 && cityQuery.length >= 2 && !citySearching
-              ? <Text style={styles.modalSub}>Nenhuma cidade encontrada</Text>
-              : null
-            }
-            renderItem={({ item: c }) => (
-              <TouchableOpacity
-                style={[styles.cityRow, state.city?.name === c.name && styles.cityRowActive]}
-                onPress={() => selectCity(c)}
-              >
-                <Text style={[styles.cityName, state.city?.name === c.name && styles.cityNameActive]}>{c.name}</Text>
-                <Text style={styles.cityState}>{c.state}</Text>
-                {state.city?.name === c.name && (
-                  <Ionicons name="checkmark" size={18} color={colors.cyan} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </Modal>
+      <CityPicker visivel={showCityPicker} cidadeAtual={state.city} onEscolher={selectCity} onFechar={() => setShowCityPicker(false)} />
+      <TransporteSheet visivel={transporte} opcoes={opcoesTransporte(viagem, escala)} onFechar={() => setTransporte(false)} />
     </OWBackground>
   );
 }
+
+/**
+ * Monta a Home a partir das peças: tiles consecutivos do mesmo grupo viram grade 2 × 2,
+ * linhas consecutivas viram um cartão de lista; rótulo de seção quando o grupo muda.
+ */
+function Composicao({ pecas }: { pecas: Peca[] }) {
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let ultimoRotulo: string | null = null;
+  while (i < pecas.length) {
+    const p = pecas[i]!;
+    const rotulo = ROTULO_GRUPO[p.grupo] ?? null;
+    if (rotulo && rotulo !== ultimoRotulo) out.push(<Text key={`r-${p.id}`} style={styles.sectionLabel}>{rotulo}</Text>);
+    ultimoRotulo = rotulo ?? (p.grupo === 'topo' ? ultimoRotulo : null);
+    if (p.forma === 'bloco') { out.push(<View key={p.id}>{p.render()}</View>); i++; continue; }
+    const run: Peca[] = [];
+    while (i < pecas.length && pecas[i]!.forma === p.forma && pecas[i]!.grupo === p.grupo) run.push(pecas[i++]!);
+    if (p.forma === 'tile') {
+      out.push(
+        <View key={`g-${p.id}`} style={styles.grid}>
+          {run.map((x, k) => (
+            <View key={x.id} style={run.length % 2 === 1 && k === run.length - 1 ? styles.tileCheio : styles.tileMeio}>{x.render()}</View>
+          ))}
+        </View>,
+      );
+    } else {
+      out.push(
+        <View key={`l-${p.id}`} style={styles.actionList}>
+          {run.map((x, k) => (
+            <View key={x.id} style={k < run.length - 1 ? styles.actionRowBorder : undefined}>{x.render()}</View>
+          ))}
+        </View>,
+      );
+    }
+  }
+  return <>{out}</>;
+}
+
+/** Clima da CIDADE escolhida (pessoal/urbano — não é meteorologia offshore). */
+function LinhaClima({ city, weather }: { city: City | null; weather: WeatherData | null }) {
+  if (!city) {
+    return (
+      <>
+        <Ionicons name="partly-sunny-outline" size={13} color={colors.mutedDim} />
+        <Text style={styles.weatherInlineText}>Escolher cidade para ver o clima</Text>
+      </>
+    );
+  }
+  const f = weather && weather.city === city.name ? frescorClima(weather.cachedAt) : 'antigo';
+  return (
+    <>
+      <Ionicons name="location-outline" size={12} color={colors.cyanDim} />
+      <Text style={styles.weatherInlineText} numberOfLines={1}>
+        {city.name}
+        {weather && f !== 'antigo'
+          ? <> · <Text style={styles.weatherInlineTemp}>{weather.tempC}°</Text> · {weather.description}{f === 'armazenado' ? ` · às ${formatHoraBR(weather.cachedAt)}` : ''}</>
+          : ' · clima sem atualização recente'}
+      </Text>
+    </>
+  );
+}
+
+/** Card da escala em uma linha (tamanho COMPACTO). */
+function HeroCompacto({ contexto }: { contexto: HomeContexto }) {
+  const cor = CONTEXTO_COR[contexto.tipo];
+  if (contexto.tipo === 'SEM_ESCALA') {
+    return (
+      <TouchableOpacity style={[styles.alertCard]} onPress={() => router.push('/escala-config')} accessibilityRole="button">
+        <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+        <Text style={styles.alertText}>Configure sua escala para eu acompanhar seu ciclo.</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <TouchableOpacity
+      style={[styles.heroMini, { borderColor: cor + '40' }]}
+      onPress={() => router.navigate(contexto.tipo === 'PRE_EMBARQUE' ? '/mala' : '/escala')}
+      accessibilityRole="button"
+      accessibilityLabel={`${contexto.titulo}. ${contexto.destaque ?? ''}. ${contexto.detalhe}`}
+    >
+      <Sheen />
+      <View style={[styles.heroDot, { backgroundColor: cor }]} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.heroMiniTitulo} numberOfLines={1}>{contexto.destaque ? `${contexto.kicker} · ${contexto.destaque}` : contexto.titulo}</Text>
+        <Text style={styles.heroMiniSub} numberOfLines={1}>{contexto.destaque ? contexto.detalhe : contexto.detalhe}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+    </TouchableOpacity>
+  );
+}
+
+/** Próximos dias — no máximo 3 (ou 1 no compacto); "Ver todos" abre a lista completa. */
+function ProximosDias({ itens, total, onAcao }: { itens: Acontecimento[]; total: number; onAcao: (a: Acontecimento) => void }) {
+  return (
+    <View>
+      <View style={styles.proxHeader}>
+        <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>Próximos dias</Text>
+        {total > 0 && (
+          <TouchableOpacity onPress={() => router.push('/proximos')} hitSlop={8} accessibilityRole="button" style={styles.verTodos}>
+            <Text style={styles.verTodosTexto}>{total > itens.length ? `Ver todos (${total})` : 'Ver todos'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View style={styles.actionList}>
+        {itens.map(a => <AcontecimentoLinha key={a.id} a={a} onAcao={onAcao} />)}
+        <TouchableOpacity style={styles.lembrarRow} onPress={() => router.push('/escala-evento-form')} accessibilityRole="button">
+          <View style={[styles.actionIconWrap, { backgroundColor: colors.cyan + '22' }]}>
+            <Ionicons name="add" size={18} color={colors.cyan} />
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.lembrarTexto}>Lembrar de algo</Text>
+            {itens.length === 0 && <Text style={styles.actionSub}>Aniversários, cursos, consultas, compromissos…</Text>}
+          </View>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+/** Módulo em DESTAQUE (Vagas/Unidades): título + dado + contexto. */
+function CardDestaque({ icon, titulo, numero, texto, cta, onPress }: {
+  icon: IoniconsName; titulo: string; numero: number | null; texto: string; cta: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={[styles.tile, styles.tileDestaque, styles.cardDestaque]} onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`${titulo}. ${texto}`}>
+      <Sheen />
+      <View style={styles.destaqueTopo}>
+        <View style={[styles.tileIcon, { backgroundColor: colors.cyanDim + '1c' }]}>
+          <Ionicons name={icon} size={19} color={colors.cyanDim} />
+        </View>
+        <Text style={styles.tileLabel}>{titulo}</Text>
+      </View>
+      <View style={styles.destaqueCorpo}>
+        {numero != null && <Text style={styles.destaqueNumero}>{numero}</Text>}
+        <Text style={styles.destaqueTexto}>{texto}</Text>
+      </View>
+      <Text style={styles.destaqueCta}>{cta} ›</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Atalhos secundários: Preciso de…, Ferramentas e Loja (Loja fora da barra no 1.0). */
+function Atalhos() {
+  return (
+    <View style={styles.secondaryRow}>
+      <TouchableOpacity style={styles.toolsLink} onPress={() => { analytics.track('preciso_de_opened', { origem: 'home' }); router.push('/preciso-de'); }} activeOpacity={0.7} accessibilityRole="button">
+        <Ionicons name="flash-outline" size={15} color={colors.cyanDim} />
+        <Text style={styles.toolsLinkText}>Preciso de…</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7} accessibilityRole="button">
+        <Ionicons name="hammer-outline" size={15} color={colors.cyanDim} />
+        <Text style={styles.toolsLinkText}>Ferramentas</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/loja')} activeOpacity={0.7} accessibilityRole="button">
+        <Ionicons name="storefront-outline" size={15} color={colors.cyanDim} />
+        <Text style={styles.toolsLinkText}>Loja</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+type TileProps = {
+  icon: IoniconsName;
+  label: string;
+  sub: string;
+  onPress: () => void;
+  accent?: string;
+  destaque?: boolean;
+};
 
 /** Reflexo frio no topo da superfície — acabamento "marítimo", nunca cromado. */
 function Sheen() {
@@ -535,7 +678,7 @@ function HomeTile({
 
 /** Linha de lista compacta (Notícias, Aeroportos). */
 function ActionRow({
-  icon, label, sub, subLines = 1, onPress, last,
+  icon, label, sub, subLines = 1, onPress, last = true, accent,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
@@ -543,6 +686,7 @@ function ActionRow({
   subLines?: number;
   onPress: () => void;
   last?: boolean;
+  accent?: string;
 }) {
   return (
     <TouchableOpacity
@@ -550,8 +694,8 @@ function ActionRow({
       onPress={onPress}
       activeOpacity={0.72}
     >
-      <View style={[styles.actionIconWrap, { backgroundColor: colors.cyanDim + '18' }]}>
-        <Ionicons name={icon} size={17} color={colors.cyanDim} />
+      <View style={[styles.actionIconWrap, { backgroundColor: (accent ?? colors.cyanDim) + '18' }]}>
+        <Ionicons name={icon} size={17} color={accent ?? colors.cyanDim} />
       </View>
       <View style={styles.actionContent}>
         <Text style={styles.actionLabel}>{label}</Text>
@@ -595,7 +739,49 @@ const styles = StyleSheet.create({
   weatherInline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start', minHeight: 24 },
   weatherInlineText: { fontSize: 13, color: colors.muted, flexShrink: 1 },
   weatherInlineTemp: { fontWeight: '700', color: colors.white },
-  configBtn: { paddingTop: 2 },
+  topoAcoes: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  topoBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  frase: { fontSize: 14, color: colors.muted, fontStyle: 'italic', marginTop: 4, lineHeight: 19 },
+
+  // Dica de descoberta (uma vez)
+  dica: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: 'rgba(18, 168, 238, 0.10)', borderRadius: radius.md,
+    borderWidth: 1, borderColor: 'rgba(18, 168, 238, 0.28)',
+    paddingHorizontal: spacing.sm + 4, paddingVertical: 6, marginBottom: spacing.md,
+  },
+  dicaTexto: { flex: 1, fontSize: 13, color: colors.white, lineHeight: 18 },
+  dicaBtn: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 6 },
+  dicaBtnTexto: { fontSize: 13, fontWeight: '700', color: colors.cyan },
+
+  // Escala compacta
+  heroMini: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 56,
+    borderRadius: radius.lg, borderWidth: 1, borderTopColor: maritime.edgeLight, borderBottomColor: maritime.edgeDark,
+    backgroundColor: maritime.glassElevated, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    marginBottom: spacing.md, overflow: 'hidden',
+  },
+  heroMiniTitulo: { fontSize: 15, fontWeight: '700', color: colors.white },
+  heroMiniSub: { fontSize: 12, color: colors.muted, marginTop: 1 },
+
+  // Próximos dias
+  proxHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, marginBottom: spacing.sm },
+  verTodos: { minHeight: 32, justifyContent: 'center' },
+  verTodosTexto: { fontSize: 13, fontWeight: '700', color: colors.cyanDim },
+  lembrarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, minHeight: 52 },
+  lembrarTexto: { fontSize: 14, fontWeight: '700', color: colors.cyan },
+
+  // Grade: metade ou largura inteira (tile ímpar no fim)
+  tileMeio: { width: '48.5%' },
+  tileCheio: { width: '100%' },
+
+  // Destaque
+  cardDestaque: { marginBottom: spacing.sm + 2, minHeight: 0 },
+  destaqueTopo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  destaqueCorpo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  destaqueNumero: { fontSize: 32, fontWeight: '800', color: colors.white },
+  destaqueTexto: { flex: 1, fontSize: 13, color: colors.muted, lineHeight: 18 },
+  destaqueCta: { fontSize: 13, fontWeight: '700', color: colors.cyanDim, marginTop: spacing.sm },
 
   // Hero contextual
   hero: {
@@ -647,7 +833,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm + 2,
   },
   tile: {
-    width: '48.5%',
+    width: '100%',
     minHeight: 104,
     backgroundColor: maritime.glass,
     borderRadius: radius.lg,
@@ -735,47 +921,4 @@ const styles = StyleSheet.create({
   alertCardWarn: { borderColor: colors.amber + '44' },
   alertText: { flex: 1, fontSize: 13, color: colors.muted },
 
-  // City search modal
-  modalRoot: { flex: 1, backgroundColor: surface.header },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  modalTitle: { ...typography.h2 },
-  modalSub: { ...typography.small, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.mutedDim },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.sm,
-    backgroundColor: surface.card,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.white,
-  },
-  cityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineSoft,
-    gap: spacing.sm,
-  },
-  cityRowActive: { backgroundColor: colors.cyanFaint },
-  cityName: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '500' },
-  cityNameActive: { color: colors.cyan },
-  cityState: { fontSize: 13, color: colors.mutedDim, width: 24 },
 });
