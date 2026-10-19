@@ -5855,11 +5855,27 @@ function paragrafosCorpo(corpo) {
   return String(corpo || '').split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
 }
 /* Todo número citado no texto gerado precisa existir na matéria (normaliza
-   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
+   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem.
+   "70 mil" é a forma do português para "70,000"/"70.000" (P0 2026-10-19:
+   matéria em inglês com "70,000 hours" reprovava o texto correto). */
 function numerosSustentadosPelaFonte(texto, fonte) {
-  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
-  const daFonte = new Set(nums(fonte));
-  return nums(texto).every((n) => daFonte.has(n));
+  const nums = (s) => {
+    const r = [];
+    String(s || '').replace(/(\d[\d.,]*)(\s+mil(?![A-Za-zÀ-ú]))?/g, (_, n, mil) => {
+      const d = n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '');
+      if (!d) return _;
+      const v = [d];
+      if (mil) {
+        const p = n.replace(/[.,]+$/, '').match(/^(\d+)(?:[.,](\d{1,2}))?$/);
+        if (p) v.push((p[1] + (p[2] || '').padEnd(3, '0')).replace(/^0+(?=\d)/, ''));
+      }
+      r.push(v);
+      return _;
+    });
+    return r;
+  };
+  const daFonte = new Set(nums(fonte).flat());
+  return nums(texto).every((v) => v.some((n) => daFonte.has(n)));
 }
 function clicheIA(texto) {
   const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));

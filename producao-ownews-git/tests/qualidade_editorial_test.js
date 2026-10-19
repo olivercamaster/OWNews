@@ -417,11 +417,14 @@ if (COLLECTOR) {
   const C = Object.assign(new Function(iaSrc.replace(/^export /gm, "") + "\nreturn { extrairJsonIA, BUDDY_IA_SISTEMA };").call(null), { numerosSustentadosPelaFonte: M.numerosSustentadosPelaFonte });
   test("número inventado é detectado", () => expect(!C.numerosSustentadosPelaFonte("A campanha começa em 2026 e dura 200 dias.", "campanha de 170 dias a partir de 2027")));
   test("números presentes (com separadores diferentes) são aceitos", () => expect(C.numerosSustentadosPelaFonte("Foram 5,851 milhões de boe/d, 82,4% do total.", "produção de 5.851 milhões boe/d; pré-sal 82,4%")));
+  test("\"70 mil\" casa com \"70,000\" e \"1,5 mil\" com \"1,500\" (P0 2026-10-19)", () => expect(C.numerosSustentadosPelaFonte("Foram quase 70 mil horas em 2.337 km e 1,5 mil toneladas.", "almost 70,000 hours over 2,337 km and 1,500 tonnes") && C.numerosSustentadosPelaFonte("São 70 mil horas.", "foram 70 mil horas")));
+  test("\"mil\" não vira coringa: número errado continua reprovado", () => expect(!C.numerosSustentadosPelaFonte("Foram 80 mil horas.", "almost 70,000 hours") && !C.numerosSustentadosPelaFonte("Custou 7 milhões.", "cost 70 million") && !C.numerosSustentadosPelaFonte("Foram 7 mil horas.", "almost 70,000 hours")));
   test("parser aceita JSON cercado por ```json", () => {
     const j = C.extrairJsonIA({ response: "```json\n{\"relacao_offshore\":\"direta\",\"buddy\":\"a\",\"impacto\":null}\n```" });
     expect(j && j.relacao_offshore === "direta");
   });
   test("parser aceita objeto já decodificado", () => expect(C.extrairJsonIA({ response: { buddy: "x" } }).buddy === "x"));
+  test("parser aceita o formato chat do gpt-oss (choices[0].message.content)", () => expect(C.extrairJsonIA({ choices: [{ message: { content: "{\"buddy\":\"y\"}" } }] }).buddy === "y"));
   test("prompt proíbe especulação de vagas e boilerplate", () => expect(/vagas/.test(C.BUDDY_IA_SISTEMA) && /segmento central/.test(C.BUDDY_IA_SISTEMA)));
   test("rotas admin exigem token (fail closed) — só leituras públicas abertas", () => {
     const rotas = COLLECTOR.match(/const ROTAS_PUBLICAS_COLLECTOR = new Set\(\[([^\]]*)\]\)/);
@@ -489,6 +492,17 @@ if (COLLECTOR) {
   test("escolha do título: tradução automática prefere o título da IA quando válido", () => {
     const r = T.escolherTituloOWNews("Fugro assegura financiamento de BEI para o desenvolvimento de USV", "Fugro recebe financiamento do BEI para desenvolver USV", FONTE_T, true);
     expect(r.ok && r.titulo === "Fugro recebe financiamento do BEI para desenvolver USV", JSON.stringify(r));
+  });
+  test("escolha do título: tradução automática nunca fica como título (P0 2026-10-19)", () => {
+    const igual = T.escolherTituloOWNews("Jogadores da energia nórdica atingem o lixo com nova descoberta de gás", "Jogadores da energia nórdica atingem o lixo com nova descoberta de gás", "Nordic energy players hit paydirt with new gas discovery", true);
+    const ruim = T.escolherTituloOWNews("Jogadores da energia nórdica atingem o lixo com nova descoberta de gás", "Equinor descobre gás com a Shell", "Vår Energi and Equinor struck gas", true);
+    expect(!igual.ok && igual.motivos[0] === "titulo:traducao_automatica" && !ruim.ok && ruim.motivos.includes("titulo:nome_sem_fonte"), JSON.stringify([igual, ruim]));
+  });
+  test("título: nome de lugar em português casa com o inglês da fonte; nome inventado não", () => {
+    const F = "Vår Energi and Equinor have made a gas discovery in the Norwegian Sea, northwest of Kristiansund.";
+    expect(T.validarTituloOWNews("Vår Energi e Equinor descobrem gás e condensado em poço na Noruega", F, "x").length === 0);
+    expect(T.validarTituloOWNews("Vår Energi e Equinor descobrem gás na Dinamarca", F, "x").includes("nome_sem_fonte"));
+    expect(T.validarTituloOWNews("Vår Energi e Petrobras descobrem gás na Noruega", F, "x").includes("nome_sem_fonte"));
   });
   test("escolha do título: original ruim e IA ruim/igual → não publica", () => {
     const a = T.escolherTituloOWNews("Fugro Assegura Financiamento do BEI Para Desenvolver USV", "Fugro Assegura Financiamento do BEI Para Desenvolver USV", FONTE_T, false);

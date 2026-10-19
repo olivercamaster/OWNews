@@ -3692,11 +3692,27 @@ function paragrafosCorpo(corpo) {
   return String(corpo || '').split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
 }
 /* Todo número citado no texto gerado precisa existir na matéria (normaliza
-   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem. */
+   separadores: "5,851" casa com "5.851"/"5851"). Anos e percentuais idem.
+   "70 mil" é a forma do português para "70,000"/"70.000" (P0 2026-10-19:
+   matéria em inglês com "70,000 hours" reprovava o texto correto). */
 function numerosSustentadosPelaFonte(texto, fonte) {
-  const nums = (s) => (String(s || '').match(/\d[\d.,]*/g) || []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n.length > 0);
-  const daFonte = new Set(nums(fonte));
-  return nums(texto).every((n) => daFonte.has(n));
+  const nums = (s) => {
+    const r = [];
+    String(s || '').replace(/(\d[\d.,]*)(\s+mil(?![A-Za-zÀ-ú]))?/g, (_, n, mil) => {
+      const d = n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '');
+      if (!d) return _;
+      const v = [d];
+      if (mil) {
+        const p = n.replace(/[.,]+$/, '').match(/^(\d+)(?:[.,](\d{1,2}))?$/);
+        if (p) v.push((p[1] + (p[2] || '').padEnd(3, '0')).replace(/^0+(?=\d)/, ''));
+      }
+      r.push(v);
+      return _;
+    });
+    return r;
+  };
+  const daFonte = new Set(nums(fonte).flat());
+  return nums(texto).every((v) => v.some((n) => daFonte.has(n)));
 }
 function clicheIA(texto) {
   const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));
@@ -3828,12 +3844,21 @@ function ehMateriaThin(artigo, _camada) {
    A matéria publicada guarda o corpo OWNews em articles.content
    (buddy_source='ownews'); o texto coletado da fonte vai para o arquivo
    interno do BuddyIAPoller (chave 'fonte:<hash>'), nunca para o leitor.
-   Custo: ~1 chamada llama-3.3-70b por matéria (~230 neurons), dentro do free
-   tier de Workers AI para o volume diário (~15 matérias/dia); acima do
+   Custo: 1–2 chamadas por matéria (~60–80 neurons cada com gpt-oss-120b),
+   dentro do free tier de Workers AI (10 mil neurons/dia por conta); acima do
    limite a chamada falha e a matéria é tentada de novo na próxima coleta.
-   Desligar: BUDDY_IA_ATIVO = false (nada é publicado sem matéria própria). */
+   Desligar: BUDDY_IA_ATIVO = false (nada é publicado sem matéria própria).
+   Modelo (P0 Pipeline 2026-10-19): llama-3.3-70b aprovava ~1 em 6 no gate
+   4.0 — insistia em "pode afetar/impactar" (impacto genérico) e parafraseava
+   a fonte; entre 17/10 13:45 e 19/10 só 1 matéria nova foi publicada.
+   gpt-oss-120b (mesmo Workers AI, sem custo extra) escreve texto próprio e
+   classifica escopo com rigor (Oktoberfest/biodiesel = fora). Mesmo gate,
+   mesmos critérios — só o redator mudou. Resposta no formato chat
+   (choices[0].message.content), lida por extrairJsonIA. */
 const BUDDY_IA_ATIVO = true;
-const BUDDY_IA_MODELO = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const BUDDY_IA_MODELO = '@cf/openai/gpt-oss-120b';
+// Modelo de raciocínio: esforço baixo cabe em max_tokens e ~70 neurons/chamada.
+const BUDDY_IA_OPCOES_MODELO = { reasoning_effort: 'low' };
 const BUDDY_IA_SISTEMA =
   'Você é redator do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. A matéria recebida é só MATERIAL FACTUAL: o OWNews não republica o texto da fonte, escreve a própria nota. Responda SOMENTE com um objeto JSON: ' +
   '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "titulo": string, "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
@@ -3873,21 +3898,45 @@ function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
     const base = String(tituloOriginal || '') + ' ' + String(fonteTexto || '');
     const baseMin = base.toLowerCase();
     if (!numerosSustentadosPelaFonte(t, base)) m.push('numero_sem_fonte');
-    if (t.split(/\s+/).slice(1).some((p) => { const n = p.replace(/[^A-Za-zÀ-ú0-9-]/g, ''); return n.length >= 3 && /^[A-ZÀ-Ú]/.test(n) && !baseMin.includes(n.toLowerCase()); })) m.push('nome_sem_fonte');
+    if (t.split(/\s+/).slice(1).some((p) => { const n = p.replace(/[^A-Za-zÀ-ú0-9-]/g, ''); return n.length >= 3 && /^[A-ZÀ-Ú]/.test(n) && !baseMin.includes(n.toLowerCase()) && !exonimoNaFonte(n, baseMin); })) m.push('nome_sem_fonte');
   }
   return m;
+}
+/* Nome geográfico em português para matéria em inglês: "Noruega" está na
+   fonte como "Norway"/"Norwegian" (P0 2026-10-19 — o título correto da IA
+   era reprovado e sobrava a tradução automática). Só nomes de lugar. */
+const TITULO_EXONIMOS = {
+  noruega: /norw/, irlanda: /ireland|irish/, 'escócia': /scotland|scottish/, reino: /united kingdom|britain|british|\buk\b/, unido: /united kingdom|britain|british|\buk\b/,
+  estados: /united states|\bu\.\s?s\b|\bus\b|\busa\b/, unidos: /united states|\bu\.\s?s\b|\bus\b|\busa\b/, golfo: /gulf/, mar: /\bsea\b/, norte: /north/, sul: /south/, leste: /east/, oeste: /west/,
+  'méxico': /mexic/, 'líbia': /liby/, egito: /egypt/, 'nigéria': /nigeria/, 'namíbia': /namibia/, guiana: /guyana/, 'malásia': /malaysia/, 'austrália': /australia/,
+  'índia': /india/, 'japão': /japan/, coreia: /korea/, holanda: /netherlands|dutch|holland/, 'países': /netherlands|dutch/, baixos: /netherlands|dutch/,
+  dinamarca: /denmark|danish/, alemanha: /german/, 'frança': /france|french/, 'itália': /ital/, espanha: /spain|spanish/, brasil: /brazil/, 'gabão': /gabon/,
+  'moçambique': /mozambique/, 'vietnã': /vietnam/, singapura: /singapore/, catar: /qatar/, 'arábia': /arabia|saudi/, saudita: /saudi/, emirados: /emirates|\buae\b/,
+  chipre: /cyprus/, 'grécia': /greece|greek/, turquia: /turkey|turkish|t[uü]rkiye/, 'suécia': /sweden|swedish/, 'finlândia': /finland/, 'bélgica': /belgi/, 'canadá': /canad/,
+  'colômbia': /colombia/, 'áfrica': /africa/, europa: /europe/, 'ásia': /asia/, oriente: /east/, 'médio': /middle/, 'atlântico': /atlantic/, 'pacífico': /pacific/,
+  'báltico': /baltic/, 'mediterrâneo': /mediterranean/
+};
+function exonimoNaFonte(nome, baseMin) {
+  const re = TITULO_EXONIMOS[String(nome || '').toLowerCase()];
+  return !!(re && re.test(baseMin));
 }
 function escolherTituloOWNews(original, proposto, fonteTexto, preferirProposto) {
   const mo = validarTituloOWNews(original, fonteTexto);
   const p = sanearTextoPublicacao(String(proposto || '')).trim();
   const mp = p && p !== String(original || '').trim() ? validarTituloOWNews(p, fonteTexto, original) : ['igual'];
   if (!mp.length && (mo.length || preferirProposto)) return { ok: true, titulo: p };
+  // Tradução automática nunca vira título publicado, mesmo sem erro de forma
+  // (P0 2026-10-19: "hit paydirt" saiu "atingem o lixo"). Sem título próprio
+  // válido, a matéria não é publicada.
+  if (preferirProposto) return { ok: false, motivos: ['titulo:traducao_automatica'].concat(mp.filter((x) => x !== 'igual').map((x) => 'titulo:' + x)) };
   if (!mo.length) return { ok: true, titulo: null };
   return { ok: false, motivos: mo.map((x) => 'titulo:' + x) };
 }
 
 function extrairJsonIA(resposta) {
-  const r = resposta && (resposta.response !== undefined ? resposta.response : resposta);
+  // Formato chat (gpt-oss): { choices: [{ message: { content } }] }.
+  const msg = resposta && resposta.response === undefined && Array.isArray(resposta.choices) && resposta.choices[0] && resposta.choices[0].message;
+  const r = msg ? msg.content : resposta && (resposta.response !== undefined ? resposta.response : resposta);
   if (r && typeof r === 'object') return r;
   const t = String(r || '').replace(/^\s*```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   try { return JSON.parse(t); } catch { /* segue */ }
@@ -3917,7 +3966,8 @@ const BUDDY_IA_DICAS_REESCRITA = [
   [/emprego_sem_base/, 'Não fale em vagas, empregos ou salários se a matéria não trata disso.'],
   [/sensacionalista/, 'Tom factual, sem exclamação nem adjetivo de impacto.'],
   [/ingles/, 'Escreva tudo em português do Brasil.'],
-  [/espaco_antes|parenteses/, 'Sem espaço antes de pontuação ou dentro de parênteses.']
+  [/espaco_antes|parenteses/, 'Sem espaço antes de pontuação ou dentro de parênteses.'],
+  [/titulo:/, 'Escreva um TÍTULO novo em português natural (não repita o título recebido), com o fato em ordem direta e só nomes e números que aparecem na matéria.']
 ];
 function dicasReescritaIA(motivos) {
   const m = String(motivos || '');
@@ -3944,7 +3994,8 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
       max_tokens: 1100,
       // 0,6 deixava a 2ª redação telegráfica (frases cortadas) na sonda de
       // 2026-10-18; 0,45 ainda varia o texto sem perder a forma.
-      temperature: t > 1 ? 0.45 : 0.3
+      temperature: t > 1 ? 0.45 : 0.3,
+      ...BUDDY_IA_OPCOES_MODELO
     });
   } catch (e) {
     return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
@@ -3965,7 +4016,12 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   }
   // Acervo (retroprocessamento) mantém o título já publicado.
   const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, material, opcoes && opcoes.tituloTraduzido);
-  if (!tit.ok) return { ok: false, relacao, motivos: tit.motivos, tentativas: t };
+  if (!tit.ok) {
+    // Matéria aprovada e só o título falhou: uma 2ª redação com a dica do
+    // título (o texto inteiro passa de novo pelo mesmo gate).
+    if (t === 1) return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: tit.motivos.join(',') }), materialFonte, 2, opcoes);
+    return { ok: false, relacao, motivos: tit.motivos, tentativas: t };
+  }
   return { ok: true, buddy_summary: v.buddy_summary, why_it_matters: v.why_it_matters, corpo: v.corpo, titulo: tit.titulo, relacao, tentativas: t };
 }
 
@@ -4110,6 +4166,9 @@ async function rotaAdminMateriaOWNews(request, env) {
    próprio DO (quota separada do Workers KV: zero PUT em KV). Também guarda
    o arquivo do material da fonte (chaves 'fonte:<hash>'). */
 const BUDDY_IA_POR_ALARME = 3;
+// Troca de modelo do redator (P0 Pipeline 2026-10-19): rejeições anteriores
+// a este instante foram dadas pelo modelo antigo e são descartadas.
+const BUDDY_IA_REJ_VALIDA_DESDE = Date.parse('2026-10-19T14:33:00Z');
 const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {
@@ -4150,7 +4209,9 @@ export class BuddyIAPoller {
       return Response.json({ ok: true });
     }
     if (url.pathname === '/rejeicoes') {
-      const lim = Date.now() - 3 * 86400000, vivos = [], velhos = [];
+      // Reprovações do redator anterior (llama-3.3) não valem para o atual:
+      // a matéria volta a ser avaliada uma vez pelo mesmo gate.
+      const lim = Math.max(Date.now() - 3 * 86400000, BUDDY_IA_REJ_VALIDA_DESDE), vivos = [], velhos = [];
       (await this.state.storage.list({ prefix: 'rej:' })).forEach((t, k) => (t >= lim ? vivos : velhos).push(k));
       if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
       return Response.json(vivos.map((k) => k.slice(4)));
@@ -5399,10 +5460,14 @@ async function noticiaJaExiste(env, originalUrl) {
 // Retorna um Set com as URLs que já estão na base.
 async function filtrarUrlsExistentes(env, urls) {
   if (!urls || urls.length === 0) return new Set();
-  const values = urls.map(u => '"' + u + '"').join(",");
+  // P0 2026-10-19: a lista precisa ir codificada. Sem isso o PostgREST
+  // decodificava "%C3%B3" da URL gravada ("petr%C3%B3leo" virava "petróleo")
+  // e nunca casava — matéria antiga da Petrobras voltava como nova a cada
+  // ciclo, gastando IA e subrequests (e batendo 409 no hash ao inserir).
+  const values = urls.map(u => '"' + String(u).replace(/(["\\])/g, '\\$1') + '"').join(",");
   const endpoint =
     env.SUPABASE_URL + "/rest/v1/articles" +
-    "?select=original_url&original_url=in.(" + values + ")";
+    "?select=original_url&original_url=in.(" + encodeURIComponent(values) + ")";
   const resposta = await fetch(endpoint, {
     headers: supabaseHeaders(env)
   });

@@ -106,6 +106,7 @@ def run_static():
     test("no Supabase service_role in source", _check_no_service_role)
     test("FONTES_REGISTRY has expected sources", _check_fontes_registry)
     test("LIMIAR_SIMILARIDADE_DUPLICATA = 0.55", _check_dedupe_limiar)
+    test("dedupe por URL codifica a lista (URL com %C3%B3 casa no banco)", _check_dedupe_url_codificada)
 
     suite("STATIC — isolation: each source failure is independent")
 
@@ -150,6 +151,16 @@ def _check_dedupe_limiar():
     c = COLLECTOR_JS.read_text(encoding="utf-8")
     expect("LIMIAR_SIMILARIDADE_DUPLICATA = 0.55" in c,
            "Dedupe threshold changed from 0.55 — verify editorial impact")
+
+
+def _check_dedupe_url_codificada():
+    # P0 2026-10-19: sem encodeURIComponent o PostgREST decodifica "%C3%B3" e
+    # matéria antiga (Petrobras, URL com acento) volta como nova a cada ciclo.
+    c = COLLECTOR_JS.read_text(encoding="utf-8")
+    ini = c.index("async function filtrarUrlsExistentes(")
+    corpo = c[ini:c.index("\n}\n", ini)]
+    expect('original_url=in.(" + encodeURIComponent(values) + ")' in corpo,
+           "filtrarUrlsExistentes monta in.(...) sem codificar as URLs")
 
 
 def _check_isolation_principal():
