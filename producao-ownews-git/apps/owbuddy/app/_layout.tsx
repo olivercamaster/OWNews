@@ -103,7 +103,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="escala-evento-form"
           options={{
-            title: 'Evento Pessoal',
+            title: 'Lembrar de algo',
             headerStyle: { backgroundColor: colors.navy800 },
             presentation: 'modal',
           }}
@@ -118,6 +118,43 @@ export default function RootLayout() {
         <Stack.Screen
           name="unidade/[slug]"
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="proximos"
+          options={{
+            title: 'Próximos dias',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="pagamento"
+          options={{
+            title: 'Meu Pagamento',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="presentes"
+          options={{
+            title: 'Ideias de presente',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="preciso-de"
+          options={{
+            title: 'Preciso de…',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="personalizar-home"
+          options={{
+            title: 'Personalizar Home',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
         />
       </Stack>
       </View>

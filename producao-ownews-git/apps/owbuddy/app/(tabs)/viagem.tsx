@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,8 @@ import { getViagem, setViagem, deleteViagem } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
 import { OWBackground } from '../../src/components/OWBackground';
+import { confirmarRemocao } from '../../src/confirmar';
+import { destinoDaViagem, link99, linkUber } from '../../src/transporte';
 import { OWCard } from '../../src/components/OWCard';
 import { OWEmptyState } from '../../src/components/OWEmptyState';
 import { OWDatePicker } from '../../src/components/OWDatePicker';
@@ -36,6 +39,7 @@ function normalizeVoo(v: string): string {
 }
 
 export default function MinhaViagem() {
+  const insetsTela = useSafeAreaInsets();
   const [viagem, setViagemState] = useState<Viagem | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Viagem>>({ tipo: 'AVIAO' });
@@ -81,19 +85,13 @@ export default function MinhaViagem() {
     analytics.track('trip_created', { tipo: form.tipo });
   };
 
+  // confirmarRemocao: Alert nativo; no navegador, window.confirm (Alert com botões não existe na web).
   const del = () => {
-    Alert.alert('Remover viagem', 'Remover os dados desta viagem?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteViagem();
-          setViagemState(null);
-          setEditing(false);
-        },
-      },
-    ]);
+    confirmarRemocao('Remover viagem', 'Remover os dados desta viagem?', async () => {
+      await deleteViagem();
+      setViagemState(null);
+      setEditing(false);
+    });
   };
 
   if (editing) {
@@ -130,7 +128,7 @@ export default function MinhaViagem() {
 
   return (
     <OWBackground>
-      <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insetsTela.bottom) }]}>
         {/* Hero da viagem */}
         <View style={styles.heroSection}>
           <Text style={styles.heroTipo}>
@@ -157,6 +155,9 @@ export default function MinhaViagem() {
           {viagem.obs ? <DetailRow icon="document-text-outline" label="Obs." value={viagem.obs} private /> : null}
         </OWCard>
 
+        {/* Transporte terrestre — só encaminha para o app oficial (sem corrida, sem pagamento, sem GPS) */}
+        <TransporteTerrestre viagem={viagem} />
+
         <View style={styles.actions}>
           <TouchableOpacity style={styles.editBtn} onPress={startEdit}>
             <Ionicons name="pencil-outline" size={16} color={colors.white} />
@@ -174,6 +175,40 @@ export default function MinhaViagem() {
         </View>
       </ScrollView>
     </OWBackground>
+  );
+}
+
+// ─────────────────────── Transporte terrestre ───────────────────────
+
+function TransporteTerrestre({ viagem }: { viagem: Viagem }) {
+  const destino = destinoDaViagem(viagem);
+  const abrir = (servico: 'uber' | '99') => {
+    const url = servico === 'uber'
+      ? linkUber(destino)
+      : link99(Platform.OS === 'android' ? 'android' : Platform.OS === 'ios' ? 'ios' : 'web');
+    analytics.track('transport_opened', { servico, com_destino: servico === 'uber' && !!destino, origem: 'viagem' });
+    Linking.openURL(url).catch(() => {});
+  };
+  return (
+    <OWCard style={styles.transporte}>
+      <Text style={styles.transporteTitulo}>Transporte terrestre</Text>
+      <Text style={styles.transporteSub}>
+        {destino
+          ? `Até ${destino.nome}. A origem é a sua localização no próprio app.`
+          : viagem.tipo === 'AVIAO'
+            ? 'Coloque o aeroporto de partida em "Origem" (ex.: GIG, Santos Dumont) para o Uber já abrir com o destino.'
+            : 'Abre o app para você pedir o carro até o ponto de embarque.'}
+      </Text>
+      <View style={styles.transporteBotoes}>
+        <TouchableOpacity style={[styles.transporteBtn, styles.uberBtn]} onPress={() => abrir('uber')} accessibilityRole="button" accessibilityLabel="Abrir na Uber">
+          <Text style={styles.uberTexto}>Uber</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.transporteBtn} onPress={() => abrir('99')} accessibilityRole="button" accessibilityLabel="Abrir a 99">
+          <Text style={styles.noventaTexto}>99</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.transporteNota}>A 99 não tem link oficial com destino: o app abre e você informa o destino lá. O OWBuddy não pede corrida nem faz pagamento.</Text>
+    </OWCard>
   );
 }
 
@@ -514,4 +549,16 @@ const styles = StyleSheet.create({
   delBtnText: { color: colors.red, fontWeight: '600' },
   privRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: spacing.sm },
   privNote: { ...typography.small, color: colors.mutedDim },
+  transporte: { marginTop: spacing.md, gap: 6 },
+  transporteTitulo: { ...typography.micro, color: colors.cyanDim },
+  transporteSub: { fontSize: 13, color: colors.muted, lineHeight: 18 },
+  transporteBotoes: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
+  transporteBtn: {
+    flex: 1, minHeight: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
+  },
+  uberBtn: { backgroundColor: '#f7fafc', borderColor: '#f7fafc' },
+  uberTexto: { fontSize: 16, fontWeight: '800', color: '#000' },
+  noventaTexto: { fontSize: 16, fontWeight: '800', color: colors.white },
+  transporteNota: { fontSize: 11, color: colors.mutedDim, lineHeight: 15 },
 });

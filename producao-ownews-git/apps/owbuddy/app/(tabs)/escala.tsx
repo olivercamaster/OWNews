@@ -41,6 +41,7 @@ import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 import { confirmarRemocao } from '../../src/confirmar';
+import { EVENTO_VISUAL } from '../../src/evento-visual';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -55,13 +56,8 @@ const KIND_STYLE: Record<DayKind, { bg: string; text: string; border?: string }>
   SEM_ESCALA: { bg: 'transparent', text: colors.mutedDim },
 };
 
-const TIPO_META: Record<EventoTipo, { icon: IoniconsName; color: string; label: string }> = {
-  VIAGEM:       { icon: 'airplane-outline',                   color: colors.cyan,     label: 'Viagem'       },
-  CURSO:        { icon: 'school-outline',                     color: colors.amber,    label: 'Curso'        },
-  DATA_ESPECIAL:{ icon: 'star-outline',                       color: '#ce93d8',       label: 'Data Especial'},
-  COMPROMISSO:  { icon: 'calendar-outline',                   color: colors.orange,   label: 'Compromisso'  },
-  OUTRO:        { icon: 'ellipsis-horizontal-circle-outline', color: colors.mutedDim, label: 'Outro'        },
-};
+// Ícone/cor/rótulo dos eventos: src/evento-visual.ts (mesmo visual em Home, Próximos e cadastro).
+const TIPO_META = EVENTO_VISUAL;
 
 // Calendário: 7 colunas de largura FIXA calculada da largura REAL do container (onLayout) —
 // celular, tablet, rotação e coluna web de 560 px. Antes vinha de Dimensions lido uma vez no
@@ -495,7 +491,7 @@ export default function EscalaScreen() {
           <LegendItem color="#ffc107" label="Dobra" />
           <LegendItem color="#7986cb" label="Férias" />
           <LegendItem color={colors.orange} dot label="Feriado" />
-          {(['VIAGEM','CURSO','DATA_ESPECIAL','COMPROMISSO'] as EventoTipo[]).map(t => {
+          {(['ANIVERSARIO','CURSO','COMPROMISSO','VIAGEM'] as EventoTipo[]).map(t => {
             const m = TIPO_META[t];
             return <LegendItem key={t} icon={m.icon} color={m.color} label={m.label} />;
           })}

@@ -275,7 +275,7 @@ export default function BuddyConfig() {
         <Text style={styles.sectionTitle}>Lembretes</Text>
         <View style={styles.contaCard}>
           {!notificacoesDisponiveis() ? (
-            <Text style={styles.contaDesc}>Lembretes chegam na versão instalada do app (não disponíveis aqui).</Text>
+            <Text style={styles.contaDesc}>Os avisos no celular chegam na versão instalada do app (não aqui no navegador). Você já pode escolher abaixo sobre o que quer ser avisado — fica salvo neste aparelho.</Text>
           ) : (
             <>
               <View style={styles.switchRow}>
@@ -298,34 +298,57 @@ export default function BuddyConfig() {
                   </TouchableOpacity>
                 </View>
               )}
-              {lembretes.ativo && (
-                <>
-                  {([
-                    ['embarque', 'Próximo embarque', '3 dias antes e na véspera'],
-                    ['checklist', 'Meu Embarque', '2 dias antes, se faltar item'],
-                    ['certificados', 'Certificados', '30 e 7 dias antes do vencimento'],
-                    ['viagem', 'Minha Viagem', 'na véspera e 3 h antes'],
-                  ] as const).map(([k, label, sub]) => (
-                    <View key={k} style={styles.switchRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.switchLabelSm}>{label}</Text>
-                        <Text style={styles.switchSub}>{sub}</Text>
-                      </View>
-                      <Switch
-                        value={lembretes[k]}
-                        onValueChange={v => salvarLembretes({ ...lembretes, [k]: v })}
-                        trackColor={{ true: colors.cyan, false: colors.line }}
-                        accessibilityLabel={`Lembrete: ${label}`}
-                      />
-                    </View>
-                  ))}
-                  {agendados != null && (
-                    <Text style={styles.switchSub}>{agendados === 0 ? 'Nenhum lembrete pendente agora.' : `${agendados} lembrete(s) agendado(s).`}</Text>
-                  )}
-                </>
+            </>
+          )}
+          {/* Categorias: separadas da Home — ocultar um card não desliga aviso, e vice-versa. */}
+          {(lembretes.ativo || !notificacoesDisponiveis()) && (
+            <>
+              {([
+                ['embarque', 'Escala', 'próximo embarque: 3 dias antes e na véspera'],
+                ['viagem', 'Viagem', 'na véspera e 3 h antes'],
+                ['checklist', 'Checklist', '2 dias antes do embarque, se faltar item'],
+                ['certificados', 'Certificados', '30 e 7 dias antes do vencimento'],
+                ['datas', 'Datas importantes', 'aniversário e curso: 7 e 1 dia antes; compromisso: 1 dia antes'],
+                ['pagamento', 'Pagamento', 'conforme o aviso em Meu Pagamento (padrão 7 dias)'],
+              ] as const).map(([k, label, sub]) => (
+                <View key={k} style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabelSm}>{label}</Text>
+                    <Text style={styles.switchSub}>{sub}</Text>
+                  </View>
+                  <Switch
+                    value={lembretes[k]}
+                    onValueChange={v => salvarLembretes({ ...lembretes, [k]: v })}
+                    trackColor={{ true: colors.cyan, false: colors.line }}
+                    accessibilityLabel={`Lembrete: ${label}`}
+                  />
+                </View>
+              ))}
+              <Text style={styles.switchSub}>No máximo um aviso por acontecimento por dia. O texto na tela bloqueada nunca mostra nomes, destino ou detalhes.</Text>
+              {notificacoesDisponiveis() && agendados != null && (
+                <Text style={styles.switchSub}>{agendados === 0 ? 'Nenhum lembrete pendente agora.' : `${agendados} lembrete(s) agendado(s).`}</Text>
               )}
             </>
           )}
+        </View>
+
+        {/* ── Atalhos pessoais ── */}
+        <Text style={styles.sectionTitle}>Atalhos</Text>
+        <View style={styles.contaCard}>
+          {([
+            ['/personalizar-home', 'options-outline', 'Personalizar Home'],
+            ['/pagamento', 'wallet-outline', 'Meu Pagamento'],
+            ['/proximos', 'calendar-number-outline', 'Próximos dias'],
+            ['/preciso-de', 'flash-outline', 'Preciso de…'],
+            ['/ferramentas', 'hammer-outline', 'Ferramentas offshore'],
+            ['/loja', 'storefront-outline', 'Loja OffshoreWorks'],
+          ] as const).map(([rota, icone, label]) => (
+            <TouchableOpacity key={rota} style={styles.atalho} onPress={() => router.push(rota)} accessibilityRole="button">
+              <Ionicons name={icone} size={18} color={colors.cyanDim} />
+              <Text style={styles.atalhoTexto}>{label}</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── Conta OW (opcional) ── */}
@@ -576,4 +599,6 @@ const styles = StyleSheet.create({
 
   linkEnviadoBox: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   linkEnviadoText: { flex: 1, ...typography.small, color: colors.muted, lineHeight: 20 },
+  atalho: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48 },
+  atalhoTexto: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '600' },
 });
