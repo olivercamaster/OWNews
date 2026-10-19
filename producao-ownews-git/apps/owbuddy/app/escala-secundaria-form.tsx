@@ -18,19 +18,19 @@ import { OWDatePicker } from '../src/components/OWDatePicker';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { formatDateBR } from '../src/format';
 import { confirmarRemocao } from '../src/confirmar';
+import { ICONES_ORDEM, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
 
 const TIPOS = ESCALA_TIPOS;
 
-const IC_OPTS = ['❤️', '🤜🤛', '🤝', '👥', '⚓', '🔗', '⭐', '🛳️'];
-
-type RelacaoChip = { label: string; icon: string; value: string };
+type RelacaoChip = { label: string; icon: IconeRelacao; value: string };
+// Relações neutras ("/a", "/ã") — o app não infere gênero.
 const RELACAO_OPTS: RelacaoChip[] = [
-  { label: 'Companheira/o', icon: '❤️',   value: 'Companheira/o' },
-  { label: 'Irmão/ã',       icon: '🤜🤛', value: 'Irmão/ã' },
-  { label: 'Amigo/a',       icon: '🤝',   value: 'Amigo/a' },
-  { label: 'Familiar',      icon: '👥',   value: 'Familiar' },
-  { label: 'Colega',        icon: '⚓',   value: 'Colega' },
-  { label: 'Outro',         icon: '🔗',   value: 'Outro' },
+  { label: 'Companheira/o', icon: 'coracao', value: 'Companheira/o' },
+  { label: 'Irmão/ã',       icon: 'irmaos',  value: 'Irmão/ã' },
+  { label: 'Amigo/a',       icon: 'amizade', value: 'Amigo/a' },
+  { label: 'Familiar',      icon: 'familia', value: 'Familiar' },
+  { label: 'Colega',        icon: 'colega',  value: 'Colega' },
+  { label: 'Outro',         icon: 'outro',   value: 'Outro' },
 ];
 
 function gerarId(): string {
@@ -44,7 +44,7 @@ export default function EscalaSecundariaForm() {
   const [nome, setNome] = useState('');
   const [relacaoChip, setRelacaoChip] = useState('');
   const [relacaoCustom, setRelacaoCustom] = useState('');
-  const [icon, setIcon] = useState('❤️');
+  const [icon, setIcon] = useState<IconeRelacao>('coracao');
   const [tipo, setTipo] = useState<EscalaTipo>('14x14');
   const [diasEmb, setDiasEmb] = useState('');
   const [diasFolga, setDiasFolga] = useState('');
@@ -66,7 +66,7 @@ export default function EscalaSecundariaForm() {
       const chip = RELACAO_OPTS.find(o => o.value === s.relacao && o.value !== 'Outro');
       if (chip) setRelacaoChip(chip.value);
       else if (s.relacao) { setRelacaoChip('Outro'); setRelacaoCustom(s.relacao); }
-      if (s.icon) setIcon(s.icon);
+      if (s.icon) setIcon(chaveIconeRelacao(s.icon)); // emoji antigo → chave vetorial
       setTipo(s.tipo);
       setDiasEmb(s.diasEmbarcado ? String(s.diasEmbarcado) : '');
       setDiasFolga(s.diasFolga ? String(s.diasFolga) : '');
@@ -139,7 +139,7 @@ export default function EscalaSecundariaForm() {
               style={[styles.tipoChip, relacaoChip === opt.value && styles.tipoChipActive]}
               onPress={() => onSelectRelacao(opt)}
             >
-              <Text style={styles.chipEmoji}>{opt.icon}</Text>
+              <Ionicons name={ioniconRelacao(opt.icon)} size={14} color={relacaoChip === opt.value ? colors.cyan : colors.muted} />
               <Text style={[styles.tipoLabel, relacaoChip === opt.value && styles.tipoLabelActive]}>
                 {opt.label}
               </Text>
@@ -159,13 +159,15 @@ export default function EscalaSecundariaForm() {
 
         <Text style={styles.sectionLabel}>Ícone</Text>
         <View style={styles.iconRow}>
-          {IC_OPTS.map(ic => (
+          {ICONES_ORDEM.map(ic => (
             <TouchableOpacity
               key={ic}
               style={[styles.iconBtn, icon === ic && styles.iconBtnActive]}
               onPress={() => setIcon(ic)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: icon === ic }}
             >
-              <Text style={styles.iconEmoji}>{ic}</Text>
+              <Ionicons name={ioniconRelacao(ic)} size={22} color={icon === ic ? colors.cyan : colors.muted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -276,7 +278,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.line, backgroundColor: surface.card,
   },
   tipoChipActive: { borderColor: colors.cyan, backgroundColor: colors.navy700 },
-  chipEmoji: { fontSize: 14 },
   tipoLabel: { fontSize: 13, color: colors.muted, fontWeight: '500' },
   tipoLabelActive: { color: colors.cyan },
 
@@ -287,7 +288,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   iconBtnActive: { borderColor: colors.cyan, backgroundColor: colors.navy700 },
-  iconEmoji: { fontSize: 22 },
 
   refRow: { flexDirection: 'row', gap: spacing.sm },
   refChip: {

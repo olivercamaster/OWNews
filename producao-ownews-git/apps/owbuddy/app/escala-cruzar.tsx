@@ -14,6 +14,7 @@ import type { EscalaSecundaria, JanelaJuntos } from '@owbuddy/domain';
 import { getEscala, getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { colors, spacing, radius, typography, surface } from '../src/theme';
 import { confirmarRemocao } from '../src/confirmar';
+import { ioniconRelacao } from '../src/relacao-icones';
 
 const MESES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
@@ -90,7 +91,9 @@ export default function EscalaCruzarScreen() {
           >
             <View style={styles.cardHeader}>
               <View style={styles.cardLeft}>
-                <Text style={styles.cardIcon}>{sec.icon ?? '🔗'}</Text>
+                <View style={styles.cardIcon}>
+                  <Ionicons name={ioniconRelacao(sec.icon)} size={20} color={colors.cyanDim} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardNome}>{sec.nome}</Text>
                   {sec.relacao && <Text style={styles.cardRelacao}>{sec.relacao}</Text>}
@@ -155,7 +158,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, flex: 1 },
-  cardIcon: { fontSize: 28, marginTop: 2 },
+  cardIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.cyanFaint, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   cardAcoes: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardNome: { fontSize: 16, fontWeight: '700', color: colors.white },
   cardRelacao: { fontSize: 12, color: colors.cyanDim, marginTop: 1 },
