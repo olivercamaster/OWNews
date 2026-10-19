@@ -1,5 +1,6 @@
 import type { EscalaConfig, Excecao, EventoPessoal, DayInfo, DayKind, FeriadoBR } from './types';
 import { calcEscalaISO, hojeISO } from './escala';
+import { eventoOcorreEm } from './ocorrencia';
 
 // Algoritmo de Gauss/Meeus — idêntico ao OWNews worker.js linha 15980
 export function pascoaUTC(ano: number): number {
@@ -91,6 +92,14 @@ function kindParaDia(
   };
 }
 
+export type EstadoEscalaNoDia = { kind: DayKind; diaDoBloco: number; isEmbarque: boolean; isDesembarque: boolean };
+
+/** Estado da escala num dia — a MESMA regra do calendário (base canônica + dobra/férias visuais). */
+export function estadoEscalaNoDia(config: EscalaConfig, excecoes: Excecao[], iso: string): EstadoEscalaNoDia | null {
+  const r = kindParaDia(config, excecoes, iso);
+  return r.kind === 'SEM_ESCALA' ? null : r;
+}
+
 export function infoParaDia(
   config: EscalaConfig,
   excecoes: Excecao[],
@@ -111,9 +120,8 @@ export function infoParaDia(
     diaDoBloco,
     feriado,
     excecao: excecoes.find(e => iso >= e.ini && iso <= e.fim),
-    eventosPessoais: eventosPessoais.filter(
-      e => !e._deleted && iso >= e.data_ini && iso <= (e.data_fim ?? e.data_ini),
-    ),
+    // eventoOcorreEm respeita recorrência anual (aniversário aparece todo ano).
+    eventosPessoais: eventosPessoais.filter(e => eventoOcorreEm(e, iso)),
     isHoje: iso === todayISO,
   };
 }

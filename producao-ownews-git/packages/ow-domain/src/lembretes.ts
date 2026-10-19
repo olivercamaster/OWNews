@@ -10,15 +10,21 @@
  *   checklist    — 2 dias antes do embarque (19:00), só se ainda há item pendente
  *   certificados — 30 e 7 dias antes da validade (09:00)
  *   viagem       — véspera (20:00) e 3 h antes do horário, quando há horário
+ *   datas        — antecedência do evento (padrão por tipo: aniversário/curso 7 e 1 dia;
+ *                  compromisso/consulta 1 dia) às 09:00 — um aviso por evento por dia
+ *   pagamento    — N dias antes da data provável (padrão 7) às 09:00
  * O texto da notificação aparece na tela bloqueada: nunca leva localizador,
- * nome de certificado, itens do checklist ou destino.
+ * nome de certificado, itens do checklist, destino, nome de pessoa ou título do evento
+ * (só o TIPO: "Aniversário em 7 dias").
  */
-import type { Certificado, ChecklistData, EscalaConfig, Viagem } from './types';
+import type { Certificado, ChecklistData, EscalaConfig, EventoPessoal, Viagem } from './types';
+import { LABEL_EVENTO, diasLembrete, proximaOcorrencia } from './datas-importantes';
+import { proximosPagamentos, type ConfigPagamento } from './pagamento';
 import { hojeISO, isoValido, resumoEscala, somarDiasISO } from './escala';
 import { contarPendentes } from './checklist';
 import { TIPO_LABELS } from './viagem';
 
-export type LembreteTipo = 'embarque' | 'checklist' | 'certificado' | 'viagem';
+export type LembreteTipo = 'embarque' | 'checklist' | 'certificado' | 'viagem' | 'evento' | 'pagamento';
 
 export interface PrefsLembretes {
   /** Interruptor geral (o usuário pode desligar tudo). */
@@ -27,6 +33,9 @@ export interface PrefsLembretes {
   checklist: boolean;
   certificados: boolean;
   viagem: boolean;
+  /** Datas importantes (aniversário, curso, compromisso...). */
+  datas: boolean;
+  pagamento: boolean;
 }
 
 export const PREFS_LEMBRETES_PADRAO: PrefsLembretes = {
@@ -35,6 +44,8 @@ export const PREFS_LEMBRETES_PADRAO: PrefsLembretes = {
   checklist: true,
   certificados: true,
   viagem: true,
+  datas: true,
+  pagamento: true,
 };
 
 export interface LembretePlanejado {
@@ -49,13 +60,16 @@ export interface LembretePlanejado {
   rota: string;
 }
 
-export const LEMBRETES_MAX = 20;
+export const LEMBRETES_MAX = 30;
 
 export interface EntradaLembretes {
   escala: EscalaConfig | null;
   checklist: ChecklistData | null;
   certs: Certificado[];
   viagem: Viagem | null;
+  /** Datas importantes (opcional para chamadores antigos). */
+  eventos?: EventoPessoal[];
+  pagamento?: ConfigPagamento | null;
   prefs: PrefsLembretes;
   agora?: Date;
 }
@@ -160,6 +174,37 @@ export function planejarLembretes(e: EntradaLembretes): LembretePlanejado[] {
       add({
         id: `viagem-3h-${v.data}-${hora}`, tipo: 'viagem', quando: tresHoras,
         titulo: 'Viagem em 3 horas', corpo: `${tipo} às ${hora}.`, rota: '/viagem',
+      });
+    }
+  }
+
+  if (e.prefs.datas !== false && e.eventos?.length) {
+    const hoje = hojeISO(agora);
+    for (const ev of e.eventos) {
+      const oc = proximaOcorrencia(ev, hoje);
+      if (!oc || oc.emAndamento) continue;
+      const tipo = LABEL_EVENTO[ev.tipo] ?? 'Evento';
+      for (const antes of diasLembrete(ev)) {
+        add({
+          id: `evento-${antes}d-${ev.id}-${oc.iso}`, tipo: 'evento',
+          quando: `${somarDiasISO(oc.iso, -antes)}T09:00`,
+          titulo: antes === 0 ? `${tipo} hoje` : antes === 1 ? `${tipo} amanhã` : `${tipo} em ${antes} dias`,
+          corpo: `Em ${dataBR(oc.iso)}. Toque para ver no OWBuddy.`,
+          rota: '/proximos',
+        });
+      }
+    }
+  }
+
+  if (e.prefs.pagamento !== false && e.pagamento && e.pagamento.avisoDias > 0) {
+    for (const pg of proximosPagamentos(e.pagamento, hojeISO(agora), 2)) {
+      const antes = e.pagamento.avisoDias;
+      add({
+        id: `pagamento-${antes}d-${pg.iso}`, tipo: 'pagamento',
+        quando: `${somarDiasISO(pg.iso, -antes)}T09:00`,
+        titulo: antes === 1 ? 'Pagamento previsto amanhã' : `Pagamento previsto em ${antes} dias`,
+        corpo: `Data provável ${dataBR(pg.iso)}, pela regra que você cadastrou.`,
+        rota: '/pagamento',
       });
     }
   }

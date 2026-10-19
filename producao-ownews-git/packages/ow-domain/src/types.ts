@@ -24,12 +24,25 @@ export interface ViagemFolga {
   obs?: string;
 }
 
-export type EventoTipo = 'VIAGEM' | 'CURSO' | 'DATA_ESPECIAL' | 'COMPROMISSO' | 'OUTRO';
+// 'VIAGEM' e 'DATA_ESPECIAL' são legados (eventos já salvos continuam válidos);
+// o cadastro "Lembrar de algo" oferece os demais.
+export type EventoTipo =
+  | 'ANIVERSARIO' | 'CURSO' | 'CONSULTA' | 'COMPROMISSO' | 'TRABALHO' | 'DOCUMENTO' | 'PESSOAL' | 'OUTRO'
+  | 'VIAGEM' | 'DATA_ESPECIAL';
+
+export type EventoRecorrencia = 'nenhuma' | 'anual';
 
 export interface EventoPessoal {
   id: string;
   tipo: EventoTipo;
   nome: string;
+  /** Ausente = 'nenhuma' (eventos antigos). Aniversário nasce 'anual'. */
+  recorrencia?: EventoRecorrencia;
+  /** Aniversário: pessoa e relação (opcionais, nunca vão para analytics). */
+  pessoa?: string;
+  relacao?: string;
+  /** Dias de antecedência do lembrete. Ausente = padrão do tipo; [] = sem lembrete. */
+  lembrete_dias?: number[];
   data_ini: string;   // YYYY-MM-DD
   data_fim?: string;  // YYYY-MM-DD
   hora_ini?: string;  // HH:mm
