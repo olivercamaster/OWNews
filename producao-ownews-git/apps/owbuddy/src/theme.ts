@@ -116,7 +116,7 @@ export const maritime = {
   // Variação de luminosidade real, não um bloco azul chapado.
   // Polimento 2026-10-19: um pouco mais de profundidade tonal (topo mais fundo, faixa
   // central levemente mais fria) — mesmo azul-marinho oficial, sem gradiente chamativo.
-  bgGradient: ['#03101a', '#06223a', '#0a3049', '#072a40', '#04131f'] as string[],
+  bgGradient: ['#020d16', '#051e33', '#092c44', '#06263a', '#03101a'] as string[],
   bgLocations: [0, 0.28, 0.55, 0.80, 1] as number[],
   // Brilho diagonal (luz vinda do canto superior esquerdo) e sombra de profundidade na base.
   // Ambos são LinearGradient — zero blur, zero custo de GPU relevante.
@@ -148,6 +148,9 @@ export const maritime = {
   // Hero da Home: variação tonal muito sutil de azul-marinho (diagonal).
   heroGradient:   ['rgba(24, 76, 108, 0.97)', 'rgba(16, 58, 88, 0.97)', 'rgba(10, 42, 66, 0.97)'] as string[],
   edgeLight:      'rgba(170, 220, 250, 0.20)',
+  // Aresta inferior escura: com a aresta clara no topo dá o "chanfro" de chapa metálica —
+  // profundidade por luz/sombra, não por brilho.
+  edgeDark:       'rgba(0, 8, 16, 0.55)',
 
   // Nav flutuante — contraste garantido sobre qualquer trecho do gradiente
   navBg:           'rgba(4, 18, 30, 0.97)',
@@ -167,7 +170,7 @@ export const maritime = {
   watermarkOpacity: 0.08,
   // Decisão do dono (2026-10-19): SÓ a Home tem o Buddy como marca-d'água — grande,
   // canto superior direito, quase imperceptível. Nenhuma outra tela.
-  homeWatermarkOpacity: 0.05,
+  homeWatermarkOpacity: 0.085,
 } as const;
 
 /** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */

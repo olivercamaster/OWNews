@@ -320,7 +320,7 @@ test('contextoHome: embarcado → dia X de Y e desembarque previsto (números da
   assert.equal(c.titulo, 'Você está embarcado');
   assert.equal(c.destaque, 'Dia 6 de 14');
   const r = D.resumoEscala(cfg14('2026-10-14'), new Date('2026-10-19T12:00:00'));
-  assert.equal(c.detalhe, `Desembarque previsto em ${r.diasParaDesembarque} dias.`);
+  assert.equal(c.detalhe, `${r.diasParaDesembarque} dias para o desembarque.`);
 });
 
 test('contextoHome: pré-embarque (≤ 5 dias, calcularMomento) usa a lista do ciclo', () => {
@@ -372,4 +372,55 @@ test('checklist: lista vazia por escolha do usuário não é recriada', () => {
   const r = D.sincronizarChecklistComCiclo({ items: [], ciclo: '2026-10-29' }, '2026-10-29');
   assert.equal(r.data.items.length, 0);
   assert.equal(D.contarPadraoOcultos(r.data), D.ITENS_PADRAO.length);
+});
+
+// ─── P0 pré-RC: convenção canônica, cenário real 14×14 "embarquei em 19/10/2026" ───
+test('14×14 embarquei 19/10/2026: dias, desembarque, folga e próximo embarque (regra única)', () => {
+  const cfg = { tipo: '14x14', dataRef: '2026-10-19', tipoRef: 'embarquei' };
+  const c = iso => D.calcEscalaISO(cfg, iso);
+  // 19/10 é o Dia 1 embarcado; 01/11 é o Dia 14 = último dia a bordo.
+  assert.deepEqual([c('2026-10-19').embarcado, c('2026-10-19').diaDoBloco], [true, 1]);
+  assert.deepEqual([c('2026-11-01').embarcado, c('2026-11-01').diaDoBloco], [true, 14]);
+  // 02/11 = dia do desembarque = Dia 1 da folga (mesmo dia em que a troca acontece).
+  assert.deepEqual([c('2026-11-02').embarcado, c('2026-11-02').diaDoBloco], [false, 1]);
+  // 15/11 = Dia 14 da folga; 16/11 = próximo embarque.
+  assert.deepEqual([c('2026-11-15').embarcado, c('2026-11-15').diaDoBloco], [false, 14]);
+  assert.deepEqual([c('2026-11-16').embarcado, c('2026-11-16').diaDoBloco], [true, 1]);
+  const r = D.resumoEscala(cfg, new Date('2026-10-19T12:00:00'));
+  assert.equal(r.proximoDesembarqueISO, '2026-11-02');
+  assert.equal(r.diasParaDesembarque, 14);
+  assert.equal(r.proximoEmbarqueISO, '2026-11-16');
+  // Calendário marca DEB no mesmo dia que o resumo (sem matemática paralela).
+  const nov = D.gerarMesDias(cfg, [], [], 2026, 11, '2026-10-19');
+  assert.equal(nov.find(d => d.isDesembarque).iso, '2026-11-02');
+  assert.equal(nov.find(d => d.isEmbarque).iso, '2026-11-16');
+  const ctxHome = D.contextoHome(r, D.calcularMomento(cfg, new Date('2026-10-19T12:00:00')), null);
+  assert.equal(ctxHome.destaque, 'Dia 1 de 14');
+  assert.equal(ctxHome.detalhe, '14 dias para o desembarque.');
+  // Último dia a bordo: "Desembarque amanhã."
+  const ultimo = D.resumoEscala(cfg, new Date('2026-11-01T12:00:00'));
+  assert.equal(D.contextoHome(ultimo, D.calcularMomento(cfg, new Date('2026-11-01T12:00:00')), null).detalhe, 'Desembarque amanhã.');
+});
+
+test('todos os ciclos da UI continuam suportados e fecham o ciclo', () => {
+  assert.deepEqual(D.ESCALA_TIPOS.map(t => t.value), ['14x14', '14x21', '14x28', '28x28', '21x21', '7x7', 'custom']);
+  for (const [tipo, extra] of [['14x14'], ['14x21'], ['14x28'], ['28x28'], ['21x21'], ['7x7'], ['custom', { diasEmbarcado: 10, diasFolga: 5 }]]) {
+    const cfg = { tipo, dataRef: '2026-02-27', tipoRef: 'embarquei', ...(extra || {}) };
+    const { dEm, dFo } = D.diasDoCiclo(cfg);
+    assert.equal(D.calcEscalaISO(cfg, '2026-02-27').diaDoBloco, 1, tipo);
+    assert.equal(D.calcEscalaISO(cfg, D.somarDiasISO('2026-02-27', dEm)).embarcado, false, tipo);
+    assert.equal(D.calcEscalaISO(cfg, D.somarDiasISO('2026-02-27', dEm + dFo)).diaDoBloco, 1, tipo);
+  }
+});
+
+test('calendário: fevereiro bissexto, virada de mês e de ano', () => {
+  const cfg = { tipo: '7x7', dataRef: '2027-12-29', tipoRef: 'embarquei' };
+  assert.equal(D.gerarMesDias(cfg, [], [], 2028, 2, '2028-02-01').length, 29);
+  assert.equal(D.gerarMesDias(cfg, [], [], 2027, 2, '2027-02-01').length, 28);
+  const dez = D.gerarMesDias(cfg, [], [], 2027, 12, '2027-12-01');
+  const jan = D.gerarMesDias(cfg, [], [], 2028, 1, '2027-12-01');
+  assert.equal(dez.at(-1).iso, '2027-12-31');
+  assert.equal(dez.at(-1).diaDoBloco, 3);   // 29,30,31 embarcado
+  assert.equal(jan[0].diaDoBloco, 4);        // continua em 01/01
+  assert.equal(jan.find(d => d.isDesembarque).iso, '2028-01-05');
 });

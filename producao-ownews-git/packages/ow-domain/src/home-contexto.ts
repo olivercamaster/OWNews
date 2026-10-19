@@ -61,8 +61,8 @@ export function contextoHome(
       kicker: 'Embarcado',
       titulo: 'Você está embarcado',
       destaque: `Dia ${calc.diaDoBloco} de ${calc.dEm}`,
-      detalhe: emDias(dias, 'Desembarque previsto para hoje.', 'Desembarque previsto amanhã.',
-        n => `Desembarque previsto em ${n} dias.`),
+      detalhe: emDias(dias, 'Desembarque hoje.', 'Desembarque amanhã.',
+        n => `${n} dias para o desembarque.`),
     };
   }
 

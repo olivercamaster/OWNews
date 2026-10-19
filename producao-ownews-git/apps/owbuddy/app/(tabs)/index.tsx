@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -38,7 +39,8 @@ import { useConnectivity } from '../../src/connectivity';
 import { CITIES, type City } from '../../src/cities';
 import { searchCities } from '../../src/geocoding';
 import { analytics } from '../../src/analytics';
-import { fetchVagas } from '../../src/api';
+import { fetchFeed, fetchVagas } from '../../src/api';
+import { contadorVagasHome, noticiaRecenteHome } from '../../src/frescor';
 import { LinearGradient } from 'expo-linear-gradient';
 
 
@@ -65,6 +67,8 @@ export default function TelaHoje() {
   const [refreshing, setRefreshing] = useState(false);
   // Só número REAL do /api/buddy/vagas (cache 1 h; offline usa o último cache). Sem dado → sem contador.
   const [vagasTotal, setVagasTotal] = useState<number | null>(null);
+  // Manchete canônica do OWNews (/api/buddy/feed) só se publicada nas últimas 48 h.
+  const [manchete, setManchete] = useState<{ id: string; title: string } | null>(null);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<City[]>([]);
@@ -84,8 +88,14 @@ export default function TelaHoje() {
     ]);
     setState({ escala, prefs, viagem, checklist, certs, city });
     fetchVagas().then(r => {
-      setVagasTotal((r.status === 'ok' || r.status === 'offline_cached') && r.vagas.length > 0 ? r.vagas.length : null);
+      if (r.status !== 'ok' && r.status !== 'offline_cached') { setVagasTotal(null); return; }
+      const obtidoEm = r.status === 'ok' && !r.fromCache ? Date.now() : r.cachedAt;
+      setVagasTotal(contadorVagasHome(r.vagas.length, obtidoEm, r.updatedAt));
     }).catch(() => setVagasTotal(null));
+    fetchFeed().then(r => {
+      const n = r.status === 'ok' || r.status === 'offline_cached' ? noticiaRecenteHome(r.articles) : null;
+      setManchete(n ? { id: n.id, title: n.title } : null);
+    }).catch(() => setManchete(null));
     if (city) {
       const w = await getWeather(city);
       setWeather(w);
@@ -276,7 +286,6 @@ export default function TelaHoje() {
                 ? 'Tudo preparado'
                 : `${checkCount.feitos}/${checkCount.total} preparados`}
             accent={checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined}
-            badge={checkCount.pendentes > 0 ? String(checkCount.pendentes) : undefined}
             onPress={() => router.navigate('/mala')}
           />
           <HomeTile
@@ -293,8 +302,6 @@ export default function TelaHoje() {
               ? `${critCerts.length} vence(m) em breve`
               : totalCerts > 0 ? `${totalCerts} em dia` : 'Controle de validades'}
             accent={critCerts.length > 0 ? colors.amber : undefined}
-            badge={critCerts.length > 0 ? String(critCerts.length) : undefined}
-            badgeColor={colors.red}
             onPress={() => router.navigate('/certs')}
           />
         </View>
@@ -318,14 +325,26 @@ export default function TelaHoje() {
           />
         </View>
         <View style={styles.actionList}>
-          <ActionRow icon="newspaper-outline" label="Notícias" sub="O que importa no setor hoje" onPress={() => router.push('/noticias')} />
+          <ActionRow
+            icon="newspaper-outline"
+            label="Notícias"
+            sub={manchete ? manchete.title : 'O que importa no setor hoje'}
+            subLines={manchete ? 2 : 1}
+            onPress={() => router.push('/noticias')}
+          />
           <ActionRow icon="cloudy-outline" label="Aeroportos" sub="Condições nas bases offshore" onPress={() => router.push('/aeroportos')} last />
         </View>
-        <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7}>
-          <Ionicons name="hammer-outline" size={14} color={colors.mutedDim} />
-          <Text style={styles.toolsLinkText}>Ferramentas offshore</Text>
-          <Ionicons name="chevron-forward" size={13} color={colors.mutedDim} />
-        </TouchableOpacity>
+        {/* Secundários: Ferramentas e Loja (Loja saiu da barra inferior no 1.0) */}
+        <View style={styles.secondaryRow}>
+          <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7} accessibilityRole="button">
+            <Ionicons name="hammer-outline" size={15} color={colors.cyanDim} />
+            <Text style={styles.toolsLinkText}>Ferramentas offshore</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/loja')} activeOpacity={0.7} accessibilityRole="button">
+            <Ionicons name="storefront-outline" size={15} color={colors.cyanDim} />
+            <Text style={styles.toolsLinkText}>Loja OffshoreWorks</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* ── City Search Modal ── */}
@@ -487,9 +506,11 @@ function HomeTile({
   destaque?: boolean;
 }) {
   const cor = accent ?? colors.cyanDim;
+  // 320–349 dp: tipografia e respiro um pouco menores para o título caber inteiro.
+  const estreita = useWindowDimensions().width < 350;
   return (
     <TouchableOpacity
-      style={[styles.tile, destaque && styles.tileDestaque]}
+      style={[styles.tile, destaque && styles.tileDestaque, estreita && styles.tileEstreita]}
       onPress={onPress}
       activeOpacity={0.75}
       accessibilityRole="button"
@@ -506,19 +527,20 @@ function HomeTile({
           </View>
         ) : null}
       </View>
-      <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
-      <Text style={styles.tileSub} numberOfLines={1}>{sub}</Text>
+      <Text style={[styles.tileLabel, estreita && styles.tileLabelEstreita]} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.tileSub, estreita && styles.tileSubEstreita]} numberOfLines={2}>{sub}</Text>
     </TouchableOpacity>
   );
 }
 
 /** Linha de lista compacta (Notícias, Aeroportos). */
 function ActionRow({
-  icon, label, sub, onPress, last,
+  icon, label, sub, subLines = 1, onPress, last,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   sub?: string;
+  subLines?: number;
   onPress: () => void;
   last?: boolean;
 }) {
@@ -533,7 +555,7 @@ function ActionRow({
       </View>
       <View style={styles.actionContent}>
         <Text style={styles.actionLabel}>{label}</Text>
-        {sub ? <Text style={styles.actionSub} numberOfLines={1}>{sub}</Text> : null}
+        {sub ? <Text style={styles.actionSub} numberOfLines={subLines}>{sub}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
     </TouchableOpacity>
@@ -583,6 +605,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: maritime.glassBorder,
     borderTopColor: maritime.edgeLight,
+    borderBottomColor: maritime.edgeDark,
     backgroundColor: maritime.glassElevated,
     overflow: 'hidden',
     ...maritime.cardShadow,
@@ -631,6 +654,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: maritime.glassBorder,
     borderTopColor: maritime.edgeLight,
+    borderBottomColor: maritime.edgeDark,
     padding: spacing.sm + 6,
     overflow: 'hidden',
     ...maritime.cardShadow,
@@ -640,6 +664,9 @@ const styles = StyleSheet.create({
   tileIcon: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   tileLabel: { fontSize: 15, fontWeight: '700', color: colors.white },
   tileSub: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  tileEstreita: { padding: spacing.sm + 3 },
+  tileLabelEstreita: { fontSize: 13 },
+  tileSubEstreita: { fontSize: 11 },
 
   // Lista compacta (Notícias, Aeroportos)
   actionList: {
@@ -647,6 +674,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
+    borderTopColor: maritime.edgeLight,
+    borderBottomColor: maritime.edgeDark,
     marginBottom: spacing.xs,
     overflow: 'hidden',
   },
@@ -670,7 +699,7 @@ const styles = StyleSheet.create({
   },
   actionContent: { flex: 1 },
   actionLabel: { fontSize: 14, fontWeight: '600', color: colors.white },
-  actionSub: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
+  actionSub: { fontSize: 12, color: colors.muted, marginTop: 1, lineHeight: 16 },
   actionBadge: {
     minWidth: 20,
     height: 20,
@@ -682,8 +711,13 @@ const styles = StyleSheet.create({
   actionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.navy950 },
 
   // Ferramentas — prioridade menor, link discreto
-  toolsLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, minHeight: 44, paddingHorizontal: spacing.md },
-  toolsLinkText: { fontSize: 13, color: colors.mutedDim, fontWeight: '600' },
+  secondaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  toolsLink: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48,
+    paddingHorizontal: spacing.sm, borderRadius: radius.md,
+    borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: 'rgba(16, 58, 84, 0.45)',
+  },
+  toolsLinkText: { fontSize: 13, color: colors.muted, fontWeight: '600' },
 
   // Alert cards
   alertCard: {

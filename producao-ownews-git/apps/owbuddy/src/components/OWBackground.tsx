@@ -9,7 +9,7 @@
  *      card "Buddy resume" da notícia. `showWatermark` (grande, centrado) segue
  *      desligado em todas as telas.
  *      Exceção do dono (2026-10-19): `watermark="home"` — SÓ na Home, canto
- *      superior direito, opacidade ~5%, atrás do conteúdo. Não usar em outras telas.
+ *      superior direito, opacidade ~8,5%, atrás do conteúdo. Não usar em outras telas.
  *   4. Conteúdo da tela.
  *
  * React Native puro + expo-linear-gradient. Compatível com Expo Go SDK 57.
@@ -155,12 +155,14 @@ const styles = StyleSheet.create({
     opacity: maritime.watermarkOpacity,
     tintColor: maritime.watermarkTint,
   } as const,
+  // Grande e parcialmente cortado pela borda direita; acima do card contextual,
+  // atrás da saudação. 2026-10-19 (rodada pré-RC): um pouco mais presente (~8,5%).
   buddyHome: {
     position: 'absolute',
-    width: 360,
-    height: 360,
-    top: -36,
-    right: -112,
+    width: 400,
+    height: 400,
+    top: -48,
+    right: -128,
     opacity: maritime.homeWatermarkOpacity,
     tintColor: maritime.watermarkTint,
     transform: [{ rotate: '-8deg' }],

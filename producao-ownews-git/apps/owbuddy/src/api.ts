@@ -14,6 +14,9 @@ const UNIDADES_URL = `${BASE_URL}/api/buddy/unidades`;
 const CACHE_KEY_FEED = 'owbuddy_cache_feed_v3';
 const CACHE_KEY_ABERTAS = 'owbuddy_noticias_abertas_v1';
 const CACHE_KEY_VAGAS = 'owbuddy_cache_vagas';
+// `updated_at` do /api/buddy/vagas (última verificação nos portais) — chave separada para
+// não mudar o formato do cache de vagas de quem já tem o app.
+const CACHE_KEY_VAGAS_META = 'owbuddy_cache_vagas_meta_v1';
 const CACHE_KEY_UNIDADES = 'owbuddy_cache_unidades_v1';
 const FEED_TTL_MS = 5 * 60 * 1000;       // 5 min
 const VAGAS_TTL_MS = 60 * 60 * 1000;     // 1 h
@@ -138,23 +141,27 @@ export async function noticiaLocal(id: string): Promise<Article | null> {
 }
 
 export type VagasResult =
-  | { status: 'ok'; vagas: Vaga[]; fromCache: boolean; cachedAt?: number }
-  | { status: 'offline_cached'; vagas: Vaga[]; cachedAt: number }
+  | { status: 'ok'; vagas: Vaga[]; fromCache: boolean; cachedAt?: number; updatedAt?: string | null }
+  | { status: 'offline_cached'; vagas: Vaga[]; cachedAt: number; updatedAt?: string | null }
   | { status: 'offline_empty' }
   | { status: 'error'; message: string };
 
 export async function fetchVagas(forcar = false): Promise<VagasResult> {
   const cached = await readCache<Vaga[]>(CACHE_KEY_VAGAS);
+  const meta = await readCache<string | null>(CACHE_KEY_VAGAS_META);
+  const updatedCache = meta?.data ?? null;
   if (!forcar && cached && !isStale(cached.cachedAt, VAGAS_TTL_MS)) {
-    return { status: 'ok', vagas: cached.data, fromCache: true, cachedAt: cached.cachedAt };
+    return { status: 'ok', vagas: cached.data, fromCache: true, cachedAt: cached.cachedAt, updatedAt: updatedCache };
   }
-  const r = await buscarJson<{ vagas?: unknown }>(VAGAS_URL);
+  const r = await buscarJson<{ vagas?: unknown; updated_at?: unknown }>(VAGAS_URL);
   if (r.ok && Array.isArray(r.data?.vagas)) {
     const vagas = (r.data.vagas as Vaga[]).filter(v => v && str(v.id) && str(v.titulo) && str(v.empresa));
+    const updatedAt = str(r.data.updated_at);
     await writeCache(CACHE_KEY_VAGAS, vagas);
-    return { status: 'ok', vagas, fromCache: false };
+    await writeCache(CACHE_KEY_VAGAS_META, updatedAt);
+    return { status: 'ok', vagas, fromCache: false, updatedAt };
   }
-  if (cached) return { status: 'offline_cached', vagas: cached.data, cachedAt: cached.cachedAt };
+  if (cached) return { status: 'offline_cached', vagas: cached.data, cachedAt: cached.cachedAt, updatedAt: updatedCache };
   return { status: 'offline_empty' };
 }
 
