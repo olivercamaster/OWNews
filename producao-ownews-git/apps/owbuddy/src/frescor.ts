@@ -48,3 +48,20 @@ export function noticiaRecenteHome<T extends NoticiaHome>(artigos: readonly T[],
   }
   return melhor;
 }
+
+/** Clima da cidade (pessoal/urbano — NUNCA meteorologia offshore/operacional). */
+export const CLIMA_ATUAL_MAX_MS = 1 * HORA;
+export const CLIMA_ARMAZENADO_MAX_MS = 6 * HORA;
+
+/**
+ * 'atual'      — até 1 h: mostra temperatura e condição normalmente;
+ * 'armazenado' — até 6 h (ex.: offline): mostra com "às HH:MM";
+ * 'antigo'     — mais que isso: NÃO mostra condição como atual (só a cidade).
+ */
+export function frescorClima(cachedAt: number | null | undefined, agora: number = Date.now()): 'atual' | 'armazenado' | 'antigo' {
+  if (cachedAt == null || !Number.isFinite(cachedAt)) return 'antigo';
+  const idade = agora - cachedAt;
+  if (idade <= CLIMA_ATUAL_MAX_MS) return 'atual';
+  if (idade <= CLIMA_ARMAZENADO_MAX_MS) return 'armazenado';
+  return 'antigo';
+}

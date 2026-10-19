@@ -40,7 +40,29 @@ type EventName =
   | 'conta_recuperar_senha'
   | 'lembretes_ativados'
   | 'lembretes_desativados'
-  | 'lembrete_aberto';
+  | 'lembrete_aberto'
+  // Camada parceiro pessoal — só tipo/ação, NUNCA nome, pessoa, relação, empresa, título ou obs.
+  | 'event_created'
+  | 'event_updated'
+  | 'event_deleted'
+  | 'payment_rule_configured'
+  | 'payment_rule_removed'
+  | 'transport_opened'
+  | 'gift_ideas_opened'
+  | 'preciso_de_opened'
+  | 'proximos_opened'
+  // Home personalizável — sem nome, cidade ou frase
+  | 'home_customize_open'
+  | 'home_module_hidden'
+  | 'home_module_shown'
+  | 'home_module_reordered'
+  | 'home_module_size_changed'
+  | 'home_preset_applied'
+  | 'home_layout_reset'
+  | 'greeting_style_changed'
+  | 'daily_phrase_toggled'
+  | 'weather_enabled'
+  | 'weather_disabled';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

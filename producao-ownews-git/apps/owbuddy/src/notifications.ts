@@ -19,14 +19,14 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { planejarLembretes, dataDoInstante, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
 import type { PrefsLembretes } from '@owbuddy/domain';
-import { getCerts, getChecklist, getEscala, getViagem } from './storage';
+import { getCerts, getChecklist, getEscala, getEventosPessoais, getPagamento, getViagem } from './storage';
 import { analytics } from './analytics';
 
 type NotificationsModule = typeof import('expo-notifications');
 
 const PREFS_KEY = 'owbuddy_lembretes_prefs';
 const CANAL = 'lembretes';
-const ROTAS_PERMITIDAS = ['/escala', '/mala', '/viagem', '/certs'];
+const ROTAS_PERMITIDAS = ['/escala', '/mala', '/viagem', '/certs', '/proximos', '/pagamento'];
 
 let mod: NotificationsModule | null | undefined;
 
@@ -80,7 +80,7 @@ async function garantirCanal(n: NotificationsModule): Promise<void> {
   if (Platform.OS !== 'android') return;
   await n.setNotificationChannelAsync(CANAL, {
     name: 'Lembretes do OWBuddy',
-    description: 'Embarque, Meu Embarque, certificados e viagem',
+    description: 'Escala, viagem, Meu Embarque, certificados, datas importantes e pagamento',
     importance: n.AndroidImportance.DEFAULT,
   });
 }
@@ -112,8 +112,10 @@ export async function replanejarLembretes(): Promise<number> {
     await n.cancelAllScheduledNotificationsAsync();
     if (!prefs.ativo || (await estadoPermissao()) !== 'concedida') return 0;
     await garantirCanal(n);
-    const [escala, checklist, certs, viagem] = await Promise.all([getEscala(), getChecklist(), getCerts(), getViagem()]);
-    const plano = planejarLembretes({ escala, checklist, certs, viagem, prefs });
+    const [escala, checklist, certs, viagem, eventos, pagamento] = await Promise.all([
+      getEscala(), getChecklist(), getCerts(), getViagem(), getEventosPessoais(), getPagamento(),
+    ]);
+    const plano = planejarLembretes({ escala, checklist, certs, viagem, eventos, pagamento, prefs });
     for (const l of plano) {
       await n.scheduleNotificationAsync({
         identifier: l.id,

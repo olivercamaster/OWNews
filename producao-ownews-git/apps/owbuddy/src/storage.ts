@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria, EventoPessoal } from '@owbuddy/domain';
-import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope } from '@owbuddy/domain';
+import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope, normalizarConfigPagamento, normalizarPrefsHome } from '@owbuddy/domain';
+import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import type { City } from './cities';
 
 // Storage keys — alinhados com OWNews localStorage keys para futura sync Supabase.
@@ -17,6 +18,8 @@ export const KEYS = {
   EVENTOS_PESSOAIS: 'owbuddy_eventos_pessoais',
   ESCALAS_CRUZAR:  'ownews_cruzar_v2',
   MALA_OCULTAR_OK:  'owbuddy_mala_ocultar_concluidos',
+  PAGAMENTO:        'owbuddy_pagamento_v1',
+  HOME_PREFS:       'owbuddy_home_prefs',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -184,6 +187,27 @@ export async function getEventosPessoais(): Promise<EventoPessoal[]> {
 
 export async function setEventosPessoais(eventos: EventoPessoal[]): Promise<void> {
   await set(KEYS.EVENTOS_PESSOAIS, eventos);
+  avisarMudanca(); // datas importantes também geram lembretes
+}
+
+// Meu Pagamento — só a REGRA (nunca valor). Local; não sincroniza.
+export async function getPagamento(): Promise<ConfigPagamento | null> {
+  return normalizarConfigPagamento(await get<unknown>(KEYS.PAGAMENTO));
+}
+
+export async function setPagamento(cfg: ConfigPagamento | null): Promise<void> {
+  if (cfg) await set(KEYS.PAGAMENTO, { ...cfg, updated_at: new Date().toISOString() });
+  else await remove(KEYS.PAGAMENTO);
+  avisarMudanca();
+}
+
+// Home personalizável — schema versionado; normalizarPrefsHome migra qualquer versão.
+export async function getPrefsHome(): Promise<PrefsHome> {
+  return normalizarPrefsHome(await get<unknown>(KEYS.HOME_PREFS));
+}
+
+export async function setPrefsHome(p: PrefsHome): Promise<void> {
+  await set(KEYS.HOME_PREFS, p);
 }
 
 // Escalas secundárias para cruzar — aceita também o formato do OWNews web

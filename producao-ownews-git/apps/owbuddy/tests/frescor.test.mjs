@@ -43,3 +43,10 @@ test('Cruzar: ícones vetoriais; emojis antigos salvos continuam válidos', asyn
   assert.equal(R.ioniconRelacao(undefined), 'link');
   assert.equal(R.ioniconRelacao('🦄'), 'link');
 });
+
+test('clima: atual até 1 h, armazenado até 6 h, antigo depois (não vira "agora")', () => {
+  assert.equal(F.frescorClima(AGORA - 10 * 60e3, AGORA), 'atual');
+  assert.equal(F.frescorClima(AGORA - 3 * H, AGORA), 'armazenado');
+  assert.equal(F.frescorClima(AGORA - 7 * H, AGORA), 'antigo');
+  assert.equal(F.frescorClima(null, AGORA), 'antigo');
+});
