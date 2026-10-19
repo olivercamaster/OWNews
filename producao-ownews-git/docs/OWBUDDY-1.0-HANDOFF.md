@@ -30,7 +30,7 @@ ferramentas.
    e nunca mostra texto da fonte. Compartilhar usa a URL do OWNews.
 5. **Buddy oficial e funcional** (ícone, splash, card "Buddy resume"). Nunca
    mascote novo. Asset: `assets/buddy-watermark.png`. Marca-d'água: SÓ na Home
-   (`OWBackground watermark="home"`, canto superior direito, ~5%) — decisão do
+   (`OWBackground watermark="home"`, canto superior direito, ~8,5%) — decisão do
    dono em 2026-10-19; nenhuma outra tela.
 6. **Notificações só LOCAIS**, desligadas por padrão, cadência conservadora,
    texto sem dado privado. Sem push remoto na 1.0.
@@ -86,7 +86,7 @@ package.json raiz). O bundle nativo resolve só o 19.2.3 do app (conferido:
 
 ## 5. Telas e rotas
 
-Tabs (`app/(tabs)/`): `index` Início · `mala` Embarque · `viagem` Viagem · `certs` Certificados · `loja` Loja.
+Tabs (`app/(tabs)/`): `index` Início · `escala` Escala · `mala` Embarque · `viagem` Viagem · `certs` Certificados. `loja` continua como rota (`/loja`), fora da barra (`href: null`), acessível pelo link secundário da Home.
 
 Stack (`app/`): `escala` (calendário) · `escala-config` · `escala-excecao-form`
 (dobra/férias) · `escala-evento-form` (viagem/curso/data especial/compromisso) ·
@@ -361,4 +361,22 @@ Baixar o APK para o computador: `scp offshore@<servidor>:/home/offshore/android-
 - **Web:** `app/_layout.tsx` limita a coluna a 560 px no navegador (no app é View neutro).
 - Categorias: mantidas; item novo continua em Personalizados (escolher categoria
   ficou para depois, para não complicar o fluxo).
+
+## Rodada pré-RC (2026-10-19)
+
+- **Barra inferior:** Início · Escala · Embarque · Viagem · Certificados. `app/escala.tsx`
+  virou `app/(tabs)/escala.tsx` (mesma rota `/escala`; deep link `owbuddy://escala` igual).
+  Loja fora da barra, rota mantida.
+- **Calendário:** células por `flex: 1` + `aspectRatio: 1` (antes: `Dimensions` lido uma vez no
+  load do módulo → células gigantes no navegador largo / rotação). 7 colunas sempre.
+- **Convenção da escala (inalterada, com teste):** 14×14 "embarquei 19/10" → Dia 1 = 19/10,
+  Dia 14 = 01/11 (último dia a bordo), desembarque 02/11 = Dia 1 da folga, próximo embarque
+  16/11; no Dia 1 faltam 14 dias para o desembarque. Mesma regra do OWNews web.
+- **Frescor da Home (`src/frescor.ts`):** contador de Vagas só com lista obtida ≤ 24 h E
+  `updated_at` (última verificação nos portais) ≤ 72 h; senão só "Vagas". Manchete de
+  Notícias só se publicada ≤ 48 h; senão copy neutra.
+- **Cruzar:** ícones vetoriais (`src/relacao-icones.ts`); emojis antigos salvos são lidos pelo
+  mapa legado (🤜🤛 → `people`).
+- **Rótulos da barra:** tamanho por largura de tela (`useWindowDimensions`), igual em todas as
+  plataformas — `adjustsFontSizeToFit` não existe na web.
 
