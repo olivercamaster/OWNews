@@ -475,7 +475,7 @@ function Field({ label, placeholder, value, onChange, keyboardType, multiline, a
 
 // ─────────────────────── Styles ───────────────────────
 const formStyles = StyleSheet.create({
-  sectionLabel: { ...typography.micro, color: colors.cyanDim, marginBottom: spacing.sm, marginTop: spacing.md },
+  sectionLabel: { ...typography.micro, color: colors.muted, marginBottom: spacing.sm, marginTop: spacing.md },
   tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tipoChip: {
     flexBasis: '30%', backgroundColor: maritime.glass, borderRadius: radius.md,
@@ -490,13 +490,13 @@ const formStyles = StyleSheet.create({
   fieldWrap: { marginBottom: spacing.sm },
   fieldLabel: { ...typography.small, color: colors.muted, marginBottom: 5, fontSize: 12 },
   input: {
-    backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.sm,
-    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.glassBorder,
+    backgroundColor: maritime.sunken, borderRadius: radius.md, padding: spacing.sm,
+    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
 
   horaBtn: {
-    backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.sm,
-    paddingHorizontal: 12, borderWidth: 1, borderColor: maritime.glassBorder,
+    backgroundColor: maritime.sunken, borderRadius: radius.md, padding: spacing.sm,
+    paddingHorizontal: 12, borderWidth: 1, borderColor: maritime.fieldBorder,
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
   },
   horaBtnText: { color: colors.white, fontSize: 15, fontWeight: '600' },

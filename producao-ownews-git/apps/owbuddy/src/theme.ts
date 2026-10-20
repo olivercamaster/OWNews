@@ -2,41 +2,86 @@
 // Visual language: premium, maritime/offshore, modern, clean, adult, professional, welcoming.
 // NOT: cyberpunk, gamer, heavy industrial dashboard, excessive neon, emoji iconography.
 
+// ─── Premium Material Pass (2026-10-20) ─────────────────────────────────────
+// Preto azulado + navy muito profundo + grafite azulado + cinza frio + branco frio.
+// O ciano OW é ACENTO (ação, estado ativo, precisão) — aparece pouco de propósito.
+// Três níveis de profundidade, nada além disso:
+//   N0 fundo · N1 superfície (cards) · N2 superfície elevada (card principal/ação).
+export const tone = {
+  // N0 — fundo
+  bg0: '#02090f',
+  bg1: '#03111b',
+  bg2: '#041722',
+  bg3: '#061a26',
+  // N1 — superfície (material: topo levemente mais claro → base mais escura)
+  surface:       '#0a1923',
+  surfaceTop:    '#0d1e2a',
+  surfaceBottom: '#08141c',
+  // N2 — superfície elevada
+  elevated:       '#0d2130',
+  elevatedTop:    '#12293a',
+  elevatedBottom: '#0a1a26',
+  // Abaixo da superfície: campos, trilhos, áreas recuadas
+  sunken: '#050f17',
+  // Bordas finas, frias — nunca contorno neon
+  borderSubtle: 'rgba(130, 190, 225, 0.10)',
+  border:       'rgba(130, 190, 225, 0.16)',
+  borderActive: 'rgba(18, 168, 238, 0.42)',
+  // Luz de superfície: aresta superior clara + aresta inferior escura = chanfro de metal anodizado
+  edgeLight: 'rgba(214, 236, 250, 0.11)',
+  edgeDark:  'rgba(0, 4, 8, 0.60)',
+  // Texto
+  textPrimary:   '#f2f6f8',
+  textSecondary: '#91a5b2',
+  textMuted:     '#8296a7',
+  // Dado importante sem ser ação (datas, prazos): claro e com peso, sem ciano
+  textEmphasis:  '#c4d1da',
+  // Acento OW
+  accent:       '#12a8ee',
+  accentText:   '#5fc4ee',
+  accentSoft:   'rgba(18, 168, 238, 0.10)',
+  accentBorder: 'rgba(18, 168, 238, 0.30)',
+  // Ícone em pastilha neutra (grafite), o ícone é que leva a cor
+  iconTile: 'rgba(150, 195, 225, 0.07)',
+  shadow: '#000000',
+} as const;
+
 // ─── Palette ────────────────────────────────────────────────────────────────
+// Nomes mantidos (as telas consomem estes tokens); valores do Premium Material Pass.
 export const colors = {
   // Backgrounds
-  navy950: '#061c2b',
-  navy900: '#08283a',
-  navy800: '#0a2c40',
-  navy700: '#0e3450',
+  navy950: tone.bg1,
+  navy900: tone.bg3,
+  navy800: tone.surface,
+  navy700: tone.elevated,
 
-  // Borders / dividers
-  line:       '#16445e',
-  lineSoft:   '#123c53',
+  // Borders / dividers (sólidas, para listas e divisórias)
+  line:       '#16293a',
+  lineSoft:   '#112230',
 
   // Brand
-  cyan:     '#12a8ee',
-  cyanDim:  '#5fc4ee',
-  cyanFaint: 'rgba(18,168,238,0.12)',
+  cyan:     tone.accent,
+  cyanDim:  tone.accentText,
+  cyanFaint: tone.accentSoft,
 
   // Text
-  white:    '#f7fafc',
-  muted:    '#9eb5c5',
-  mutedDim: '#6f8b9c',
+  white:    tone.textPrimary,
+  muted:    tone.textSecondary,
+  mutedDim: tone.textMuted,
 
-  // Status
-  green:  '#22c55e',
-  amber:  '#f59e0b',
-  red:    '#ef4444',
-  orange: '#ff7a00',
+  // Status — dessaturados, sem gritar
+  green:  '#2fbf71',
+  amber:  '#e9a23b',
+  red:    '#ef6a61',
+  orange: '#f0852a',
 } as const;
 
 // ─── Semantic tokens ─────────────────────────────────────────────────────────
 export const surface = {
-  bg:       colors.navy950,
-  card:     colors.navy800,
-  elevated: colors.navy700,
-  header:   colors.navy900,
+  bg:       tone.bg1,
+  card:     tone.surface,
+  elevated: tone.elevated,
+  header:   tone.bg3,
   border:   colors.line,
 } as const;
 
@@ -66,7 +111,7 @@ export const typography = {
   body:  { fontSize: 15, fontWeight: '400' as const, color: colors.white },
   small: { fontSize: 13, fontWeight: '400' as const, color: colors.muted },
   micro: { fontSize: 11, fontWeight: '600' as const, color: colors.mutedDim, letterSpacing: 0.8, textTransform: 'uppercase' as const },
-  label: { fontSize: 12, fontWeight: '600' as const, color: colors.cyanDim, letterSpacing: 0.5, textTransform: 'uppercase' as const },
+  label: { fontSize: 12, fontWeight: '600' as const, color: colors.muted, letterSpacing: 0.6, textTransform: 'uppercase' as const },
   mono:  { fontSize: 11, fontFamily: 'monospace' as const, color: colors.muted },
 } as const;
 
@@ -86,11 +131,11 @@ export const touchTarget = {
 // ─── Elevation (shadow tokens) ───────────────────────────────────────────────
 export const elevation = {
   card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: tone.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.30,
+    shadowRadius: 16,
+    elevation: 4,
   },
   modal: {
     shadowColor: '#000',
@@ -112,65 +157,64 @@ export const screen = {
 // Glassmorphism cards over the premium navy gradient background.
 // Never add opacity tokens inside StyleSheet.create() — keep them here.
 export const maritime = {
-  // Gradiente premium (topo → base): navy profundo → petróleo/naval → navy profundo.
-  // Variação de luminosidade real, não um bloco azul chapado.
-  // Polimento 2026-10-19: um pouco mais de profundidade tonal (topo mais fundo, faixa
-  // central levemente mais fria) — mesmo azul-marinho oficial, sem gradiente chamativo.
-  bgGradient: ['#020d16', '#051e33', '#092c44', '#06263a', '#03101a'] as string[],
-  bgLocations: [0, 0.28, 0.55, 0.80, 1] as number[],
-  // Brilho diagonal (luz vinda do canto superior esquerdo) e sombra de profundidade na base.
-  // Ambos são LinearGradient — zero blur, zero custo de GPU relevante.
-  glowGradient:  ['rgba(32, 150, 200, 0.16)', 'rgba(32, 150, 200, 0.05)', 'rgba(32, 150, 200, 0)'] as string[],
+  // Fundo N0: quase preto + navy profundo. A faixa central fica só um tom acima —
+  // identidade marítima sem "tudo azul".
+  bgGradient: ['#01070d', '#03111b', '#051824', '#04131d', '#02090f'] as string[],
+  bgLocations: [0, 0.30, 0.56, 0.82, 1] as number[],
+  // Luz fria vinda do canto superior esquerdo (muito baixa) e sombra de profundidade na base.
+  // Ambos LinearGradient — zero blur.
+  glowGradient:  ['rgba(46, 140, 190, 0.075)', 'rgba(46, 140, 190, 0.022)', 'rgba(46, 140, 190, 0)'] as string[],
   glowLocations: [0, 0.45, 0.85] as number[],
-  depthGradient: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.22)'] as string[],
+  depthGradient: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.30)'] as string[],
 
-  // Cards — LEITURA > EFEITO GLASS. Superfície quase opaca, um tom mais clara que o
-  // fundo (lê como camada acima), borda fina luminosa, sem blur.
-  glass:        'rgba(16, 58, 84, 0.92)',
-  glassElevated:'rgba(20, 68, 98, 0.95)',
-  glassBorder:  'rgba(120, 200, 240, 0.14)',
-  glassActive:  'rgba(18, 168, 238, 0.18)',
-  glassBorderActive: 'rgba(18, 168, 238, 0.40)',
-  // Elevação discreta para os cards principais (escala, mensagem do Buddy)
+  // Cards N1/N2 — material opaco, pouca distância do fundo, sem blur.
+  glass:        'rgba(10, 25, 35, 0.97)',
+  glassElevated:'rgba(13, 33, 48, 0.98)',
+  glassBorder:  tone.borderSubtle,
+  glassActive:  tone.accentSoft,
+  glassBorderActive: 'rgba(18, 168, 238, 0.38)',
+  // Sombra profunda e difusa (profundidade, não card flutuando)
   cardShadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: tone.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    elevation: 4,
   },
 
-  // Acabamento "marítimo/metalizado" discreto: reflexo frio no topo das superfícies
-  // principais (LinearGradient, zero blur) + aresta superior um pouco mais clara.
-  // Nada de cromado: o reflexo some antes da metade do card.
-  sheenGradient:  ['rgba(190, 230, 255, 0.075)', 'rgba(190, 230, 255, 0.018)', 'rgba(190, 230, 255, 0)'] as string[],
-  sheenLocations: [0, 0.35, 0.7] as number[],
-  // Hero da Home: variação tonal muito sutil de azul-marinho (diagonal).
-  heroGradient:   ['rgba(24, 76, 108, 0.97)', 'rgba(16, 58, 88, 0.97)', 'rgba(10, 42, 66, 0.97)'] as string[],
-  edgeLight:      'rgba(170, 220, 250, 0.20)',
-  // Aresta inferior escura: com a aresta clara no topo dá o "chanfro" de chapa metálica —
-  // profundidade por luz/sombra, não por brilho.
-  edgeDark:       'rgba(0, 8, 16, 0.55)',
+  // Metal anodizado escuro: reflexo frio só no topo (some antes de 60% do card) +
+  // aresta superior clara e inferior escura. Sentido, não "efeito".
+  sheenGradient:  ['rgba(205, 230, 248, 0.055)', 'rgba(205, 230, 248, 0.014)', 'rgba(205, 230, 248, 0)'] as string[],
+  sheenLocations: [0, 0.30, 0.60] as number[],
+  // N2 (card da escala na Home): gradiente tonal diagonal grafite-navy.
+  heroGradient:   ['rgba(18, 41, 58, 0.99)', 'rgba(12, 30, 44, 0.99)', 'rgba(8, 21, 31, 0.99)'] as string[],
+  edgeLight:      tone.edgeLight,
+  edgeDark:       tone.edgeDark,
 
-  // Nav flutuante — contraste garantido sobre qualquer trecho do gradiente
-  navBg:           'rgba(4, 18, 30, 0.97)',
-  navBorder:       'rgba(120, 200, 240, 0.16)',
+  // Recuados (campos, trilhos de progresso) e pastilha neutra de ícone
+  sunken:          tone.sunken,
+  fieldBorder:     'rgba(130, 190, 225, 0.14)',
+  iconTile:        tone.iconTile,
+  accentSoft:      tone.accentSoft,
+  accentBorder:    tone.accentBorder,
+
+  // Nav flutuante — preto azulado, linha superior fina, sem glow
+  navBg:           'rgba(3, 11, 18, 0.97)',
+  navBorder:       'rgba(130, 190, 225, 0.11)',
   navHeight:       64,
   navMarginBottom: 8,
 
-  // Carta náutica ultra-suave: SÓ textura (curvas batimétricas orgânicas), nunca
-  // grade, cruzamentos ou retas atravessando cards. ~3% percebido.
-  bathymetryColor:   '#5fc4ee',
-  bathymetryOpacity: 0.030,
+  // Carta náutica ultra-suave: só textura (curvas batimétricas), ~2% percebido.
+  bathymetryColor:   '#5fa9cc',
+  bathymetryOpacity: 0.024,
 
-  // Mascote oficial OWBuddy (assets/buddy-watermark.png — máscara alfa gerada a partir
-  // do mascote oficial, capacete + óculos + sorriso). Tom sobre tom, grande, centrado.
-  // OWBuddy 1.0: marca-d'água DESLIGADA (OWBackground showWatermark=false por padrão).
-  watermarkTint:    '#9fd3ee',
-  watermarkOpacity: 0.08,
-  // Decisão do dono (2026-10-19): SÓ a Home tem o Buddy como marca-d'água — grande,
-  // canto superior direito, quase imperceptível. Nenhuma outra tela.
-  homeWatermarkOpacity: 0.085,
+  // Mascote oficial OWBuddy (assets/buddy-watermark.png). Tom sobre tom.
+  // OWBuddy 1.0: marca-d'água grande DESLIGADA (OWBackground showWatermark=false por padrão).
+  watermarkTint:    '#8db4ca',
+  watermarkOpacity: 0.06,
+  // Decisão do dono (2026-10-19): SÓ a Home tem o Buddy como marca-d'água.
+  // Premium Material Pass: gravação tonal no material (mais baixa, tom frio-acinzentado).
+  homeWatermarkOpacity: 0.055,
 } as const;
 
 /** Espaço que o conteúdo rolável precisa reservar embaixo para a nav flutuante nunca cobrir nada. */

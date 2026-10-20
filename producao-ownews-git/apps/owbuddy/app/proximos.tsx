@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md },
   novo: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, paddingHorizontal: spacing.md,
-    borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(18, 168, 238, 0.35)', backgroundColor: 'rgba(18, 168, 238, 0.10)',
+    borderRadius: radius.lg, borderWidth: 1, borderColor: maritime.accentBorder, backgroundColor: maritime.accentSoft,
   },
   novoTexto: { fontSize: 15, fontWeight: '700', color: colors.cyan },
   vazio: { ...typography.small, textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.md },

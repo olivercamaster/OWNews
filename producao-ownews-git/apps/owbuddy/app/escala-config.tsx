@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { calcularMomento, descreverMomento, diasDoCiclo, AEROPORTOS_ESCALA, DIAS_BLOCO_MAX, ESCALA_TIPOS } from '@owbuddy/domain';
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
 import { OWDatePicker } from '../src/components/OWDatePicker';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
@@ -194,8 +194,8 @@ const fStyles = StyleSheet.create({
   wrap: { marginBottom: spacing.sm },
   label: { ...typography.small, marginBottom: 4 },
   input: {
-    backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm,
-    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line,
+    backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
 });
 

@@ -502,7 +502,7 @@ function CardDestaque({ icon, titulo, numero, texto, cta, onPress }: {
     <TouchableOpacity style={[styles.tile, styles.tileDestaque, styles.cardDestaque]} onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`${titulo}. ${texto}`}>
       <Sheen />
       <View style={styles.destaqueTopo}>
-        <View style={[styles.tileIcon, { backgroundColor: colors.cyanDim + '1c' }]}>
+        <View style={styles.tileIcon}>
           <Ionicons name={icon} size={19} color={colors.cyanDim} />
         </View>
         <Text style={styles.tileLabel}>{titulo}</Text>
@@ -661,7 +661,7 @@ function HomeTile({
     >
       <Sheen />
       <View style={styles.tileTop}>
-        <View style={[styles.tileIcon, { backgroundColor: cor + '1c' }]}>
+        <View style={styles.tileIcon}>
           <Ionicons name={icon} size={19} color={cor} />
         </View>
         {badge ? (
@@ -694,7 +694,7 @@ function ActionRow({
       onPress={onPress}
       activeOpacity={0.72}
     >
-      <View style={[styles.actionIconWrap, { backgroundColor: (accent ?? colors.cyanDim) + '18' }]}>
+      <View style={styles.actionIconWrap}>
         <Ionicons name={icon} size={17} color={accent ?? colors.cyanDim} />
       </View>
       <View style={styles.actionContent}>
@@ -746,8 +746,8 @@ const styles = StyleSheet.create({
   // Dica de descoberta (uma vez)
   dica: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: 'rgba(18, 168, 238, 0.10)', borderRadius: radius.md,
-    borderWidth: 1, borderColor: 'rgba(18, 168, 238, 0.28)',
+    backgroundColor: maritime.accentSoft, borderRadius: radius.md,
+    borderWidth: 1, borderColor: maritime.accentBorder,
     paddingHorizontal: spacing.sm + 4, paddingVertical: 6, marginBottom: spacing.md,
   },
   dicaTexto: { flex: 1, fontSize: 13, color: colors.white, lineHeight: 18 },
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
   heroData: { fontSize: 12, color: colors.muted, fontWeight: '600' },
   heroTitulo: { fontSize: 23, fontWeight: '700', color: colors.white, letterSpacing: -0.2 },
   heroDestaque: { fontSize: 16, fontWeight: '700', marginTop: 4 },
-  heroBar: { height: 4, backgroundColor: 'rgba(3, 16, 26, 0.55)', borderRadius: 2, overflow: 'hidden', marginTop: spacing.md },
+  heroBar: { height: 4, backgroundColor: maritime.sunken, borderRadius: 2, overflow: 'hidden', marginTop: spacing.md },
   heroBarFill: { height: '100%', borderRadius: 2 },
   heroBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm + 2 },
   heroDetalhe: { flex: 1, fontSize: 14, color: colors.muted, lineHeight: 20 },
@@ -845,9 +845,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...maritime.cardShadow,
   },
-  tileDestaque: { borderColor: 'rgba(18, 168, 238, 0.30)', borderTopColor: 'rgba(120, 210, 250, 0.40)' },
+  // N2: o card importante ganha um pouco mais de presença na borda, nunca contorno neon.
+  tileDestaque: { borderColor: maritime.accentBorder, borderTopColor: 'rgba(150, 215, 245, 0.26)' },
   tileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm + 2 },
-  tileIcon: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  // Pastilha neutra (grafite): o ícone leva a cor, a área não.
+  tileIcon: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: maritime.iconTile, borderWidth: StyleSheet.hairlineWidth, borderColor: maritime.glassBorder },
   tileLabel: { fontSize: 15, fontWeight: '700', color: colors.white },
   tileSub: { fontSize: 12, color: colors.muted, marginTop: 2 },
   tileEstreita: { padding: spacing.sm + 3 },
@@ -864,6 +866,7 @@ const styles = StyleSheet.create({
     borderBottomColor: maritime.edgeDark,
     marginBottom: spacing.xs,
     overflow: 'hidden',
+    ...maritime.cardShadow,
   },
   actionRow: {
     flexDirection: 'row',
@@ -880,6 +883,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
+    backgroundColor: maritime.iconTile,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -901,7 +905,7 @@ const styles = StyleSheet.create({
   toolsLink: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48,
     paddingHorizontal: spacing.sm, borderRadius: radius.md,
-    borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: 'rgba(16, 58, 84, 0.45)',
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, backgroundColor: maritime.glass,
   },
   toolsLinkText: { fontSize: 13, color: colors.muted, fontWeight: '600' },
 
@@ -917,8 +921,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
+    borderTopColor: maritime.edgeLight,
   },
-  alertCardWarn: { borderColor: colors.amber + '44' },
+  alertCardWarn: { borderColor: colors.amber + '40', borderTopColor: colors.amber + '55' },
   alertText: { flex: 1, fontSize: 13, color: colors.muted },
 
 });

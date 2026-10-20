@@ -2,7 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { quandoTexto, type Acontecimento } from '@owbuddy/domain';
-import { colors, maritime, radius, spacing } from '../theme';
+import { colors, maritime, radius, spacing, tone } from '../theme';
 import { visualAcontecimento } from '../evento-visual';
 
 /**
@@ -20,12 +20,12 @@ export function AcontecimentoLinha({ a, onAcao, ultimo }: { a: Acontecimento; on
         accessibilityRole="button"
         accessibilityLabel={`${a.titulo}. ${quando}. ${a.detalhe ?? ''}`}
       >
-        <View style={[styles.icone, { backgroundColor: v.color + '22' }]}>
+        <View style={[styles.icone, { backgroundColor: v.color + '18' }]}>
           <Ionicons name={v.icon} size={17} color={v.color} />
         </View>
         <View style={styles.conteudo}>
           <Text style={styles.titulo} numberOfLines={1}>{a.titulo}</Text>
-          <Text style={styles.quando} numberOfLines={2}>{quando}</Text>
+          <Text style={[styles.quando, a.dias <= 1 && styles.quandoPerto]} numberOfLines={2}>{quando}</Text>
           {a.detalhe ? <Text style={styles.detalhe} numberOfLines={2}>{a.detalhe}</Text> : null}
         </View>
       </TouchableOpacity>
@@ -45,11 +45,14 @@ const styles = StyleSheet.create({
   icone: { width: 32, height: 32, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   conteudo: { flex: 1, minWidth: 0 },
   titulo: { fontSize: 14, fontWeight: '600', color: colors.white },
-  quando: { fontSize: 12, color: colors.cyanDim, fontWeight: '600', marginTop: 1 },
+  // Ciano é acento: a data fica clara e com peso; só hoje/amanhã ganham o ciano.
+  quando: { fontSize: 12, color: tone.textEmphasis, fontWeight: '600', marginTop: 1 },
+  quandoPerto: { color: colors.cyanDim },
   detalhe: { fontSize: 12, color: colors.muted, marginTop: 1, lineHeight: 16 },
   pill: {
     maxWidth: 104, minHeight: 36, borderRadius: radius.xl, paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: 'rgba(18, 168, 238, 0.14)', borderWidth: 1, borderColor: 'rgba(18, 168, 238, 0.35)',
+    // Ação secundária: material escuro + borda sutil; o rótulo é que leva o ciano.
+    backgroundColor: maritime.iconTile, borderWidth: 1, borderColor: tone.border,
     alignItems: 'center', justifyContent: 'center', marginLeft: 4,
   },
   pillTexto: { fontSize: 11.5, fontWeight: '700', color: colors.cyan, textAlign: 'center' },

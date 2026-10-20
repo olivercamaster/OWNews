@@ -530,14 +530,14 @@ const styles = StyleSheet.create({
   tratSub: { ...typography.small, color: colors.mutedDim },
 
   apelidoInput: {
-    backgroundColor: surface.elevated,
+    backgroundColor: maritime.sunken,
     borderRadius: radius.sm,
     padding: spacing.sm,
     paddingHorizontal: 12,
     color: colors.white,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.fieldBorder,
     marginBottom: spacing.xs,
   },
   privNote: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.xl },
@@ -576,14 +576,14 @@ const styles = StyleSheet.create({
   syncMsgLoading: { color: colors.mutedDim },
 
   loginInput: {
-    backgroundColor: surface.card,
+    backgroundColor: maritime.sunken,
     borderRadius: radius.sm,
     padding: spacing.sm,
     paddingHorizontal: 12,
     color: colors.white,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: maritime.fieldBorder,
   },
   loginErro: { ...typography.small, color: colors.red, marginTop: -spacing.xs },
   loginBtn: {

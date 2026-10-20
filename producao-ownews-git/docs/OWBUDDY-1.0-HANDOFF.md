@@ -496,3 +496,30 @@ offshore do usuário. Tudo LOCAL, offline, determinístico — sem IA, sem rede 
 - Destino do Uber só para aeroportos da tabela e base da escala; texto livre não é geocodificado.
 - Notificações nativas, link universal da Uber abrindo o app e loja da 99: validar no APK RC.
 
+
+## Premium Material Pass (2026-10-20)
+
+Camada só visual: nenhuma rota, dado, ordem de módulo ou regra mudou. Commit isolado, tag de antes: `owbuddy-pre-premium-material`.
+
+- **Linguagem:** preto azulado, navy profundo, grafite azulado, cinza frio e branco frio. O ciano OW (`#12a8ee` / `#5fc4ee`) é **acento**: ação, aba ativa, seleção, estado. Não é cor de área nem de título.
+- **Tokens:** `src/theme.ts` → `tone`. Os nomes antigos (`colors`, `surface`, `maritime`) foram mantidos e apontam para `tone`.
+- **Três níveis:**
+  - N0 fundo: `bg0..bg3`, `#02090f` → `#061a26`;
+  - N1 superfície: `surface` `#0a1923`, card `maritime.glass`;
+  - N2 elevada: `elevated` `#0d2130`, card da escala, `glassElevated`.
+  - Recuado: `sunken` `#050f17` (campos e trilhos).
+- **Material:**
+  - aresta superior clara (`edgeLight`) e inferior escura (`edgeDark`);
+  - reflexo frio só no topo (`sheenGradient`, some até 60%);
+  - sombra profunda e difusa (`cardShadow` 0/8/18, 0,34);
+  - nada de blur nem textura.
+- **Bordas:** `borderSubtle` 0,10 e `border` 0,16 (frio); destaque `accentBorder` 0,30; ativo `borderActive` 0,42.
+- **Texto:** primário `#f2f6f8`, secundário `#91a5b2`, terciário `#8296a7`, ênfase de dado `#c4d1da`. Contraste mínimo de 4,89:1 em todos os níveis, inclusive sobre N2.
+- **Pastilhas de ícone:** neutras (`iconTile`); o ícone leva a cor. Ações secundárias usam material escuro, borda sutil e rótulo ciano. A ação primária continua ciano sólido.
+- **Campos:** fundo `sunken` e borda `fieldBorder`. No web há foco ciano e halo fino, via regra CSS única injetada em `app/_layout.tsx`. No nativo vale o foco do sistema.
+- **Nav inferior:** `navBg` preto azulado, linha superior fina (`edgeLight`), sombra difusa, sem glow; ativo ciano, inativo cinza azulado.
+- **Cabeçalhos de Stack:** sem a linha clara padrão (`headerShadowVisible: false`); a separação é tonal.
+- **Marca-d'água:** Buddy só na Home, tom frio-acinzentado com opacidade 0,055 (gravação no material).
+- **Cores funcionais mantidas:** EMB/embarcado verde, DEB âmbar, dobra, férias, feriado, eventos, Uber branco e Loja.
+
+**Para reverter só esta camada:** `git revert <commit do premium pass>`. O que entrou depois continua.

@@ -2,11 +2,23 @@ import { useEffect } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { colors } from '../src/theme';
+import { colors, tone } from '../src/theme';
 import { instalarNotificacoes, replanejarLembretes } from '../src/notifications';
 import { aoMudarDadosDoLembrete } from '../src/storage';
 
+// Premium Material Pass: foco de campo elegante no web (borda ciano + halo fino).
+// Regra única para todos os TextInput — no Android/iOS vale o foco nativo.
+function instalarFocoWeb() {
+  if (Platform.OS !== 'web' || typeof document === 'undefined' || document.getElementById('ow-foco')) return;
+  const s = document.createElement('style');
+  s.id = 'ow-foco';
+  s.textContent = 'input:focus,textarea:focus{outline:none;border-color:' + tone.borderActive + '!important;box-shadow:0 0 0 3px ' + tone.accentSoft + '}' +
+    'input::placeholder,textarea::placeholder{color:' + tone.textMuted + ';opacity:1}';
+  document.head.appendChild(s);
+}
+
 export default function RootLayout() {
+  useEffect(instalarFocoWeb, []);
   // Lembretes locais: handler + toque → rota; replaneja ao abrir, ao voltar
   // para o app e quando escala/checklist/certificados/viagem mudam.
   useEffect(() => {
@@ -26,6 +38,8 @@ export default function RootLayout() {
           headerStyle: { backgroundColor: colors.navy900 },
           headerTintColor: colors.white,
           headerTitleStyle: { fontWeight: '700', color: colors.white },
+          // Sem a linha clara padrão sob o cabeçalho: separação tonal (Premium Material Pass).
+          headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.navy950 },
         }}
       >
@@ -166,7 +180,7 @@ export default function RootLayout() {
 // celular grande, fundo navy nas laterais. No Android/iOS é um View neutro (flex:1).
 const styles = StyleSheet.create({
   webFrame: Platform.OS === 'web'
-    ? { flex: 1, backgroundColor: '#020b13', alignItems: 'center' }
+    ? { flex: 1, backgroundColor: tone.bg0, alignItems: 'center' }
     : { flex: 1 },
   webColumn: Platform.OS === 'web'
     ? { flex: 1, width: '100%', maxWidth: 560, overflow: 'hidden' }

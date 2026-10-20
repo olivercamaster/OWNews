@@ -228,7 +228,7 @@ const fStyles = StyleSheet.create({
   sectionLabel: { ...typography.micro, marginBottom: spacing.md },
   fieldWrap: { marginBottom: spacing.sm },
   label: { ...typography.small, marginBottom: 4, marginTop: spacing.sm },
-  input: { backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line },
+  input: { backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm,

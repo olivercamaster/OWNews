@@ -22,7 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, maritime, radius, spacing, typography } from '../theme';
+import { colors, maritime, radius, spacing, tone, typography } from '../theme';
 export { normalizeHora } from '../hora-utils';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#071e2e',
+    backgroundColor: tone.elevated,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: spacing.lg,

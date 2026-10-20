@@ -15,7 +15,7 @@ import { DIAS_BLOCO_MAX, ESCALA_TIPOS, diasDoCiclo } from '@owbuddy/domain';
 import type { EscalaSecundaria, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { OWDatePicker } from '../src/components/OWDatePicker';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
 import { formatDateBR } from '../src/format';
 import { confirmarRemocao } from '../src/confirmar';
 import { ICONES_ORDEM, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
@@ -299,8 +299,8 @@ const styles = StyleSheet.create({
   refTextActive: { color: colors.cyan },
 
   input: {
-    backgroundColor: surface.card, borderRadius: radius.sm, padding: spacing.sm,
-    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: colors.line,
+    backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

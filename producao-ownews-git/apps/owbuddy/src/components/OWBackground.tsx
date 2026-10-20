@@ -19,7 +19,7 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { maritime } from '../theme';
+import { maritime, tone } from '../theme';
 
 const BUDDY = require('../../assets/buddy-watermark.png');
 
@@ -138,7 +138,7 @@ function Bathymetry() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#04121d',
+    backgroundColor: tone.bg1,
   },
   clip: {
     flex: 1,

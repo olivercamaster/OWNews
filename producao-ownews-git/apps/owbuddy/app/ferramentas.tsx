@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: maritime.glassElevated,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.cyan + '55',
+    borderColor: maritime.accentBorder,
     padding: spacing.md,
     ...maritime.cardShadow,
   },

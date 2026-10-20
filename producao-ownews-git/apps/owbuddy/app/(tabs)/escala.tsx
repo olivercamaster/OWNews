@@ -35,7 +35,7 @@ import {
   getEventosPessoais,
   setEventosPessoais,
 } from '../../src/storage';
-import { bottomNavSpace, colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
+import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
   // Bottom sheet
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheetContainer: {
-    backgroundColor: '#071e2e', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: tone.elevated, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: spacing.md, paddingBottom: spacing.xl,
     borderTopWidth: 1, borderColor: maritime.glassBorder,
     maxHeight: '70%',

@@ -344,12 +344,12 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   chipTextAtivo: { color: colors.cyan },
   input: {
-    backgroundColor: maritime.glass, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder,
+    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.white, fontSize: 15,
   },
   pickerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48,
-    backgroundColor: maritime.glass, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder,
+    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md,
   },
   pickerText: { flex: 1, fontSize: 15, color: colors.white },

@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   resAviso: { fontSize: 12, color: colors.amber, marginTop: 6 },
   label: { ...typography.micro, marginTop: spacing.md, marginBottom: spacing.sm },
   input: {
-    backgroundColor: maritime.glass, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder,
+    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.white, fontSize: 15,
   },
   lista: { borderRadius: radius.lg, borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass, overflow: 'hidden' },

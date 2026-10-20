@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../src/components/OWBackground';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
 import { fetchUnidades } from '../src/api';
 import { analytics } from '../src/analytics';
 import type { Unidade } from '../src/api';
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   searchWrap: { backgroundColor: colors.navy900, borderBottomWidth: 1, borderBottomColor: colors.line },
   searchRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: surface.card, borderRadius: radius.sm,
+    backgroundColor: maritime.sunken, borderRadius: radius.sm,
     marginHorizontal: spacing.md, marginBottom: spacing.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 6,
     borderWidth: 1, borderColor: colors.line,

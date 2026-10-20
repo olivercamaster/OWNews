@@ -21,7 +21,7 @@ async function openInApp(url: string): Promise<void> {
     const WebBrowser = require('expo-web-browser');
     if (typeof WebBrowser?.openBrowserAsync === 'function') {
       await WebBrowser.openBrowserAsync(url, {
-        toolbarColor: '#061c2b',
+        toolbarColor: colors.navy900,
         controlsColor: '#0de8c8',
         createTask: false,
       });

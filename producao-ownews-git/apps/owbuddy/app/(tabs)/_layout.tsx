@@ -63,14 +63,16 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.cyan,
         tabBarInactiveTintColor: colors.mutedDim,
         tabBarStyle: {
-          // Nav flutuante — quase opaca (contraste garantido), borda fina luminosa.
+          // Nav flutuante — preto azulado quase opaco, linha fina fria, sem glow
+          // (Premium Material Pass). Ativo = ciano OW; inativo = cinza azulado.
           // As telas reservam `bottomNavSpace(insets.bottom)` no fim do scroll para
           // que ela nunca cubra conteúdo (Android + iOS).
           position: 'absolute',
           backgroundColor: maritime.navBg,
-          borderTopWidth: 0,
           borderWidth: 1,
+          borderTopWidth: 1,
           borderColor: maritime.navBorder,
+          borderTopColor: maritime.edgeLight,
           marginHorizontal: margem,
           marginBottom: bottomSafe + maritime.navMarginBottom,
           borderRadius: radius.xl,
@@ -82,9 +84,9 @@ export default function TabLayout() {
           elevation: 16,
           // Shadow (iOS)
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.45,
+          shadowRadius: 22,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -96,7 +98,7 @@ export default function TabLayout() {
         tabBarLabel: ({ children, color }) => <TabLabel color={color}>{children}</TabLabel>,
         tabBarAllowFontScaling: false,
         // Stack header style — gradient background (no LinearGradient in header, use solid)
-        headerStyle: { backgroundColor: '#08283a' },
+        headerStyle: { backgroundColor: colors.navy900 },
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: '700' },
         headerShadowVisible: false,
@@ -118,7 +120,7 @@ export default function TabLayout() {
           title: 'Escala',
           headerTitle: 'Minha Escala',
           tabBarIcon: ({ focused }) => <TabIcon name="calendar" focused={focused} />,
-          headerStyle: { backgroundColor: '#07223a' },
+          headerStyle: { backgroundColor: colors.navy900 },
         }}
       />
       <Tabs.Screen
@@ -126,7 +128,7 @@ export default function TabLayout() {
         options={{
           title: 'Embarque',
           tabBarIcon: ({ focused }) => <TabIcon name="checkbox" focused={focused} />,
-          headerStyle: { backgroundColor: '#07223a' },
+          headerStyle: { backgroundColor: colors.navy900 },
         }}
       />
       <Tabs.Screen
@@ -134,7 +136,7 @@ export default function TabLayout() {
         options={{
           title: 'Viagem',
           tabBarIcon: ({ focused }) => <TabIcon name="airplane" focused={focused} />,
-          headerStyle: { backgroundColor: '#07223a' },
+          headerStyle: { backgroundColor: colors.navy900 },
         }}
       />
       <Tabs.Screen
@@ -142,7 +144,7 @@ export default function TabLayout() {
         options={{
           title: 'Certificados',
           tabBarIcon: ({ focused }) => <TabIcon name="document-text" focused={focused} />,
-          headerStyle: { backgroundColor: '#07223a' },
+          headerStyle: { backgroundColor: colors.navy900 },
         }}
       />
       <Tabs.Screen

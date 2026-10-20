@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
     paddingBottom: spacing.sm,
   },
-  counterCardDone: { borderColor: colors.green + '55', backgroundColor: 'rgba(18, 70, 66, 0.55)' },
+  counterCardDone: { borderColor: colors.green + '50', backgroundColor: 'rgba(47, 191, 113, 0.07)' },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 15, fontWeight: '700' },
 
   progressBg: {
-    height: 3, backgroundColor: 'rgba(22, 68, 94, 0.4)',
+    height: 3, backgroundColor: maritime.sunken,
     marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: 2, overflow: 'hidden',
   },
   progressFill: { height: 3, borderRadius: 2 },
@@ -539,11 +539,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 6,
   },
   sectionHeaderText: {
-    ...typography.label, color: colors.cyanDim, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8,
+    ...typography.label, color: colors.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8,
   },
   sectionSep: { height: 4 },
 
-  separator: { height: 1, backgroundColor: 'rgba(22, 68, 94, 0.3)', marginLeft: spacing.md + 22 + spacing.sm },
+  separator: { height: 1, backgroundColor: maritime.glassBorder, marginLeft: spacing.md + 22 + spacing.sm },
 
   itemRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 4,
@@ -562,14 +562,14 @@ const styles = StyleSheet.create({
 
   addRow: {
     flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm,
-    gap: spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(22, 68, 94, 0.4)',
+    gap: spacing.sm, borderTopWidth: 1, borderTopColor: maritime.glassBorder,
     marginTop: spacing.sm,
   },
   addInput: {
-    flex: 1, backgroundColor: maritime.glass, borderRadius: radius.sm,
+    flex: 1, backgroundColor: maritime.sunken, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 10,
     color: colors.white, fontSize: 15,
-    borderWidth: 1, borderColor: maritime.glassBorder,
+    borderWidth: 1, borderColor: maritime.fieldBorder,
   },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(2, 10, 18, 0.62)', justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
