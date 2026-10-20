@@ -214,6 +214,10 @@ test("fonte internacional falando do Brasil → não é INTERNACIONAL", () => {
   const e = ED("Transocean recebe contrato da Petrobras para sonda em Búzios", "", "Transocean");
   expect(e !== "INTERNACIONAL", e);
 });
+test("veículo internacional (Offshore Energy) sem país citado → INTERNACIONAL; com marcador BR → não", () => {
+  expect(ED("TenneT e NKT estudam a desativação de cabos offshore") === "INTERNACIONAL");
+  expect(ED("Petrobras contrata navio de apoio para a Bacia de Campos") !== "INTERNACIONAL");
+});
 test("fonte internacional sem país citado continua INTERNACIONAL", () => {
   expect(ED("Fleet status report de outubro", "", "Transocean") === "INTERNACIONAL");
 });

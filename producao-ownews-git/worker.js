@@ -3829,7 +3829,7 @@ function classificar(n){
    checados antes de operações/mercado (mais genéricos), que são
    checados antes de energia; BRASIL é o fallback (a esmagadora maioria
    do conteúdo é sobre o setor no Brasil). */
-const FONTES_INTERNACIONAIS = new Set(['Transocean', 'SBM Offshore']);
+const FONTES_INTERNACIONAIS = new Set(['Transocean', 'SBM Offshore', 'Offshore Energy', 'Marine Technology News']);
 const PALAVRAS_CARREIRAS = [
   // "oportunidade(s)" deliberadamente FORA (achado ao vivo 2026-09-19):
   // homógrafo real, bate em "oportunidades de negócio/mercado" tanto
@@ -5313,7 +5313,7 @@ function classificarImagemServidor(artigo) {
    (mesma ordem/vocabulário) — mantidas em paralelo porque uma roda no
    navegador (dentro do template da Home) e a outra aqui, na renderização
    server-side da página de artigo/"leia também"/busca. */
-const FONTES_INTERNACIONAIS_SERVIDOR = new Set(['Transocean', 'SBM Offshore']);
+const FONTES_INTERNACIONAIS_SERVIDOR = new Set(['Transocean', 'SBM Offshore', 'Offshore Energy', 'Marine Technology News']);
 const PALAVRAS_CARREIRAS_SERVIDOR = [
   // "oportunidade(s)" fora de propósito — mesmo achado do classificador
   // client-side (homógrafo com "oportunidade de negócio/mercado").
@@ -11710,7 +11710,7 @@ function renderOffshoreAgora(){
     'var PALAVRAS_CARREIRAS=["vaga","vagas","emprego","empregos","contratação","contratacao","greve","assembleia","assembléia","sindicato","sindical","contraproposta","termo aditivo","acordo coletivo","convenção coletiva","convencao coletiva"];' +
     'var PALAVRAS_CONTRATOS=["contrato","contratos","adjudicação","adjudicacao","firma contrato","assina contrato","afretamento","afretado","afretada"];' +
     'var PALAVRAS_ENERGIA=["combustível","combustivel","combustíveis","combustiveis","gasolina","diesel","etanol","glp","biocombustível","biocombustivel","biodiesel","hidrogênio","hidrogenio","transição energética","transicao energetica","matriz energética","matriz energetica","biometano"];' +
-    'var FONTES_INTERNACIONAIS=["Transocean","SBM Offshore"];' +
+    'var FONTES_INTERNACIONAIS=["Transocean","SBM Offshore","Offshore Energy","Marine Technology News"];' +
     // Editoria visível (2026-09-19, sem propaganda de fonte — ver cardTexto):
     // mesma ordem de prioridade do classificador principal da Home.
     materiaInternacional.toString() +
@@ -12440,7 +12440,7 @@ function scriptBuscaGlobal() {
     'var PALAVRAS_OPERACOES_B=["plataforma","navio-plataforma","fpso","sonda","poço","poco","perfuração","perfuracao","descomissionamento","pré-sal","pre-sal","margem equatorial","búzios","buzios","campo","águas profundas","aguas profundas","uep","mero","tupi"];' +
     'var PALAVRAS_MERCADO_B=["royalties","participação especial","participacao especial","licitação","licitacao","leilão","leilao","concessão","concessao","oferta permanente","bloco","bacia","gás natural","gas natural","eólica offshore","eolica offshore","exportação","exportacao","hidrocarbonetos","gasoduto","mercado"];' +
     'var PALAVRAS_ENERGIA_B=["combustível","combustivel","combustíveis","combustiveis","gasolina","diesel","etanol","glp","biocombustível","biocombustivel","biodiesel","hidrogênio","hidrogenio","transição energética","transicao energetica","matriz energética","matriz energetica","biometano"];' +
-    'var FONTES_INTERNACIONAIS_B=["Transocean","SBM Offshore"];' +
+    'var FONTES_INTERNACIONAIS_B=["Transocean","SBM Offshore","Offshore Energy","Marine Technology News"];' +
     materiaInternacional.toString() +
     'function editoriaDe(n){if(n&&materiaInternacional((n.title||"")+" "+(n.summary||""),FONTES_INTERNACIONAIS_B.indexOf(n.image_credit)!==-1))return "INTERNACIONAL";var t=((n.title||"")+" "+(n.summary||"")).toLowerCase();for(var i=0;i<PALAVRAS_CARREIRAS.length;i++){if(t.indexOf(PALAVRAS_CARREIRAS[i])!==-1)return "CARREIRAS";}for(var i2=0;i2<PALAVRAS_CONTRATOS.length;i2++){if(t.indexOf(PALAVRAS_CONTRATOS[i2])!==-1)return "CONTRATOS";}for(var i3=0;i3<PALAVRAS_OPERACOES_B.length;i3++){if(t.indexOf(PALAVRAS_OPERACOES_B[i3])!==-1)return "OPERAÇÕES";}for(var j=0;j<PALAVRAS_MERCADO_B.length;j++){if(t.indexOf(PALAVRAS_MERCADO_B[j])!==-1)return "MERCADO";}for(var k=0;k<PALAVRAS_ENERGIA_B.length;k++){if(t.indexOf(PALAVRAS_ENERGIA_B[k])!==-1)return "ENERGIA";}return "BRASIL";}' +
     'function render(lista){' +
