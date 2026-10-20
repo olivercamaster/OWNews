@@ -297,6 +297,10 @@ await test("source latency: p50/p90 fonte→OWNews em 24h e 7d; 24h conta a publ
   expect(s.latencia_fonte_ownews.p50_24h === 24 && s.latencia_fonte_ownews.amostras_24h === 2, JSON.stringify(s.latencia_fonte_ownews));
   expect(s.idade_ultima_publicacao_h === 1 && s.idade_noticia_mais_nova_h === 6, JSON.stringify(s));
 });
+await test("saúde: taxa de aprovação null (sem amostra) não vira 'aprovação baixa'", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(2)], gate: { "24h": { ia_avaliadas: 5, taxa_aprovacao_ia: null }, ia: {} }, automacao: {} });
+  expect(s.status === "VERDE", JSON.stringify(s.motivos));
+});
 await test("cron: varredura a cada 30 min das 05:20 às 20:20 BRT, 60 min de madrugada", () => {
   expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T08:50:00Z")) === 30 * 60000);
   expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T22:50:00Z")) === 30 * 60000);

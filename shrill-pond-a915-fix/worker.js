@@ -2780,7 +2780,8 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
   if (status !== 'VERMELHO') {
     if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar'); }
-    if ((g24.ia_avaliadas || 0) >= 4 && (g24.taxa_aprovacao_ia || 0) < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + g24.ia_avaliadas); }
+    // Taxa null = ainda sem amostra com o contador de aprovadas (não é 0%).
+    if ((g24.ia_avaliadas || 0) >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + g24.ia_avaliadas); }
     if (fontesErro.length) { status = 'AMARELO'; motivos.push('fonte com erro: ' + fontesErro.join(', ')); }
   }
   return {
