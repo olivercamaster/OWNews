@@ -2082,6 +2082,20 @@ function similaridadeTitulos(a, b) {
 }
 
 const LIMIAR_SIMILARIDADE_DUPLICATA = 0.55;
+/* Mesmo FATO x mesmo ASSUNTO (Live Newsroom 2026-10-20): com o limiar
+   baixo das fontes sensíveis (0,2), "Produção da União atinge 313 mil
+   barris" virava duplicata de "Estoques nos EUA caem 8,557 milhões de
+   barris" só por "petróleo"+"barris". Abaixo do limiar normal, só é o
+   mesmo fato se os títulos dividem um número (valor, data, unidade
+   P-82…). O dedup por evento depois da redação (Buddy >= 0,6) continua. */
+function mesmoFatoTitulos(a, b, limiar) {
+  const s = similaridadeTitulos(a, b);
+  if (s >= LIMIAR_SIMILARIDADE_DUPLICATA) return true;
+  if (s < limiar) return false;
+  const nums = (t) => new Set((String(t || '').match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(/[.,]/g, '')).filter((n) => n.length >= 2));
+  const na = nums(a), nb = nums(b);
+  return [...na].some((n) => nb.has(n));
+}
 
 /* ---------- Status do Telegram (só leitura, nunca envia nada) ----------
    "próximo candidato" é calculado com TELEGRAM_DRY_RUN forçado "true" no
@@ -2533,7 +2547,7 @@ async function avaliarSaudeEditorial(env) {
   const desde = new Date(Date.now() - 7 * 86400000).toISOString();
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles` +
-    `?select=published_at,image_credit,image_url&status=eq.published&published_at=gte.${encodeURIComponent(desde)}` +
+    `?select=published_at,created_at,image_credit,image_url,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}` +
     `&order=published_at.desc`;
 
   const resposta = await fetch(endpoint, { headers: supabaseHeaders(env) });
@@ -2604,6 +2618,7 @@ async function avaliarSaudeEditorial(env) {
       last_article_published_at: null,
       last_discovery_run: execucaoKV ? execucaoKV.inicio : null,
       HOME_FRESHNESS: "DEGRADED",
+      saude_editorial: calcularSaudeEditorial({ agora, artigos: [], gate: await obterGateEditorialStats(env), automacao }),
       HOME_VISIBLE_ARTICLES_OVER_24H: 0,
       SOURCE_COVERAGE: sourceCoverage,
       sources_active_24h: [],
@@ -2654,6 +2669,7 @@ async function avaliarSaudeEditorial(env) {
   // sem precisar interpretar horas_desde_ultima_coleta manualmente.
   const LIMIAR_HORAS_HOME_STALE = 6;
   const homeStale = horasDesdeUltima > LIMIAR_HORAS_HOME_STALE;
+  const gateStats = await obterGateEditorialStats(env);
 
   return {
     ok: true,
@@ -2692,7 +2708,67 @@ async function avaliarSaudeEditorial(env) {
     agenda_scan: await obterAgendaScan(env),
     revisao_pendente: await contarArtigosEmRevisao(env),
     buddy_cobertura: await obterBuddyCobertura(env),
-    gate_editorial: await obterGateEditorialStats(env)
+    gate_editorial: gateStats,
+    saude_editorial: calcularSaudeEditorial({ agora, artigos, gate: gateStats, automacao })
+  };
+}
+
+/* ==== SAÚDE EDITORIAL (Live Newsroom, 2026-10-20) ====
+   Semáforo da redação para o Command Center, calculado na leitura do
+   /saude (zero escrita). Usa: artigos publicados (7d), acumulador do gate
+   (já gravado 1x por rodada) e a última execução.
+   VERMELHO: 12h+ sem matéria OWNews com fontes trazendo pauta (silêncio
+     anormal) ou redator indisponível (cota/erro) há 6h+.
+   AMARELO: 6h+ sem publicar, aprovação baixa (< 25% com 4+ avaliadas) ou
+     fonte com erro.
+   VERDE: publicação recente e pipeline sem falha. */
+const BRT_OFFSET_MS = 3 * 3600000;
+function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
+  const proprias = (artigos || []).filter((a) => a.buddy_source === 'ownews');
+  const horas = (a) => (agora - new Date(a.published_at).getTime()) / 3600000;
+  const ultima = proprias[0] || null;
+  const idadeUltima = ultima ? Math.round(horas(ultima) * 10) / 10 : null;
+  const inicioHojeBRT = Math.floor((agora - BRT_OFFSET_MS) / 86400000) * 86400000 + BRT_OFFSET_MS;
+  // Latência fonte → OWNews: created_at (gravação) - published_at (fonte).
+  const lat = proprias.filter((a) => a.created_at && horas(a) <= 7 * 24)
+    .map((a) => (new Date(a.created_at).getTime() - new Date(a.published_at).getTime()) / 3600000)
+    .filter((h) => Number.isFinite(h) && h >= 0).sort((x, y) => x - y);
+  const mediana = lat.length ? Math.round(lat[Math.floor(lat.length / 2)] * 10) / 10 : null;
+  const g24 = (gate && gate['24h']) || {};
+  const ia = (gate && gate.ia) || {};
+  const iaFalhaRecente = ia.ultima_falha && (!ia.ultima_resposta || ia.ultima_falha > ia.ultima_resposta);
+  const iaCota = iaFalhaRecente && /4006|daily free allocation|neurons/i.test(String(ia.ultima_falha_motivo || ''));
+  const horasIaFalha = iaFalhaRecente ? (agora - new Date(ia.ultima_falha).getTime()) / 3600000 : 0;
+  const pautas24h = (g24.ia_avaliadas || 0) + (g24.barradas_memoria || 0) + (g24.editorial_incomplete || 0);
+  const fontesErro = (automacao && automacao.fontes_com_erro) || [];
+  const motivos = [];
+  let status = 'VERDE';
+  const semPublicar = idadeUltima === null ? Infinity : idadeUltima;
+  if (semPublicar >= 12 && pautas24h > 0) { status = 'VERMELHO'; motivos.push('silêncio: ' + (idadeUltima === null ? 'nenhuma matéria em 7 dias' : Math.round(semPublicar) + 'h sem publicar') + ' com ' + pautas24h + ' pautas avaliadas/barradas em 24h'); }
+  if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
+  if (status !== 'VERMELHO') {
+    if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar'); }
+    if ((g24.ia_avaliadas || 0) >= 4 && (g24.taxa_aprovacao_ia || 0) < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + g24.ia_avaliadas); }
+    if (fontesErro.length) { status = 'AMARELO'; motivos.push('fonte com erro: ' + fontesErro.join(', ')); }
+  }
+  return {
+    status,
+    motivos,
+    silencio_alerta: status === 'VERMELHO' && semPublicar >= 12,
+    idade_ultima_publicacao_h: idadeUltima,
+    ultima_publicacao: ultima ? ultima.published_at : null,
+    publicadas_24h: proprias.filter((a) => horas(a) <= 24).length,
+    publicadas_hoje_brt: proprias.filter((a) => new Date(a.created_at || a.published_at).getTime() >= inicioHojeBRT).length,
+    latencia_mediana_h_7d: mediana,
+    ia_avaliadas_24h: g24.ia_avaliadas || 0,
+    aprovadas_24h: g24.publicadas || 0,
+    aprovadas_2a_24h: g24.aprovadas_2a || 0,
+    reprovadas_corrigiveis_24h: g24.reprovadas_corrigiveis || 0,
+    reprovadas_definitivas_24h: g24.reprovadas_definitivas || 0,
+    barradas_memoria_24h: g24.barradas_memoria || 0,
+    taxa_aprovacao_ia_24h: g24.taxa_aprovacao_ia === undefined ? null : g24.taxa_aprovacao_ia,
+    ia_status: iaCota ? 'cota_esgotada' : iaFalhaRecente ? 'falha' : ia.ultima_resposta ? 'ok' : 'sem_dado',
+    fontes_com_erro: fontesErro
   };
 }
 
@@ -2747,7 +2823,11 @@ async function acumularGateEditorial(env, resultados) {
           motivos[m] = (motivos[m] || 0) + 1;
         }
       }
-      if (p || ei) entrada.fontes[nome] = { p, ei, cs, motivos };
+      // Live Newsroom: funil real (IA avaliou x aprovou de 1ª/2ª x reprovou
+      // corrigível/definitiva x barrada pela memória x pauta antiga).
+      const rr = motivos.reprovada_recente || 0;
+      const funil = { ia: r.ia_avaliadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0 };
+      if (p || ei || funil.ant) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
         if (item.motivo === 'ia_indisponivel') entrada.ia_erro = String((item.motivos_ia || [])[0] || 'ia_indisponivel').slice(0, 120);
@@ -2776,11 +2856,13 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
+      const funil = { ia: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0 };
       let totalP = 0, totalEI = 0;
       const motivos = {};
       for (const e of entradas) {
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
+          for (const k of ['ia', 'a2', 'rc', 'rd', 'rr', 'ant']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
           fontes[nome].cs += f.cs || 0;
@@ -2797,6 +2879,15 @@ async function obterGateEditorialStats(env) {
         publicadas: totalP,
         editorial_incomplete: totalEI,
         taxa_publicacao: total ? Math.round(totalP / total * 100) : null,
+        // Taxa real do redator+gate: aprovadas / pautas que a IA avaliou
+        // (sem contar a memória de reprovação, que repete a cada ciclo).
+        ia_avaliadas: funil.ia,
+        aprovadas_2a: funil.a2,
+        reprovadas_corrigiveis: funil.rc,
+        reprovadas_definitivas: funil.rd,
+        barradas_memoria: funil.rr,
+        pautas_antigas: funil.ant,
+        taxa_aprovacao_ia: funil.ia ? Math.round(totalP / funil.ia * 100) : null,
         motivos,
         fontes
       };
@@ -3529,17 +3620,50 @@ function trechoCopiadoDaFonte(texto, fonte) {
   const tf = q21Tokens(fonte);
   const bf = q21Bigramas(tf);
   if (!bf.size) return false;
+  const nomes = q21NomesProprios(fonte);
   const sf = ' ' + tf.join(' ') + ' ';
   return q21Frases(texto).some((f) => {
     const t = q21Tokens(f);
     if (t.length < 6) return false;
     for (let i = 0; i + 8 <= t.length; i++) {
-      if (sf.includes(' ' + t.slice(i, i + 8).join(' ') + ' ')) return true;
+      const jan = t.slice(i, i + 8);
+      if (jan.filter((x) => !q21Dado(x, nomes)).length >= 5 && sf.includes(' ' + jan.join(' ') + ' ')) return true;
     }
-    const bg = q21Bigramas(t);
+    const bg = q21BigramasProsa(t, nomes);
+    if (bg.length < 4) return false;
     let c = 0; bg.forEach((x) => { if (bf.has(x)) c++; });
-    return c / bg.size >= 0.9;
+    return c / bg.length >= 0.9;
   });
+}
+/* Live Newsroom (2026-10-20): dado factual não é prosa. Número, unidade
+   de medida e nome próprio da fonte ("225 mil barris", "Bacia de Santos",
+   "P-82") são os fatos que a nota é obrigada a trazer — antes contavam
+   como cópia e reprovavam toda ficha técnica. Cópia/paráfrase passa a
+   ser medida no texto que sobra (verbos, ligações, estrutura); trecho
+   copiado de verdade continua reprovando. */
+const Q21_UNIDADES = new Set('mil milhao milhoes bilhao bilhoes trilhao barris bpd boe metros metro cubicos toneladas quilometros km kv gw mw mwh gwh hectares litros reais dolares usd brl dia dias ano anos mes meses horas'.split(' '));
+function q21NomesProprios(fonte) {
+  const mai = new Set(), min = new Set();
+  String(fonte || '').replace(/[A-Za-zÀ-ú0-9][A-Za-zÀ-ú0-9-]*/g, (p) => {
+    const tk = q21Tokens(p)[0];
+    if (tk) (/^[A-ZÀ-Ú]/.test(p) ? mai : min).add(tk);
+    return p;
+  });
+  min.forEach((x) => mai.delete(x));
+  return mai;
+}
+function q21Dado(tk, nomes) { return /\d/.test(tk) || Q21_UNIDADES.has(tk) || nomes.has(tk); }
+function q21BigramasProsa(tokens, nomes) {
+  return [...q21Bigramas(tokens)].filter((x) => x.split(' ').some((y) => !q21Dado(y, nomes)));
+}
+/* Paráfrase rasa: fração dos pares de palavras de PROSA do texto que
+   existem na fonte (pares só de dados não contam). */
+function parafraseRasaDaFonte(texto, fonte) {
+  const nomes = q21NomesProprios(fonte);
+  const bg = q21BigramasProsa(q21Tokens(texto), nomes);
+  if (!bg.length) return 0;
+  const bf = q21Bigramas(q21Tokens(fonte));
+  return bg.filter((x) => bf.has(x)).length / bg.length;
 }
 const Q21_UI_VAZAMENTO = /(inscreva-se|assine (a|nossa|já)|cadastre seu e-?mail|receba (as|nossas) (not[ií]cias|novidades)|leia (também|mais)\s*[:>]|clique aqui|compartilhe (esta|no)|teste gr[aá]tis|assista (a |à |às |aos |entrevistas|ao v[ií]deo)|todos os direitos reservados|siga-nos|newsletter (gratuita|di[aá]ria)|powered by|veja mais\s*$|saiba mais\s*$)/i;
 function detectarErrosTexto(texto) {
@@ -3591,6 +3715,7 @@ const IMPACTO_GENERICO_RE = [
   /pode(m)? resultar em/i, /potencial(mente)? (impacto|influenciar)/i
 ];
 const IMPACTO_EMPREGO_RE = /\b(vagas?|empregos?|oportunidades?|contrata[çc][õo]es de pessoal|sal[aá]rios?)\b/i;
+const IMPACTO_EMPREGO_EN_RE = /\b(jobs?|employ(?:s|ed|ees?|ment)?|hiring|hires?|workforce|recruit\w*|vacanc\w*|salar\w*|wages?)\b/i;
 function q21Frasesbase(texto) {
   const v = validarTextoCamadaEditorial(texto);
   if (!v.ok) return [v.motivo];
@@ -3638,9 +3763,11 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
     if (g) m.push('generico');
     // Emprego/vagas/salário só quando a própria matéria trata disso
     // (concurso, contratação anunciada); senão é especulação.
+    // Fonte em inglês fala de "jobs"/"hiring": a raiz em português sozinha
+    // reprovava impacto correto (Live Newsroom 2026-10-20).
     const emp = t.match(IMPACTO_EMPREGO_RE);
     const baseEmp = [artigo && artigo.title, artigo && artigo.summary, o.fonte || (artigo && artigo.content)].join(' ');
-    if (emp && !new RegExp(emp[0].slice(0, 4), 'i').test(baseEmp)) m.push('emprego_sem_base');
+    if (emp && !new RegExp(emp[0].slice(0, 4), 'i').test(baseEmp) && !IMPACTO_EMPREGO_EN_RE.test(baseEmp)) m.push('emprego_sem_base');
   }
   const lead = String((artigo && artigo.summary) || '');
   const sl = similaridadeTextos(t, lead);
@@ -3655,8 +3782,12 @@ function validarImpactoPublicavel(texto, artigo, buddy, opcoes) {
     // ancoragem: ao menos um nome próprio/número do impacto existe na matéria
     const base = q21Tokens([artigo && artigo.title, lead, corpo].join(' '));
     const setBase = new Set(base);
-    const ancoras = (t.match(/\b([A-ZÀ-Ú][\wÀ-ú-]{2,}|\d[\d.,]*)/g) || []).slice(1)
-      .map((x) => q21Tokens(x)[0]).filter(Boolean);
+    // Nome/número ancorado; ignora só a palavra que abre frase (antes o
+    // slice(1) descartava o 1º nome próprio quando a frase começava com
+    // "A"/"O": "A decisão ... Halliburton" ficava sem âncora).
+    const ancoras = [...t.matchAll(/\b([A-ZÀ-Ú][\wÀ-ú-]{2,}|\d[\d.,]*)/g)]
+      .filter((x) => !/^[A-ZÀ-Ú]/.test(x[0]) || !/(^|[.!?]\s+)$/.test(t.slice(0, x.index)))
+      .map((x) => q21Tokens(x[0])[0]).filter(Boolean);
     // semFonte (exibição de matéria OWNews): a âncora já foi conferida
     // contra a fonte na geração; o corpo OWNews é síntese e pode omitir nomes.
     if (!o.semFonte && !ancoras.some((a) => setBase.has(a))) m.push('sem_ancora');
@@ -3753,7 +3884,7 @@ function validarCorpoOWNews(corpo, artigo, buddy, impacto, opcoes) {
     const fonte = String(o.fonte);
     const lead = String((artigo && artigo.summary) || '');
     if (trechoCopiadoDaFonte(t, fonte) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
-    if (similaridadeTextos(t, fonte).bigramas >= 0.4) m.push('parafrase_rasa');
+    if (parafraseRasaDaFonte(t, fonte) >= 0.4) m.push('parafrase_rasa');
     if (!numerosSustentadosPelaFonte(t, [titulo, lead, fonte].join(' '))) m.push('numero_sem_fonte');
     if (t.length > Math.max(fonte.length * 1.15 + 250, 700)) m.push('maior_que_fonte');
   }
@@ -3863,16 +3994,18 @@ const BUDDY_IA_SISTEMA =
   'Você é redator do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. A matéria recebida é só MATERIAL FACTUAL: o OWNews não republica o texto da fonte, escreve a própria nota. Responda SOMENTE com um objeto JSON: ' +
   '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "titulo": string, "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
   'TITULO: o fato em uma frase factual de português do Brasil, até 110 caracteres, maiúscula só no início, em nomes próprios e siglas; sem exclamação, sem adjetivo de impacto, sem opinião. Se o título recebido já é assim, repita-o igual.\n\n' +
-  'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto. Não repita o título.\n\n' +
+  'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto, com palavras próprias (nenhuma sequência de mais de 6 palavras igual à matéria). Não repita o título.\n\n' +
   'CORPO: lista de 2 a 4 parágrafos curtos com os fatos e o contexto: o que aconteceu, quem, onde, quando, números, estágio, próximo passo confirmado — só o que a matéria sustenta. ' +
   'Sintetize com vocabulário e ordem próprios: nunca copie frases nem troque palavras de frases da matéria; nenhuma sequência de mais de 6 palavras igual ao texto. Atribua declarações ("segundo a Petrobras"). ' +
+  'Ficha técnica e listas (dimensões, capacidades, nomes de estados ou empresas): não reproduza a frase da matéria com os mesmos números na mesma ordem — escolha só os dados essenciais e mude a estrutura (ex.: "Capaz de processar X, a unidade tem Y de comprimento"). ' +
   'Mais curto que a matéria; se ela tiver pouca informação, a nota é curta. Não repita frases do buddy. Sem conclusão, sem opinião, sem adjetivos promocionais.\n\n' +
   'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P, trabalhadores embarcados. ' +
   '"indireta" = energia em terra, combustíveis, refino, gás, política ou economia do petróleo. "nenhuma" = fora do setor de energia.\n\n' +
-  'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
+  'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) — com pelo menos um nome próprio ou número escrito exatamente como aparece na matéria, no meio da frase — e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
   'Se o efeito é indireto, diga concretamente como, sem especular. Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
-  'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. ' +
-  'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "vagas", "empregos", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
+  'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. Números exatamente como na matéria: não arredonde, não some, não subtraia, não converta unidades (escreva "58 mil", nunca "58 000"). ' +
+  'Fale de vagas ou empregos só se a matéria informar contratação ou número de empregos. ' +
+  'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
 
 /* Título publicado (Command + Check Final, 2026-10-18): o título também
    passa por validação editorial. O da fonte fica quando já é bom; o
@@ -3920,7 +4053,7 @@ function exonimoNaFonte(nome, baseMin) {
   const re = TITULO_EXONIMOS[String(nome || '').toLowerCase()];
   return !!(re && re.test(baseMin));
 }
-function escolherTituloOWNews(original, proposto, fonteTexto, preferirProposto) {
+function escolherTituloOWNews(original, proposto, fonteTexto, preferirProposto, endossoRepetido) {
   const mo = validarTituloOWNews(original, fonteTexto);
   const p = sanearTextoPublicacao(String(proposto || '')).trim();
   const mp = p && p !== String(original || '').trim() ? validarTituloOWNews(p, fonteTexto, original) : ['igual'];
@@ -3928,6 +4061,10 @@ function escolherTituloOWNews(original, proposto, fonteTexto, preferirProposto) 
   // Tradução automática nunca vira título publicado, mesmo sem erro de forma
   // (P0 2026-10-19: "hit paydirt" saiu "atingem o lixo"). Sem título próprio
   // válido, a matéria não é publicada.
+  // Exceção (Live Newsroom 2026-10-20): o redator, pedido duas vezes para
+  // reescrever, devolveu a tradução igual — ele a endossou como português
+  // natural. Vale se ela passa no mesmo gate de título.
+  if (preferirProposto && endossoRepetido && mp.length === 1 && mp[0] === 'igual' && !mo.length) return { ok: true, titulo: null };
   if (preferirProposto) return { ok: false, motivos: ['titulo:traducao_automatica'].concat(mp.filter((x) => x !== 'igual').map((x) => 'titulo:' + x)) };
   if (!mo.length) return { ok: true, titulo: null };
   return { ok: false, motivos: mo.map((x) => 'titulo:' + x) };
@@ -3969,6 +4106,17 @@ const BUDDY_IA_DICAS_REESCRITA = [
   [/espaco_antes|parenteses/, 'Sem espaço antes de pontuação ou dentro de parênteses.'],
   [/titulo:/, 'Escreva um TÍTULO novo em português natural (não repita o título recebido), com o fato em ordem direta e só nomes e números que aparecem na matéria.']
 ];
+/* Frases do texto gerado que o anti-cópia acusaria (mesma regra de
+   trechoCopiadoDaFonte, frase a frase) — citadas na 2ª redação. */
+function frasesCopiadasDaFonte(texto, fonte) {
+  return q21Frases(String(texto || '').replace(/\n+/g, ' ')).filter((f) => trechoCopiadoDaFonte(f, fonte)).slice(0, 4);
+}
+/* Reprovação DEFINITIVA (escopo/substância: não adianta reescrever) x
+   CORRIGÍVEL (forma: Buddy, impacto, corpo, título). */
+const REPROVACAO_DEFINITIVA_RE = /^(fora_escopo|sem_material|impacto:sem_relevancia_offshore|impacto:vazio)$/;
+function classeReprovacao(motivos) {
+  return (motivos || []).some((m) => REPROVACAO_DEFINITIVA_RE.test(m)) ? 'definitiva' : 'corrigivel';
+}
 function dicasReescritaIA(motivos) {
   const m = String(motivos || '');
   return BUDDY_IA_DICAS_REESCRITA.filter(([re]) => re.test(m)).map(([, d]) => '- ' + d).join('\n');
@@ -3989,19 +4137,27 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
         { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + pedidoTitulo +
-          (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Corrija assim:\n' + (dicasReescritaIA(artigo._motivos) || '- Reescreva com vocabulário e ordem próprios, sem frases da matéria.') : '') }
+          (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Corrija assim:\n' + (dicasReescritaIA(artigo._motivos) || '- Reescreva com vocabulário e ordem próprios, sem frases da matéria.') +
+            (artigo._trechos && artigo._trechos.length ? '\nEstas frases da versão anterior repetem a matéria; não as reaproveite, diga o fato com outra estrutura:\n' + artigo._trechos.map((f) => '« ' + f.slice(0, 220) + ' »').join('\n') : '') : '') }
       ],
       max_tokens: 1100,
       // 0,6 deixava a 2ª redação telegráfica (frases cortadas) na sonda de
       // 2026-10-18; 0,45 ainda varia o texto sem perder a forma.
-      temperature: t > 1 ? 0.45 : 0.3,
+      // 0,45 degenerava a saída do gpt-oss (raciocínio vazando no JSON, chaves
+      // corrompidas — Live Newsroom 2026-10-20); 0,35 ainda varia o texto.
+      temperature: t > 1 ? 0.35 : 0.3,
       ...BUDDY_IA_OPCOES_MODELO
     });
   } catch (e) {
     return { ok: false, erro: 'ia_erro:' + String(e && e.message || e).slice(0, 120) };
   }
   const j = extrairJsonIA(saida);
-  if (!j) return { ok: false, erro: 'ia_json_invalido' };
+  // Saída sem a estrutura pedida (JSON inválido ou chaves corrompidas) é
+  // falha técnica, não reprovação editorial. Na 2ª redação, vale a
+  // reprovação da 1ª (corrigível) em vez de "vazio".
+  const degenerada = !j || typeof j !== 'object' || (j.buddy === undefined && j.corpo === undefined && j.impacto === undefined && j.relacao_offshore === undefined);
+  if (degenerada && t > 1) return { ok: false, relacao: null, motivos: String(artigo._motivos || 'ia_json_invalido').split(','), tentativas: t, degenerou: true };
+  if (degenerada) return { ok: false, erro: 'ia_json_invalido' };
   const relacao = ['direta', 'indireta', 'nenhuma'].includes(j.relacao_offshore) ? j.relacao_offshore : null;
   if (relacao === 'nenhuma') return { ok: false, relacao, motivos: ['fora_escopo'] };
   const corpo = Array.isArray(j.corpo) ? j.corpo.map((p) => String(p || '').trim()).filter(Boolean).join('\n\n') : String(j.corpo || '');
@@ -4010,12 +4166,13 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
     // Uma segunda redação quando a reprovação é de forma — o gate não é
     // afrouxado, só se pede outro texto.
     if (t === 1 && v.motivos.every((m) => BUDDY_IA_MOTIVOS_REESCRITA.test(m))) {
-      return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: v.motivos.join(',') }), materialFonte, 2, opcoes);
+      const trechos = frasesCopiadasDaFonte([v.buddy_summary, v.corpo, v.why_it_matters].join('\n\n'), material + '\n' + String(artigo.summary || ''));
+      return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: v.motivos.join(','), _trechos: trechos }), materialFonte, 2, opcoes);
     }
     return { ok: false, relacao, motivos: v.motivos, tentativas: t };
   }
   // Acervo (retroprocessamento) mantém o título já publicado.
-  const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, material, opcoes && opcoes.tituloTraduzido);
+  const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, material, opcoes && opcoes.tituloTraduzido, t > 1);
   if (!tit.ok) {
     // Matéria aprovada e só o título falhou: uma 2ª redação com a dica do
     // título (o texto inteiro passa de novo pelo mesmo gate).
@@ -4054,9 +4211,9 @@ async function listarRejeicoesRecentes(env) {
     return new Set(r.ok ? await r.json() : []);
   } catch { return new Set(); }
 }
-async function registrarRejeicao(env, hash) {
+async function registrarRejeicao(env, hash, classe) {
   if (!env.BUDDY_IA_DO || !hash) return;
-  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeitar', { method: 'POST', body: JSON.stringify({ hash }) }); } catch { /* best effort */ }
+  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeitar', { method: 'POST', body: JSON.stringify({ hash, classe: classe || 'corrigivel' }) }); } catch { /* best effort */ }
 }
 
 /* Converte uma matéria do acervo em matéria OWNews (ou a marca como
@@ -4169,6 +4326,11 @@ const BUDDY_IA_POR_ALARME = 3;
 // Troca de modelo do redator (P0 Pipeline 2026-10-19): rejeições anteriores
 // a este instante foram dadas pelo modelo antigo e são descartadas.
 const BUDDY_IA_REJ_VALIDA_DESDE = Date.parse('2026-10-19T14:33:00Z');
+// Reprovação CORRIGÍVEL só vale para a versão do redator/gate que a deu:
+// a cada melhoria de redação este instante avança e a pauta (ainda no feed
+// e com até PAUTA_IDADE_MAX_H) ganha UMA nova avaliação. Definitiva (escopo,
+// substância) continua valendo 3 dias. Entrada antiga sem classe = corrigível.
+const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-20T13:25:00Z');
 const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {
@@ -4205,14 +4367,19 @@ export class BuddyIAPoller {
     }
     if (url.pathname === '/rejeitar' && request.method === 'POST') {
       const d = await request.json();
-      if (d && d.hash) await this.state.storage.put('rej:' + d.hash, Date.now());
+      if (d && d.hash) await this.state.storage.put('rej:' + d.hash, { t: Date.now(), c: d.classe === 'definitiva' ? 'definitiva' : 'corrigivel' });
       return Response.json({ ok: true });
     }
     if (url.pathname === '/rejeicoes') {
       // Reprovações do redator anterior (llama-3.3) não valem para o atual:
       // a matéria volta a ser avaliada uma vez pelo mesmo gate.
-      const lim = Math.max(Date.now() - 3 * 86400000, BUDDY_IA_REJ_VALIDA_DESDE), vivos = [], velhos = [];
-      (await this.state.storage.list({ prefix: 'rej:' })).forEach((t, k) => (t >= lim ? vivos : velhos).push(k));
+      const lim3d = Date.now() - 3 * 86400000, vivos = [], velhos = [];
+      (await this.state.storage.list({ prefix: 'rej:' })).forEach((v, k) => {
+        const t = typeof v === 'number' ? v : (v && v.t) || 0;
+        const c = v && v.c === 'definitiva' ? 'definitiva' : 'corrigivel';
+        const desde = c === 'definitiva' ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE;
+        if (t < lim3d) velhos.push(k); else if (t >= desde) vivos.push(k);
+      });
       if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
       return Response.json(vivos.map((k) => k.slice(4)));
     }
@@ -4252,7 +4419,7 @@ async function processarNoticiasComDedupe(env, fonte, noticias, contexto = {}) {
 
   for (const item of noticias) {
     const parecida = recentes.find(
-      (r) => r.original_url !== item.url && similaridadeTitulos(r.title, item.title) >= limiar
+      (r) => r.original_url !== item.url && mesmoFatoTitulos(r.title, item.title, limiar)
     );
 
     if (parecida) {
@@ -4282,6 +4449,14 @@ async function processarNoticiasComDedupe(env, fonte, noticias, contexto = {}) {
 // blocos de dados estruturados da home. Sem isso, matéria antiga entraria no
 // Supabase com published_at de hoje, parecendo notícia nova sem ser.
 const PETROBRAS_MAX_DIAS_RECENCIA = 45;
+/* Live Newsroom (2026-10-20): pauta com mais de 72h não é notícia para a
+   redação ao vivo — não gasta leitura nem IA. Sem data no feed, decide
+   depois de ler a página. */
+const PAUTA_IDADE_MAX_H = 72;
+function pautaAntiga(data) {
+  const t = data ? new Date(data).getTime() : NaN;
+  return Number.isFinite(t) && Date.now() - t > PAUTA_IDADE_MAX_H * 3600000;
+}
 
 async function coletarPetrobras(env) {
   validarAmbiente(env);
@@ -4440,11 +4615,28 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       }
 
 
+      // Pauta velha não gasta leitura nem IA (filtro barato antes de tudo).
+      if (pautaAntiga(item.publishedAt)) {
+        resultado.antigas = (resultado.antigas || 0) + 1;
+        resultado.noticias.push({ titulo: item.title, status: "antiga", fonte });
+        continue;
+      }
       const detalhes = await lerNoticia(item.url, fonte);
-      const dataEditorial = detalhes.publishedAt || item.publishedAt;
+      let dataEditorial = detalhes.publishedAt || item.publishedAt;
       if (!dataEditorial || !Number.isFinite(new Date(dataEditorial).getTime())) {
         resultado.rejeitadas_data++;
         throw new Error("ERRO_DATA: fonte sem data editorial verificável");
+      }
+      if (pautaAntiga(dataEditorial)) {
+        resultado.antigas = (resultado.antigas || 0) + 1;
+        resultado.noticias.push({ titulo: item.title, status: "antiga", fonte });
+        continue;
+      }
+      // Data no futuro (fuso da fonte rotulado errado): vale a hora da
+      // descoberta, nunca uma hora que ainda não chegou.
+      if (new Date(dataEditorial).getTime() > Date.now() + 15 * 60000) {
+        dataEditorial = new Date().toISOString();
+        resultado.datas_futuras = (resultado.datas_futuras || 0) + 1;
       }
 
       // Anti-repetição de imagem (ver IMAGENS_BANNER_CONHECIDAS acima): só
@@ -4569,7 +4761,16 @@ slug: criarSlug(tituloPublicado),
         continue;
       }
       const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
-      if (!camadaIA.ok && !camadaIA.erro) await registrarRejeicao(env, artigo.hash);
+      if (!camadaIA.erro) {
+        resultado.ia_avaliadas = (resultado.ia_avaliadas || 0) + 1;
+        if (camadaIA.tentativas === 2) resultado.ia_segunda = (resultado.ia_segunda || 0) + 1;
+      }
+      const classeRep = !camadaIA.ok && !camadaIA.erro ? classeReprovacao(camadaIA.motivos) : null;
+      if (classeRep) {
+        await registrarRejeicao(env, artigo.hash, classeRep);
+        resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] = (resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] || 0) + 1;
+      }
+      if (camadaIA.ok && camadaIA.tentativas === 2) resultado.aprovadas_2a = (resultado.aprovadas_2a || 0) + 1;
       if (camadaIA.ok) {
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
@@ -4605,6 +4806,8 @@ slug: criarSlug(tituloPublicado),
           status: 'editorial_incomplete',
           motivo: _motivoGate,
           motivos_ia: camadaIA.motivos || (camadaIA.erro ? [camadaIA.erro] : []),
+          classe: classeRep,
+          tentativas: camadaIA.tentativas || null,
           fonte
         });
         continue;
@@ -7788,7 +7991,9 @@ function avaliarJanelaDeEnvioTelegram(estado, agora, candidato, opcoes = {}) {
   return { permitido: true, motivo: "dentro dos limites de frequência", furouIntervalo: false };
 }
 
-const LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM = 48;
+// 24h (era 48h): slot de notícia não publica matéria de ontem só para
+// cumprir horário (Live Newsroom 2026-10-20).
+const LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM = 24;
 
 async function processarArtigosParaTelegram(artigos, historicoPublicados, urlBase, env, logger, agora, opcoes = {}) {
   const momento = agora || Date.now();
@@ -7900,7 +8105,9 @@ async function buscarCandidatosTelegram(env) {
   const corte = corteJanela > TELEGRAM_ATIVADO_EM ? corteJanela : TELEGRAM_ATIVADO_EM;
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,image_url,image_credit,published_at,original_url` +
-    `&status=eq.published&published_at=gte.${encodeURIComponent(corte)}&order=published_at.desc&limit=50`;
+    // Live Newsroom (2026-10-20): só matéria OWNews completa vai ao canal
+    // (duplicada/insuficiente/legado não).
+    `&status=eq.published&buddy_source=eq.ownews&published_at=gte.${encodeURIComponent(corte)}&order=published_at.desc&limit=50`;
   const resp = await fetch(endpoint, { headers: supabaseHeaders(env) });
   if (!resp.ok) throw new Error(`Supabase (articles) respondeu HTTP ${resp.status}`);
   return resp.json();

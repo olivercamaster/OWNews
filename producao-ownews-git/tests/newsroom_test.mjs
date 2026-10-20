@@ -1,0 +1,261 @@
+#!/usr/bin/env node
+/* OWNews Live Newsroom (2026-10-20) — pipeline editorial do collector.
+ * Carrega o worker REAL do collector (shrill-pond-a915-fix/worker.js) como
+ * módulo (const→var para expor as funções) e testa, sem rede e sem IA real:
+ * redator+gate+2ª tentativa (IA simulada), classes de reprovação, memória
+ * de reprovação, dedup fato x assunto, idade da pauta, anti-cópia por prosa,
+ * âncora/emprego do impacto, título, saúde editorial e escrita em KV. */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const AQUI = path.dirname(fileURLToPath(import.meta.url));
+const SRC = path.join(AQUI, "..", "..", "shrill-pond-a915-fix", "worker.js");
+const codigo = fs.readFileSync(SRC, "utf8").replace(/^const /gm, "var ").replace(/^let /gm, "var ") +
+  "\nexport const __t = { gerarCamadaEditorialIA, validarMateriaOWNews, validarImpactoPublicavel, trechoCopiadoDaFonte, parafraseRasaDaFonte, classeReprovacao, mesmoFatoTitulos, pautaAntiga, frasesCopiadasDaFonte, escolherTituloOWNews, calcularSaudeEditorial, acumularGateEditorial, obterGateEditorialStats, BuddyIAPoller, processarNoticias, BUDDY_IA_REJ_CORRIGIVEL_DESDE, BUDDY_IA_REJ_VALIDA_DESDE, PAUTA_IDADE_MAX_H, buscarCandidatosTelegram, LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM, LIMITE_NOTICIAS_POR_DIA_TELEGRAM, SLOTS_NOTICIAS_TELEGRAM };\n";
+const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ownews-newsroom-")), "collector.mjs");
+fs.writeFileSync(tmp, codigo);
+const T = (await import(pathToFileURL(tmp).href)).__t;
+
+let pass = 0, fail = 0;
+async function test(nome, fn) {
+  try { await fn(); pass++; console.log("  ✓ " + nome); }
+  catch (e) { fail++; console.log("  ✗ " + nome + "\n      " + (e && e.message)); }
+}
+function expect(c, msg) { if (!c) throw new Error(msg || "falhou"); }
+
+// ── Material real (Petrobras/Eixos, 19/10/2026 — P-82) ─────────────────────
+const MATERIAL = "A Petrobras informou neste domingo (19) que a plataforma P-82 deixou o estaleiro Tuas Boulevard Yard, em Singapura, rumo ao campo de Búzios, no pré-sal da Bacia de Santos. A unidade é a décima plataforma destinada a Búzios. Com 345,3 metros de comprimento, 60 metros de largura e peso superior a 100 mil toneladas, a P-82 integra a série 80, composta por seis plataformas com capacidade para produzir 225 mil barris de óleo por dia e comprimir 12 milhões de metros cúbicos de gás. Segundo a diretora de Engenharia, Tecnologia e Inovação da Petrobras, Renata Baruzzi, a construção em série reduz custos e aumenta a produtividade nos estaleiros. A P-80 deixou o mesmo estaleiro dias antes e as duas unidades devem entrar em operação em 2027. Os módulos de processo foram fabricados no estaleiro Seatrium, em Aracruz, no Espírito Santo.";
+const ARTIGO = { title: "Plataforma P-82 deixa estaleiro em Singapura rumo ao campo de Búzios", summary: "" };
+const BOA = {
+  relacao_offshore: "direta",
+  titulo: "Plataforma P-82 deixa estaleiro em Singapura rumo ao campo de Búzios",
+  buddy: "A P-82 saiu de Singapura e segue para o pré-sal de Búzios, na Bacia de Santos. É a décima unidade prevista para o campo.",
+  corpo: [
+    "Capaz de produzir 225 mil barris de óleo por dia e comprimir 12 milhões de metros cúbicos de gás, a P-82 tem 345,3 metros de comprimento. Ela faz parte da série 80, de seis unidades, e partiu do estaleiro Tuas Boulevard Yard rumo ao Brasil.",
+    "Segundo a Petrobras, a P-80 já havia deixado o mesmo pátio dias antes; as duas devem começar a operar em 2027. Os módulos de processo vieram do estaleiro Seatrium, em Aracruz (ES). Para a diretora Renata Baruzzi, construir em série barateia o projeto."
+  ],
+  impacto: "A chegada da P-82 a Búzios amplia a campanha de instalação no pré-sal da Bacia de Santos, com comissionamento e logística de apoio até a entrada em operação prevista para 2027."
+};
+const resposta = (obj) => ({ choices: [{ message: { content: typeof obj === "string" ? obj : JSON.stringify(obj) } }] });
+function iaFalsa(saidas) {
+  const chamadas = [];
+  return { chamadas, AI: { async run(modelo, input) { chamadas.push(input); const s = saidas[Math.min(chamadas.length - 1, saidas.length - 1)]; if (s instanceof Error) throw s; return resposta(s); } } };
+}
+
+console.log("\nLive Newsroom — redator, gate e segunda tentativa");
+
+await test("redação aprovada de primeira (1 chamada)", async () => {
+  const ia = iaFalsa([BOA]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r.ok, JSON.stringify(r.motivos));
+  expect(ia.chamadas.length === 1 && r.tentativas === 1);
+});
+
+await test("ficha técnica com os números da fonte não é cópia (dado ≠ prosa)", () => {
+  const v = T.validarMateriaOWNews({ buddy_summary: BOA.buddy, why_it_matters: BOA.impacto, corpo: BOA.corpo.join("\n\n") }, ARTIGO, MATERIAL);
+  expect(v.ok, v.motivos.join(","));
+});
+
+await test("frase copiada da fonte (prosa) continua reprovando", () => {
+  const copia = "Segundo a diretora de Engenharia, Tecnologia e Inovação da Petrobras, Renata Baruzzi, a construção em série reduz custos e aumenta a produtividade nos estaleiros.";
+  expect(T.trechoCopiadoDaFonte(copia, MATERIAL), "cópia literal passou");
+  const corpo = [BOA.corpo[0], copia + " A P-80 também saiu antes."].join("\n\n");
+  const v = T.validarMateriaOWNews({ buddy_summary: BOA.buddy, why_it_matters: BOA.impacto, corpo }, ARTIGO, MATERIAL);
+  expect(v.motivos.includes("corpo:copia_fonte"), v.motivos.join(","));
+});
+
+await test("paráfrase rasa (troca de poucas palavras) continua reprovando", () => {
+  const rasa = "A Petrobras comunicou neste domingo (19) que a plataforma P-82 saiu do estaleiro Tuas Boulevard Yard, em Singapura, rumo ao campo de Búzios, no pré-sal da Bacia de Santos. A unidade é a décima plataforma destinada a Búzios e integra a série 80, composta por seis plataformas com capacidade para produzir e comprimir gás.";
+  expect(T.parafraseRasaDaFonte(rasa, MATERIAL) >= 0.4, String(T.parafraseRasaDaFonte(rasa, MATERIAL)));
+});
+
+await test("corpo reprovado (cópia) → 2ª tentativa dirigida cita a frase e aprova", async () => {
+  const ruim = Object.assign({}, BOA, { corpo: ["Segundo a diretora de Engenharia, Tecnologia e Inovação da Petrobras, Renata Baruzzi, a construção em série reduz custos e aumenta a produtividade nos estaleiros.", BOA.corpo[1]] });
+  const ia = iaFalsa([ruim, BOA]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r.ok && r.tentativas === 2, JSON.stringify(r));
+  const pedido = ia.chamadas[1].messages[1].content;
+  expect(pedido.includes("repetem a matéria") && pedido.includes("Renata Baruzzi"), "2ª tentativa sem a frase reprovada");
+  expect(ia.chamadas[1].temperature === 0.35, "temperatura da 2ª tentativa");
+});
+
+await test("Buddy reprovado (cópia) → 2ª tentativa; reprovada de novo = corrigível, máximo 2 chamadas", async () => {
+  const ruim = Object.assign({}, BOA, { buddy: "Segundo a diretora de Engenharia, Tecnologia e Inovação da Petrobras, Renata Baruzzi, a construção em série reduz custos e aumenta a produtividade nos estaleiros. A P-82 é a décima." });
+  const ia = iaFalsa([ruim, ruim, ruim]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(!r.ok && r.tentativas === 2 && ia.chamadas.length === 2, JSON.stringify(r));
+  expect(r.motivos.some((m) => m.startsWith("buddy:")), r.motivos.join(","));
+  expect(T.classeReprovacao(r.motivos) === "corrigivel");
+});
+
+await test("Impacto genérico reprovado → reescrito na 2ª tentativa", async () => {
+  const ruim = Object.assign({}, BOA, { impacto: "Isso é importante para o setor offshore." });
+  const ia = iaFalsa([ruim, BOA]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r.ok && r.tentativas === 2, JSON.stringify(r.motivos || r));
+});
+
+await test("impacto: âncora no meio da frase conta (\"A decisão ... Petrobras\")", () => {
+  const v = T.validarImpactoPublicavel("A saída da unidade da Petrobras acelera a campanha de instalação em Búzios.", ARTIGO, BOA.buddy, { fonte: MATERIAL });
+  expect(!v.motivos.includes("sem_ancora"), v.motivos.join(","));
+  const sem = T.validarImpactoPublicavel("A decisão acelera a campanha de instalação do setor.", ARTIGO, BOA.buddy, { fonte: MATERIAL });
+  expect(sem.motivos.includes("sem_ancora"), "impacto sem nome/número passou");
+});
+
+await test("impacto com empregos: aceito quando a fonte (em inglês) informa jobs; reprovado sem base", () => {
+  const fonteEn = "Sumitomo Electric opened the first UK HVDC subsea cable factory at the Port of Nigg in Scotland, creating more than 200 jobs.";
+  const ok = T.validarImpactoPublicavel("A fábrica da Sumitomo em Nigg cria mais de 200 empregos e encurta o prazo de entrega de cabos submarinos.", { title: "Fábrica de cabos HVDC abre na Escócia", summary: "" }, "", { fonte: fonteEn });
+  expect(!ok.motivos.includes("emprego_sem_base"), ok.motivos.join(","));
+  const ko = T.validarImpactoPublicavel("A saída da P-82 abre vagas para quem trabalha na Petrobras.", ARTIGO, "", { fonte: MATERIAL });
+  expect(ko.motivos.includes("emprego_sem_base"), ko.motivos.join(","));
+});
+
+await test("fora de escopo → reprovação definitiva sem 2ª tentativa", async () => {
+  const ia = iaFalsa([{ relacao_offshore: "nenhuma", titulo: "", buddy: "", corpo: [], impacto: "" }]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(!r.ok && ia.chamadas.length === 1 && T.classeReprovacao(r.motivos) === "definitiva", JSON.stringify(r));
+});
+
+await test("conteúdo thin (sem material) → definitiva, nenhuma chamada de IA", async () => {
+  const ia = iaFalsa([BOA]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, "Nota curta sem fatos.", 1, {});
+  expect(!r.ok && ia.chamadas.length === 0 && T.classeReprovacao(r.motivos) === "definitiva");
+});
+
+await test("impacto vazio (IA não vê efeito offshore) → definitiva", () => {
+  expect(T.classeReprovacao(["impacto:vazio", "corpo:copia_fonte"]) === "definitiva");
+  expect(T.classeReprovacao(["corpo:parafrase_rasa", "titulo:title_case"]) === "corrigivel");
+});
+
+await test("JSON degenerado na 2ª tentativa → reprovação corrigível da 1ª (não 'vazio')", async () => {
+  const ruim = Object.assign({}, BOA, { impacto: "Isso é importante para o setor offshore." });
+  const lixo = 'analysis: ...<|end|>assistantfinal {"relacao_off offshore":"direct"," buddy":"x"}';
+  const ia = iaFalsa([ruim, lixo]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(!r.ok && !r.erro && r.degenerou && r.motivos.some((m) => m.startsWith("impacto:")), JSON.stringify(r));
+  expect(T.classeReprovacao(r.motivos) === "corrigivel");
+});
+
+await test("JSON inválido na 1ª tentativa → falha técnica (não memoriza)", async () => {
+  const r = await T.gerarCamadaEditorialIA({ AI: iaFalsa(["sem json aqui"]).AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r.erro === "ia_json_invalido", JSON.stringify(r));
+});
+
+await test("Workers AI indisponível / cota 4006 / timeout → erro técnico (tenta no próximo ciclo)", async () => {
+  expect((await T.gerarCamadaEditorialIA({}, ARTIGO, MATERIAL, 1, {})).erro === "ia_indisponivel");
+  const cota = await T.gerarCamadaEditorialIA({ AI: iaFalsa([new Error("4006: you have used up your daily free allocation of 10,000 neurons")]).AI }, ARTIGO, MATERIAL, 1, {});
+  expect(/^ia_erro:4006/.test(cota.erro), cota.erro);
+  const to = await T.gerarCamadaEditorialIA({ AI: iaFalsa([new Error("timeout")]).AI }, ARTIGO, MATERIAL, 1, {});
+  expect(/^ia_erro:timeout/.test(to.erro), to.erro);
+});
+
+await test("título: tradução automática só vale se o redator a endossou nas 2 redações", () => {
+  const trad = "SSE escolhe Seaway7 para fundações e cabos do parque eólico Berwick Bank B";
+  const fonte = "SSE picks Seaway7 for Berwick Bank B offshore wind foundations and cables";
+  expect(!T.escolherTituloOWNews(trad, trad, fonte, true, false).ok, "1ª redação não pode publicar tradução");
+  expect(T.escolherTituloOWNews(trad, trad, fonte, true, true).ok, "endosso na 2ª redação");
+  expect(!T.escolherTituloOWNews("SSE Escolhe Seaway7 Para Fundações Do Parque", "SSE Escolhe Seaway7 Para Fundações Do Parque", fonte, true, true).ok, "Title Case endossado passou");
+});
+
+await test("título em português natural (Title Case importado reprovado)", () => {
+  const r = T.escolherTituloOWNews("Fugro, EirGrid Completa Pesquisas Marítimas Para Ligação", "Fugro e EirGrid concluem pesquisas marítimas para ligação eólica na Irlanda", "Fugro and EirGrid complete marine surveys for Ireland wind link", false, false);
+  expect(r.ok && /concluem/.test(r.titulo), JSON.stringify(r));
+});
+
+console.log("\nLive Newsroom — descoberta, dedup e memória de reprovação");
+
+await test("dedup: mesmo FATO (título parecido + mesmo número) é duplicata", () => {
+  expect(T.mesmoFatoTitulos("Par de perfurações da Transocean soma US$ 550 milhões em novos contratos", "TRANSOCEAN AMPLIA CARTEIRA DE CONTRATOS EM US$ 550 MILHÕES COM CAMPANHAS DE PERFURAÇÃO", 0.2));
+});
+
+await test("dedup: mesmo ASSUNTO, fato diferente, não é duplicata", () => {
+  expect(!T.mesmoFatoTitulos("Estoques de petróleo nos EUA caem 8,557 milhões de barris, aponta DoE", "PRODUÇÃO DE PETRÓLEO DA UNIÃO ATINGE 313 MIL BARRIS POR DIA EM AGOSTO", 0.2));
+  expect(!T.mesmoFatoTitulos("Transocean fecha contrato de US$ 120 milhões para sonda no Brasil", "Transocean publica Fleet Status de outubro", 0.2));
+});
+
+await test("dedup: título quase idêntico continua duplicata (limiar normal)", () => {
+  expect(T.mesmoFatoTitulos("Petrobras contrata FPSO para o campo de Búzios", "Petrobras contrata FPSO para campo de Búzios", 0.55));
+});
+
+await test("pauta com mais de 72h não vai para a IA; data ausente decide depois", () => {
+  expect(T.PAUTA_IDADE_MAX_H === 72);
+  expect(T.pautaAntiga(new Date(Date.now() - 80 * 3600000).toISOString()));
+  expect(!T.pautaAntiga(new Date(Date.now() - 30 * 3600000).toISOString()));
+  expect(!T.pautaAntiga(null) && !T.pautaAntiga("data inválida"));
+  expect(!T.pautaAntiga("2026-10-20T09:00:00-03:00".replace("2026-10-20", new Date().toISOString().slice(0, 10))), "BRT");
+});
+
+await test("memória de reprovação: corrigível de versão anterior expira; definitiva vale 3 dias", async () => {
+  const mapa = new Map();
+  const storage = { async list() { return new Map(mapa); }, async delete(ks) { ks.forEach((k) => mapa.delete(k)); }, async put(k, v) { mapa.set(k, v); }, async get(k) { return mapa.get(k); }, async getAlarm() { return 1; }, async setAlarm() {} };
+  const poller = new T.BuddyIAPoller({ storage }, {});
+  const antes = T.BUDDY_IA_REJ_CORRIGIVEL_DESDE - 3600000;
+  mapa.set("rej:legado", antes);                                   // número antigo (sem classe)
+  mapa.set("rej:corr-velha", { t: antes, c: "corrigivel" });
+  mapa.set("rej:def-velha", { t: Math.max(antes, T.BUDDY_IA_REJ_VALIDA_DESDE + 1), c: "definitiva" });
+  mapa.set("rej:expirada", { t: Date.now() - 4 * 86400000, c: "definitiva" });
+  await poller.fetch(new Request("https://buddy-ia.interno/rejeitar", { method: "POST", body: JSON.stringify({ hash: "nova", classe: "corrigivel" }) }));
+  const vivos = await (await poller.fetch(new Request("https://buddy-ia.interno/rejeicoes"))).json();
+  const esperado = Date.now() - (T.BUDDY_IA_REJ_VALIDA_DESDE) < 3 * 86400000 ? ["def-velha", "nova"] : ["nova"];
+  expect(JSON.stringify(vivos.sort()) === JSON.stringify(esperado.sort()), JSON.stringify(vivos));
+  expect(!mapa.has("rej:expirada"), "expirada não foi limpa");
+});
+
+console.log("\nLive Newsroom — observabilidade e KV");
+
+const AGORA = Date.parse("2026-10-20T15:00:00Z");
+const art = (h, extra) => Object.assign({ published_at: new Date(AGORA - h * 3600000).toISOString(), created_at: new Date(AGORA - h * 3600000 + 2 * 3600000).toISOString(), buddy_source: "ownews" }, extra || {});
+
+await test("saúde VERDE: publicação recente e IA ok", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(2), art(5)], gate: { "24h": { ia_avaliadas: 6, publicadas: 3, taxa_aprovacao_ia: 50 }, ia: { ultima_resposta: new Date(AGORA - 3600000).toISOString() } }, automacao: { fontes_com_erro: [] } });
+  expect(s.status === "VERDE" && s.publicadas_24h === 2 && s.latencia_mediana_h_7d === 2, JSON.stringify(s));
+});
+
+await test("saúde AMARELO: 7h sem publicar / aprovação baixa / fonte com erro", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(7)], gate: { "24h": { ia_avaliadas: 8, publicadas: 1, taxa_aprovacao_ia: 12 }, ia: {} }, automacao: { fontes_com_erro: ["antaq"] } });
+  expect(s.status === "AMARELO" && s.motivos.length === 3, JSON.stringify(s.motivos));
+});
+
+await test("saúde VERMELHO + alerta de silêncio: 22h sem publicar com pautas chegando", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(22.5)], gate: { "24h": { ia_avaliadas: 3, barradas_memoria: 85, editorial_incomplete: 103, publicadas: 0, taxa_aprovacao_ia: 0 }, ia: {} }, automacao: {} });
+  expect(s.status === "VERMELHO" && s.silencio_alerta === true, JSON.stringify(s));
+});
+
+await test("saúde VERMELHO: cota de Workers AI esgotada (ia_status=cota_esgotada)", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(1)], gate: { "24h": {}, ia: { ultima_resposta: new Date(AGORA - 5 * 3600000).toISOString(), ultima_falha: new Date(AGORA - 600000).toISOString(), ultima_falha_motivo: "ia_erro:4006: you have used up your daily free allocation" } }, automacao: {} });
+  expect(s.status === "VERMELHO" && s.ia_status === "cota_esgotada" && !s.silencio_alerta, JSON.stringify(s));
+});
+
+await test("KV: acumulador do gate grava 1x por rodada com dado e 0x sem dado", async () => {
+  let puts = 0; const kv = { async get() { return []; }, async put() { puts++; } };
+  await T.acumularGateEditorial({ SAUDE_KV: kv }, { petronoticias: { ok: true, inseridas: 1, editorial_incomplete: 1, ia_avaliadas: 2, aprovadas_2a: 1, rep_corrigivel: 1, noticias: [{ status: "editorial_incomplete", motivo: "sem_buddy_valido" }] } });
+  await T.acumularGateEditorial({ SAUDE_KV: kv }, { anp: { ok: true, inseridas: 0, editorial_incomplete: 0, noticias: [] } });
+  expect(puts === 1, "puts=" + puts);
+});
+
+await test("KV: estatística 24h expõe funil (IA avaliou, 2ª tentativa, corrigível, taxa real)", async () => {
+  const entrada = { ts: Date.now() - 3600000, fontes: { eixos: { p: 2, ei: 3, cs: 0, motivos: { reprovada_recente: 2, sem_buddy_valido: 1 }, ia: 4, a2: 1, rc: 1, rd: 1, rr: 2, ant: 0 } } };
+  const s = await T.obterGateEditorialStats({ SAUDE_KV: { async get() { return [entrada]; } } });
+  const d = s["24h"];
+  expect(d.ia_avaliadas === 4 && d.aprovadas_2a === 1 && d.taxa_aprovacao_ia === 50 && d.barradas_memoria === 2, JSON.stringify(d));
+});
+
+console.log("\nLive Newsroom — Telegram");
+
+await test("Telegram: só matéria OWNews de até 24h entra como candidata; 2 notícias/dia nos slots 08:50/17:50", async () => {
+  let url = "";
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (u) => { url = String(u); return new Response("[]", { status: 200 }); };
+  try { await T.buscarCandidatosTelegram({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" }); }
+  finally { globalThis.fetch = orig; }
+  expect(url.includes("buddy_source=eq.ownews") && url.includes("status=eq.published"), url);
+  const corte = Date.parse(decodeURIComponent(url.match(/published_at=gte\.([^&]+)/)[1]));
+  expect(Date.now() - corte <= 24 * 3600000 + 60000, "janela maior que 24h");
+  expect(T.LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM === 24 && T.LIMITE_NOTICIAS_POR_DIA_TELEGRAM === 2);
+  expect(T.SLOTS_NOTICIAS_TELEGRAM.map((s) => s.horaAlvoBRT + ":" + s.minAlvoBRT).join(",") === "8:50,17:50");
+});
+
+console.log("\n" + pass + " passaram, " + fail + " falharam");
+process.exit(fail ? 1 : 0);
