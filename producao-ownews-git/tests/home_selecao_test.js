@@ -260,6 +260,17 @@ test("diversidade não força notícia velha (3 frescas da mesma editoria > 1 ve
   const s = H.selecionarHomeServidor(ordenar([c(1), c(2), c(3), c(4), velha]), AGORA);
   expect(![s.hero, ...s.laterais].some((n) => n.id === velha.id) && s.laterais.length === 3, s.laterais.map(idade).join(","));
 });
+test("frescor > diversidade: 6h da mesma editoria vence 22h de outra (reprodução 20/10 13:39 BRT)", () => {
+  const I = (h, sc, t) => art(h, sc, { title: t, summary: "Na Noruega e no exterior" });
+  const hero = I(6.9, 100, "United Oil avalia perfuração em licença jamaicana");
+  const timor = I(5.9, 85, "Timor-Leste prorroga contrato de gás Chuditch");
+  const noruega = I(6.4, 63, "Segundo navio de energia oceânica chega à Noruega");
+  const anp = art(0.9, 80, { title: "Seminário da ANP debate segurança operacional" });
+  const p35 = art(22.7, 75, { title: "Petrobras adia acostamento da P-35 no estaleiro Inhaúma" });
+  const s = H.selecionarHomeServidor(ordenar([anp, timor, noruega, hero, p35]), AGORA);
+  const ids = s.laterais.map((n) => n.id);
+  expect(ids.includes(noruega.id) && !ids.includes(p35.id), s.laterais.map(idade).join(","));
+});
 test("duplicate: mesma pauta nunca ocupa 2 vagas, mesmo sem alternativa (mostra menos)", () => {
   const a = art(1, 80, { title: "Petrobras contrata FPSO para campo de Búzios" });
   const b = art(2, 79, { title: "Petrobras contrata FPSO para o campo de Búzios" });

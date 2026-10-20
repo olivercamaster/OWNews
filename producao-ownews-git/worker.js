@@ -6113,20 +6113,22 @@ function selecionarHomeServidor(noticias, agoraMs) {
     const imagens = new Set([hero.image_url].filter(Boolean));
     const fontes = new Set([hero.image_credit].filter(Boolean));
     const porEditoria = { [editoriaDeServidor(hero)]: 1 };
-    const reserva = [];
     const bloqueada = (c) => (c.image_url && imagens.has(c.image_url)) || [hero, ...laterais].some((x) => mesmaPautaHome(x, c));
     const entrar = (c) => { laterais.push(c); const ed = editoriaDeServidor(c); porEditoria[ed] = (porEditoria[ed] || 0) + 1; if (c.image_url) imagens.add(c.image_url); if (c.image_credit) fontes.add(c.image_credit); };
-    for (const c of candidatas) {
-      if (laterais.length >= 3) break;
-      if (bloqueada(c)) continue;
-      if ((c.image_credit && fontes.has(c.image_credit)) || (porEditoria[editoriaDeServidor(c)] || 0) >= 2) { reserva.push(c); continue; }
-      entrar(c);
-    }
-    // Diversidade não força matéria velha: a reserva (mesma fonte/editoria)
-    // também é de 24h e só completa vaga.
-    for (const c of reserva) {
-      if (laterais.length >= 3) break;
-      if (!bloqueada(c)) entrar(c);
+    // Diversidade (fonte/editoria) só escolhe DENTRO da faixa de frescor:
+    // uma de até 12h da mesma editoria vem antes de qualquer uma de 12–24h.
+    for (const faixa of [0, 1]) {
+      const reserva = [];
+      for (const c of candidatas) {
+        if (laterais.length >= 3) break;
+        if (pref(c) !== faixa || bloqueada(c)) continue;
+        if ((c.image_credit && fontes.has(c.image_credit)) || (porEditoria[editoriaDeServidor(c)] || 0) >= 2) { reserva.push(c); continue; }
+        entrar(c);
+      }
+      for (const c of reserva) {
+        if (laterais.length >= 3) break;
+        if (!bloqueada(c)) entrar(c);
+      }
     }
     laterais.sort(ordemLateral);
   }
