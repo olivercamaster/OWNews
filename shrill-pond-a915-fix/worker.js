@@ -4058,6 +4058,7 @@ const BUDDY_IA_SISTEMA =
    precisa passar, sem número ou nome que não esteja na matéria. */
 const TITULO_SENSACIONAL_RE = /!|\b(bomba|chocante|inacredit[aá]vel|incr[ií]vel|urgente|exclusivo|veja|confira|explode|derrete|humilha|detona|vergonha|absurdo|esc[aâ]ndalo)\b/i;
 const TITULO_FUNCAO_MAIUSC_RE = /[A-Za-zÀ-ú0-9,]\s(Da|De|Do|Das|Dos|Para|Com|Em|No|Na|Nos|Nas|Por|Pelo|Pela|Ao|Aos|Sobre|Após|Entre|Contra|Que)\s/;
+const TITULO_PALAVRAS_FUNCIONAIS = new Set(['para', 'pela', 'pelo', 'pelas', 'pelos', 'sobre', 'entre', 'após', 'apos', 'como', 'mais', 'menos', 'contra', 'desde', 'até', 'durante', 'pelo', 'seus', 'suas', 'esta', 'este', 'essa', 'esse', 'isso', 'onde', 'quando', 'também', 'ainda', 'muito', 'mesmo', 'mesma', 'cada', 'outro', 'outra', 'todos', 'todas', 'neste', 'nesta', 'deste', 'desta', 'perante', 'segundo']);
 function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
   const t = sanearTextoPublicacao(String(titulo || '')).trim();
   const m = [];
@@ -4066,10 +4067,14 @@ function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
   if (tituloEmIngles(t)) m.push('ingles');
   if (TITULO_SENSACIONAL_RE.test(t)) m.push('sensacionalista');
   const pal = t.split(/\s+/).slice(1).filter((p) => /^[A-Za-zÀ-ú]{4,}$/.test(p));
-  // Title Case: nenhuma palavra comum em minúscula (nomes próprios
-  // compostos, como "Fórum Sebrae", convivem com verbos em minúscula).
-  const maiusc = pal.filter((p) => /^[A-ZÀ-Ú][a-zà-ú]+$/.test(p)).length;
-  if (TITULO_FUNCAO_MAIUSC_RE.test(t) || (maiusc >= 4 && !pal.some((p) => /^[a-zà-ú]/.test(p)))) m.push('title_case');
+  // Title Case: as palavras de conteúdo quase todas com inicial maiúscula
+  // (nomes próprios compostos, como "Fórum Sebrae", convivem com verbos em
+  // minúscula). Palavras funcionais ("para", "sobre"...) não contam — em
+  // 20/10 "A Petrobrás Adia o Acostamento ... Prepara para Receber ..."
+  // passava só porque "para" estava em minúscula.
+  const conteudo = pal.filter((p) => !TITULO_PALAVRAS_FUNCIONAIS.has(p.toLowerCase()));
+  const maiusc = conteudo.filter((p) => /^[A-ZÀ-Ú][a-zà-ú]+$/.test(p)).length;
+  if (TITULO_FUNCAO_MAIUSC_RE.test(t) || (maiusc >= 4 && maiusc >= 0.85 * conteudo.length)) m.push('title_case');
   if (clicheIA(t)) m.push('cliche_ia');
   if (tituloOriginal !== undefined) {
     const base = String(tituloOriginal || '') + ' ' + String(fonteTexto || '');

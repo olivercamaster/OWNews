@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(AQUI, "..", "..", "shrill-pond-a915-fix", "worker.js");
 const codigo = fs.readFileSync(SRC, "utf8").replace(/^const /gm, "var ").replace(/^let /gm, "var ") +
-  "\nexport const __t = { gerarCamadaEditorialIA, validarMateriaOWNews, validarImpactoPublicavel, trechoCopiadoDaFonte, parafraseRasaDaFonte, classeReprovacao, mesmoFatoTitulos, pautaAntiga, frasesCopiadasDaFonte, escolherTituloOWNews, calcularSaudeEditorial, acumularGateEditorial, obterGateEditorialStats, BuddyIAPoller, processarNoticias, BUDDY_IA_REJ_CORRIGIVEL_DESDE, BUDDY_IA_REJ_VALIDA_DESDE, PAUTA_IDADE_MAX_H, buscarCandidatosTelegram, decisaoMemoriaRejeicao, intervaloVarreduraEditorialMs, REJ_RECUPERACAO_APOS_H, REJ_RECUPERACAO_PAUTA_MAX_H, LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM, LIMITE_NOTICIAS_POR_DIA_TELEGRAM, SLOTS_NOTICIAS_TELEGRAM };\n";
+  "\nexport const __t = { gerarCamadaEditorialIA, validarMateriaOWNews, validarImpactoPublicavel, trechoCopiadoDaFonte, parafraseRasaDaFonte, classeReprovacao, mesmoFatoTitulos, pautaAntiga, frasesCopiadasDaFonte, escolherTituloOWNews, calcularSaudeEditorial, acumularGateEditorial, obterGateEditorialStats, BuddyIAPoller, processarNoticias, BUDDY_IA_REJ_CORRIGIVEL_DESDE, BUDDY_IA_REJ_VALIDA_DESDE, PAUTA_IDADE_MAX_H, buscarCandidatosTelegram, validarTituloOWNews, decisaoMemoriaRejeicao, intervaloVarreduraEditorialMs, REJ_RECUPERACAO_APOS_H, REJ_RECUPERACAO_PAUTA_MAX_H, LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM, LIMITE_NOTICIAS_POR_DIA_TELEGRAM, SLOTS_NOTICIAS_TELEGRAM };\n";
 const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ownews-newsroom-")), "collector.mjs");
 fs.writeFileSync(tmp, codigo);
 const T = (await import(pathToFileURL(tmp).href)).__t;
@@ -300,6 +300,12 @@ await test("source latency: p50/p90 fonte→OWNews em 24h e 7d; 24h conta a publ
 await test("saúde: taxa de aprovação null (sem amostra) não vira 'aprovação baixa'", () => {
   const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(2)], gate: { "24h": { ia_avaliadas: 5, taxa_aprovacao_ia: null }, ia: {} }, automacao: {} });
   expect(s.status === "VERDE", JSON.stringify(s.motivos));
+});
+await test("título Title Case com 'para' minúsculo é reprovado; título natural com nomes próprios passa", () => {
+  const tc = "A Petrobrás Adia o Acostamento da P-35 no Estaleiro Inhaúma e se Prepara para Receber a Plataforma P-82 que Saiu de Cingapura em Direção ao Brasil";
+  expect(T.validarTituloOWNews(tc, "").includes("title_case"), JSON.stringify(T.validarTituloOWNews(tc, "")));
+  for (const ok of ["Petrobras e Equinor assinam acordo para Raia Pequena", "Fórum Sebrae debate cadeia de óleo e gás em Macaé", "Plataforma P-82 deixa estaleiro em Singapura rumo ao campo de Búzios", "Seminário da ANP debate desempenho da indústria de petróleo e gás em segurança operacional e meio ambiente"])
+    expect(!T.validarTituloOWNews(ok, "").includes("title_case"), ok);
 });
 await test("cron: varredura a cada 30 min das 05:20 às 20:20 BRT, 60 min de madrugada", () => {
   expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T08:50:00Z")) === 30 * 60000);
