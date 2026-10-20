@@ -307,6 +307,14 @@ await test("título Title Case com 'para' minúsculo é reprovado; título natur
   for (const ok of ["Petrobras e Equinor assinam acordo para Raia Pequena", "Fórum Sebrae debate cadeia de óleo e gás em Macaé", "Plataforma P-82 deixa estaleiro em Singapura rumo ao campo de Búzios", "Seminário da ANP debate desempenho da indústria de petróleo e gás em segurança operacional e meio ambiente"])
     expect(!T.validarTituloOWNews(ok, "").includes("title_case"), ok);
 });
+await test("saúde: taxa baixa só com amostra real (entradas com contador de aprovadas)", () => {
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(2)], gate: { "24h": { ia_avaliadas: 7, ia_avaliadas_amostra_taxa: 2, taxa_aprovacao_ia: 0 }, ia: {} }, automacao: {} });
+  expect(s.status === "VERDE", JSON.stringify(s.motivos));
+});
+await test("sem_material não conta como avaliação da IA (reprova antes da chamada)", async () => {
+  const r = await T.gerarCamadaEditorialIA({ AI: { async run() { throw new Error("não deveria chamar"); } } }, ARTIGO, "curto", 1, {});
+  expect(!r.ok && !r.erro && r.motivos[0] === "sem_material", JSON.stringify(r));
+});
 await test("cron: varredura a cada 30 min das 05:20 às 20:20 BRT, 60 min de madrugada", () => {
   expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T08:50:00Z")) === 30 * 60000);
   expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T22:50:00Z")) === 30 * 60000);

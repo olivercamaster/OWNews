@@ -2781,7 +2781,8 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
   if (status !== 'VERMELHO') {
     if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar'); }
     // Taxa null = ainda sem amostra com o contador de aprovadas (não é 0%).
-    if ((g24.ia_avaliadas || 0) >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + g24.ia_avaliadas); }
+    const amostraTaxa = g24.ia_avaliadas_amostra_taxa === undefined ? (g24.ia_avaliadas || 0) : g24.ia_avaliadas_amostra_taxa;
+    if (amostraTaxa >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + amostraTaxa); }
     if (fontesErro.length) { status = 'AMARELO'; motivos.push('fonte com erro: ' + fontesErro.join(', ')); }
   }
   return {
@@ -2929,6 +2930,7 @@ async function obterGateEditorialStats(env) {
         // Só entradas com o contador "ap" (antes ele não existia e a taxa
         // passava de 100%: publicadas não-IA divididas por avaliadas pela IA).
         ia_aprovadas: funil.ap,
+        ia_avaliadas_amostra_taxa: iaComAp,
         taxa_aprovacao_ia: iaComAp ? Math.round(funil.ap / iaComAp * 100) : null,
         recuperacoes: funil.rec,
         recuperadas: funil.rok,
@@ -4854,7 +4856,8 @@ slug: criarSlug(tituloPublicado),
       const camadaIA = recuperacao
         ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, { tituloTraduzido: tituloPublicado !== tituloFinal })
         : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
-      if (!camadaIA.erro) {
+      // sem_material reprova ANTES de chamar a IA: não é avaliação do redator.
+      if (!camadaIA.erro && !(camadaIA.motivos || []).includes('sem_material')) {
         resultado.ia_avaliadas = (resultado.ia_avaliadas || 0) + 1;
         if (camadaIA.ok) resultado.ia_aprovadas = (resultado.ia_aprovadas || 0) + 1;
         if (camadaIA.tentativas === 2) resultado.ia_segunda = (resultado.ia_segunda || 0) + 1;
