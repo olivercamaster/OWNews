@@ -342,6 +342,30 @@ export default {
       return new Response(r.body, { status: r.status, headers: { "Content-Type": "application/json" } });
     }
 
+    // Trilha de uma pauta (somente leitura): hash, memória de reprovação e
+    // registro no banco. Responde "onde a pauta parou" sem gravar nada.
+    if (url.pathname === "/admin/pauta") {
+      const alvo = url.searchParams.get("url") || "";
+      if (!alvo) return Response.json({ ok: false, erro: "informe ?url=" }, { status: 400 });
+      const hash = await sha256(alvo);
+      let rej = null, artigo = null;
+      if (env.BUDDY_IA_DO) {
+        const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/rejeicao?hash=" + hash);
+        rej = r.ok ? await r.json() : null;
+      }
+      try {
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,status,buddy_source,published_at,created_at&hash=eq.${hash}&limit=1`, { headers: supabaseHeaders(env) });
+        artigo = r.ok ? (await r.json())[0] || null : null;
+      } catch { /* leitura opcional */ }
+      const valida = rej && typeof rej === "object" && rej.t >= (rej.c === "definitiva" ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE) && rej.t >= Date.now() - 3 * 86400000;
+      return Response.json({ ok: true, url: alvo, hash, no_banco: artigo, memoria_reprovacao: rej, memoria_vigente: !!valida });
+    }
+    if (url.pathname === "/admin/rejeicoes") {
+      if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
+      const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/rejeicoes?detalhe=1");
+      return new Response(r.body, { headers: { "Content-Type": "application/json" } });
+    }
+
     if (url.pathname === "/admin/buddy-ia") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
@@ -2726,14 +2750,22 @@ const BRT_OFFSET_MS = 3 * 3600000;
 function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
   const proprias = (artigos || []).filter((a) => a.buddy_source === 'ownews');
   const horas = (a) => (agora - new Date(a.published_at).getTime()) / 3600000;
-  const ultima = proprias[0] || null;
-  const idadeUltima = ultima ? Math.round(horas(ultima) * 10) / 10 : null;
+  // Silêncio do pipeline = última GRAVAÇÃO OWNews (created_at), não a data da
+  // fonte: uma pauta de ontem publicada agora é publicação de agora.
+  const ultima = proprias.slice().sort((a, b) => new Date(b.created_at || b.published_at) - new Date(a.created_at || a.published_at))[0] || null;
+  const maisNova = proprias[0] || null;
+  const idadeUltima = ultima ? Math.round((agora - new Date(ultima.created_at || ultima.published_at).getTime()) / 360000) / 10 : null;
   const inicioHojeBRT = Math.floor((agora - BRT_OFFSET_MS) / 86400000) * 86400000 + BRT_OFFSET_MS;
   // Latência fonte → OWNews: created_at (gravação) - published_at (fonte).
-  const lat = proprias.filter((a) => a.created_at && horas(a) <= 7 * 24)
+  // published_at é a data da FONTE; a publicação no OWNews é created_at.
+  const horasOW = (a) => (agora - new Date(a.created_at || a.published_at).getTime()) / 3600000;
+  const latencias = (lista) => lista.filter((a) => a.created_at)
     .map((a) => (new Date(a.created_at).getTime() - new Date(a.published_at).getTime()) / 3600000)
     .filter((h) => Number.isFinite(h) && h >= 0).sort((x, y) => x - y);
-  const mediana = lat.length ? Math.round(lat[Math.floor(lat.length / 2)] * 10) / 10 : null;
+  const pct = (arr, p) => arr.length ? Math.round(arr[Math.min(arr.length - 1, Math.floor(arr.length * p))] * 10) / 10 : null;
+  const lat = latencias(proprias.filter((a) => horasOW(a) <= 7 * 24));
+  const lat24 = latencias(proprias.filter((a) => horasOW(a) <= 24));
+  const mediana = pct(lat, 0.5);
   const g24 = (gate && gate['24h']) || {};
   const ia = (gate && gate.ia) || {};
   const iaFalhaRecente = ia.ultima_falha && (!ia.ultima_resposta || ia.ultima_falha > ia.ultima_resposta);
@@ -2756,10 +2788,15 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
     motivos,
     silencio_alerta: status === 'VERMELHO' && semPublicar >= 12,
     idade_ultima_publicacao_h: idadeUltima,
-    ultima_publicacao: ultima ? ultima.published_at : null,
-    publicadas_24h: proprias.filter((a) => horas(a) <= 24).length,
+    ultima_publicacao: ultima ? (ultima.created_at || ultima.published_at) : null,
+    idade_noticia_mais_nova_h: maisNova ? Math.round(horas(maisNova) * 10) / 10 : null,
+    publicadas_24h: proprias.filter((a) => horasOW(a) <= 24).length,
+    publicadas_24h_fonte_24h: proprias.filter((a) => horas(a) <= 24).length,
     publicadas_hoje_brt: proprias.filter((a) => new Date(a.created_at || a.published_at).getTime() >= inicioHojeBRT).length,
     latencia_mediana_h_7d: mediana,
+    latencia_fonte_ownews: { p50_24h: pct(lat24, 0.5), p90_24h: pct(lat24, 0.9), p50_7d: mediana, p90_7d: pct(lat, 0.9), amostras_24h: lat24.length },
+    recuperacoes_24h: g24.recuperacoes || 0,
+    recuperadas_24h: g24.recuperadas || 0,
     ia_avaliadas_24h: g24.ia_avaliadas || 0,
     aprovadas_24h: g24.publicadas || 0,
     aprovadas_2a_24h: g24.aprovadas_2a || 0,
@@ -2826,7 +2863,7 @@ async function acumularGateEditorial(env, resultados) {
       // Live Newsroom: funil real (IA avaliou x aprovou de 1ª/2ª x reprovou
       // corrigível/definitiva x barrada pela memória x pauta antiga).
       const rr = motivos.reprovada_recente || 0;
-      const funil = { ia: r.ia_avaliadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0 };
+      const funil = { ia: r.ia_avaliadas || 0, ap: r.ia_aprovadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0, rec: r.recuperacoes || 0, rok: r.recuperadas || 0 };
       if (p || ei || funil.ant) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
@@ -2856,13 +2893,14 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
-      const funil = { ia: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0 };
-      let totalP = 0, totalEI = 0;
+      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0 };
+      let totalP = 0, totalEI = 0, iaComAp = 0;
       const motivos = {};
       for (const e of entradas) {
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
-          for (const k of ['ia', 'a2', 'rc', 'rd', 'rr', 'ant']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          if (f.ap !== undefined) iaComAp += f.ia || 0;
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
           fontes[nome].cs += f.cs || 0;
@@ -2887,7 +2925,12 @@ async function obterGateEditorialStats(env) {
         reprovadas_definitivas: funil.rd,
         barradas_memoria: funil.rr,
         pautas_antigas: funil.ant,
-        taxa_aprovacao_ia: funil.ia ? Math.round(totalP / funil.ia * 100) : null,
+        // Só entradas com o contador "ap" (antes ele não existia e a taxa
+        // passava de 100%: publicadas não-IA divididas por avaliadas pela IA).
+        ia_aprovadas: funil.ap,
+        taxa_aprovacao_ia: iaComAp ? Math.round(funil.ap / iaComAp * 100) : null,
+        recuperacoes: funil.rec,
+        recuperadas: funil.rok,
         motivos,
         fontes
       };
@@ -4112,8 +4155,12 @@ function frasesCopiadasDaFonte(texto, fonte) {
   return q21Frases(String(texto || '').replace(/\n+/g, ' ')).filter((f) => trechoCopiadoDaFonte(f, fonte)).slice(0, 4);
 }
 /* Reprovação DEFINITIVA (escopo/substância: não adianta reescrever) x
-   CORRIGÍVEL (forma: Buddy, impacto, corpo, título). */
-const REPROVACAO_DEFINITIVA_RE = /^(fora_escopo|sem_material|impacto:sem_relevancia_offshore|impacto:vazio)$/;
+   CORRIGÍVEL (forma: Buddy, impacto, corpo, título, JSON).
+   Topo Fresco (2026-10-20): impacto vazio/sem relevância é falha de REDAÇÃO
+   (o redator não escreveu o efeito), não prova de pauta fora do escopo —
+   a P-82 (Eixos) ficou 3 dias condenada assim. Fora do escopo continua sendo
+   a resposta explícita do redator (relacao_offshore = nenhuma). */
+const REPROVACAO_DEFINITIVA_RE = /^(fora_escopo|sem_material)$/;
 function classeReprovacao(motivos) {
   return (motivos || []).some((m) => REPROVACAO_DEFINITIVA_RE.test(m)) ? 'definitiva' : 'corrigivel';
 }
@@ -4204,16 +4251,33 @@ async function lerMaterialFonte(env, hash) {
 }
 
 /* Memória de reprovação do gate (storage do BuddyIAPoller, 3 dias). */
+// Mapa hash -> { c: classe, n: tentativas reprovadas, t: ms, m: motivos }.
 async function listarRejeicoesRecentes(env) {
-  if (!env.BUDDY_IA_DO) return new Set();
+  if (!env.BUDDY_IA_DO) return new Map();
   try {
-    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeicoes');
-    return new Set(r.ok ? await r.json() : []);
-  } catch { return new Set(); }
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeicoes?v=2');
+    const j = r.ok ? await r.json() : [];
+    // Formato antigo (lista de hashes) = bloqueio simples.
+    return new Map(Array.isArray(j) ? j.map((h) => [h, { c: 'definitiva', n: 1, t: 0, m: [] }]) : Object.entries(j || {}));
+  } catch { return new Map(); }
 }
-async function registrarRejeicao(env, hash, classe) {
+async function registrarRejeicao(env, hash, classe, extra) {
   if (!env.BUDDY_IA_DO || !hash) return;
-  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeitar', { method: 'POST', body: JSON.stringify({ hash, classe: classe || 'corrigivel' }) }); } catch { /* best effort */ }
+  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeitar', { method: 'POST', body: JSON.stringify(Object.assign({ hash, classe: classe || 'corrigivel' }, extra || {})) }); } catch { /* best effort */ }
+}
+/* Recuperação de reprovação CORRIGÍVEL (Topo Fresco, 2026-10-20): uma pauta
+   NOVA (<= REJ_RECUPERACAO_PAUTA_MAX_H) reprovada por forma ganha UMA nova
+   redação dirigida (com os motivos e dicas da reprovação) depois de
+   REJ_RECUPERACAO_APOS_H. Reprovou de novo -> n = 2 -> memória de 3 dias.
+   Definitiva (fora do escopo, sem material) nunca é recuperada. */
+const REJ_RECUPERACAO_APOS_H = 2;
+const REJ_RECUPERACAO_PAUTA_MAX_H = 36;
+function decisaoMemoriaRejeicao(rej, idadePautaH, agoraMs) {
+  if (!rej) return 'avaliar';
+  if (rej.c === 'definitiva' || (rej.n || 1) >= 2) return 'bloquear';
+  if (!Number.isFinite(idadePautaH) || idadePautaH > REJ_RECUPERACAO_PAUTA_MAX_H) return 'bloquear';
+  if ((agoraMs - (rej.t || 0)) < REJ_RECUPERACAO_APOS_H * 3600000) return 'bloquear';
+  return 'recuperar';
 }
 
 /* Converte uma matéria do acervo em matéria OWNews (ou a marca como
@@ -4367,21 +4431,36 @@ export class BuddyIAPoller {
     }
     if (url.pathname === '/rejeitar' && request.method === 'POST') {
       const d = await request.json();
-      if (d && d.hash) await this.state.storage.put('rej:' + d.hash, { t: Date.now(), c: d.classe === 'definitiva' ? 'definitiva' : 'corrigivel' });
+      if (d && d.hash) {
+        const c = d.classe === 'definitiva' ? 'definitiva' : 'corrigivel';
+        const ant = await this.state.storage.get('rej:' + d.hash);
+        const antValida = ant && typeof ant === 'object' && ant.t >= (ant.c === 'definitiva' ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE);
+        await this.state.storage.put('rej:' + d.hash, {
+          t: Date.now(), c, n: antValida ? (ant.n || 1) + 1 : 1,
+          m: Array.isArray(d.motivos) ? d.motivos.slice(0, 6).map((x) => String(x).slice(0, 60)) : [],
+          ti: d.titulo ? String(d.titulo).slice(0, 140) : undefined, f: d.fonte ? String(d.fonte).slice(0, 40) : undefined
+        });
+      }
       return Response.json({ ok: true });
     }
     if (url.pathname === '/rejeicoes') {
       // Reprovações do redator anterior (llama-3.3) não valem para o atual:
       // a matéria volta a ser avaliada uma vez pelo mesmo gate.
-      const lim3d = Date.now() - 3 * 86400000, vivos = [], velhos = [];
+      const lim3d = Date.now() - 3 * 86400000, vivos = {}, velhos = [];
       (await this.state.storage.list({ prefix: 'rej:' })).forEach((v, k) => {
         const t = typeof v === 'number' ? v : (v && v.t) || 0;
         const c = v && v.c === 'definitiva' ? 'definitiva' : 'corrigivel';
         const desde = c === 'definitiva' ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE;
-        if (t < lim3d) velhos.push(k); else if (t >= desde) vivos.push(k);
+        if (t < lim3d) velhos.push(k);
+        else if (t >= desde) vivos[k.slice(4)] = url.searchParams.get('detalhe') === '1' ? Object.assign({ c, n: 1 }, typeof v === 'object' ? v : { t })
+          : { c, n: (v && v.n) || 1, t, m: (v && v.m) || [] };
       });
       if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
-      return Response.json(vivos.map((k) => k.slice(4)));
+      return Response.json(url.searchParams.get('v') === '2' || url.searchParams.get('detalhe') === '1' ? vivos : Object.keys(vivos));
+    }
+    if (url.pathname === '/rejeicao') {
+      const v = await this.state.storage.get('rej:' + (url.searchParams.get('hash') || ''));
+      return Response.json(v === undefined ? null : v);
     }
     if (url.pathname === '/fonte') {
       const v = await this.state.storage.get('fonte:' + (url.searchParams.get('hash') || ''));
@@ -4755,22 +4834,32 @@ slug: criarSlug(tituloPublicado),
       // Reprovada no gate nos últimos 3 dias: não gasta IA de novo a cada
       // ciclo (cota diária gratuita de Workers AI é da conta inteira).
       if (!contexto._rejeicoes) contexto._rejeicoes = await listarRejeicoesRecentes(env);
-      if (contexto._rejeicoes.has(artigo.hash)) {
+      const rejAnterior = contexto._rejeicoes.get(artigo.hash);
+      const decisaoRej = decisaoMemoriaRejeicao(rejAnterior, (Date.now() - new Date(dataEditorial).getTime()) / 3600000, Date.now());
+      if (decisaoRej === 'bloquear') {
         resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
-        resultado.noticias.push({ titulo: artigo.title, status: 'editorial_incomplete', motivo: 'reprovada_recente', fonte });
+        resultado.noticias.push({ titulo: artigo.title, status: 'editorial_incomplete', motivo: 'reprovada_recente', classe: rejAnterior.c, fonte });
         continue;
       }
-      const camadaIA = await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
+      // Recuperação: uma redação dirigida pelos motivos da reprovação anterior
+      // (mesmo gate, mesma 2ª tentativa — custa 1 chamada de IA, não 2).
+      const recuperacao = decisaoRej === 'recuperar';
+      if (recuperacao) resultado.recuperacoes = (resultado.recuperacoes || 0) + 1;
+      const camadaIA = recuperacao
+        ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, { tituloTraduzido: tituloPublicado !== tituloFinal })
+        : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
       if (!camadaIA.erro) {
         resultado.ia_avaliadas = (resultado.ia_avaliadas || 0) + 1;
+        if (camadaIA.ok) resultado.ia_aprovadas = (resultado.ia_aprovadas || 0) + 1;
         if (camadaIA.tentativas === 2) resultado.ia_segunda = (resultado.ia_segunda || 0) + 1;
+        if (recuperacao && camadaIA.ok) resultado.recuperadas = (resultado.recuperadas || 0) + 1;
       }
       const classeRep = !camadaIA.ok && !camadaIA.erro ? classeReprovacao(camadaIA.motivos) : null;
       if (classeRep) {
-        await registrarRejeicao(env, artigo.hash, classeRep);
+        await registrarRejeicao(env, artigo.hash, classeRep, { motivos: camadaIA.motivos, titulo: artigo.title, fonte });
         resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] = (resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] || 0) + 1;
       }
-      if (camadaIA.ok && camadaIA.tentativas === 2) resultado.aprovadas_2a = (resultado.aprovadas_2a || 0) + 1;
+      if (camadaIA.ok && camadaIA.tentativas === 2 && !recuperacao) resultado.aprovadas_2a = (resultado.aprovadas_2a || 0) + 1;
       if (camadaIA.ok) {
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
@@ -6957,8 +7046,19 @@ export class EditorialPoller {
       console.warn("[AgendaCrawler] erro isolado, ignorado:", e.message);
     }
 
-    await this.state.storage.setAlarm(Date.now() + 60 * 60000);
+    await this.state.storage.setAlarm(Date.now() + intervaloVarreduraEditorialMs(Date.now()));
   }
+}
+
+/* Cadência da varredura (Topo Fresco, 2026-10-20): 30 min na janela
+   operacional 05:20–20:20 BRT (08:20–23:20 UTC), 60 min fora dela. Cada
+   grupo (A–E) passa a ser visto a cada ~2,5h de dia (antes ~5h). Custo por
+   rodada medido: ~10–40 subrequests, 1–2 PUT em KV (ultima_execucao +
+   gate_acum com dado); IA só para pauta nova (a frequência não multiplica
+   chamadas de IA: pauta avaliada vai para o banco ou para a memória). */
+function intervaloVarreduraEditorialMs(agoraMs) {
+  const minutoUtc = new Date(agoraMs).getUTCHours() * 60 + new Date(agoraMs).getUTCMinutes();
+  return minutoUtc >= 8 * 60 + 20 && minutoUtc < 23 * 60 + 20 ? 30 * 60000 : 60 * 60000;
 }
 
 async function garantirEditorialPollerAtivo(env) {

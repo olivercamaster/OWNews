@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(AQUI, "..", "..", "shrill-pond-a915-fix", "worker.js");
 const codigo = fs.readFileSync(SRC, "utf8").replace(/^const /gm, "var ").replace(/^let /gm, "var ") +
-  "\nexport const __t = { gerarCamadaEditorialIA, validarMateriaOWNews, validarImpactoPublicavel, trechoCopiadoDaFonte, parafraseRasaDaFonte, classeReprovacao, mesmoFatoTitulos, pautaAntiga, frasesCopiadasDaFonte, escolherTituloOWNews, calcularSaudeEditorial, acumularGateEditorial, obterGateEditorialStats, BuddyIAPoller, processarNoticias, BUDDY_IA_REJ_CORRIGIVEL_DESDE, BUDDY_IA_REJ_VALIDA_DESDE, PAUTA_IDADE_MAX_H, buscarCandidatosTelegram, LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM, LIMITE_NOTICIAS_POR_DIA_TELEGRAM, SLOTS_NOTICIAS_TELEGRAM };\n";
+  "\nexport const __t = { gerarCamadaEditorialIA, validarMateriaOWNews, validarImpactoPublicavel, trechoCopiadoDaFonte, parafraseRasaDaFonte, classeReprovacao, mesmoFatoTitulos, pautaAntiga, frasesCopiadasDaFonte, escolherTituloOWNews, calcularSaudeEditorial, acumularGateEditorial, obterGateEditorialStats, BuddyIAPoller, processarNoticias, BUDDY_IA_REJ_CORRIGIVEL_DESDE, BUDDY_IA_REJ_VALIDA_DESDE, PAUTA_IDADE_MAX_H, buscarCandidatosTelegram, decisaoMemoriaRejeicao, intervaloVarreduraEditorialMs, REJ_RECUPERACAO_APOS_H, REJ_RECUPERACAO_PAUTA_MAX_H, LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM, LIMITE_NOTICIAS_POR_DIA_TELEGRAM, SLOTS_NOTICIAS_TELEGRAM };\n";
 const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ownews-newsroom-")), "collector.mjs");
 fs.writeFileSync(tmp, codigo);
 const T = (await import(pathToFileURL(tmp).href)).__t;
@@ -124,9 +124,17 @@ await test("conteúdo thin (sem material) → definitiva, nenhuma chamada de IA"
   expect(!r.ok && ia.chamadas.length === 0 && T.classeReprovacao(r.motivos) === "definitiva");
 });
 
-await test("impacto vazio (IA não vê efeito offshore) → definitiva", () => {
-  expect(T.classeReprovacao(["impacto:vazio", "corpo:copia_fonte"]) === "definitiva");
+// Topo Fresco (2026-10-20): impacto vazio/sem relevância é falha de redação
+// (a P-82 da Eixos ficou 3 dias condenada assim) — corrigível. Definitiva só
+// escopo (relacao_offshore=nenhuma) e substância (sem material).
+await test("gate corrigível: impacto vazio / sem relevância → corrigível (falha de redação, não de pauta)", () => {
+  expect(T.classeReprovacao(["impacto:vazio", "corpo:copia_fonte"]) === "corrigivel");
+  expect(T.classeReprovacao(["impacto:sem_relevancia_offshore"]) === "corrigivel");
   expect(T.classeReprovacao(["corpo:parafrase_rasa", "titulo:title_case"]) === "corrigivel");
+});
+await test("gate definitivo: fora de escopo e sem material continuam definitivos", () => {
+  expect(T.classeReprovacao(["fora_escopo"]) === "definitiva");
+  expect(T.classeReprovacao(["sem_material"]) === "definitiva");
 });
 
 await test("JSON degenerado na 2ª tentativa → reprovação corrigível da 1ª (não 'vazio')", async () => {
@@ -214,7 +222,8 @@ await test("saúde VERDE: publicação recente e IA ok", () => {
 });
 
 await test("saúde AMARELO: 7h sem publicar / aprovação baixa / fonte com erro", () => {
-  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(7)], gate: { "24h": { ia_avaliadas: 8, publicadas: 1, taxa_aprovacao_ia: 12 }, ia: {} }, automacao: { fontes_com_erro: ["antaq"] } });
+  // art(9): fonte de 9h atrás gravada 2h depois → 7h sem publicar no OWNews.
+  const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(9)], gate: { "24h": { ia_avaliadas: 8, publicadas: 1, taxa_aprovacao_ia: 12 }, ia: {} }, automacao: { fontes_com_erro: ["antaq"] } });
   expect(s.status === "AMARELO" && s.motivos.length === 3, JSON.stringify(s.motivos));
 });
 
@@ -236,10 +245,63 @@ await test("KV: acumulador do gate grava 1x por rodada com dado e 0x sem dado", 
 });
 
 await test("KV: estatística 24h expõe funil (IA avaliou, 2ª tentativa, corrigível, taxa real)", async () => {
-  const entrada = { ts: Date.now() - 3600000, fontes: { eixos: { p: 2, ei: 3, cs: 0, motivos: { reprovada_recente: 2, sem_buddy_valido: 1 }, ia: 4, a2: 1, rc: 1, rd: 1, rr: 2, ant: 0 } } };
-  const s = await T.obterGateEditorialStats({ SAUDE_KV: { async get() { return [entrada]; } } });
+  // "ap" = aprovadas PELA IA; a taxa não usa mais "publicadas" (passava de 100%).
+  const entrada = { ts: Date.now() - 3600000, fontes: { eixos: { p: 2, ei: 3, cs: 0, motivos: { reprovada_recente: 2, sem_buddy_valido: 1 }, ia: 4, ap: 2, a2: 1, rc: 1, rd: 1, rr: 2, ant: 0, rec: 1, rok: 1 } } };
+  const antiga = { ts: Date.now() - 7200000, fontes: { petrobras: { p: 5, ei: 0, cs: 0, motivos: {}, ia: 2 } } }; // sem "ap": fora da taxa
+  const s = await T.obterGateEditorialStats({ SAUDE_KV: { async get() { return [entrada, antiga]; } } });
   const d = s["24h"];
-  expect(d.ia_avaliadas === 4 && d.aprovadas_2a === 1 && d.taxa_aprovacao_ia === 50 && d.barradas_memoria === 2, JSON.stringify(d));
+  expect(d.ia_avaliadas === 6 && d.ia_aprovadas === 2 && d.aprovadas_2a === 1 && d.taxa_aprovacao_ia === 50 && d.barradas_memoria === 2 && d.recuperacoes === 1 && d.recuperadas === 1, JSON.stringify(d));
+});
+
+console.log("\nTopo Fresco — memória, recuperação, latência e cadência");
+
+const H = 3600000;
+await test("reprocessamento: corrigível de pauta nova ganha UMA recuperação depois de 2h", () => {
+  const agora = Date.now();
+  const rej = { c: "corrigivel", n: 1, t: agora - 3 * H, m: ["buddy:copia_fonte"] };
+  expect(T.decisaoMemoriaRejeicao(rej, 10, agora) === "recuperar");
+  expect(T.decisaoMemoriaRejeicao({ ...rej, t: agora - 1 * H }, 10, agora) === "bloquear", "antes de 2h espera");
+  expect(T.decisaoMemoriaRejeicao({ ...rej, n: 2 }, 10, agora) === "bloquear", "sem loop: 2ª reprovação bloqueia 3 dias");
+  expect(T.decisaoMemoriaRejeicao(rej, T.REJ_RECUPERACAO_PAUTA_MAX_H + 1, agora) === "bloquear", "pauta velha não gasta IA");
+  expect(T.decisaoMemoriaRejeicao(null, 10, agora) === "avaliar");
+});
+await test("gate definitivo nunca é recuperado", () => {
+  expect(T.decisaoMemoriaRejeicao({ c: "definitiva", n: 1, t: Date.now() - 20 * H }, 5, Date.now()) === "bloquear");
+});
+await test("memória v2: 2ª reprovação incrementa n e guarda motivos/título/fonte", async () => {
+  const mem = new Map();
+  const state = { storage: { async get(k) { return mem.get(k); }, async put(k, v) { mem.set(k, v); }, async list() { return new Map([...mem].filter(([k]) => k.startsWith("rej:"))); }, async delete() {}, async getAlarm() { return 1; }, async setAlarm() {} } };
+  const p = new T.BuddyIAPoller(state, {});
+  const post = (b) => p.fetch(new Request("https://buddy-ia.interno/rejeitar", { method: "POST", body: JSON.stringify(b) }));
+  await post({ hash: "h1", classe: "corrigivel", motivos: ["impacto:vazio"], titulo: "P-82 deixa Singapura", fonte: "Eixos" });
+  expect(mem.get("rej:h1").n === 1 && mem.get("rej:h1").ti === "P-82 deixa Singapura" && mem.get("rej:h1").m[0] === "impacto:vazio", JSON.stringify(mem.get("rej:h1")));
+  await post({ hash: "h1", classe: "corrigivel", motivos: ["corpo:copia_fonte"] });
+  expect(mem.get("rej:h1").n === 2, JSON.stringify(mem.get("rej:h1")));
+  const v2 = await (await p.fetch(new Request("https://buddy-ia.interno/rejeicoes?v=2"))).json();
+  expect(v2.h1 && v2.h1.n === 2 && v2.h1.c === "corrigivel", JSON.stringify(v2));
+  const v1 = await (await p.fetch(new Request("https://buddy-ia.interno/rejeicoes"))).json();
+  expect(Array.isArray(v1) && v1[0] === "h1", "formato antigo preservado");
+});
+await test("writer failure (erro técnico) não memoriza; corrigível memoriza com motivos", async () => {
+  expect(T.classeReprovacao(["buddy:copia_fonte"]) === "corrigivel");
+  const ia = { AI: { async run() { throw new Error("4006: daily free allocation"); } } };
+  const r = await T.gerarCamadaEditorialIA(ia, ARTIGO, MATERIAL, 1, {});
+  expect(!r.ok && r.erro && r.erro.startsWith("ia_erro"), JSON.stringify(r));
+});
+await test("source latency: p50/p90 fonte→OWNews em 24h e 7d; 24h conta a publicação OWNews (created_at)", () => {
+  const AG = Date.parse("2026-10-20T16:00:00Z");
+  const a = (fonteH, gravH) => ({ buddy_source: "ownews", published_at: new Date(AG - fonteH * H).toISOString(), created_at: new Date(AG - gravH * H).toISOString() });
+  // P-82: fonte 25h atrás, gravada 1h atrás → conta como publicada nas 24h.
+  const s = T.calcularSaudeEditorial({ agora: AG, artigos: [a(6, 3), a(25, 1), a(26, 25)], gate: { "24h": {}, ia: {} }, automacao: {} });
+  expect(s.publicadas_24h === 2 && s.publicadas_24h_fonte_24h === 1, JSON.stringify(s));
+  expect(s.latencia_fonte_ownews.p50_24h === 24 && s.latencia_fonte_ownews.amostras_24h === 2, JSON.stringify(s.latencia_fonte_ownews));
+  expect(s.idade_ultima_publicacao_h === 1 && s.idade_noticia_mais_nova_h === 6, JSON.stringify(s));
+});
+await test("cron: varredura a cada 30 min das 05:20 às 20:20 BRT, 60 min de madrugada", () => {
+  expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T08:50:00Z")) === 30 * 60000);
+  expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T22:50:00Z")) === 30 * 60000);
+  expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T03:00:00Z")) === 60 * 60000);
+  expect(T.intervaloVarreduraEditorialMs(Date.parse("2026-10-20T23:30:00Z")) === 60 * 60000);
 });
 
 console.log("\nLive Newsroom — Telegram");
