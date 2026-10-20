@@ -494,10 +494,12 @@ def _check_buddy_footer_fallback():
 def _check_home_thin_filter():
     w = worker()
     fn = w.split("function selecionarHomeServidor(noticias, agoraMs)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("ehMateriaThin(n, null)", fn, "thin filter no hero")
-    expect_in("semThin", fn, "variável semThin")
-    # Fallback gracioso: se todas forem thin, usar noticias originais
-    expect_in("semThin.length >= 3 ? semThin : noticias", fn, "fallback gracioso")
+    # Topo Fresco (2026-10-20): thin/duplicada nunca entra em vaga editorial —
+    # o antigo fallback "se tudo for thin, usa a lista inteira" saiu (o topo
+    # mostra menos em vez de promover matéria sem texto OWNews).
+    expect_in("const validas = noticias.filter((n) => !ehMateriaThin(n, null))", fn, "thin filtrado antes de tudo")
+    expect(fn.index("const validas") < fn.index("hero = melhorHome"), "filtro antes do hero")
+    expect("semThin.length >= 3 ? semThin : noticias" not in fn, "fallback que promovia thin voltou")
 
 
 def _check_politica_buddy_te_explica():
@@ -547,9 +549,10 @@ def _check_tema_chrome():
     for s in ("TEMA_BOOT_SCRIPT +", "' + CSS_TEMA_CLARO + '</style>'", "+ TEMA_BOTAO_HUB +", "TEMA_TOGGLE_SCRIPT +"):
         expect(c.count(s) == 1, f"{s!r} em paginaChrome: {c.count(s)}x")
     expect(c.index("TEMA_BOOT_SCRIPT +") < c.index("<style>"), "boot antes do CSS no chrome")
-    # a string CSS do chrome continua em UMA linha (regra do arquivo)
-    css_line = [l for l in c.split("\n") if ".topline{display:none}}\\n' + CSS_TEMA_CLARO" in l]
+    # CSS do chrome = Static Asset versionado + tema claro inline, em UMA linha
+    css_line = [l for l in c.split("\n") if "'<link rel=\"stylesheet\" href=\"/css/paginas.css?v=' + CSS_PAGINAS_VERSAO + '\"><style>' + CSS_TEMA_CLARO + '</style>'" in l]
     expect(len(css_line) == 1, "linha CSS do chrome quebrada")
+    expect(".topline{display:none}}" in css_paginas(), "CSS do chrome incompleto no asset")
 
 
 def _check_tema_paleta():
@@ -935,14 +938,19 @@ def _check_cruzar_ui_btn_outermost():
     raise AssertionError("cruzarBtnAdicionar not found")
 
 
+def css_paginas():
+    """CSS das páginas internas (Static Asset desde o Topo Fresco, 2026-10-20)."""
+    return (ROOT / "public" / "css" / "paginas.css").read_text()
+
+
 def _check_cruzar_ui_promo_card_css():
-    c = worker()
+    c = worker() + css_paginas()
     expect('.cruzar-promo-card{' in c or '.cruzar-promo-card {' in c,
            ".cruzar-promo-card CSS class missing — promo button needs display:block reset")
 
 
 def _check_cruzar_ui_cta_label_css():
-    c = worker()
+    c = worker() + css_paginas()
     expect('.cruzar-cta-label{' in c or '.cruzar-cta-label {' in c,
            ".cruzar-cta-label CSS class missing — visual CTA inside promo button")
 
