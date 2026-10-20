@@ -14,7 +14,8 @@ Atualizado em 2026-10-20 (missão Live Newsroom). Código: `shrill-pond-a915-fix
   - **E:** Portos e Navios, MegaWhat e Marine Technology News.
 - **Agendamento:**
   - Dois crons fixos: `50` e `20` nas horas 8, 11, 14, 17, 20 e 22 UTC (05–19 BRT). Eles rodam os grupos A e B.
-  - Um alarm do Durable Object `EditorialPoller` a cada hora, girando A → B → C → D → E. Cada grupo roda a cada ~5h; A e B rodam a cada ~3h por causa dos crons.
+  - Um alarm do Durable Object `EditorialPoller`, girando A → B → C → D → E. Desde o Topo Fresco (20/10) roda a cada **30 min das 05:20 às 20:20 BRT** e a cada 60 min de madrugada (`intervaloVarreduraEditorialMs`). De dia, cada grupo passa a cada ~2,5h (antes ~5h); A e B ainda têm os crons.
+  - **Custo por rodada:** ~10–40 subrequests, 1–2 PUT em KV (`ultima_execucao` + `gate_acum` com dado). A frequência não multiplica IA: pauta avaliada vai para o banco ou para a memória.
   - **Stale guard:** se a última publicação passa de 6h, roda uma passada extra do grupo A.
 - **Limite de requisições:** o plano Free permite 50 subrequests por invocação. Por isso os grupos são pequenos. "Too many subrequests" vira erro do item, que volta no ciclo seguinte.
 - **Petrobras:** responde HTTP 403 para o IP do VPS (o harness local), mas funciona a partir da Cloudflare.
@@ -59,19 +60,37 @@ Atualizado em 2026-10-20 (missão Live Newsroom). Código: `shrill-pond-a915-fix
 
 ## 4. Memória de reprovação (`rej:<hash>` no DO `BuddyIAPoller`)
 
-- **Definitiva:** `fora_escopo`, `sem_material`, `impacto:sem_relevancia_offshore`, `impacto:vazio` (o redator não viu efeito offshore). Vale 3 dias.
+- **Definitiva:** `fora_escopo` (o redator respondeu `relacao_offshore = nenhuma`) e `sem_material`. Vale 3 dias e nunca é recuperada.
+  - Desde o Topo Fresco (20/10), `impacto:vazio` e `impacto:sem_relevancia_offshore` são **corrigíveis**: são falha de redação, não de pauta. A P-82 da Eixos ficou bloqueada assim.
 - **Corrigível:** forma de Buddy, impacto, corpo ou título.
   - Vale até a próxima mudança do redator ou do gate: `BUDDY_IA_REJ_CORRIGIVEL_DESDE`.
   - **Ao melhorar o redator, avance essa constante para a hora do deploy.** Cada pauta ainda no feed e com até 72h ganha uma única nova avaliação.
   - Entradas antigas sem classe contam como corrigíveis.
 - O registro de reprovação usa o storage do Durable Object, sem KV.
+- **Memória v2:** `rej:<hash>` guarda `{ t, c, n, m, ti, f }`: hora, classe, nº de reprovações, motivos, título e fonte.
+- **Recuperação única (`decisaoMemoriaRejeicao`):** vale para pauta corrigível com até 36h, 2h depois da reprovação.
+  - Ela ganha UMA redação dirigida pelos motivos (1 chamada de IA).
+  - Se reprovar de novo, `n = 2` e a pauta fica bloqueada 3 dias. Sem loop.
+- **Trilha de uma pauta (só leitura, token admin):**
+  - `GET /admin/pauta?url=<url da fonte>` mostra hash, registro no banco e memória;
+  - `GET /admin/rejeicoes` mostra as reprovações vigentes com título e motivos.
+
+## 4b. Título
+
+- `validarTituloOWNews` reprova Title Case quando 4 ou mais palavras de conteúdo começam com maiúscula e elas somam pelo menos 85%. Palavras funcionais ("para", "sobre"…) não contam. Com o original reprovado, vale o título do redator, se ele passar no gate.
 
 ## 5. Publicação e consumo
 
 - **Gravação:** `inserirArtigo` com `buddy_source='ownews'`. `content` é o corpo OWNews; o texto da fonte vai para o arquivo `fonte:<hash>` no DO.
 - **Dedup por evento:** uma matéria cujo Buddy coincide 60% ou mais com o de outra já publicada é gravada como `duplicada` (fica fora do índice e da Home).
 - `published_at` é a data da fonte e nunca é alterada para parecer nova.
-- **Home:** `selecionarHomeServidor` no front, com relevância × frescor e freshness budget. Diagnóstico em `/api/home-selecao?diagnostico=1`.
+- **Home: contrato do Topo Fresco (20/10).** Implementado por `selecionarHomeServidor`.
+  - **Hard cap de 24h** para manchete e laterais, sem exceção por score.
+  - **Manchete:** a forte (50 ou mais) de até 12h; senão até 18h; senão até 24h; senão a melhor válida de 24h.
+  - **Laterais:** só de até 24h; as de até 12h vêm sempre antes. A diversidade de fonte e editoria escolhe dentro de cada faixa e nunca puxa matéria mais velha.
+  - **Faltou matéria nova, o topo mostra menos:** 0 a 3 laterais. Sem nada em 24h, o bloco de destaque some e a página começa nas Últimas.
+  - **Últimas:** cronológica, até 48h. **Giro 24h:** literal, sem fallback.
+  - **Diagnóstico:** `/api/home-selecao?diagnostico=1`, com `idade_hero_h`, `faixa_hero`, `idade_laterais_h` e `noticias_24h`.
 - **Editoria:** `materiaInternacional` decide pelo conteúdo (país citado contra marcadores brasileiros), não pela fonte. É uma função única, enviada aos scripts do navegador via `toString()`.
 - **OWBuddy:** `/api/buddy/feed` usa os mesmos campos canônicos. Não há pipeline separado.
 - **Telegram:**
@@ -86,7 +105,9 @@ Atualizado em 2026-10-20 (missão Live Newsroom). Código: `shrill-pond-a915-fix
   - status VERDE / AMARELO / VERMELHO e os motivos;
   - `silencio_alerta`;
   - idade da última matéria OWNews;
-  - publicadas em 24h e hoje (BRT);
+  - publicadas em 24h (pela gravação OWNews, `created_at`) e hoje (BRT); `publicadas_24h_fonte_24h` conta pela data da fonte;
+  - `latencia_fonte_ownews` (p50/p90 em 24h e 7d) e `idade_noticia_mais_nova_h`;
+  - recuperações e recuperadas;
   - funil de 24h: avaliadas pela IA, aprovadas e aprovadas na 2ª tentativa, corrigíveis, definitivas, barradas pela memória;
   - taxa de aprovação real;
   - latência fonte→OWNews (mediana de 7 dias, `created_at − published_at`);
