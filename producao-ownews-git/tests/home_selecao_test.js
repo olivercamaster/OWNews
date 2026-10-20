@@ -18,11 +18,12 @@ const camadaSrc = trecho("/* ==== CAMADA EDITORIAL: INICIO ====", "/* ==== CAMAD
 const qSrc = trecho("/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====", "/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */");
 const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe)");
 const canonSrc = trecho("function selecaoCanonicaHome(selecao)", "async function responderHomeSelecao");
+const tempoSrc = trecho("function tempoRelativoOuData(data, agora)", "const PALAVRAS_IRRELEVANTES_RELACIONADAS");
 
 const esc = (s) => String(s == null ? "" : s);
 const H = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
-  editoriaSrc + "\n" + camadaSrc + "\n" + qSrc + "\n" + selSrc + "\n" + canonSrc +
-  "\nreturn { selecionarHomeServidor, homeScoreServidor, fatorFrescorHome, diagnosticoHome, selecaoCanonicaHome, HOME_SCORE_FORTE, editoriaDeServidor, materiaInternacional };"
+  editoriaSrc + "\n" + camadaSrc + "\n" + qSrc + "\n" + selSrc + "\n" + canonSrc + "\n" + tempoSrc +
+  "\nreturn { selecionarHomeServidor, homeScoreServidor, fatorFrescorHome, diagnosticoHome, selecaoCanonicaHome, HOME_SCORE_FORTE, editoriaDeServidor, materiaInternacional, tempoRelativoOuData, injetarNoticiasHome: typeof injetarNoticiasHome === 'function' ? injetarNoticiasHome : null };"
 )(esc, esc);
 
 let pass = 0, fail = 0;
@@ -76,10 +77,10 @@ test("CASO 2: extraordinária de 10h vence fraca de 1h", () => {
   expect(s.hero.id === A.id, "hero=" + s.hero.title);
 });
 
-test("CASO 2b: excepcional de 14h ainda segura a manchete contra mediana de 2h (score justifica)", () => {
+test("CASO 2b: faixa C (14h, 100) só vale sem forte mais nova — mediana forte de 2h vence", () => {
   const A = art(14, 100), B = art(2, 60);
   const s = H.selecionarHomeServidor(ordenar([A, B, art(5, 50)]), AGORA);
-  expect(s.hero.id === A.id, "hero=" + s.hero.title);
+  expect(s.hero.id === B.id, "hero=" + s.hero.title);
 });
 
 test("CASO 2c: mesma excepcional com 22h já cede para a mediana de 2h", () => {
@@ -94,13 +95,13 @@ test("CASO 2d: palavra de urgência no resumo não segura matéria velha (só t�
   expect(s.hero.id === nova.id, "hero=" + s.hero.title);
 });
 
-test("CASO 3: nada forte em 12h → janela expande (24h/48h) sem inventar", () => {
-  const l = ordenar([art(30, 85), art(40, 70), art(20, 45)]);
+test("CASO 3: nada forte em 24h → a melhor válida de 24h; >24h não completa laterais", () => {
+  const nova = art(20, 45);
+  const l = ordenar([art(30, 85), art(40, 70), nova]);
   const s = H.selecionarHomeServidor(l, AGORA);
-  expect(s && s.hero, "sem hero");
-  expect(l.some((n) => n.id === s.hero.id), "hero fora da lista");
-  expect(s.laterais.every((n) => l.includes(n)), "lateral inventada");
-  expect(s.laterais.length === 2, "laterais=" + s.laterais.length);
+  expect(s.hero.id === nova.id, "hero=" + s.hero.title);
+  expect(s.laterais.length === 0, "laterais=" + s.laterais.length);
+  expect(s.ultimas.length === 2, "últimas=" + s.ultimas.length);
 });
 
 test("CASO 3b: nada em 48h → null (Home mostra estado vazio honesto)", () => {
@@ -131,10 +132,11 @@ test("CASO 5: matéria >24h não é manchete quando há alternativa recente eleg
   expect(s.hero.id === nova.id, "hero=" + s.hero.title);
 });
 
-test("CASO 5b: >24h volta a ser manchete só sem nada forte em 24h", () => {
-  const velha = art(26, 90), fraca = art(3, 35);
-  const s = H.selecionarHomeServidor(ordenar([velha, fraca, art(30, 60)]), AGORA);
-  expect(s.hero.id === velha.id, "hero=" + s.hero.title);
+test("CASO 5b: >24h nunca volta a ser manchete (sem exceção por score)", () => {
+  const velha = art(26, 100), fraca = art(3, 35);
+  const s = H.selecionarHomeServidor(ordenar([velha, fraca, art(30, 90)]), AGORA);
+  expect(s.hero.id === fraca.id, "hero=" + s.hero.title);
+  expect(s.laterais.length === 0, "lateral velha: " + s.laterais.map((n) => n.title).join(" / "));
 });
 
 test("CASO 6: seleção muda sozinha quando o relógio anda / chega matéria nova", () => {
@@ -143,7 +145,10 @@ test("CASO 6: seleção muda sozinha quando o relógio anda / chega matéria nov
   expect(H.selecionarHomeServidor(l1, AGORA).hero.id === a.id);
   const b = art(0.2, 72);
   expect(H.selecionarHomeServidor(ordenar([b, ...l1]), AGORA).hero.id === b.id, "nova não assumiu");
-  // 30h depois, sem nada novo: nenhuma >48h aparece; janela vazia → null
+  // 30h depois, sem nada novo: topo vazio (sem manchete), Últimas mantém as reais
+  const s30 = H.selecionarHomeServidor(l1, AGORA + 30 * 3600000);
+  expect(s30.hero === null && s30.laterais.length === 0 && s30.ultimas.length === 3, JSON.stringify(H.selecaoCanonicaHome(s30)));
+  // 50h depois: nada em 48h → null
   expect(H.selecionarHomeServidor(l1, AGORA + 50 * 3600000) === null);
 });
 
@@ -189,10 +194,118 @@ test("laterais sem imagem repetida e ordenadas por pontuação", () => {
   expect(pts.every((p, i) => i === 0 || pts[i - 1] >= p), pts.join(","));
 });
 
-test("decaimento é monotônico (0–48h)", () => {
+test("decaimento é monotônico (0–24h) e zera depois de 24h (hard cap)", () => {
   let ant = 2;
-  for (let h = 0; h <= 48; h += 0.5) { const f = H.fatorFrescorHome(h); expect(f <= ant, "h=" + h); ant = f; }
-  expect(H.fatorFrescorHome(48.1) === 0);
+  for (let h = 0; h <= 24; h += 0.5) { const f = H.fatorFrescorHome(h); expect(f <= ant && f > 0, "h=" + h); ant = f; }
+  expect(H.fatorFrescorHome(24.1) === 0 && H.fatorFrescorHome(30) === 0);
+});
+
+console.log("\nTopo Fresco — hard caps de 24h");
+
+const idade = (n) => (AGORA - Date.parse(n.published_at)) / 3600000;
+test("Hero 2h vs 22h → 2h (mesmo com score menor)", () => {
+  const a = art(2, 60), b = art(22, 95);
+  expect(H.selecionarHomeServidor(ordenar([a, b]), AGORA).hero.id === a.id);
+});
+test("Hero 8h vs 20h → 8h", () => {
+  const a = art(8, 65), b = art(20, 90);
+  expect(H.selecionarHomeServidor(ordenar([a, b]), AGORA).hero.id === a.id);
+});
+test("Hero >24h proibido mesmo com score 100 e nada mais forte", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(24.5, 100), art(10, 30)]), AGORA);
+  expect(idade(s.hero) <= 24, "hero com " + idade(s.hero) + "h");
+});
+test("lateral >24h proibida (reprodução de 20/10: P-82 e PPSA com 25h nas laterais)", () => {
+  const l = ordenar([art(5.5, 85), art(6, 63), art(6.6, 100), art(25.4, 75), art(25.7, 61), art(26.5, 75)]);
+  const s = H.selecionarHomeServidor(l, AGORA);
+  expect(s.laterais.every((n) => idade(n) <= 24), s.laterais.map(idade).join(","));
+  expect(s.laterais.length === 2, "laterais=" + s.laterais.length);
+});
+test("matéria de hoje boa (65, 3h) vence velha forte (85, 20h)", () => {
+  const hoje = art(3, 65), ontem = art(20, 85);
+  const s = H.selecionarHomeServidor(ordenar([hoje, ontem]), AGORA);
+  expect(s.hero.id === hoje.id);
+  expect(s.laterais[0].id === ontem.id, "ontem (≤24h) pode ser lateral");
+});
+test("nenhuma matéria ≤24h → sem manchete, sem laterais; Últimas cronológicas", () => {
+  const l = ordenar([art(26, 90), art(30, 60), art(40, 80)]);
+  const s = H.selecionarHomeServidor(l, AGORA);
+  expect(s.hero === null && s.laterais.length === 0, JSON.stringify(H.selecaoCanonicaHome(s)));
+  expect(s.ultimas.map((n) => n.id).join() === l.map((n) => n.id).join(), "Últimas fora de ordem");
+  const d = H.diagnosticoHome(l, AGORA);
+  expect(d.hero === null && d.noticias_24h === 0 && /mais de 24h/.test(d.candidatos[0].motivo), JSON.stringify(d).slice(0, 300));
+});
+test("apenas 1 matéria ≤24h → só manchete, 0 laterais", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(30, 95), art(36, 90)]), AGORA);
+  expect(idade(s.hero) === 4 && s.laterais.length === 0);
+});
+test("apenas 2 matérias ≤24h → manchete + 1 lateral", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(18, 55), art(30, 95), art(36, 90)]), AGORA);
+  expect(s.laterais.length === 1 && idade(s.laterais[0]) === 18, s.laterais.map(idade).join(","));
+});
+test("laterais: até 12h vêm antes de 12–24h, mesmo com score menor", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(1, 90), art(14, 100), art(5, 52), art(9, 51)]), AGORA);
+  expect(s.laterais.map(idade).join(",") === "5,9,14", s.laterais.map(idade).join(","));
+});
+test("Últimas é cronológica (score não reordena)", () => {
+  const l = ordenar([art(1, 95), art(2, 90), art(3, 85), art(4, 85), art(5, 30), art(6, 99), art(7, 20), art(8, 70)]);
+  const s = H.selecionarHomeServidor(l, AGORA);
+  const ts = s.ultimas.map((n) => Date.parse(n.published_at));
+  expect(ts.every((t, i) => i === 0 || ts[i - 1] >= t), s.ultimas.map(idade).join(","));
+});
+test("diversidade não força notícia velha (3 frescas da mesma editoria > 1 velha de outra)", () => {
+  const T4 = ["Petrobras assina contrato de afretamento de sonda", "Prio fecha acordo de compra de gás com distribuidora", "Brava renova contrato de navio de apoio", "Karoon contrata serviço de manutenção submarina"];
+  const c = (h) => art(h, 80, { title: T4[h - 1], image_credit: "Mesma" });
+  const velha = art(30, 99, { title: "Equinor perfura no mar do Norte" });
+  const s = H.selecionarHomeServidor(ordenar([c(1), c(2), c(3), c(4), velha]), AGORA);
+  expect(![s.hero, ...s.laterais].some((n) => n.id === velha.id) && s.laterais.length === 3, s.laterais.map(idade).join(","));
+});
+test("duplicate: mesma pauta nunca ocupa 2 vagas, mesmo sem alternativa (mostra menos)", () => {
+  const a = art(1, 80, { title: "Petrobras contrata FPSO para campo de Búzios" });
+  const b = art(2, 79, { title: "Petrobras contrata FPSO para o campo de Búzios" });
+  const s = H.selecionarHomeServidor(ordenar([a, b]), AGORA);
+  expect(s.laterais.length === 0, s.laterais.map((n) => n.title).join());
+});
+test("mesmo assunto, fato diferente: as duas podem estar no topo", () => {
+  const a = art(1, 80, { title: "P-82 deixa estaleiro em Singapura rumo a Búzios" });
+  const b = art(3, 75, { title: "Petrobras adia acostamento da P-35 no estaleiro Inhaúma" });
+  const s = H.selecionarHomeServidor(ordenar([a, b]), AGORA);
+  expect(s.laterais.length === 1 && s.laterais[0].id === b.id);
+});
+test("Giro 24h literal: sem janela de 48h nem rótulo alternativo", () => {
+  const giro = FRONT.slice(FRONT.indexOf("function renderTicker(lista){"), FRONT.indexOf("function atualizarVelocidadeTicker"));
+  expect(giro.includes("JANELA_GIRO_24H_MS") && !/48 \* 3600000/.test(giro) && !giro.includes("rotulo = 'GIRO'"), "fallback 48h no Giro");
+});
+test("cliente: topo nunca cai para 48h e respeita seleção canônica sem manchete", () => {
+  expect(FRONT.includes("selCanon && selCanon.hero === null"), "canônica sem manchete");
+  expect(FRONT.includes("const elegiveisLaterais = (hero ? laterais24h : [])"), "laterais 48h");
+  expect(!FRONT.includes("Nenhuma notícia publicada nas últimas 48 horas"), "aviso dramático");
+});
+test("SSR sem manchete: bloco de destaque oculto, Últimas renderizadas", () => {
+  const html = '<section class="masthead" id="destaque" aria-label="Destaque"><article class="lead" id="heroCard"></article><aside class="highlights" id="highlightsList"></aside></section><div class="latest-body" id="ultimasBody"></div>';
+  expect(FRONT.includes("'<section class=\"masthead sem-laterais\" id=\"destaque\" aria-label=\"Destaque\" hidden>'"), "SSR esconde destaque sem manchete");
+  expect(H.selecaoCanonicaHome({ hero: null, laterais: [], ultimas: [] }).hero === null);
+  void html;
+});
+test("timezone / virada do dia: rótulos em America/Sao_Paulo pelo dia-calendário", () => {
+  const ag = new Date("2026-10-21T03:30:00Z"); // 00:30 BRT de 21/10
+  expect(H.tempoRelativoOuData(new Date("2026-10-21T02:00:00Z"), ag) === "há 1 hora");
+  expect(H.tempoRelativoOuData(new Date("2026-10-20T12:00:00Z"), ag) === "há 15 horas");
+  expect(H.tempoRelativoOuData(new Date("2026-10-20T03:10:00Z"), ag) === "ontem", "00:10 BRT de 20/10 visto 00:30 de 21/10");
+  expect(H.tempoRelativoOuData(new Date("2026-10-20T02:00:00Z"), ag) === "há 2 dias", "23:00 BRT de 19/10 é anteontem em Brasília");
+  expect(H.tempoRelativoOuData(new Date("2026-10-18T12:00:00Z"), ag) === "há 3 dias");
+  expect(H.tempoRelativoOuData(new Date("2026-10-01T12:00:00Z"), ag) === "01/10/2026");
+});
+test("future timestamp: nunca 'em X min' e fora do topo se >15 min no futuro", () => {
+  const ag = new Date(AGORA);
+  expect(H.tempoRelativoOuData(new Date(AGORA + 10 * 60000), ag) === "agora mesmo");
+  const futura = art(-2, 100);
+  const s = H.selecionarHomeServidor(ordenar([futura, art(3, 60)]), AGORA);
+  expect(s.hero.id !== futura.id && !s.ultimas.some((n) => n.id === futura.id));
+});
+test("diagnóstico expõe idade do hero/laterais e faixa", () => {
+  const d = H.diagnosticoHome(ordenar([art(2, 70), art(14, 60), art(30, 90)]), AGORA);
+  expect(d.idade_hero_h === 2 && d.faixa_hero === "A" && d.idade_laterais_h.join() === "14" && d.noticias_24h === 2, JSON.stringify({ a: d.idade_hero_h, f: d.faixa_hero, l: d.idade_laterais_h, n: d.noticias_24h }));
 });
 
 console.log("\nEditoria — fonte ≠ país da matéria");
@@ -223,6 +336,22 @@ test("fonte internacional sem país citado continua INTERNACIONAL", () => {
 });
 test("matéria brasileira sem tema específico continua BRASIL; 'irá' não vira Irã", () => {
   expect(ED("Sindipetro irá realizar evento em Macaé", "", "Sindipetro NF") !== "INTERNACIONAL");
+});
+test("Guyana / Guiana → INTERNACIONAL, mesmo vindo de fonte brasileira", () => {
+  expect(ED("ExxonMobil eleva produção na Guyana com novo FPSO", "", "Eixos") === "INTERNACIONAL");
+  expect(ED("Guiana aprova sexto projeto offshore no bloco Stabroek", "", "PetroNotícias") === "INTERNACIONAL");
+});
+test("EUA → INTERNACIONAL", () => {
+  expect(ED("Estoques de petróleo nos EUA caem 8 milhões de barris", "", "Eixos") === "INTERNACIONAL");
+  expect(ED("Leilão no Golfo do México atrai seis petroleiras", "", "MegaWhat") === "INTERNACIONAL");
+});
+test("vários países sem o Brasil → INTERNACIONAL; com o Brasil no fato → não", () => {
+  expect(ED("Petronas e Petrovietnam reforçam laços com Noruega e Reino Unido", "", "Eixos") === "INTERNACIONAL");
+  expect(ED("Equinor leva tecnologia norueguesa para campo na Bacia de Campos", "", "Offshore Energy") !== "INTERNACIONAL");
+});
+test("Timor-Leste e Jamaica (casos reais de 20/10) → INTERNACIONAL", () => {
+  expect(ED("Timor-Leste concede prorrogação ao contrato de gás Chuditch", "", "PetroNotícias") === "INTERNACIONAL");
+  expect(ED("United Oil & Gas avalia metas de perfuração em licença jamaicana", "", "Eixos") === "INTERNACIONAL");
 });
 test("o mesmo classificador vai para os scripts do navegador (sem cópia divergente)", () => {
   expect(FRONT.includes("${materiaInternacional.toString()}"), "Home");
