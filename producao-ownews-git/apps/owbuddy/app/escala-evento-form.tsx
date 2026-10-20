@@ -30,7 +30,8 @@ import { getEscala, getEventosPessoais, setEventosPessoais } from '../src/storag
 import { OWDatePicker } from '../src/components/OWDatePicker';
 import { OWTimePicker } from '../src/components/OWTimePicker';
 import { OWBackground } from '../src/components/OWBackground';
-import { colors, spacing, radius, typography, maritime } from '../src/theme';
+import { colors, spacing, radius, typography, maritime, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { formatDateBR } from '../src/format';
 import { confirmarRemocao } from '../src/confirmar';
 import { EVENTO_VISUAL } from '../src/evento-visual';
@@ -52,6 +53,7 @@ function descreverPadrao(tipo: EventoTipo): string {
 }
 
 export default function LembrarDeAlgo() {
+  useTema();
   const params = useLocalSearchParams<{ data?: string; id?: string }>();
   const isEdit = !!params.id;
 
@@ -276,7 +278,7 @@ export default function LembrarDeAlgo() {
           {erro ? <Text style={styles.erro} accessibilityLiveRegion="polite">{erro}</Text> : null}
 
           <TouchableOpacity style={[styles.saveBtn, { backgroundColor: meta.color }]} onPress={save} accessibilityRole="button">
-            <Ionicons name="checkmark" size={18} color={colors.navy950} />
+            <Ionicons name="checkmark" size={18} color={colors.onAccent} />
             <Text style={styles.saveBtnText}>{isEdit ? 'Salvar alterações' : 'Salvar'}</Text>
           </TouchableOpacity>
 
@@ -314,6 +316,7 @@ function Field({
   placeholder?: string;
   multiline?: boolean;
 }) {
+  useTema();
   return (
     <>
       <Text style={styles.sectionLabel}>{label}</Text>
@@ -331,7 +334,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
   sectionLabel: { ...typography.micro, marginTop: spacing.md, marginBottom: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -344,12 +347,12 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   chipTextAtivo: { color: colors.cyan },
   input: {
-    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
+    backgroundColor: maritime.field, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.white, fontSize: 15,
   },
   pickerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48,
-    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
+    backgroundColor: maritime.field, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md,
   },
   pickerText: { flex: 1, fontSize: 15, color: colors.white },
@@ -362,7 +365,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
     minHeight: 52, borderRadius: radius.md, marginTop: spacing.lg,
   },
-  saveBtnText: { fontSize: 16, fontWeight: '700', color: colors.navy950 },
+  saveBtnText: { fontSize: 16, fontWeight: '700', color: colors.onAccent },
   secundario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, marginTop: spacing.sm },
   secundarioTexto: { fontSize: 14, fontWeight: '600', color: colors.cyanDim },
-});
+}));

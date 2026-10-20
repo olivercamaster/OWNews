@@ -28,7 +28,8 @@ import {
 } from '@owbuddy/domain';
 import type { EstiloSaudacao, ModuloHome, PrefsHome, PresetHome, TamanhoModulo } from '@owbuddy/domain';
 import { getBuddyPrefs, getCityPref, getPrefsHome, setCityPref, setPrefsHome } from '../src/storage';
-import { colors, maritime, radius, spacing, typography } from '../src/theme';
+import { colors, maritime, radius, spacing, typography, themed, tokens } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { CityPicker } from '../src/components/CityPicker';
 import type { City } from '../src/cities';
@@ -39,6 +40,7 @@ const ROW_H = 64;
 const PRESETS: PresetHome[] = ['EQUILIBRADO', 'ROTINA', 'CARREIRA', 'MINIMALISTA'];
 
 export default function PersonalizarHome() {
+  useTema();
   const [p, setP] = useState<PrefsHome>(PREFS_HOME_PADRAO);
   const [nome, setNome] = useState('');
   const [city, setCity] = useState<City | null>(null);
@@ -135,7 +137,7 @@ export default function PersonalizarHome() {
           <Switch
             value={p.fraseDoDia}
             onValueChange={v => { salvar({ ...p, fraseDoDia: v }); analytics.track('daily_phrase_toggled', { ativo: v }); }}
-            trackColor={{ true: colors.cyan, false: colors.line }}
+            trackColor={{ true: colors.cyan, false: tokens.controlBorder }}
             accessibilityLabel="Frase do dia"
           />
         </View>
@@ -153,7 +155,7 @@ export default function PersonalizarHome() {
           <Switch
             value={p.clima}
             onValueChange={v => { salvar({ ...p, clima: v }); analytics.track(v ? 'weather_enabled' : 'weather_disabled'); }}
-            trackColor={{ true: colors.cyan, false: colors.line }}
+            trackColor={{ true: colors.cyan, false: tokens.controlBorder }}
             accessibilityLabel="Mostrar clima na Home"
           />
         </View>
@@ -200,6 +202,7 @@ function LinhaModulo({
   onVisibilidade: () => void;
   onTamanho: (t: TamanhoModulo) => void;
 }) {
+  useTema();
   const def = DEF_MODULO[id];
   const dy = useRef(new Animated.Value(0)).current;
   const [ativo, setAtivo] = useState(false);
@@ -264,7 +267,7 @@ function LinhaModulo({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
   secao: { ...typography.micro, marginTop: spacing.lg, marginBottom: spacing.sm },
   hint: { fontSize: 12, color: colors.mutedDim, marginBottom: spacing.sm, marginTop: 2 },
@@ -310,4 +313,4 @@ const styles = StyleSheet.create({
   cidadeTexto: { flex: 1, fontSize: 15, color: colors.white },
   restaurar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, marginTop: spacing.xl },
   restaurarTexto: { fontSize: 14, fontWeight: '600', color: colors.muted },
-});
+}));

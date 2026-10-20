@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { calcularMomento, descreverMomento, diasDoCiclo, AEROPORTOS_ESCALA, DIAS_BLOCO_MAX, ESCALA_TIPOS } from '@owbuddy/domain';
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
-import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWDatePicker } from '../src/components/OWDatePicker';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
 
 export default function EscalaConfigScreen() {
+  useTema();
   const [form, setForm] = useState<Partial<EscalaConfig>>({ tipo: '14x14', tipoRef: 'embarquei' });
   const [preview, setPreview] = useState('');
   const [erro, setErro] = useState('');
@@ -174,6 +176,7 @@ function Field({ label, value, onChange, keyboardType, placeholder, maxLength }:
   label: string; value: string; onChange: (v: string) => void;
   keyboardType?: 'numeric' | 'default'; placeholder?: string; maxLength?: number;
 }) {
+  useTema();
   return (
     <View style={fStyles.wrap}>
       <Text style={fStyles.label}>{label}</Text>
@@ -190,16 +193,16 @@ function Field({ label, value, onChange, keyboardType, placeholder, maxLength }:
   );
 }
 
-const fStyles = StyleSheet.create({
+const fStyles = themed(() => StyleSheet.create({
   wrap: { marginBottom: spacing.sm },
   label: { ...typography.small, marginBottom: 4 },
   input: {
-    backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm,
+    backgroundColor: maritime.field, borderRadius: radius.sm, padding: spacing.sm,
     paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
-});
+}));
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
   previewCard: {
@@ -254,5 +257,5 @@ const styles = StyleSheet.create({
   },
   dateBtnText: { flex: 1, fontSize: 16, fontWeight: '500', color: colors.white },
   erroText: { ...typography.small, color: colors.red, marginBottom: spacing.sm },
-  saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
-});
+  saveBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
+}));

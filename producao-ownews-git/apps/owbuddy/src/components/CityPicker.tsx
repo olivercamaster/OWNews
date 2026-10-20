@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, surface, typography } from '../theme';
+import { colors, radius, spacing, surface, typography, themed } from '../theme';
+import { useTema } from '../tema';
 import { CITIES, type City } from '../cities';
 import { searchCities } from '../geocoding';
 import { analytics } from '../analytics';
@@ -16,6 +17,7 @@ export function CityPicker({ visivel, cidadeAtual, onEscolher, onFechar }: {
   onEscolher: (c: City) => void;
   onFechar: () => void;
 }) {
+  useTema();
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<City[]>([]);
   const [citySearching, setCitySearching] = useState(false);
@@ -91,7 +93,7 @@ export function CityPicker({ visivel, cidadeAtual, onEscolher, onFechar }: {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   modalRoot: { flex: 1, backgroundColor: surface.header },
   modalHeader: {
     flexDirection: 'row',
@@ -134,4 +136,4 @@ const styles = StyleSheet.create({
   cityName: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '500' },
   cityNameActive: { color: colors.cyan },
   cityState: { fontSize: 13, color: colors.mutedDim, width: 24 },
-});
+}));

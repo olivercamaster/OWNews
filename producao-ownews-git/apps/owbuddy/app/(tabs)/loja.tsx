@@ -10,7 +10,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
-import { bottomNavSpace, colors, maritime, radius, spacing, typography } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, radius, spacing, typography, themed } from '../../src/theme';
+import { useTema } from '../../src/tema';
 
 const STORE_URL = 'https://www.offshoreworks.com.br';
 
@@ -22,7 +23,7 @@ async function openInApp(url: string): Promise<void> {
     if (typeof WebBrowser?.openBrowserAsync === 'function') {
       await WebBrowser.openBrowserAsync(url, {
         toolbarColor: colors.navy900,
-        controlsColor: '#0de8c8',
+        controlsColor: colors.cyan,
         createTask: false,
       });
       return;
@@ -35,6 +36,7 @@ async function openInApp(url: string): Promise<void> {
 }
 
 export default function Loja() {
+  useTema();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -78,9 +80,9 @@ export default function Loja() {
           disabled={loading}
           activeOpacity={0.8}
         >
-          <Ionicons name="storefront-outline" size={20} color={colors.navy950} />
+          <Ionicons name="storefront-outline" size={20} color={colors.onAccent} />
           <Text style={styles.ctaText}>{loading ? 'Abrindo loja...' : 'Abrir loja'}</Text>
-          {!loading && <Ionicons name="arrow-forward" size={16} color={colors.navy950} />}
+          {!loading && <Ionicons name="arrow-forward" size={16} color={colors.onAccent} />}
         </TouchableOpacity>
 
         <Text style={styles.hint}>Toque para abrir a loja</Text>
@@ -89,7 +91,7 @@ export default function Loja() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: {
     flex: 1,
     paddingHorizontal: spacing.md,
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
   ctaText: {
     ...typography.body,
     fontWeight: '700',
-    color: colors.navy950,
+    color: colors.onAccent,
     fontSize: 16,
   },
   hint: {
@@ -146,4 +148,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.mutedDim,
   },
-});
+}));

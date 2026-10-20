@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Excecao } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { OWDatePicker } from '../src/components/OWDatePicker';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
+import { colors, spacing, radius, typography, surface, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { formatDateBR } from '../src/format';
 
 function gerarId(): string {
@@ -21,6 +22,7 @@ function gerarId(): string {
 }
 
 export default function EscalaExcecaoForm() {
+  useTema();
   const params = useLocalSearchParams<{ tipo?: string; id?: string; ini?: string; fim?: string }>();
   const [tipo, setTipo] = useState<'dobra' | 'ferias'>((params.tipo as 'dobra' | 'ferias') ?? 'dobra');
   const [ini, setIni] = useState(params.ini ?? ''); // ISO
@@ -110,7 +112,7 @@ export default function EscalaExcecaoForm() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.xs },
   sectionLabel: { ...typography.label, marginTop: spacing.md, marginBottom: 4 },
@@ -133,13 +135,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, minHeight: 48,
   },
   dateBtnText: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.white },
-  erro: { color: colors.red ?? '#f44336', fontSize: 13, marginTop: 4 },
+  erro: { color: colors.red, fontSize: 13, marginTop: 4 },
   saveBtn: {
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md,
     alignItems: 'center', marginTop: spacing.md,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
   cancelBtn: { padding: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   cancelText: { color: colors.mutedDim, fontSize: 15 },
-});
+}));

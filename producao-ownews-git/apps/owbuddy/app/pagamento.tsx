@@ -17,7 +17,8 @@ import {
 } from '@owbuddy/domain';
 import type { AjusteFimDeSemana, ConfigPagamento, RegraPagamento } from '@owbuddy/domain';
 import { getPagamento, setPagamento } from '../src/storage';
-import { colors, maritime, radius, spacing, typography } from '../src/theme';
+import { colors, maritime, radius, spacing, typography, themed, tokens } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { formatDateBR } from '../src/format';
 import { confirmar } from '../src/confirmar';
@@ -33,6 +34,7 @@ function diaSemana(iso: string): string {
 }
 
 export default function MeuPagamento() {
+  useTema();
   const [cfg, setCfg] = useState<ConfigPagamento>({ ...CONFIG_PAGAMENTO_PADRAO });
   const [salvo, setSalvo] = useState<ConfigPagamento | null>(null);
   const [msg, setMsg] = useState('');
@@ -161,6 +163,7 @@ export default function MeuPagamento() {
 }
 
 function Stepper({ valor, min, max, onChange, sufixo }: { valor: number; min: number; max: number; onChange: (v: number) => void; sufixo?: string }) {
+  useTema();
   return (
     <View style={styles.stepper}>
       <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(Math.max(min, valor - 1))} accessibilityLabel="Diminuir"><Ionicons name="remove" size={20} color={colors.white} /></TouchableOpacity>
@@ -170,13 +173,13 @@ function Stepper({ valor, min, max, onChange, sufixo }: { valor: number; min: nu
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
   resultado: {
-    padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(165, 214, 167, 0.35)',
+    padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: tokens.eventoPagamento + '59',
     borderTopColor: maritime.edgeLight, backgroundColor: maritime.glassElevated,
   },
-  resLabel: { ...typography.micro, color: '#a5d6a7' },
+  resLabel: { ...typography.micro, color: tokens.eventoPagamento },
   resData: { fontSize: 28, fontWeight: '800', color: colors.white, marginTop: 2 },
   resSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
   resRegra: { fontSize: 13, color: colors.white, marginTop: spacing.sm, lineHeight: 18 },
@@ -184,7 +187,7 @@ const styles = StyleSheet.create({
   resAviso: { fontSize: 12, color: colors.amber, marginTop: 6 },
   label: { ...typography.micro, marginTop: spacing.md, marginBottom: spacing.sm },
   input: {
-    backgroundColor: maritime.sunken, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
+    backgroundColor: maritime.field, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.fieldBorder,
     paddingHorizontal: spacing.md, paddingVertical: 12, color: colors.white, fontSize: 15,
   },
   lista: { borderRadius: radius.lg, borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass, overflow: 'hidden' },
@@ -204,7 +207,7 @@ const styles = StyleSheet.create({
   nota: { fontSize: 12, color: colors.mutedDim, marginTop: spacing.md, lineHeight: 17 },
   ok: { fontSize: 13, color: colors.green, fontWeight: '700', marginTop: spacing.md },
   salvar: { minHeight: 52, borderRadius: radius.md, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md },
-  salvarTexto: { fontSize: 16, fontWeight: '700', color: colors.navy950 },
+  salvarTexto: { fontSize: 16, fontWeight: '700', color: colors.onAccent },
   remover: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
   removerTexto: { fontSize: 14, fontWeight: '600', color: colors.red },
-});
+}));

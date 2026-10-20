@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, maritime, radius, spacing, surface, typography } from '../theme';
+import { colors, maritime, radius, spacing, surface, typography, themed, tokens } from '../theme';
+import { useTema } from '../tema';
 import { link99, linkUber, type OpcaoDestino, type Plataforma } from '../transporte';
 import { analytics } from '../analytics';
 
@@ -15,6 +16,7 @@ export type { OpcaoDestino };
 const plataforma: Plataforma = Platform.OS === 'android' ? 'android' : Platform.OS === 'ios' ? 'ios' : 'web';
 
 export function TransporteSheet({ visivel, opcoes, onFechar }: { visivel: boolean; opcoes: OpcaoDestino[]; onFechar: () => void }) {
+  useTema();
   const insets = useSafeAreaInsets();
   const todas: OpcaoDestino[] = [...opcoes, { id: 'outro', label: 'Outro destino', destino: null }];
   const [escolha, setEscolha] = useState<OpcaoDestino | null>(null);
@@ -73,8 +75,8 @@ export function TransporteSheet({ visivel, opcoes, onFechar }: { visivel: boolea
   );
 }
 
-const styles = StyleSheet.create({
-  fundo: { flex: 1, backgroundColor: 'rgba(2, 10, 18, 0.62)', justifyContent: 'flex-end', alignItems: 'center' },
+const styles = themed(() => StyleSheet.create({
+  fundo: { flex: 1, backgroundColor: maritime.overlay, justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
     width: '100%', maxWidth: 560, backgroundColor: surface.header,
     borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
@@ -93,12 +95,12 @@ const styles = StyleSheet.create({
     minHeight: 56, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder,
     backgroundColor: maritime.glass, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.sm,
   },
-  botaoUber: { backgroundColor: '#f7fafc', borderColor: '#f7fafc' },
-  botaoUberTexto: { fontSize: 17, fontWeight: '800', color: '#000' },
-  botaoUberSub: { fontSize: 12, color: '#333', marginTop: 1 },
+  botaoUber: { backgroundColor: tokens.brandUberBg, borderColor: tokens.brandUberBorder },
+  botaoUberTexto: { fontSize: 17, fontWeight: '800', color: tokens.brandUberText },
+  botaoUberSub: { fontSize: 12, color: tokens.brandUberText, opacity: 0.72, marginTop: 1 },
   botaoTexto: { fontSize: 17, fontWeight: '800', color: colors.white },
   botaoSub: { fontSize: 12, color: colors.muted, marginTop: 1 },
   nota: { fontSize: 11, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.xs },
   voltar: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
   voltarTexto: { fontSize: 13, color: colors.cyanDim, fontWeight: '600' },
-});
+}));

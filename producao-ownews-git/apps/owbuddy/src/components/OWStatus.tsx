@@ -4,18 +4,23 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle, type StyleProp } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, themed, tone } from '../theme';
+import { useTema } from '../tema';
 
 type StatusType = 'embarcado' | 'folga' | 'atencao' | 'neutro' | 'sucesso' | 'erro';
 
-const STATUS_COLORS: Record<StatusType, { bg: string; text: string; border: string }> = {
-  embarcado: { bg: 'rgba(34,197,94,0.12)',  text: colors.green,  border: 'rgba(34,197,94,0.25)' },
-  folga:     { bg: 'rgba(245,158,11,0.12)', text: colors.amber,  border: 'rgba(245,158,11,0.25)' },
-  atencao:   { bg: 'rgba(255,122,0,0.12)',  text: colors.orange, border: 'rgba(255,122,0,0.25)' },
-  neutro:    { bg: 'rgba(111,139,156,0.12)',text: colors.muted,  border: 'rgba(111,139,156,0.2)' },
-  sucesso:   { bg: 'rgba(34,197,94,0.12)',  text: colors.green,  border: 'rgba(34,197,94,0.25)' },
-  erro:      { bg: 'rgba(239,68,68,0.12)',  text: colors.red,    border: 'rgba(239,68,68,0.25)' },
-};
+// Fundo suave + borda com a MESMA cor do texto (hex + alfa) — significado igual nos dois temas.
+const STATUS_COLORS: Record<StatusType, { bg: string; text: string; border: string }> = themed(() => {
+  const chip = (cor: string) => ({ bg: cor + '1c', text: cor, border: cor + '40' });
+  return {
+    embarcado: chip(colors.green),
+    folga:     chip(colors.amber),
+    atencao:   chip(colors.orange),
+    neutro:    { bg: tone.iconTile, text: colors.muted, border: tone.border },
+    sucesso:   chip(colors.green),
+    erro:      chip(colors.red),
+  };
+});
 
 interface OWStatusProps {
   type: StatusType;
@@ -24,6 +29,7 @@ interface OWStatusProps {
 }
 
 export function OWStatus({ type, label, style }: OWStatusProps) {
+  useTema();
   const { bg, text, border } = STATUS_COLORS[type];
   return (
     <View style={[styles.chip, { backgroundColor: bg, borderColor: border }, style]}>
@@ -43,7 +49,7 @@ export function estadoParaStatus(estado: string): StatusType {
   }
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -65,4 +71,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-});
+}));

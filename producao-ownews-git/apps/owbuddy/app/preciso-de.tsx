@@ -8,7 +8,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { EscalaConfig, Viagem } from '@owbuddy/domain';
 import { getEscala, getViagem } from '../src/storage';
-import { colors, maritime, radius, spacing } from '../src/theme';
+import { colors, maritime, radius, spacing, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { TransporteSheet } from '../src/components/TransporteSheet';
 import { opcoesTransporte } from '../src/transporte';
@@ -28,6 +29,7 @@ const OPCOES: { id: string; label: string; sub: string; icon: IoniconsName; rota
 ];
 
 export default function PrecisoDe() {
+  useTema();
   const [ctx, setCtx] = useState<{ viagem: Viagem | null; escala: EscalaConfig | null }>({ viagem: null, escala: null });
   const [transporte, setTransporte] = useState(false);
 
@@ -62,7 +64,7 @@ export default function PrecisoDe() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
   lista: { borderRadius: radius.lg, borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, backgroundColor: maritime.glass, overflow: 'hidden' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 60, paddingHorizontal: spacing.md, paddingVertical: 10 },
@@ -70,4 +72,4 @@ const styles = StyleSheet.create({
   icone: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.cyanDim + '1c', alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 15, fontWeight: '700', color: colors.white },
   sub: { fontSize: 12, color: colors.muted, marginTop: 1 },
-});
+}));

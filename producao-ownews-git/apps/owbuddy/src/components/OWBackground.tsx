@@ -19,7 +19,8 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { maritime, tone } from '../theme';
+import { maritime, tone, themed } from '../theme';
+import { useTema } from '../tema';
 
 const BUDDY = require('../../assets/buddy-watermark.png');
 
@@ -32,6 +33,7 @@ interface OWBackgroundProps {
 }
 
 export function OWBackground({ children, showWatermark = false, watermark }: OWBackgroundProps) {
+  useTema();
   return (
     <View style={styles.root}>
       {/* 1. Gradiente premium */}
@@ -107,6 +109,7 @@ const CURVES: Array<{
 ];
 
 function Bathymetry() {
+  useTema();
   return (
     <View style={styles.clip}>
       {CURVES.map((c, i) => (
@@ -135,7 +138,7 @@ function Bathymetry() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: tone.bg1,
@@ -167,4 +170,4 @@ const styles = StyleSheet.create({
     tintColor: maritime.watermarkTint,
     transform: [{ rotate: '-8deg' }],
   } as const,
-});
+}));

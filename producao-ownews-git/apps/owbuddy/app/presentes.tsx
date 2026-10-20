@@ -19,11 +19,13 @@ import {
 } from '@owbuddy/domain';
 import type { CategoriaPresente, EventoPessoal, FaixaPreco } from '@owbuddy/domain';
 import { getEscala, getEventosPessoais } from '../src/storage';
-import { colors, maritime, radius, spacing, typography } from '../src/theme';
+import { colors, maritime, radius, spacing, typography, themed, tokens } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { formatDateBR } from '../src/format';
 
 export default function Presentes() {
+  useTema();
   const { evento } = useLocalSearchParams<{ evento?: string }>();
   const [ev, setEv] = useState<EventoPessoal | null>(null);
   const [embarcado, setEmbarcado] = useState(false);
@@ -53,7 +55,7 @@ export default function Presentes() {
       <ScrollView contentContainerStyle={styles.content}>
         {paraQuem ? (
           <View style={styles.topo}>
-            <Ionicons name="gift-outline" size={18} color="#f48fb1" />
+            <Ionicons name="gift-outline" size={18} color={tokens.eventoAniversario} />
             <View style={{ flex: 1 }}>
               <Text style={styles.para}>Para {paraQuem}{ev?.relacao ? ` · ${ev.relacao}` : ''}</Text>
               {quando ? <Text style={styles.sub}>{formatDateBR(quando)}{embarcado ? ' · você estará embarcado — prefira algo que chegue sem você' : ''}</Text> : null}
@@ -95,6 +97,7 @@ export default function Presentes() {
 }
 
 function Chip({ ativo, texto, onPress }: { ativo: boolean; texto: string; onPress: () => void }) {
+  useTema();
   return (
     <TouchableOpacity style={[styles.chip, ativo && styles.chipAtivo]} onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
       <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{texto}</Text>
@@ -102,7 +105,7 @@ function Chip({ ativo, texto, onPress }: { ativo: boolean; texto: string; onPres
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
   topo: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md,
@@ -123,4 +126,4 @@ const styles = StyleSheet.create({
   ideiaDica: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
   vazio: { ...typography.small, color: colors.mutedDim },
   nota: { fontSize: 11, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.md },
-});
+}));

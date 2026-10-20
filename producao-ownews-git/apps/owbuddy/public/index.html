@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#030b11" />
+    <title>OWBuddy</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      /* Antes do JS: fundo do tema certo (sem flash branco no escuro nem preto no claro). */
+      html { background-color: #01070c; }
+      html[data-tema="claro"] { background-color: #e6ecf1; }
+    </style>
+    <script>
+      // Mesma regra de src/aparencia.ts (chave owbuddy_aparencia; sem valor = Automático).
+      (function () {
+        try {
+          var raw = localStorage.getItem('owbuddy_aparencia');
+          var modo = raw ? JSON.parse(raw) : 'auto';
+          var claro = modo === 'claro' || modo === 'light' ||
+            (modo !== 'escuro' && modo !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+          if (claro) document.documentElement.setAttribute('data-tema', 'claro');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+
+  <body>
+    <noscript>
+      Ative o JavaScript para usar o OWBuddy.
+    </noscript>
+    <div id="root"></div>
+  </body>
+</html>

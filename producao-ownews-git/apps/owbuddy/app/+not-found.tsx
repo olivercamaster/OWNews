@@ -1,10 +1,12 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../src/theme';
+import { colors, radius, spacing, typography, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 
 /** Link desconhecido (ex.: owbuddy://auth/callback de builds antigos) — nunca tela crua de erro. */
 export default function NaoEncontrado() {
+  useTema();
   return (
     <>
       <Stack.Screen options={{ title: 'OWBuddy', headerStyle: { backgroundColor: colors.navy800 } }} />
@@ -20,10 +22,10 @@ export default function NaoEncontrado() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md, backgroundColor: colors.navy950 },
   titulo: { ...typography.h3, textAlign: 'center' },
   sub: { ...typography.small, textAlign: 'center' },
   btn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.lg, minHeight: 44, justifyContent: 'center', marginTop: spacing.sm },
-  btnText: { color: colors.navy950, fontWeight: '700' },
-});
+  btnText: { color: colors.onAccent, fontWeight: '700' },
+}));

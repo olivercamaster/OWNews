@@ -12,7 +12,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
-import { colors, spacing, radius, typography, surface } from '../../src/theme';
+import { colors, spacing, radius, typography, surface, themed, tokens } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { fetchUnidades } from '../../src/api';
 import { analytics } from '../../src/analytics';
 import type { Unidade } from '../../src/api';
@@ -29,6 +30,7 @@ const TIPO_ICON: Record<string, string> = {
 };
 
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
+  useTema();
   if (!value) return null;
   return (
     <View style={styles.metaRow}>
@@ -39,6 +41,7 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 }
 
 export default function UnidadeScreen() {
+  useTema();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
   const [unidade, setUnidade] = useState<Unidade | null>(null);
@@ -208,12 +211,12 @@ export default function UnidadeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   loadingText: { ...typography.small, color: colors.mutedDim },
   errorTitle: { ...typography.h3, textAlign: 'center', color: colors.muted },
   retryBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  retryText: { color: colors.navy950, fontWeight: '700' },
+  retryText: { color: colors.onAccent, fontWeight: '700' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -232,8 +235,8 @@ const styles = StyleSheet.create({
   heroImage: { width: '100%', height: '100%' },
   imageCredit: {
     position: 'absolute', bottom: 0, right: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    fontSize: 10, color: 'rgba(255,255,255,0.8)',
+    backgroundColor: tokens.photoScrim,
+    fontSize: 10, color: tokens.photoScrimText,
     paddingHorizontal: 8, paddingVertical: 3,
   },
 
@@ -301,4 +304,4 @@ const styles = StyleSheet.create({
   radarLinkText: { flex: 1, fontSize: 14, color: colors.cyanDim, fontWeight: '600' },
 
   brandingLine: { fontSize: 11, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.sm },
-});
+}));

@@ -15,7 +15,8 @@ import { DIAS_BLOCO_MAX, ESCALA_TIPOS, diasDoCiclo, proximoEmbarqueSecundaria, r
 import type { EscalaSecundaria, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { OWDatePicker } from '../src/components/OWDatePicker';
-import { colors, maritime, spacing, radius, typography, surface, tone } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, tone, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { formatDateBR } from '../src/format';
 import { confirmar } from '../src/confirmar';
 import { ICONES_ORDEM, NOME_ICONE, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
@@ -45,6 +46,7 @@ function voltar() {
 }
 
 export default function EscalaSecundariaForm() {
+  useTema();
   const params = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!params.id;
 
@@ -314,7 +316,7 @@ export default function EscalaSecundariaForm() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.xs },
   sectionLabel: { ...typography.label, marginTop: spacing.md, marginBottom: 4 },
@@ -350,7 +352,7 @@ const styles = StyleSheet.create({
   refTextActive: { color: colors.cyan },
 
   input: {
-    backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm,
+    backgroundColor: maritime.field, borderRadius: radius.sm, padding: spacing.sm,
     paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
   dateBtn: {
@@ -364,9 +366,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginTop: spacing.md,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
   deleteBtn: { padding: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   deleteText: { color: colors.red, fontSize: 15 },
   cancelBtn: { padding: spacing.md, alignItems: 'center' },
   cancelText: { color: colors.mutedDim, fontSize: 15 },
-});
+}));

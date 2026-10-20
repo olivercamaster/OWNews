@@ -7,8 +7,8 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "owbuddy",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#061c2b",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#030b11",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.ownews.owbuddy",
@@ -58,7 +58,7 @@
           "image": "./assets/buddy-watermark.png",
           "imageWidth": 140,
           "resizeMode": "contain",
-          "backgroundColor": "#061c2b"
+          "backgroundColor": "#030b11"
         }
       ],
       [

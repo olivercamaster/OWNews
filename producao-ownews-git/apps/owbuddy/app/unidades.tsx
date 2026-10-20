@@ -13,7 +13,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../src/components/OWBackground';
-import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { fetchUnidades } from '../src/api';
 import { analytics } from '../src/analytics';
 import type { Unidade } from '../src/api';
@@ -32,6 +33,7 @@ function normalize(s: string): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  useTema();
   const isAtiva = status === 'ativa_brasil' || status === 'ativa';
   return (
     <View style={[styles.statusBadge, isAtiva ? styles.statusAtiva : styles.statusInativa]}>
@@ -43,6 +45,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function UnidadeCard({ item, onPress }: { item: Unidade; onPress: () => void }) {
+  useTema();
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.cardPhoto}>
@@ -78,6 +81,7 @@ function UnidadeCard({ item, onPress }: { item: Unidade; onPress: () => void }) 
 }
 
 export default function UnidadesScreen() {
+  useTema();
   const insets = useSafeAreaInsets();
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,20 +216,20 @@ export default function UnidadesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   loadingText: { ...typography.small, color: colors.mutedDim },
   errorTitle: { ...typography.h3, textAlign: 'center', color: colors.muted },
   retryBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  retryText: { color: colors.navy950, fontWeight: '700' },
+  retryText: { color: colors.onAccent, fontWeight: '700' },
 
   searchWrap: { backgroundColor: colors.navy900, borderBottomWidth: 1, borderBottomColor: colors.line },
   searchRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: maritime.sunken, borderRadius: radius.sm,
+    backgroundColor: maritime.field, borderRadius: radius.sm,
     marginHorizontal: spacing.md, marginBottom: spacing.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 6,
-    borderWidth: 1, borderColor: colors.line,
+    borderWidth: 1, borderColor: maritime.fieldBorder,
   },
   searchIcon: { marginRight: 6 },
   searchInput: { flex: 1, ...typography.body, color: colors.white, padding: 0 },
@@ -272,4 +276,4 @@ const styles = StyleSheet.create({
 
   empty: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.md },
   emptyText: { ...typography.small, color: colors.mutedDim },
-});
+}));

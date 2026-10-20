@@ -2,7 +2,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { quandoTexto, type Acontecimento } from '@owbuddy/domain';
-import { colors, maritime, radius, spacing, tone } from '../theme';
+import { colors, maritime, radius, spacing, tone, themed } from '../theme';
+import { useTema } from '../tema';
 import { visualAcontecimento } from '../evento-visual';
 
 /**
@@ -10,6 +11,7 @@ import { visualAcontecimento } from '../evento-visual';
  * e no máximo UMA ação principal. Toque na linha abre a origem.
  */
 export function AcontecimentoLinha({ a, onAcao, ultimo }: { a: Acontecimento; onAcao: (a: Acontecimento) => void; ultimo?: boolean }) {
+  useTema();
   const v = visualAcontecimento(a.tipo, a.subtipo);
   const quando = quandoTexto(a.dias, a.dataISO, a.hora);
   return (
@@ -38,7 +40,7 @@ export function AcontecimentoLinha({ a, onAcao, ultimo }: { a: Acontecimento; on
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingRight: spacing.sm },
   borda: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: maritime.glassBorder },
   main: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.md, paddingVertical: 10, minHeight: 56 },
@@ -56,4 +58,4 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginLeft: 4,
   },
   pillTexto: { fontSize: 11.5, fontWeight: '700', color: colors.cyan, textAlign: 'center' },
-});
+}));

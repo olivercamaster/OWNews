@@ -3,6 +3,7 @@ import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, Bu
 import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope, normalizarConfigPagamento, normalizarPrefsHome } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import type { City } from './cities';
+import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
 
 // Storage keys — alinhados com OWNews localStorage keys para futura sync Supabase.
 // NUNCA renomear: dados de usuários já instalados dependem destes nomes.
@@ -20,6 +21,7 @@ export const KEYS = {
   MALA_OCULTAR_OK:  'owbuddy_mala_ocultar_concluidos',
   PAGAMENTO:        'owbuddy_pagamento_v1',
   HOME_PREFS:       'owbuddy_home_prefs',
+  APARENCIA:        'owbuddy_aparencia',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -218,4 +220,14 @@ export async function getEscalasCruzar(): Promise<EscalaSecundaria[]> {
 
 export async function setEscalasCruzar(escalas: EscalaSecundaria[]): Promise<void> {
   await set(KEYS.ESCALAS_CRUZAR, escalas);
+}
+
+// ─── Aparência (Automático / Escuro / Claro) ─────────────────────────────────
+// Chave própria, só local (fora do sync). Sem valor salvo → Automático.
+export async function getModoAparencia(): Promise<ModoAparencia> {
+  return normalizarModoAparencia(await get<unknown>(KEYS.APARENCIA));
+}
+
+export async function setModoAparencia(modo: ModoAparencia): Promise<void> {
+  await set(KEYS.APARENCIA, modo);
 }

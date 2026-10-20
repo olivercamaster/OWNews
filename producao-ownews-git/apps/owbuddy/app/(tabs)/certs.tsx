@@ -17,21 +17,23 @@ import { calcCertStatus } from '@owbuddy/domain';
 import type { Certificado, CertCalc } from '@owbuddy/domain';
 import { getCerts, setCerts } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, themed } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { OWDatePicker } from '../../src/components/OWDatePicker';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR: Record<string, string> = themed(() => ({
   valido:      colors.green,
   atencao:     colors.amber,
   'vence-hoje': colors.red,
   vencido:     colors.red,
   'sem-data':  colors.mutedDim,
-};
+}));
 
 export default function MeusCerts() {
+  useTema();
   const [certs, setCertsState] = useState<Certificado[]>([]);
   const [form, setForm] = useState<Partial<Certificado> | null>(null);
   const insets = useSafeAreaInsets();
@@ -122,6 +124,7 @@ export default function MeusCerts() {
 }
 
 function CertCard({ cert, calc, onEdit, onDelete }: { cert: Certificado; calc: CertCalc; onEdit: () => void; onDelete: () => void }) {
+  useTema();
   const accentColor = STATUS_COLOR[calc.status] ?? colors.mutedDim;
   return (
     <TouchableOpacity style={[styles.card, { borderLeftColor: accentColor, borderLeftWidth: 3 }]} onPress={onEdit} onLongPress={onDelete} delayLongPress={600}>
@@ -139,6 +142,7 @@ function CertCard({ cert, calc, onEdit, onDelete }: { cert: Certificado; calc: C
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
+  useTema();
   return (
     <View style={styles.empty}>
       <Ionicons name="document-text-outline" size={48} color={colors.mutedDim} style={{ marginBottom: spacing.md }} />
@@ -152,6 +156,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 function CertForm({ form, onChange, onSave, onCancel, onDelete }: { form: Partial<Certificado>; onChange: (v: Partial<Certificado>) => void; onSave: () => void; onCancel: () => void; onDelete?: () => void }) {
+  useTema();
   const [showPickerValidade, setShowPickerValidade] = useState(false);
   const [showPickerEmissao, setShowPickerEmissao] = useState(false);
   return (
@@ -213,6 +218,7 @@ function CertForm({ form, onChange, onSave, onCancel, onDelete }: { form: Partia
 }
 
 function Field({ label, value, onChange, placeholder, keyboardType, maxLength }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; keyboardType?: any; maxLength?: number }) {
+  useTema();
   return (
     <View style={fStyles.fieldWrap}>
       <Text style={fStyles.label}>{label}</Text>
@@ -221,14 +227,14 @@ function Field({ label, value, onChange, placeholder, keyboardType, maxLength }:
   );
 }
 
-const fStyles = StyleSheet.create({
+const fStyles = themed(() => StyleSheet.create({
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: spacing.md },
   deleteText: { color: colors.red, fontWeight: '600', fontSize: 14 },
   privNote: { fontSize: 12, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.md, lineHeight: 17 },
   sectionLabel: { ...typography.micro, marginBottom: spacing.md },
   fieldWrap: { marginBottom: spacing.sm },
   label: { ...typography.small, marginBottom: 4, marginTop: spacing.sm },
-  input: { backgroundColor: maritime.sunken, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder },
+  input: { backgroundColor: maritime.field, borderRadius: radius.sm, padding: spacing.sm, paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     backgroundColor: colors.navy800, borderRadius: radius.sm, padding: spacing.sm,
@@ -240,10 +246,10 @@ const fStyles = StyleSheet.create({
   cancelBtn: { flex: 1, padding: spacing.md, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
   cancelText: { color: colors.muted, fontWeight: '600' },
   saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.sm, backgroundColor: colors.cyan, alignItems: 'center' },
-  saveText: { color: colors.navy950, fontWeight: '700' },
-});
+  saveText: { color: colors.onAccent, fontWeight: '700' },
+}));
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   list: { padding: spacing.md, paddingBottom: 100 },
   formContent: { padding: spacing.md },
@@ -260,7 +266,7 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.h2, marginBottom: spacing.sm },
   emptySub: { ...typography.small, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
   addBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  addBtnText: { color: colors.navy950, fontWeight: '700' },
+  addBtnText: { color: colors.onAccent, fontWeight: '700' },
   fab: { position: 'absolute', bottom: 80, right: spacing.md, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center', elevation: 4 },
-  fabText: { fontSize: 28, fontWeight: '300', color: colors.navy950 },
-});
+  fabText: { fontSize: 28, fontWeight: '300', color: colors.onAccent },
+}));

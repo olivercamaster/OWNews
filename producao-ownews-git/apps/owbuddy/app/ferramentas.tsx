@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 
@@ -110,6 +111,7 @@ function fmt(val: number): string {
 }
 
 export default function FerramentasScreen() {
+  useTema();
   const [catIdx, setCatIdx] = useState(0);
   const [fromUnitIdx, setFromUnitIdx] = useState(0);
   const [rawValue, setRawValue] = useState('1');
@@ -169,7 +171,7 @@ export default function FerramentasScreen() {
             <Ionicons
               name={c.icon}
               size={14}
-              color={i === catIdx ? colors.navy950 : colors.muted}
+              color={i === catIdx ? colors.onAccent : colors.muted}
             />
             <Text style={[styles.catLabel, i === catIdx && styles.catLabelActive]}>
               {c.label}
@@ -192,7 +194,7 @@ export default function FerramentasScreen() {
         />
         <TouchableOpacity style={styles.unitChip} onPress={cycleFromUnit} accessibilityLabel={`Unidade ${fromUnit.label}. Toque para trocar`}>
           <Text style={styles.unitChipText}>{fromUnit.label}</Text>
-          <Ionicons name="swap-vertical-outline" size={14} color={colors.navy950} />
+          <Ionicons name="swap-vertical-outline" size={14} color={colors.onAccent} />
         </TouchableOpacity>
       </View>
 
@@ -227,7 +229,7 @@ export default function FerramentasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
 
   catBar: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: maritime.glassBorder },
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
   },
   catChipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   catLabel: { fontSize: 12, fontWeight: '600', color: colors.muted },
-  catLabelActive: { color: colors.navy950 },
+  catLabelActive: { color: colors.onAccent },
 
   inputCard: {
     flexDirection: 'row',
@@ -277,7 +279,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 8,
   },
-  unitChipText: { fontSize: 15, fontWeight: '700', color: colors.navy950 },
+  unitChipText: { fontSize: 15, fontWeight: '700', color: colors.onAccent },
 
   list: { flex: 1 },
   listContent: { paddingHorizontal: spacing.md, gap: spacing.xs, paddingBottom: spacing.xl },
@@ -305,4 +307,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: maritime.glassBorder,
   },
-});
+}));

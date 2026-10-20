@@ -12,7 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, maritime, radius, spacing, tone, typography } from '../theme';
+import { colors, maritime, radius, spacing, tone, typography, themed } from '../theme';
+import { useTema } from '../tema';
 
 const MESES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const ITEM_H = 48;
@@ -60,6 +61,7 @@ function PickerCol({
   onSelect: (i: number) => void;
   label: string;
 }) {
+  useTema();
   const ref = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -109,6 +111,7 @@ function PickerCol({
 }
 
 export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCancel }: OWDatePickerProps) {
+  useTema();
   const init = parseISO(value);
   const [selD, setSelD] = useState(init.d - 1);     // índice em DAYS
   const [selM, setSelM] = useState(init.m - 1);     // índice em MESES_PT
@@ -179,10 +182,10 @@ export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCanc
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: maritime.overlay,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
@@ -226,5 +229,5 @@ const styles = StyleSheet.create({
     flex: 2, padding: spacing.md, borderRadius: radius.md,
     backgroundColor: colors.cyan, alignItems: 'center',
   },
-  btnOkText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
-});
+  btnOkText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
+}));

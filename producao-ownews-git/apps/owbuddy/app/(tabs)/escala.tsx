@@ -41,7 +41,8 @@ import {
   setEventosPessoais,
   getEscalasCruzar,
 } from '../../src/storage';
-import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
+import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
@@ -55,13 +56,14 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-const KIND_STYLE: Record<DayKind, { bg: string; text: string; border?: string }> = {
-  EMBARCADO:  { bg: '#0d2b1a', text: '#4caf50', border: '#1a5c30' },
+// Estados do dia: tokens de calendário por tema (claro não perde contraste; escuro não apaga).
+const KIND_STYLE: Record<DayKind, { bg: string; text: string; border?: string }> = themed(() => ({
+  EMBARCADO:  { bg: tokens.calendarEmbarcadoBg, text: tokens.calendarEmbarcadoText, border: tokens.calendarEmbarcadoBorder },
   FOLGA:      { bg: 'transparent', text: colors.white },
-  DOBRA:      { bg: '#2d2000', text: '#ffc107', border: '#4a3a00' },
-  FERIAS:     { bg: '#0d0d30', text: '#7986cb', border: '#1a1a55' },
+  DOBRA:      { bg: tokens.calendarDobraBg, text: tokens.calendarDobraText, border: tokens.calendarDobraBorder },
+  FERIAS:     { bg: tokens.calendarFeriasBg, text: tokens.calendarFeriasText, border: tokens.calendarFeriasBorder },
   SEM_ESCALA: { bg: 'transparent', text: colors.mutedDim },
-};
+}));
 
 // Ícone/cor/rótulo dos eventos: src/evento-visual.ts (mesmo visual em Home, Próximos e cadastro).
 const TIPO_META = EVENTO_VISUAL;
@@ -71,13 +73,13 @@ const TIPO_META = EVENTO_VISUAL;
 // load do módulo (no navegador largo: células gigantes). Conteúdo nenhum (EMB/DEB, hoje,
 // ícones) altera o tamanho: a célula tem width/height explícitos e overflow escondido.
 const CELL_GAP = 1;
-const COMPACTA = StyleSheet.create({
+const COMPACTA = themed(() => StyleSheet.create({
   tag: { height: 10, paddingHorizontal: 2, marginBottom: 0 },
   tagText: { fontSize: 7.5, lineHeight: 9 },
   spacer: { height: 10 },
   num: { fontSize: 13, lineHeight: 15 },
   icons: { height: 10, marginTop: 0 },
-});
+}));
 
 function chunk<T>(arr: T[], n: number): T[][] {
   const result: T[][] = [];
@@ -103,12 +105,13 @@ function rotuloDia(day: DayInfo, juntos: EscalaSecundaria[] = []): string {
 
 // Cruzar: dia de folga junto com alguém = ícone da pessoa (2+ pessoas: "people"), na mesma
 // linha de ícones da célula — tamanho da célula não muda; com cruzamento, 1 evento + "+".
-const COR_JUNTOS = colors.green;
+const corJuntos = () => tokens.calendarJuntos;
 
 function DayCell({ day, size, juntos, onPress }: { day: DayInfo; size: number; juntos: EscalaSecundaria[]; onPress: () => void }) {
+  useTema();
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
-  const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
+  const numColor = day.isEmbarque ? tokens.calendarEmbarqueText : day.isDesembarque ? colors.amber : s.text;
   const tipos = [...new Set(day.eventosPessoais.map(e => e.tipo))];
   // Célula pequena (320–360 dp): mesma estrutura, só escala tipografia/etiqueta — nunca o tamanho.
   const c = size < 46 ? COMPACTA : null;
@@ -145,7 +148,7 @@ function DayCell({ day, size, juntos, onPress }: { day: DayInfo; size: number; j
           <Ionicons
             name={juntos.length === 1 ? ioniconRelacao(juntos[0]!.icon) : 'people'}
             size={c ? 9 : 11}
-            color={COR_JUNTOS}
+            color={corJuntos()}
             testID="juntos-marca"
           />
         )}
@@ -168,6 +171,7 @@ function CalendarMonth({ config, excecoes, eventosPessoais, cruzadas, ano, mes, 
   mes: number;
   onDayPress: (day: DayInfo) => void;
 }) {
+  useTema();
   const dias = gerarMesDias(config, excecoes, eventosPessoais, ano, mes, hojeISO());
   const firstDow = new Date(Date.UTC(ano, mes - 1, 1)).getUTCDay();
   const cells: (DayInfo | null)[] = [...Array(firstDow).fill(null), ...dias];
@@ -200,12 +204,12 @@ function CalendarMonth({ config, excecoes, eventosPessoais, cruzadas, ano, mes, 
 }
 
 // Bottom sheet deslizante — sem dependências nativas
-const ESTADO_CRUZADO: Record<CruzamentoDia['estado'], { texto: (nome: string) => string; cor: string; icone: IoniconsName }> = {
+const ESTADO_CRUZADO: Record<CruzamentoDia['estado'], { texto: (nome: string) => string; cor: string; icone: IoniconsName }> = themed(() => ({
   JUNTOS:          { texto: () => 'Juntos neste dia — vocês estão de folga.', cor: colors.green, icone: 'checkmark-circle' },
   SO_VOCE_LIVRE:   { texto: n => `Você de folga · ${n} a bordo.`, cor: colors.muted, icone: 'ellipse-outline' },
   SO_PESSOA_LIVRE: { texto: n => `${n} de folga · você a bordo.`, cor: colors.muted, icone: 'ellipse-outline' },
   AMBOS_A_BORDO:   { texto: () => 'Os dois a bordo neste dia.', cor: colors.muted, icone: 'ellipse-outline' },
-};
+}));
 
 function DayBottomSheet({
   day,
@@ -226,6 +230,7 @@ function DayBottomSheet({
   onEditEvento: (ev: EventoPessoal) => void;
   onDeleteEvento: (id: string) => void;
 }) {
+  useTema();
   const translateY = useRef(new Animated.Value(400)).current;
 
   const open = useCallback(() => {
@@ -244,7 +249,7 @@ function DayBottomSheet({
     EMBARCADO: 'Embarcado', FOLGA: 'De folga', DOBRA: 'Dobra', FERIAS: 'Férias', SEM_ESCALA: '—',
   };
   const kindColor: Record<DayKind, string> = {
-    EMBARCADO: '#4caf50', FOLGA: colors.muted, DOBRA: '#ffc107', FERIAS: '#7986cb', SEM_ESCALA: colors.mutedDim,
+    EMBARCADO: tokens.calendarEmbarcadoText, FOLGA: colors.muted, DOBRA: tokens.calendarDobraText, FERIAS: tokens.calendarFeriasText, SEM_ESCALA: colors.mutedDim,
   };
   const [d, m, y] = [day.iso.slice(8), day.iso.slice(5, 7), day.iso.slice(0, 4)];
 
@@ -271,7 +276,7 @@ function DayBottomSheet({
                 style={styles.addEventoBtn}
                 onPress={() => { close(); setTimeout(() => onAddEvento(day.iso), 240); }}
               >
-                <Ionicons name="add" size={16} color={colors.navy950} />
+                <Ionicons name="add" size={16} color={colors.onAccent} />
                 <Text style={styles.addEventoBtnText}>Evento</Text>
               </TouchableOpacity>
             </View>
@@ -382,6 +387,7 @@ function DayBottomSheet({
 }
 
 export default function EscalaScreen() {
+  useTema();
   const [config, setConfig] = useState<EscalaConfig | null>(null);
   const [eventosPessoais, setEPState] = useState<EventoPessoal[]>([]);
   const [cruzadas, setCruzadas] = useState<EscalaSecundaria[]>([]);
@@ -469,7 +475,7 @@ export default function EscalaScreen() {
       <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
 
         {/* ── Status hero ── */}
-        <View style={[styles.heroCard, { borderColor: calc?.embarcado ? '#1a5c30' : colors.line }]}>
+        <View style={[styles.heroCard, { borderColor: calc?.embarcado ? tokens.calendarEmbarcadoBorder : colors.line }]}>
           {calc?.embarcado ? (
             <>
               <View style={styles.heroRow}>
@@ -563,13 +569,13 @@ export default function EscalaScreen() {
         {/* ── Legend ── */}
         <View style={styles.legend}>
           <LegendItem color={colors.green} tag="EMB" label="Embarque" />
-          <LegendItem color="#4caf50" label="Embarcado" />
+          <LegendItem color={tokens.calendarEmbarcadoText} label="Embarcado" />
           <LegendItem color={colors.amber} tag="DEB" label="Desembarque" />
           <LegendItem color={colors.white} label="Folga" />
-          <LegendItem color="#ffc107" label="Dobra" />
-          <LegendItem color="#7986cb" label="Férias" />
+          <LegendItem color={tokens.calendarDobraText} label="Dobra" />
+          <LegendItem color={tokens.calendarFeriasText} label="Férias" />
           <LegendItem color={colors.orange} dot label="Feriado" />
-          {cruzadas.some(c => !c.oculta) && <LegendItem icon="people" color={COR_JUNTOS} label="Juntos" />}
+          {cruzadas.some(c => !c.oculta) && <LegendItem icon="people" color={corJuntos()} label="Juntos" />}
           {(['ANIVERSARIO','CURSO','COMPROMISSO','VIAGEM'] as EventoTipo[]).map(t => {
             const m = TIPO_META[t];
             return <LegendItem key={t} icon={m.icon} color={m.color} label={m.label} />;
@@ -593,7 +599,7 @@ export default function EscalaScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Editar escala de ${sec.nome}`}
               >
-                <Ionicons name={ioniconRelacao(sec.icon)} size={14} color={sec.oculta ? colors.mutedDim : COR_JUNTOS} />
+                <Ionicons name={ioniconRelacao(sec.icon)} size={14} color={sec.oculta ? colors.mutedDim : corJuntos()} />
                 <View style={styles.listRowInfo}>
                   <Text style={[styles.listRowText, sec.oculta && { color: colors.mutedDim }]} numberOfLines={1}>{sec.nome}</Text>
                   <Text style={styles.listRowDate} numberOfLines={1}>
@@ -634,7 +640,7 @@ export default function EscalaScreen() {
             </View>
             {excecoes.map(e => (
               <View key={e.id} style={styles.listRow}>
-                <Ionicons name={e.tipo === 'dobra' ? 'time-outline' : 'umbrella-outline'} size={14} color={e.tipo === 'dobra' ? '#ffc107' : '#7986cb'} />
+                <Ionicons name={e.tipo === 'dobra' ? 'time-outline' : 'umbrella-outline'} size={14} color={e.tipo === 'dobra' ? tokens.calendarDobraText : tokens.calendarFeriasText} />
                 <View style={styles.listRowInfo}>
                   <Text style={styles.listRowText}>{e.tipo === 'dobra' ? 'Dobra' : 'Férias'}</Text>
                   <Text style={styles.listRowDate}>{formatDateBR(e.ini)} → {formatDateBR(e.fim)}</Text>
@@ -710,6 +716,7 @@ export default function EscalaScreen() {
 }
 
 function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string; onPress: () => void }) {
+  useTema();
   return (
     <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
       <Ionicons name={icon} size={20} color={colors.cyanDim} />
@@ -719,6 +726,7 @@ function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string
 }
 
 function LegendItem({ color, label, dot, tag, icon }: { color: string; label: string; dot?: boolean; tag?: string; icon?: IoniconsName }) {
+  useTema();
   return (
     <View style={styles.legendItem}>
       {tag
@@ -734,7 +742,7 @@ function LegendItem({ color, label, dot, tag, icon }: { color: string; label: st
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, paddingBottom: spacing.xxl + spacing.lg },
 
@@ -742,7 +750,7 @@ const styles = StyleSheet.create({
   setupTitle: { ...typography.h1, textAlign: 'center' },
   setupSub: { ...typography.body, textAlign: 'center', color: colors.muted },
   setupBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, marginTop: spacing.sm },
-  setupBtnText: { fontWeight: '700', fontSize: 16, color: colors.navy950 },
+  setupBtnText: { fontWeight: '700', fontSize: 16, color: colors.onAccent },
 
   heroCard: {
     backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.md,
@@ -754,11 +762,11 @@ const styles = StyleSheet.create({
   heroValue: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 2 },
   heroDate: { fontSize: 12, color: colors.mutedDim, marginTop: 2 },
   heroRight: { alignItems: 'flex-end', maxWidth: 104 },
-  heroCountdown: { fontSize: 28, fontWeight: '700', color: '#4caf50' },
+  heroCountdown: { fontSize: 28, fontWeight: '700', color: tokens.calendarEmbarcadoText },
   heroCountdownLabel: { fontSize: 11, color: colors.mutedDim, marginTop: -2, textAlign: 'right' },
   heroBadge: { fontSize: 12, color: colors.cyanDim, fontWeight: '600' },
   progressBar: { height: 6, backgroundColor: colors.navy800, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 3 },
+  progressFill: { height: '100%', backgroundColor: tokens.calendarEmbarcadoText, borderRadius: 3 },
   auditLine: { fontSize: 11, color: colors.mutedDim, marginTop: -spacing.sm, marginBottom: spacing.md, paddingHorizontal: 2 },
 
   actionRow: {
@@ -783,7 +791,7 @@ const styles = StyleSheet.create({
   maisEventos: { fontSize: 10, fontWeight: '800', color: colors.muted, lineHeight: 12 },
   hojeRing: { borderWidth: 2, borderColor: colors.white, borderRadius: 11, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center' },
   transitionTag: { borderRadius: 3, paddingHorizontal: 3, height: 12, justifyContent: 'center', marginBottom: 1 },
-  transitionTagText: { fontSize: 9, lineHeight: 11, fontWeight: '800', color: colors.navy950, letterSpacing: 0.3 },
+  transitionTagText: { fontSize: 9, lineHeight: 11, fontWeight: '800', color: colors.onAccent, letterSpacing: 0.3 },
   transitionSpacer: { height: 13 },
 
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md, rowGap: spacing.sm, marginBottom: spacing.md },
@@ -805,7 +813,7 @@ const styles = StyleSheet.create({
   listRowObs: { fontSize: 11, color: colors.mutedDim, fontStyle: 'italic', marginTop: 1 },
 
   // Bottom sheet
-  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheetOverlay: { flex: 1, backgroundColor: maritime.overlay, justifyContent: 'flex-end' },
   sheetContainer: {
     backgroundColor: tone.elevated, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: spacing.md, paddingBottom: spacing.xl,
@@ -819,7 +827,7 @@ const styles = StyleSheet.create({
   kindDot: { width: 8, height: 8, borderRadius: 4 },
   kindText: { fontSize: 13, fontWeight: '600' },
   addEventoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.cyan, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 6 },
-  addEventoBtnText: { fontSize: 12, fontWeight: '700', color: colors.navy950 },
+  addEventoBtnText: { fontSize: 12, fontWeight: '700', color: colors.onAccent },
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.lineSoft },
   sheetRowText: { fontSize: 13, color: colors.white, flex: 1 },
   sheetRowSub: { fontSize: 11, color: colors.mutedDim },
@@ -832,7 +840,7 @@ const styles = StyleSheet.create({
     width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
     backgroundColor: maritime.iconTile, borderWidth: 1, borderColor: tone.borderSubtle,
   },
-  cruzIconeJuntos: { borderColor: 'rgba(47,191,113,0.45)' },
+  cruzIconeJuntos: { borderColor: tokens.calendarJuntosBorder },
   cruzNome: { fontSize: 14, fontWeight: '700', color: colors.white },
   cruzRel: { fontSize: 12, color: colors.muted },
   cruzEstado: { fontSize: 12, marginTop: 1 },
@@ -842,4 +850,4 @@ const styles = StyleSheet.create({
   },
   cruzEditarTexto: { fontSize: 12, fontWeight: '700', color: tone.accentText },
   sheetEmpty: { fontSize: 13, color: colors.mutedDim, textAlign: 'center', paddingVertical: spacing.sm },
-});
+}));

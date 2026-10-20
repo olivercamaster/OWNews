@@ -2,16 +2,18 @@ import { Platform, Text, View, useWindowDimensions, type ColorValue } from 'reac
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, maritime, radius } from '../../src/theme';
+import { colors, maritime, radius, tokens } from '../../src/theme';
+import { useTema } from '../../src/tema';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
+  useTema();
   return (
     <Ionicons
       name={focused ? name : (`${name}-outline` as IoniconsName)}
       size={24}
-      color={focused ? colors.cyan : colors.mutedDim}
+      color={focused ? tokens.navigationActive : tokens.navigationInactive}
     />
   );
 }
@@ -28,6 +30,7 @@ function larguraApp(width: number): number {
  * interno de 5 px do item do react-navigation, que sobrava vazio.
  */
 function TabLabel({ children, color }: { children: string; color: ColorValue }) {
+  useTema();
   const { width } = useWindowDimensions();
   const larg = larguraApp(width);
   const aba = (larg - 2 * margemBarra(larg) - 2) / 5;
@@ -52,6 +55,7 @@ function margemBarra(larg: number): number {
 }
 
 export default function TabLayout() {
+  useTema();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const margem = margemBarra(larguraApp(width));
@@ -60,8 +64,8 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.cyan,
-        tabBarInactiveTintColor: colors.mutedDim,
+        tabBarActiveTintColor: tokens.navigationActive,
+        tabBarInactiveTintColor: tokens.navigationInactive,
         tabBarStyle: {
           // Nav flutuante — preto azulado quase opaco, linha fina fria, sem glow
           // (Premium Material Pass). Ativo = ciano OW; inativo = cinza azulado.
@@ -80,13 +84,8 @@ export default function TabLayout() {
           paddingBottom: 8,
           paddingTop: 6,
           paddingHorizontal: 0,
-          // Elevation (Android)
-          elevation: 16,
-          // Shadow (iOS)
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.45,
-          shadowRadius: 22,
+          // Sombra por tema: profunda no escuro, quase só contato no claro
+          ...maritime.navShadow,
         },
         tabBarLabelStyle: {
           fontSize: 11,

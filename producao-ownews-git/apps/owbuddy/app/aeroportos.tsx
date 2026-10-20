@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { getAeroporto } from '@owbuddy/domain';
 import { getEscala } from '../src/storage';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 import { buscarJson } from '../src/net';
@@ -76,6 +77,7 @@ function statusInfo(status: string | null): { label: string; color: string } {
 }
 
 export default function AeroportosScreen() {
+  useTema();
   const [carga, setCarga] = useState<Carga | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
@@ -160,7 +162,7 @@ export default function AeroportosScreen() {
         accessibilityRole="button"
         accessibilityLabel="Abrir Aeroportos no OWNews"
       >
-        <Ionicons name="globe-outline" size={18} color={colors.navy950} />
+        <Ionicons name="globe-outline" size={18} color={colors.onAccent} />
         <Text style={styles.ctaText}>Ver painel completo no OWNews</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -169,6 +171,7 @@ export default function AeroportosScreen() {
 }
 
 function AeroCard({ aero, destaque = false }: { aero: AeroportoVivo; destaque?: boolean }) {
+  useTema();
   const { label, color } = statusInfo(aero.status);
   return (
     <View style={[styles.card, destaque && styles.cardDestaque]}>
@@ -201,7 +204,7 @@ function AeroCard({ aero, destaque = false }: { aero: AeroportoVivo; destaque?: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: 40 },
 
@@ -285,5 +288,5 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
   },
-  ctaText: { fontSize: 15, fontWeight: '700', color: colors.navy950 },
-});
+  ctaText: { fontSize: 15, fontWeight: '700', color: colors.onAccent },
+}));

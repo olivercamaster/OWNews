@@ -5,7 +5,8 @@
  */
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View, type ViewStyle, type StyleProp } from 'react-native';
-import { maritime, radius, spacing } from '../theme';
+import { maritime, radius, spacing, themed } from '../theme';
+import { useTema } from '../tema';
 
 interface OWCardProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ interface OWCardProps {
 }
 
 export function OWCard({ children, elevated, onPress, style, accentBorder, pad }: OWCardProps) {
+  useTema();
   const base = elevated ? styles.elevated : styles.base;
   const inner = [base, accentBorder ? { borderLeftWidth: 2, borderLeftColor: accentBorder } : undefined, pad !== undefined ? { padding: pad } : undefined, style];
 
@@ -32,7 +34,7 @@ export function OWCard({ children, elevated, onPress, style, accentBorder, pad }
   return <View style={inner}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   base: {
     backgroundColor: maritime.glass,
     borderRadius: radius.lg,
@@ -49,4 +51,4 @@ const styles = StyleSheet.create({
     borderColor: maritime.glassBorder,
     ...maritime.cardShadow,
   },
-});
+}));

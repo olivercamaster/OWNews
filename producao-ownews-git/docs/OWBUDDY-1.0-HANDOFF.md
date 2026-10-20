@@ -125,6 +125,7 @@ alguma rota não tiver tela.
 | `ownews_cruzar_v2` | escalas secundárias |
 | `owbuddy_city_pref`, `owbuddy_weather_cache` | cidade e clima da Home |
 | `owbuddy_lembretes_prefs` | preferências de lembrete |
+| `owbuddy_aparencia` | aparência: `"auto"` \| `"escuro"` \| `"claro"` (só local, fora do sync; sem valor = Automático) |
 | `owbuddy_cache_feed_v3`, `owbuddy_noticias_abertas_v1` | notícias (cache) |
 | `owbuddy_cache_aeroportos_v1`, `owbuddy_cache_vagas`, `owbuddy_cache_unidades_v1` | caches online |
 | `sb-…-auth-token` | sessão Supabase (gerida pelo supabase-js) |
@@ -533,3 +534,33 @@ Camada só visual: nenhuma rota, dado, ordem de módulo ou regra mudou. Commit i
 - Matemática: sempre `secundariaParaConfig` + `estaLivreNoDia` / `encontrarJanelasJuntos` (`packages/ow-domain/src/escala-cruzar.ts`). Sua escala principal nunca é gravada por estas telas.
 - Emoji antigo salvo (🤝, ❤️, 🤜🤛…) continua salvo e é exibido como ícone vetorial (`src/relacao-icones.ts`, mapa LEGADO). O `🤝 CRUZAR ESCALAS` visto em print é da página **OWNews web /minha-escala** (`worker.js`), que não foi alterada nesta missão.
 - Testes: `apps/owbuddy/tests/cruzar.test.mjs`.
+
+## Premium Dark / Light / Auto (2026-10-20)
+
+Aparência escolhida pelo usuário: **Automático** (padrão para todos, inclusive quem já usava o app — não havia preferência salva antes), **Escuro** ou **Claro**. A identidade continua sendo o escuro premium; o claro é o mesmo design system com outro material, não uma inversão. Tag de antes: `owbuddy-pre-dark-light`.
+
+- **Onde trocar:** Meu Buddy (ícone de pessoa na Home) → primeira seção **Aparência**. Vale na hora, sem Salvar.
+- **Arquitetura (`src/theme.ts`):**
+  - `TOKENS_POR_TEMA.escuro|claro` — tokens semânticos (`background`, `surface`, `surfaceElevated`, `textPrimary`…, `accent`, `onAccent`, `success/warning/danger/info` + `*Soft`, `overlay`, `navigation*`, `input*`, `controlBorder`, `calendar*`, `evento*`, `brandUber*`).
+  - Material por tema (gradientes, sombra, aresta, nav, marca-d'água) em `MATERIAL_ESCURO|CLARO`.
+  - As camadas antigas (`colors`, `tone`, `surface`, `maritime`, `typography`, `elevation`) continuam com os mesmos nomes; `aplicarTema()` troca os valores **no lugar** (substitui objetos aninhados, nunca muta — o `StyleSheet.create` congela o que recebe).
+  - `themed(() => StyleSheet.create({...}))` monta uma folha por tema (cache) — **toda** folha de estilo e mapa de cor de módulo usa isso.
+  - `colors.white` = texto primário do tema (nome histórico). Texto/ícone sobre botão primário = `colors.onAccent` (nunca `navy950`).
+- **Troca em tempo real (`src/tema.tsx`):** `TemaProvider` (em `app/_layout.tsx`) resolve o tema (`src/aparencia.ts` → `resolverTema`), aplica os tokens antes de renderizar e avisa pelo contexto. **Todo componente com estilos chama `useTema()` na primeira linha** (teste em `tests/aparencia.test.mjs` cobra). Em Automático segue `useColorScheme()` ao vivo.
+- **Navegação:** `ThemeProvider` do expo-router com as cores do tema (fundo atrás das transições e dos modais).
+- **Web:** `public/index.html` lê `owbuddy_aparencia` + `prefers-color-scheme` antes do JS (sem flash); `theme-color` e o fundo do documento seguem o tema.
+- **Contraste:** testado por token (≥ 4,5:1 para texto primário, secundário, muted, acento, status e números do calendário, nos dois temas). O azul OW do claro é mais profundo (`#086aa0`) para ler sobre branco; mesmo matiz do ciano do escuro (`#14a9ec`).
+- **Uber:** botão da marca branco no escuro e preto no claro (`brandUber*`).
+
+### Nativo — validar no APK RC (o preview web não cobre)
+- `app.json`: `userInterfaceStyle` passou de `dark` para `automatic` (precisa de **novo build nativo**). Sem isso o Android/iOS reportam sempre escuro e o Automático fica escuro.
+- Barra de status: `expo-status-bar` com `style` do tema efetivo (ícones claros no escuro, escuros no claro).
+- Splash: continua escuro nos dois temas (o Buddy do splash é branco). O app segura o splash até ler a aparência (`SplashScreen.preventAutoHideAsync` + `hideAsync`, rede de segurança de 2,5 s), então não pisca o tema errado depois do splash.
+- Barra de navegação do Android (gestos/botões) não é controlada (exigiria `expo-navigation-bar`, nativo).
+- Alertas nativos (`Alert`) seguem o tema do sistema, não a escolha forçada no app.
+
+### Testes
+- Unitários: `apps/owbuddy/tests/aparencia.test.mjs` (preferência, migração, tokens, contraste, troca, telas sem hex).
+- Preview web (Playwright, fora do `npm test`): `tests/e2e/aparencia-preview.cjs` (fluxo Automático/Escuro/Claro, sistema mudando, persistência, dados intactos, 320–430 px) e `tests/e2e/rc-preview.cjs` (suíte RC, datas relativas a hoje).
+
+**Para reverter só esta camada:** `git revert <commit do dark/light>`.

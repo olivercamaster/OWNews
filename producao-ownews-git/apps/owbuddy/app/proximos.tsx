@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { agruparPorFaixa, gerarAcontecimentos, type Acontecimento } from '@owbuddy/domain';
 import type { EscalaConfig, Viagem } from '@owbuddy/domain';
 import { getCerts, getChecklist, getEscala, getEventosPessoais, getPagamento, getViagem } from '../src/storage';
-import { colors, maritime, radius, spacing, typography } from '../src/theme';
+import { colors, maritime, radius, spacing, typography, themed, tokens } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { AcontecimentoLinha } from '../src/components/AcontecimentoLinha';
 import { TransporteSheet } from '../src/components/TransporteSheet';
@@ -18,6 +19,7 @@ import { opcoesTransporte } from '../src/transporte';
 import { analytics } from '../src/analytics';
 
 export default function Proximos() {
+  useTema();
   const insets = useSafeAreaInsets();
   const [lista, setLista] = useState<Acontecimento[] | null>(null);
   const [temPagamento, setTemPagamento] = useState(true);
@@ -70,7 +72,7 @@ export default function Proximos() {
 
         {lista && !temPagamento && (
           <TouchableOpacity style={styles.pagamento} onPress={() => router.push('/pagamento')} accessibilityRole="button">
-            <Ionicons name="wallet-outline" size={18} color="#a5d6a7" />
+            <Ionicons name="wallet-outline" size={18} color={tokens.eventoPagamento} />
             <View style={{ flex: 1 }}>
               <Text style={styles.pagTitulo}>Meu Pagamento</Text>
               <Text style={styles.pagSub}>Cadastre a regra da sua empresa e veja a data provável aqui.</Text>
@@ -84,7 +86,7 @@ export default function Proximos() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { padding: spacing.md },
   novo: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, paddingHorizontal: spacing.md,
@@ -103,4 +105,4 @@ const styles = StyleSheet.create({
   },
   pagTitulo: { fontSize: 14, fontWeight: '700', color: colors.white },
   pagSub: { fontSize: 12, color: colors.muted, marginTop: 1 },
-});
+}));

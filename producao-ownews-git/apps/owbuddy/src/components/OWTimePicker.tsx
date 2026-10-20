@@ -22,7 +22,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, maritime, radius, spacing, tone, typography } from '../theme';
+import { colors, maritime, radius, spacing, tone, typography, themed } from '../theme';
+import { useTema } from '../tema';
 export { normalizeHora } from '../hora-utils';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
@@ -46,6 +47,7 @@ export function parseTime(v: string | undefined): { h: number; m: number } {
 }
 
 export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePickerProps) {
+  useTema();
   const init = parseTime(value);
   const [selH, setSelH] = useState(init.h);
   const [selM, setSelM] = useState(init.m); // índice em MINUTES
@@ -185,10 +187,10 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
 
 /** Normaliza string de hora legada para "HH:mm": "1945" → "19:45", "945" → "09:45" */
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: maritime.overlay,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
@@ -240,5 +242,5 @@ const styles = StyleSheet.create({
     flex: 2, padding: spacing.md, borderRadius: radius.md,
     backgroundColor: colors.cyan, alignItems: 'center',
   },
-  btnOkText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
-});
+  btnOkText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
+}));

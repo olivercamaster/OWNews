@@ -7,6 +7,7 @@
 
 type EventName =
   | 'screen_view'
+  | 'aparencia_alterada'
   | 'scale_configured'
   | 'checklist_item_created'
   | 'checklist_reset'

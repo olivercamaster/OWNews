@@ -17,7 +17,8 @@ import { TIPO_LABELS, TIPO_ICONS, getViagemRota } from '@owbuddy/domain';
 import type { Viagem, ViagemTipo } from '@owbuddy/domain';
 import { getViagem, setViagem, deleteViagem } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, themed, tokens } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { confirmarRemocao } from '../../src/confirmar';
 import { destinoDaViagem, link99, linkUber } from '../../src/transporte';
@@ -39,6 +40,7 @@ function normalizeVoo(v: string): string {
 }
 
 export default function MinhaViagem() {
+  useTema();
   const insetsTela = useSafeAreaInsets();
   const [viagem, setViagemState] = useState<Viagem | null>(null);
   const [editing, setEditing] = useState(false);
@@ -181,6 +183,7 @@ export default function MinhaViagem() {
 // ─────────────────────── Transporte terrestre ───────────────────────
 
 function TransporteTerrestre({ viagem }: { viagem: Viagem }) {
+  useTema();
   const destino = destinoDaViagem(viagem);
   const abrir = (servico: 'uber' | '99') => {
     const url = servico === 'uber'
@@ -217,6 +220,7 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 function DetailRow({ icon, label, value, private: priv }: {
   icon: IoniconsName; label: string; value: string; private?: boolean;
 }) {
+  useTema();
   return (
     <View style={detailStyles.row}>
       <Ionicons name={icon} size={15} color={colors.cyanDim} style={detailStyles.rowIcon} />
@@ -225,7 +229,7 @@ function DetailRow({ icon, label, value, private: priv }: {
     </View>
   );
 }
-const detailStyles = StyleSheet.create({
+const detailStyles = themed(() => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -237,7 +241,7 @@ const detailStyles = StyleSheet.create({
   rowIcon: { width: 18 },
   label: { ...typography.small, flex: 1, color: colors.muted },
   value: { ...typography.small, color: colors.white, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
-});
+}));
 
 // ─────────────────────── Formulário ───────────────────────
 function ViagemForm({
@@ -251,6 +255,7 @@ function ViagemForm({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  useTema();
   const tipo = form.tipo ?? 'AVIAO';
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -455,6 +460,7 @@ function Field({ label, placeholder, value, onChange, keyboardType, multiline, a
   label: string; placeholder?: string; value: string; onChange: (v: string) => void;
   keyboardType?: any; multiline?: boolean; autoCapitalize?: any; maxLength?: number;
 }) {
+  useTema();
   return (
     <View style={formStyles.fieldWrap}>
       <Text style={formStyles.fieldLabel}>{label}</Text>
@@ -474,7 +480,7 @@ function Field({ label, placeholder, value, onChange, keyboardType, multiline, a
 }
 
 // ─────────────────────── Styles ───────────────────────
-const formStyles = StyleSheet.create({
+const formStyles = themed(() => StyleSheet.create({
   sectionLabel: { ...typography.micro, color: colors.muted, marginBottom: spacing.sm, marginTop: spacing.md },
   tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tipoChip: {
@@ -490,12 +496,12 @@ const formStyles = StyleSheet.create({
   fieldWrap: { marginBottom: spacing.sm },
   fieldLabel: { ...typography.small, color: colors.muted, marginBottom: 5, fontSize: 12 },
   input: {
-    backgroundColor: maritime.sunken, borderRadius: radius.md, padding: spacing.sm,
+    backgroundColor: maritime.field, borderRadius: radius.md, padding: spacing.sm,
     paddingHorizontal: 12, color: colors.white, fontSize: 15, borderWidth: 1, borderColor: maritime.fieldBorder,
   },
 
   horaBtn: {
-    backgroundColor: maritime.sunken, borderRadius: radius.md, padding: spacing.sm,
+    backgroundColor: maritime.field, borderRadius: radius.md, padding: spacing.sm,
     paddingHorizontal: 12, borderWidth: 1, borderColor: maritime.fieldBorder,
     flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
   },
@@ -520,10 +526,10 @@ const formStyles = StyleSheet.create({
   },
   cancelText: { color: colors.muted, fontWeight: '600' },
   saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.cyan, alignItems: 'center' },
-  saveText: { color: colors.navy950, fontWeight: '700', fontSize: 15 },
-});
+  saveText: { color: colors.onAccent, fontWeight: '700', fontSize: 15 },
+}));
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1 },
   content: { padding: spacing.md },
 
@@ -544,7 +550,7 @@ const styles = StyleSheet.create({
   delBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
     backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.md,
-    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
+    borderWidth: 1, borderColor: colors.red + '4d',
   },
   delBtnText: { color: colors.red, fontWeight: '600' },
   privRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: spacing.sm },
@@ -557,8 +563,8 @@ const styles = StyleSheet.create({
     flex: 1, minHeight: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
   },
-  uberBtn: { backgroundColor: '#f7fafc', borderColor: '#f7fafc' },
-  uberTexto: { fontSize: 16, fontWeight: '800', color: '#000' },
+  uberBtn: { backgroundColor: tokens.brandUberBg, borderColor: tokens.brandUberBorder },
+  uberTexto: { fontSize: 16, fontWeight: '800', color: tokens.brandUberText },
   noventaTexto: { fontSize: 16, fontWeight: '800', color: colors.white },
   transporteNota: { fontSize: 11, color: colors.mutedDim, lineHeight: 15 },
-});
+}));

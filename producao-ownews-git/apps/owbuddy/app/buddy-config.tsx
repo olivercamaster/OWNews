@@ -19,7 +19,9 @@ import Constants from 'expo-constants';
 import { getPreviewMensagem, DEFAULT_BUDDY_PREFS, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
 import type { BuddyPrefs, BuddyTom, BuddyTrat, PrefsLembretes } from '@owbuddy/domain';
 import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
-import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../src/theme';
+import { useTema } from '../src/tema';
+import { OPCOES_APARENCIA } from '../src/aparencia';
 import { OWBackground } from '../src/components/OWBackground';
 import { analytics } from '../src/analytics';
 import { getSession, signInWithPassword, signUp, recuperarSenha, signOut, onAuthStateChange } from '../src/auth';
@@ -51,6 +53,7 @@ const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
 ];
 
 export default function BuddyConfig() {
+  const { modo: modoAparencia, setModo: setModoAparencia } = useTema();
   const [prefs, setPrefs] = useState<BuddyPrefs>(DEFAULT_BUDDY_PREFS);
   const [saved, setSaved] = useState(false);
 
@@ -196,6 +199,37 @@ export default function BuddyConfig() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
 
+        {/* ── Aparência: vale na hora, sem Salvar (fica neste aparelho) ── */}
+        <Text style={[styles.sectionTitle, styles.sectionTitleFirst]}>Aparência</Text>
+        <View style={styles.aparenciaCard} accessibilityRole="radiogroup" accessibilityLabel="Aparência do app">
+          {OPCOES_APARENCIA.map((o, i) => {
+            const ativo = modoAparencia === o.modo;
+            return (
+              <TouchableOpacity
+                key={o.modo}
+                style={[styles.aparenciaLinha, i > 0 && styles.aparenciaLinhaSep]}
+                onPress={() => { setModoAparencia(o.modo); analytics.track('aparencia_alterada', { modo: o.modo }); }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: ativo }}
+                aria-checked={ativo}
+                accessibilityLabel={`${o.titulo}. ${o.sub}`}
+                testID={`aparencia-${o.modo}`}
+              >
+                <View style={[styles.aparenciaIcone, ativo && styles.aparenciaIconeAtivo]}>
+                  <Ionicons name={o.icone} size={18} color={ativo ? colors.cyan : colors.muted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.aparenciaTitulo, ativo && styles.aparenciaTituloAtivo]}>{o.titulo}</Text>
+                  <Text style={styles.aparenciaSub}>{o.sub}</Text>
+                </View>
+                <View style={[styles.radio, ativo && styles.radioAtivo]}>
+                  {ativo && <View style={styles.radioPonto} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Preview */}
         <View style={styles.previewCard}>
           <Text style={styles.previewLabel}>Prévia da mensagem</Text>
@@ -286,7 +320,7 @@ export default function BuddyConfig() {
                 <Switch
                   value={lembretes.ativo}
                   onValueChange={alternarLembretes}
-                  trackColor={{ true: colors.cyan, false: colors.line }}
+                  trackColor={{ true: colors.cyan, false: tokens.controlBorder }}
                   accessibilityLabel="Ativar lembretes"
                 />
               </View>
@@ -319,7 +353,7 @@ export default function BuddyConfig() {
                   <Switch
                     value={lembretes[k]}
                     onValueChange={v => salvarLembretes({ ...lembretes, [k]: v })}
-                    trackColor={{ true: colors.cyan, false: colors.line }}
+                    trackColor={{ true: colors.cyan, false: tokens.controlBorder }}
                     accessibilityLabel={`Lembrete: ${label}`}
                   />
                 </View>
@@ -442,7 +476,7 @@ export default function BuddyConfig() {
               accessibilityLabel={modoConta === 'criar' ? 'Criar Conta OW' : 'Entrar na Conta OW'}
             >
               {loginLoading
-                ? <ActivityIndicator size="small" color={colors.navy950} />
+                ? <ActivityIndicator size="small" color={colors.onAccent} />
                 : <Text style={styles.loginBtnText}>{modoConta === 'criar' ? 'Criar conta' : 'Entrar'}</Text>
               }
             </TouchableOpacity>
@@ -465,8 +499,27 @@ export default function BuddyConfig() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
+  sectionTitleFirst: { marginTop: 0 },
+  aparenciaCard: {
+    backgroundColor: maritime.glass, borderRadius: radius.lg, borderWidth: 1,
+    borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, overflow: 'hidden',
+    marginBottom: spacing.lg, ...maritime.cardShadow,
+  },
+  aparenciaLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, paddingHorizontal: spacing.md, minHeight: 60, paddingVertical: 10 },
+  aparenciaLinhaSep: { borderTopWidth: 1, borderTopColor: colors.lineSoft },
+  aparenciaIcone: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: maritime.iconTile, borderWidth: 1, borderColor: maritime.glassBorder,
+  },
+  aparenciaIconeAtivo: { backgroundColor: maritime.accentSoft, borderColor: maritime.accentBorder },
+  aparenciaTitulo: { fontSize: 15, fontWeight: '600', color: colors.white },
+  aparenciaTituloAtivo: { color: colors.white, fontWeight: '700' },
+  aparenciaSub: { fontSize: 12.5, color: colors.muted, marginTop: 1 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: tokens.controlBorder, alignItems: 'center', justifyContent: 'center' },
+  radioAtivo: { borderColor: colors.cyan },
+  radioPonto: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.cyan },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48 },
   switchLabel: { fontSize: 15, fontWeight: '600', color: colors.white },
   switchLabelSm: { fontSize: 14, fontWeight: '600', color: colors.white },
@@ -530,7 +583,7 @@ const styles = StyleSheet.create({
   tratSub: { ...typography.small, color: colors.mutedDim },
 
   apelidoInput: {
-    backgroundColor: maritime.sunken,
+    backgroundColor: maritime.field,
     borderRadius: radius.sm,
     padding: spacing.sm,
     paddingHorizontal: 12,
@@ -545,7 +598,7 @@ const styles = StyleSheet.create({
 
   saveBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center' },
   saveBtnDone: { backgroundColor: colors.green },
-  saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
   aboutBox: { alignItems: 'center', marginTop: spacing.xl, paddingBottom: spacing.sm },
   aboutApp: { fontSize: 13, fontWeight: '700', color: colors.mutedDim },
   aboutVersion: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
@@ -576,7 +629,7 @@ const styles = StyleSheet.create({
   syncMsgLoading: { color: colors.mutedDim },
 
   loginInput: {
-    backgroundColor: maritime.sunken,
+    backgroundColor: maritime.field,
     borderRadius: radius.sm,
     padding: spacing.sm,
     paddingHorizontal: 12,
@@ -593,7 +646,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.xs,
   },
-  loginBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 15 },
+  loginBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 15 },
   otpBtn: { alignItems: 'center', paddingVertical: spacing.xs },
   otpBtnText: { ...typography.small, color: colors.cyanDim },
 
@@ -601,4 +654,4 @@ const styles = StyleSheet.create({
   linkEnviadoText: { flex: 1, ...typography.small, color: colors.muted, lineHeight: 20 },
   atalho: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48 },
   atalhoTexto: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '600' },
-});
+}));

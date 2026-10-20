@@ -38,7 +38,8 @@ import {
   getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome,
 } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, themed } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { CityPicker } from '../../src/components/CityPicker';
 import { TransporteSheet } from '../../src/components/TransporteSheet';
@@ -54,12 +55,12 @@ import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
-const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = {
+const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = themed(() => ({
   SEM_ESCALA:   colors.cyanDim,
   PRE_EMBARQUE: colors.amber,
   EMBARCADO:    colors.green,
   FOLGA:        colors.cyanDim,
-};
+}));
 
 const ROTULO_GRUPO: Partial<Record<string, string>> = { pessoal: 'Meu offshore', offshore: 'Offshore agora' };
 
@@ -79,6 +80,7 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 type Peca = { id: ModuloHome; forma: 'bloco' | 'tile' | 'linha'; render: () => React.ReactNode; grupo: string };
 
 export default function TelaHoje() {
+  useTema();
   const [state, setState] = useState<HomeState | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -380,6 +382,7 @@ export default function TelaHoje() {
  * linhas consecutivas viram um cartão de lista; rótulo de seção quando o grupo muda.
  */
 function Composicao({ pecas }: { pecas: Peca[] }) {
+  useTema();
   const out: React.ReactNode[] = [];
   let i = 0;
   let ultimoRotulo: string | null = null;
@@ -414,6 +417,7 @@ function Composicao({ pecas }: { pecas: Peca[] }) {
 
 /** Clima da CIDADE escolhida (pessoal/urbano — não é meteorologia offshore). */
 function LinhaClima({ city, weather }: { city: City | null; weather: WeatherData | null }) {
+  useTema();
   if (!city) {
     return (
       <>
@@ -438,6 +442,7 @@ function LinhaClima({ city, weather }: { city: City | null; weather: WeatherData
 
 /** Card da escala em uma linha (tamanho COMPACTO). */
 function HeroCompacto({ contexto }: { contexto: HomeContexto }) {
+  useTema();
   const cor = CONTEXTO_COR[contexto.tipo];
   if (contexto.tipo === 'SEM_ESCALA') {
     return (
@@ -468,6 +473,7 @@ function HeroCompacto({ contexto }: { contexto: HomeContexto }) {
 
 /** Próximos dias — no máximo 3 (ou 1 no compacto); "Ver todos" abre a lista completa. */
 function ProximosDias({ itens, total, onAcao }: { itens: Acontecimento[]; total: number; onAcao: (a: Acontecimento) => void }) {
+  useTema();
   return (
     <View>
       <View style={styles.proxHeader}>
@@ -498,6 +504,7 @@ function ProximosDias({ itens, total, onAcao }: { itens: Acontecimento[]; total:
 function CardDestaque({ icon, titulo, numero, texto, cta, onPress }: {
   icon: IoniconsName; titulo: string; numero: number | null; texto: string; cta: string; onPress: () => void;
 }) {
+  useTema();
   return (
     <TouchableOpacity style={[styles.tile, styles.tileDestaque, styles.cardDestaque]} onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`${titulo}. ${texto}`}>
       <Sheen />
@@ -518,6 +525,7 @@ function CardDestaque({ icon, titulo, numero, texto, cta, onPress }: {
 
 /** Atalhos secundários: Preciso de…, Ferramentas e Loja (Loja fora da barra no 1.0). */
 function Atalhos() {
+  useTema();
   return (
     <View style={styles.secondaryRow}>
       <TouchableOpacity style={styles.toolsLink} onPress={() => { analytics.track('preciso_de_opened', { origem: 'home' }); router.push('/preciso-de'); }} activeOpacity={0.7} accessibilityRole="button">
@@ -547,6 +555,7 @@ type TileProps = {
 
 /** Reflexo frio no topo da superfície — acabamento "marítimo", nunca cromado. */
 function Sheen() {
+  useTema();
   return (
     <LinearGradient
       pointerEvents="none"
@@ -570,6 +579,7 @@ function HomeHero({
   aeroporto: string | null;
   voz: string;
 }) {
+  useTema();
   const cor = CONTEXTO_COR[contexto.tipo];
 
   if (contexto.tipo === 'SEM_ESCALA') {
@@ -580,7 +590,7 @@ function HomeHero({
         <Text style={styles.heroDetalhe}>{contexto.detalhe}</Text>
         <View style={styles.heroCta}>
           <Text style={styles.heroCtaText}>Configurar escala</Text>
-          <Ionicons name="arrow-forward" size={15} color={colors.navy950} />
+          <Ionicons name="arrow-forward" size={15} color={colors.onAccent} />
         </View>
       </TouchableOpacity>
     );
@@ -648,6 +658,7 @@ function HomeTile({
   badgeColor?: string;
   destaque?: boolean;
 }) {
+  useTema();
   const cor = accent ?? colors.cyanDim;
   // 320–349 dp: tipografia e respiro um pouco menores para o título caber inteiro.
   const estreita = useWindowDimensions().width < 350;
@@ -688,6 +699,7 @@ function ActionRow({
   last?: boolean;
   accent?: string;
 }) {
+  useTema();
   return (
     <TouchableOpacity
       style={[styles.actionRow, !last && styles.actionRowBorder]}
@@ -706,7 +718,7 @@ function ActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   // paddingBottom real é calculado em runtime (bottomNavSpace) — este é só o fallback.
   content: { padding: spacing.md, paddingBottom: spacing.xxl + spacing.lg },
@@ -815,7 +827,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     backgroundColor: colors.cyan, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 9, marginTop: spacing.xs,
   },
-  heroCtaText: { fontSize: 14, fontWeight: '700', color: colors.navy950 },
+  heroCtaText: { fontSize: 14, fontWeight: '700', color: colors.onAccent },
 
   // Section titles
   sectionLabel: {
@@ -846,7 +858,7 @@ const styles = StyleSheet.create({
     ...maritime.cardShadow,
   },
   // N2: o card importante ganha um pouco mais de presença na borda, nunca contorno neon.
-  tileDestaque: { borderColor: maritime.accentBorder, borderTopColor: 'rgba(150, 215, 245, 0.26)' },
+  tileDestaque: { borderColor: maritime.accentBorder, borderTopColor: maritime.tileHighlight },
   tileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm + 2 },
   // Pastilha neutra (grafite): o ícone leva a cor, a área não.
   tileIcon: { width: 36, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: maritime.iconTile, borderWidth: StyleSheet.hairlineWidth, borderColor: maritime.glassBorder },
@@ -898,7 +910,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 5,
   },
-  actionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.navy950 },
+  actionBadgeText: { fontSize: 11, fontWeight: '700', color: colors.onAccent },
 
   // Ferramentas — prioridade menor, link discreto
   secondaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
@@ -926,4 +938,4 @@ const styles = StyleSheet.create({
   alertCardWarn: { borderColor: colors.amber + '40', borderTopColor: colors.amber + '55' },
   alertText: { flex: 1, fontSize: 13, color: colors.muted },
 
-});
+}));

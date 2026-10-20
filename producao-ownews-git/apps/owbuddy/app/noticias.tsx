@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, surface, screen, maritime } from '../src/theme';
+import { colors, spacing, radius, typography, surface, screen, maritime, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { fetchFeed, type Article, type FeedResult } from '../src/api';
 import { analytics } from '../src/analytics';
@@ -33,6 +34,7 @@ function sourceNameFrom(article: Article): string {
 }
 
 function ArticleCard({ item }: { item: Article }) {
+  useTema();
   const [pressed, setPressed] = useState(false);
   const handlePress = () => {
     analytics.track('news_opened', { article_id: item.id });
@@ -70,6 +72,7 @@ function ArticleCard({ item }: { item: Article }) {
 }
 
 export default function NoticiasScreen() {
+  useTema();
   const [result, setResult] = useState<FeedResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -148,7 +151,7 @@ export default function NoticiasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   list: { padding: spacing.md },
@@ -185,5 +188,5 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.h3, color: colors.muted },
   emptyText: { ...typography.small, textAlign: 'center', color: colors.mutedDim },
   retryBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minHeight: 44, justifyContent: 'center' },
-  retryText: { color: colors.navy950, fontWeight: '700' },
-});
+  retryText: { color: colors.onAccent, fontWeight: '700' },
+}));

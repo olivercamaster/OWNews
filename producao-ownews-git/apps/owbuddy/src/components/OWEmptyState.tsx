@@ -4,7 +4,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '../theme';
+import { colors, spacing, radius, typography, themed, maritime } from '../theme';
+import { useTema } from '../tema';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -17,6 +18,7 @@ interface OWEmptyStateProps {
 }
 
 export function OWEmptyState({ icon, title, description, actionLabel, onAction }: OWEmptyStateProps) {
+  useTema();
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
@@ -33,7 +35,7 @@ export function OWEmptyState({ icon, title, description, actionLabel, onAction }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -44,7 +46,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(111,139,156,0.1)',
+    backgroundColor: maritime.iconTile,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
@@ -58,5 +60,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-  btnText: { color: colors.navy950, fontWeight: '700', fontSize: 15 },
-});
+  btnText: { color: colors.onAccent, fontWeight: '700', fontSize: 15 },
+}));

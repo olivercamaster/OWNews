@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, surface, maritime } from '../src/theme';
+import { colors, spacing, radius, typography, surface, maritime, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
 import { fetchVagas, type Vaga, type VagasResult } from '../src/api';
 import { analytics } from '../src/analytics';
@@ -23,6 +24,7 @@ const OFFSHORE_LABELS: Record<string, string> = {
 };
 
 function VagaCard({ item }: { item: Vaga }) {
+  useTema();
   const [pressed, setPressed] = useState(false);
   const handlePress = () => {
     analytics.track('vaga_opened', { vaga_id: item.id });
@@ -55,6 +57,7 @@ function VagaCard({ item }: { item: Vaga }) {
 }
 
 export default function VagasScreen() {
+  useTema();
   const [result, setResult] = useState<VagasResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -126,7 +129,7 @@ export default function VagasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   list: { padding: spacing.md },
@@ -165,4 +168,4 @@ const styles = StyleSheet.create({
   resumo: { ...typography.small, color: colors.muted, fontSize: 13, lineHeight: 18 },
   emptyTitle: { ...typography.h3, color: colors.muted },
   emptyText: { ...typography.small, textAlign: 'center', color: colors.mutedDim },
-});
+}));

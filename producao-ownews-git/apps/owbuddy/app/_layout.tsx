@@ -1,24 +1,70 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AppState, Platform, StyleSheet, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { colors, tone } from '../src/theme';
+import * as SplashScreen from 'expo-splash-screen';
+import { colors, tone, themed } from '../src/theme';
+import { TemaProvider, useTema } from '../src/tema';
+import { estiloStatusBar } from '../src/aparencia';
 import { instalarNotificacoes, replanejarLembretes } from '../src/notifications';
 import { aoMudarDadosDoLembrete } from '../src/storage';
 
 // Premium Material Pass: foco de campo elegante no web (borda ciano + halo fino).
 // Regra única para todos os TextInput — no Android/iOS vale o foco nativo.
+// Recalculada a cada troca de tema (tokens do tema ativo).
 function instalarFocoWeb() {
-  if (Platform.OS !== 'web' || typeof document === 'undefined' || document.getElementById('ow-foco')) return;
-  const s = document.createElement('style');
-  s.id = 'ow-foco';
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+  let s = document.getElementById('ow-foco');
+  if (!s) {
+    s = document.createElement('style');
+    s.id = 'ow-foco';
+    document.head.appendChild(s);
+  }
   s.textContent = 'input:focus,textarea:focus{outline:none;border-color:' + tone.borderActive + '!important;box-shadow:0 0 0 3px ' + tone.accentSoft + '}' +
     'input::placeholder,textarea::placeholder{color:' + tone.textMuted + ';opacity:1}';
-  document.head.appendChild(s);
 }
 
+// Nativo: segura o splash até ler a aparência salva (sem piscar o tema errado ao abrir).
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
-  useEffect(instalarFocoWeb, []);
+  return (
+    <TemaProvider>
+      <AppShell />
+    </TemaProvider>
+  );
+}
+
+/** Tema da navegação (fundo atrás das transições, cards de modal, cabeçalhos) = tokens do app. */
+function temaNavegacao(tema: 'escuro' | 'claro'): Theme {
+  const base = tema === 'claro' ? DefaultTheme : DarkTheme;
+  return {
+    ...base,
+    dark: tema === 'escuro',
+    colors: {
+      ...base.colors,
+      primary: colors.cyan,
+      background: colors.navy950,
+      card: colors.navy900,
+      text: colors.white,
+      border: colors.lineSoft,
+      notification: colors.red,
+    },
+  };
+}
+
+function AppShell() {
+  const { tema, pronto } = useTema();
+  const navTema = useMemo(() => temaNavegacao(tema), [tema]);
+  useEffect(instalarFocoWeb, [tema]);
+  useEffect(() => {
+    if (pronto) SplashScreen.hideAsync().catch(() => {});
+  }, [pronto]);
+  // Rede de segurança: nunca deixar o splash preso se a leitura do armazenamento travar.
+  useEffect(() => {
+    const t = setTimeout(() => { SplashScreen.hideAsync().catch(() => {}); }, 2500);
+    return () => clearTimeout(t);
+  }, []);
   // Lembretes locais: handler + toque → rota; replaneja ao abrir, ao voltar
   // para o app e quando escala/checklist/certificados/viagem mudam.
   useEffect(() => {
@@ -32,11 +78,13 @@ export default function RootLayout() {
   return (
     <View style={styles.webFrame}>
       <View style={styles.webColumn}>
-      <StatusBar style="light" />
+      <StatusBar style={estiloStatusBar(tema)} />
+      <ThemeProvider value={navTema}>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.navy900 },
           headerTintColor: colors.white,
+          // Telas empilhadas e modais: mesmo fundo do tema (nunca "app claro + modal escuro").
           headerTitleStyle: { fontWeight: '700', color: colors.white },
           // Sem a linha clara padrão sob o cabeçalho: separação tonal (Premium Material Pass).
           headerShadowVisible: false,
@@ -171,6 +219,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      </ThemeProvider>
       </View>
     </View>
   );
@@ -178,11 +227,11 @@ export default function RootLayout() {
 
 // Web em monitor largo: o app continua mobile — coluna central com largura de
 // celular grande, fundo navy nas laterais. No Android/iOS é um View neutro (flex:1).
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   webFrame: Platform.OS === 'web'
     ? { flex: 1, backgroundColor: tone.bg0, alignItems: 'center' }
     : { flex: 1 },
   webColumn: Platform.OS === 'web'
     ? { flex: 1, width: '100%', maxWidth: 560, overflow: 'hidden' }
     : { flex: 1 },
-});
+}));

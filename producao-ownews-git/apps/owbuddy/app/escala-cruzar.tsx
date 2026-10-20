@@ -21,7 +21,8 @@ import {
 } from '@owbuddy/domain';
 import type { EscalaConfig, EscalaSecundaria } from '@owbuddy/domain';
 import { getEscala, getEscalasCruzar, setEscalasCruzar } from '../src/storage';
-import { colors, maritime, spacing, radius, typography, surface, tone } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, tone, themed } from '../src/theme';
+import { useTema } from '../src/tema';
 import { confirmar } from '../src/confirmar';
 import { ioniconRelacao } from '../src/relacao-icones';
 
@@ -42,6 +43,7 @@ function fmtDiaMes(iso: string): string {
  * Editar / Ocultar|Mostrar / Excluir à vista (antes só um lápis e uma lixeira soltos).
  */
 export default function EscalaCruzarScreen() {
+  useTema();
   const [escalas, setEscalas] = useState<EscalaSecundaria[]>([]);
   const [config, setConfig] = useState<EscalaConfig | null>(null);
   const [carregado, setCarregado] = useState(false);
@@ -165,7 +167,7 @@ export default function EscalaCruzarScreen() {
         onPress={() => router.push('/escala-secundaria-form')}
         accessibilityRole="button"
       >
-        <Ionicons name="add" size={18} color={colors.navy950} />
+        <Ionicons name="add" size={18} color={colors.onAccent} />
         <Text style={styles.addBtnText}>{escalas.length > 0 ? 'Cruzar outra escala' : 'Cruzar uma escala'}</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -175,6 +177,7 @@ export default function EscalaCruzarScreen() {
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function Acao({ icon, label, onPress, a11y, perigo }: { icon: IoniconsName; label: string; onPress: () => void; a11y: string; perigo?: boolean }) {
+  useTema();
   return (
     <TouchableOpacity style={styles.acao} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} activeOpacity={0.7}>
       <Ionicons name={icon} size={16} color={perigo ? colors.red : colors.cyanDim} />
@@ -183,7 +186,7 @@ function Acao({ icon, label, onPress, a11y, perigo }: { icon: IoniconsName; labe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
 
@@ -241,5 +244,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: colors.cyan, borderRadius: radius.md, minHeight: 48,
   },
-  addBtnText: { fontSize: 15, fontWeight: '700', color: colors.navy950 },
-});
+  addBtnText: { fontSize: 15, fontWeight: '700', color: colors.onAccent },
+}));

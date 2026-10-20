@@ -32,7 +32,8 @@ import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain
 import { getEscala, getChecklist, setChecklist, getOcultarConcluidos, setOcultarConcluidos } from '../../src/storage';
 import { confirmar } from '../../src/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface, themed, tokens } from '../../src/theme';
+import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
@@ -89,6 +90,7 @@ function buildSections(data: ChecklistData, ocultarConcluidos: boolean): Section
 }
 
 export default function MeuEmbarque() {
+  useTema();
   const [data, setData] = useState<ChecklistData | null>(null);
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
@@ -243,7 +245,7 @@ export default function MeuEmbarque() {
                 </View>
                 {tudo ? (
                   <View style={styles.doneCircle}>
-                    <Ionicons name="checkmark" size={30} color={colors.navy950} />
+                    <Ionicons name="checkmark" size={30} color={colors.onAccent} />
                   </View>
                 ) : (
                   <View style={[styles.progressCircle, { borderColor: corProgresso }]}>
@@ -323,7 +325,7 @@ export default function MeuEmbarque() {
               maxLength={60}
             />
             <TouchableOpacity style={styles.addBtn} onPress={add} disabled={!novoItem.trim()}>
-              <Ionicons name="add" size={26} color={colors.navy950} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
+              <Ionicons name="add" size={26} color={colors.onAccent} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
             </TouchableOpacity>
           </View>
           {counts.feitos > 0 && (
@@ -405,6 +407,7 @@ function MalaItem({
   onToggle: (id: string) => void;
   onOptions: (item: ChecklistItem) => void;
 }) {
+  useTema();
   return (
     <View style={styles.itemRow}>
       <TouchableOpacity
@@ -418,7 +421,7 @@ function MalaItem({
         accessibilityHint="Toque para marcar ou desmarcar."
       >
         <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
-          {item.ok && <Ionicons name="checkmark" size={14} color={colors.navy950} />}
+          {item.ok && <Ionicons name="checkmark" size={14} color={colors.onAccent} />}
         </View>
         <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
       </TouchableOpacity>
@@ -435,7 +438,7 @@ function MalaItem({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: 'transparent' },
   resetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'center', minHeight: 44, paddingHorizontal: spacing.md, marginBottom: spacing.md },
   resetText: { fontSize: 13, color: colors.mutedDim, fontWeight: '600' },
@@ -498,7 +501,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
     paddingBottom: spacing.sm,
   },
-  counterCardDone: { borderColor: colors.green + '50', backgroundColor: 'rgba(47, 191, 113, 0.07)' },
+  counterCardDone: { borderColor: colors.green + '50', backgroundColor: tokens.successSoft },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', padding: spacing.md, paddingBottom: spacing.sm,
@@ -553,7 +556,7 @@ const styles = StyleSheet.create({
   moreBtn: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
   checkbox: {
     width: 22, height: 22, borderRadius: 5, borderWidth: 2,
-    borderColor: colors.line, alignItems: 'center', justifyContent: 'center',
+    borderColor: tokens.controlBorder, alignItems: 'center', justifyContent: 'center',
   },
   checkboxDone: { backgroundColor: colors.green, borderColor: colors.green },
   itemText: { flex: 1, ...typography.body },
@@ -566,12 +569,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   addInput: {
-    flex: 1, backgroundColor: maritime.sunken, borderRadius: radius.sm,
+    flex: 1, backgroundColor: maritime.field, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 10,
     color: colors.white, fontSize: 15,
     borderWidth: 1, borderColor: maritime.fieldBorder,
   },
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(2, 10, 18, 0.62)', justifyContent: 'flex-end', alignItems: 'center' },
+  sheetBackdrop: { flex: 1, backgroundColor: maritime.overlay, justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
     width: '100%', maxWidth: 560,
     backgroundColor: surface.header, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
@@ -593,4 +596,4 @@ const styles = StyleSheet.create({
     width: 44, height: 44, backgroundColor: colors.cyan,
     borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
   },
-});
+}));
