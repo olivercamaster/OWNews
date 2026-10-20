@@ -290,6 +290,7 @@ def run_static():
     test("bloco Fonte: autoria honesta (IA declarada, sem apuração própria inventada)", lambda: _check_buddy_footer_fallback())
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
+    test("home_selecao_test.js passa (P0 freshness: decaimento, budget, diversidade, SSR=API)", lambda: _run_node_test("home_selecao_test.js"))
     test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
     test("editorial_layer_test.js passa (49 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
     test("Política Editorial: texto explica as 3 prioridades do resolver", lambda: _check_politica_buddy_te_explica())

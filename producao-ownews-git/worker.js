@@ -4168,28 +4168,10 @@ function pontuarDestaque(n, agora){
   return recencia + autoridade + relevanciaOffshore + impacto + bonusImagemPropria;
 }
 
-/* REGRA NOVA (2026-09-19, Missão Contínua — manchete sempre atualizada):
-   a Hero deixou de ser "quem tem o maior editorial_score" e passou a ser
-   "a notícia elegível MAIS NOVA" — o score por pontuação (pontuarDestaque,
-   preservado acima) fazia uma matéria de 18-24h com autoridade/impacto
-   alto continuar na Hero mesmo já existindo notícia válida de 1h, o que
-   deixava o portal parecendo parado ("por que essa notícia velha ainda
-   está na capa?"). editorial_score continua existindo e sendo calculado
-   — só não decide mais SOZINHO a Hero; segue disponível pra laterais/
-   Giro/categorias/futuras integrações com Telegram/Instagram.
-
-   hero_eligible: hoje todo artigo real do pipeline é elegível (não há
-   ainda, no schema, conteúdo evergreen/institucional publicado como
-   "artigo" — o Discovery Engine que vai produzir esse tipo de conteúdo
-   ainda não existe). Hook pronto: um artigo futuro com
-   n.hero_eligible igual a false (ex.: guia evergreen) fica de fora da
-   Hero sem precisar mudar esta função de novo.
-
-   Breaking (PALAVRAS_BREAKING_URGENTE, subconjunto mais estrito de
-   PALAVRAS_IMPACTO — só incidente/greve real, nunca "recorde"/
-   "investimento") pode segurar a Hero por até 24h mesmo sendo mais
-   velho que a notícia mais nova — depois disso, a regra de recência
-   volta a valer normalmente (nunca fica preso pra sempre). */
+/* Reserva LOCAL da manchete: só roda se a seleção canônica do servidor
+   (window.__HOME_SEL__ / /api/home-selecao → selecionarHomeServidor, com
+   relevância × frescor) não estiver disponível. hero_eligible === false
+   tira um artigo da Hero. */
 const PALAVRAS_BREAKING_URGENTE = [
   "acidente", "explosão", "explosao", "vazamento", "greve",
   "parada de produção", "parada de producao", "interdição", "interdicao",
@@ -4295,13 +4277,7 @@ function renderTudo(noticias){
         return Number.isFinite(horas) && horas <= 48;
       })
   )
-    // Reordenado por editorial_score em 2026-09-19 (Missão Contínua): a
-    // Hero passou a priorizar recência pura (ver escolherDestaque), então
-    // pontuarDestaque() — que já existia e ficaria sem nenhum uso — passa
-    // a decidir a ORDEM das laterais dentro da mesma janela de 24h
-    // (recência continua sendo o filtro de elegibilidade, só a prioridade
-    // relativa dentro do grupo elegível é que agora usa o score completo:
-    // autoridade da fonte + relevância offshore + impacto + imagem).
+    // Reserva local; com seleção canônica, as laterais vêm do servidor.
     .sort((a, b) => pontuarDestaque(b, agoraDestaques) - pontuarDestaque(a, agoraDestaques));
   /* Corrigido em 2026-09-19 (P1 crítico — imagens repetidas, confirmado ao
      vivo: manchete + 3 laterais do PetroNotícias com a MESMA foto). Antes
@@ -4312,16 +4288,8 @@ function renderTudo(noticias){
      percorre a lista elegível pulando qualquer candidata cuja image_url já
      apareça no hero ou em uma lateral já escolhida — mesma regra de sempre
      ("quando faltar alternativa, mostrar menos", nunca força repetição). */
-  /* Diversidade de fonte (leve, sem cota rígida): a Home não pode virar
-     "manchete + 3 laterais da mesma fonte" quando existe alternativa de
-     outra fonte igualmente elegível (<=24h, sem imagem repetida) — regra
-     pedida explicitamente ("hero PetroNotícias + três laterais
-     PetroNotícias" foi citado como sintoma de "espelho de uma fonte só").
-     2 passadas: 1ª tenta preencher priorizando fonte diferente das já
-     escolhidas (hero incluso); candidatas da mesma fonte ficam reservadas.
-     2ª só usa essa reserva pra completar até 3 se sobrar vaga — nunca troca
-     notícia mais relevante por menos relevante, só reordena a PREFERÊNCIA
-     de fonte dentro do mesmo pool, já ordenado por relevância/recência. */
+  /* Diversidade de fonte: 1ª passada evita fonte repetida; a reserva só
+     completa vagas. */
   const imagensDestaques = new Set([hero.image_url].filter(Boolean));
   const fontesDestaques = new Set([hero.image_credit].filter(Boolean));
   const destaques = [];
@@ -6026,45 +5994,83 @@ async function obterNoticiasHomeServidor() {
   })) : [];
 }
 
-/* editorial_score é calculado na coleta e fica estático — inclui recência
-   que envelhece. homeScoreServidor recalcula o peso temporal agora para que
-   laterais sejam ordenadas por relevância FRESCA, não por relevância da
-   hora da coleta. */
+/* ==== SELEÇÃO DA HOME (P0 Freshness, 2026-10-20) ====
+   Regra única (SSR, /api/home-selecao e hidratação via __HOME_SEL__):
+   pontuação = editorial_score (+ urgência no TÍTULO) × frescor contínuo.
+   Budget: manchete = melhor forte (>= HOME_SCORE_FORTE) em 24h; senão 48h;
+   senão a melhor disponível. Laterais: 24h (48h com < 3). Sem matéria em
+   48h → estado vazio honesto; nada é inventado nem o gate é afrouxado. */
+const HOME_SCORE_FORTE = 50;
+const HOME_BONUS_URGENCIA = 10;
+const HOME_TOLERANCIA_FUTURO_H = 0.25; // relógio da fonte adiantado até 15 min
+function fatorFrescorHome(h) {
+  if (!Number.isFinite(h) || h < -HOME_TOLERANCIA_FUTURO_H || h > 48) return 0;
+  if (h <= 6) return 1;
+  if (h <= 12) return 1 - 0.15 * (h - 6) / 6;     // 1,00 → 0,85
+  if (h <= 18) return 0.85 - 0.2 * (h - 12) / 6;  // 0,85 → 0,65
+  if (h <= 24) return 0.65 - 0.2 * (h - 18) / 6;  // 0,65 → 0,45
+  return 0.3;                                      // 24–48h: só se faltar
+}
+function relevanciaHome(n) {
+  const base = Math.max(0, Math.min(100, Number(n.editorial_score) || 0));
+  const titulo = String(n.title || '').toLowerCase();
+  return base + (PALAVRAS_BREAKING_SERVIDOR.some((p) => titulo.includes(p)) ? HOME_BONUS_URGENCIA : 0);
+}
+function horasHome(n, agoraMs) { return (agoraMs - new Date(n.published_at).getTime()) / 3600000; }
 function homeScoreServidor(n, agoraMs) {
-  const h = (agoraMs - new Date(n.published_at).getTime()) / 3600000;
-  const decaimento = h <= 6 ? 1.0 : h <= 24 ? 0.8 : h <= 48 ? 0.5 : 0.0;
-  return (Number(n.editorial_score) || 0) * decaimento;
+  return relevanciaHome(n) * fatorFrescorHome(horasHome(n, agoraMs));
+}
+// Melhor por pontuação; empate fica com a mais recente (lista já vem desc).
+function melhorHome(lista, agoraMs) {
+  let melhor = null, pts = -1;
+  for (const n of lista) { const p = homeScoreServidor(n, agoraMs); if (p > pts) { melhor = n; pts = p; } }
+  return melhor;
+}
+function mesmaPautaHome(a, b) {
+  return Math.min(similaridadeTextos(a.title, b.title).contencao, similaridadeTextos(b.title, a.title).contencao) >= 0.6;
 }
 
 function selecionarHomeServidor(noticias, agoraMs) {
-  const horasDe = (n) => (agoraMs - new Date(n.published_at).getTime()) / 3600000;
   // Recovery 2.0: matéria thin nunca vira hero nem lateral da Home.
   // O select da Home já inclui `content`, o que permite o check real.
   const semThin = noticias.filter((n) => !ehMateriaThin(n, null));
   const em48hBase = semThin.length >= 3 ? semThin : noticias; // fallback gracioso
-  const em48h = em48hBase.filter((n) => { const h = horasDe(n); return Number.isFinite(h) && h >= 0 && h <= 48; });
+  const em48h = em48hBase
+    .filter((n) => fatorFrescorHome(horasHome(n, agoraMs)) > 0)
+    .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
   if (!em48h.length) return null;
-  const maisNova = em48h[0];
-  const breaking = em48h.find((n) => { const t = ((n.title || '') + ' ' + (n.summary || '')).toLowerCase(); return PALAVRAS_BREAKING_SERVIDOR.some((p) => t.includes(p)); });
-  const hero = (breaking && breaking.id !== maisNova.id && horasDe(breaking) <= 24) ? breaking : maisNova;
+  const fortes = em48h.filter((n) => relevanciaHome(n) >= HOME_SCORE_FORTE);
+  const fortes24h = fortes.filter((n) => horasHome(n, agoraMs) <= 24);
+  const poolHero = fortes24h.length ? fortes24h : fortes.length ? fortes : em48h;
+  const hero = melhorHome(poolHero, agoraMs);
   const restantes = em48h.filter((n) => n.id !== hero.id);
-  const em24h = restantes.filter((n) => horasDe(n) <= 24);
-  const elegiveis = (em24h.length >= 3 ? em24h : restantes).slice().sort((a, b) => homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
+  const em24h = restantes.filter((n) => horasHome(n, agoraMs) <= 24);
+  const elegiveis = (em24h.length >= 3 ? em24h : restantes).slice()
+    .sort((a, b) => homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
+  // Diversidade: sem imagem/fonte repetida, até 2 por editoria, sem pauta
+  // repetida; a reserva só completa vagas (pauta repetida por último).
   const imagens = new Set([hero.image_url].filter(Boolean));
   const fontes = new Set([hero.image_credit].filter(Boolean));
+  const porEditoria = { [editoriaDeServidor(hero)]: 1 };
   const laterais = [];
   const reserva = [];
   for (const c of elegiveis) {
     if (laterais.length >= 3) break;
     if (c.image_url && imagens.has(c.image_url)) continue;
-    if (c.image_credit && fontes.has(c.image_credit)) { reserva.push(c); continue; }
-    laterais.push(c); if (c.image_url) imagens.add(c.image_url); if (c.image_credit) fontes.add(c.image_credit);
+    const ed = editoriaDeServidor(c);
+    if ((c.image_credit && fontes.has(c.image_credit)) || (porEditoria[ed] || 0) >= 2 ||
+        [hero, ...laterais].some((x) => mesmaPautaHome(x, c))) { reserva.push(c); continue; }
+    laterais.push(c); porEditoria[ed] = (porEditoria[ed] || 0) + 1;
+    if (c.image_url) imagens.add(c.image_url); if (c.image_credit) fontes.add(c.image_credit);
   }
-  for (const c of reserva) {
+  const pautaRepetida = (c) => [hero, ...laterais].some((x) => mesmaPautaHome(x, c));
+  for (const c of [...reserva.filter((c) => !pautaRepetida(c)), ...reserva.filter(pautaRepetida)]) {
     if (laterais.length >= 3) break;
     if (c.image_url && imagens.has(c.image_url)) continue;
     laterais.push(c); if (c.image_url) imagens.add(c.image_url);
   }
+  // Ordem de exibição das laterais = pontuação (a reserva entra no lugar certo).
+  laterais.sort((a, b) => homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
   const usados = new Set([hero, ...laterais].map((n) => n.id));
   // Dedup de imagem em Últimas só contra hero — laterais não bloqueiam artigos
   // mais novos que ficam fora das laterais por terem score menor.
@@ -6077,6 +6083,29 @@ function selecionarHomeServidor(noticias, agoraMs) {
     ultimas.push(c); usados.add(c.id); if (c.image_url) imagensUltimasSSR.add(c.image_url);
   }
   return { hero, laterais, ultimas };
+}
+
+// Diagnóstico read-only (?diagnostico=1): mesma função, sem escrita KV/DO.
+function diagnosticoHome(noticias, agoraMs) {
+  const sel = selecionarHomeServidor(noticias, agoraMs);
+  const papel = (n) => !sel ? null : n.id === sel.hero.id ? 'hero' : sel.laterais.some((x) => x.id === n.id) ? 'lateral' : sel.ultimas.some((x) => x.id === n.id) ? 'ultimas' : null;
+  const motivo = (n) => ehMateriaThin(n, null) ? 'fora: sem matéria OWNews completa (thin/duplicada/insuficiente)'
+    : fatorFrescorHome(horasHome(n, agoraMs)) === 0 ? 'fora: mais de 48h'
+    : relevanciaHome(n) < HOME_SCORE_FORTE ? 'elegível, abaixo do score forte (' + HOME_SCORE_FORTE + ')'
+    : 'elegível';
+  const r1 = (x) => Math.round(x * 10) / 10;
+  return {
+    gerado_em: new Date(agoraMs).toISOString(),
+    regra: { score_forte: HOME_SCORE_FORTE, bonus_urgencia_titulo: HOME_BONUS_URGENCIA, hero_janela_h: [24, 48], laterais_janela_h: [24, 48] },
+    hero: sel ? sel.hero.id : null,
+    laterais: sel ? sel.laterais.map((n) => n.id) : [],
+    candidatos: noticias.slice(0, 20).map((n) => ({
+      id: n.id, titulo: n.title, published_at: n.published_at, idade_h: r1(horasHome(n, agoraMs)),
+      editoria: editoriaDeServidor(n), editorial_score: n.editorial_score, buddy_source: n.buddy_source || null,
+      fator_frescor: Math.round(fatorFrescorHome(horasHome(n, agoraMs)) * 100) / 100, pontuacao_home: r1(homeScoreServidor(n, agoraMs)),
+      motivo: motivo(n), papel: papel(n)
+    }))
+  };
 }
 
 function homeSsrCapa(n, classe) {
@@ -6193,9 +6222,14 @@ function injetarNoticiasHome(html, noticias, agora) {
 function selecaoCanonicaHome(selecao) {
   return selecao ? { hero: selecao.hero.id, laterais: selecao.laterais.map((n) => n.id) } : null;
 }
-async function responderHomeSelecao() {
+async function responderHomeSelecao(request) {
   let sel = null;
-  try { sel = selecaoCanonicaHome(selecionarHomeServidor(await obterNoticiasHomeServidor(), Date.now())); } catch {}
+  try {
+    const noticias = await obterNoticiasHomeServidor();
+    sel = request && new URL(request.url).searchParams.get('diagnostico') === '1'
+      ? diagnosticoHome(noticias, Date.now())
+      : selecaoCanonicaHome(selecionarHomeServidor(noticias, Date.now()));
+  } catch {}
   return new Response(JSON.stringify(sel), { headers: { 'Content-Type': 'application/json; charset=UTF-8' } });
 }
 
@@ -21956,7 +21990,7 @@ export default {
     }
 
     if (url.pathname === "/api/home-selecao" && request.method === "GET") {
-      return respostaCacheada(request, ctx, 120, responderHomeSelecao);
+      return respostaCacheada(request, ctx, 120, () => responderHomeSelecao(request));
     }
 
     if (url.pathname === "/api/mais-lidas" && request.method === "GET") {
