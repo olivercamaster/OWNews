@@ -1,0 +1,8 @@
+/icons/icon-192.png
+  Cache-Control: public, max-age=604800
+/icons/icon-512.png
+  Cache-Control: public, max-age=604800
+/icons/apple-touch-icon.png
+  Cache-Control: public, max-age=604800
+/icons/buddy-head.png
+  Cache-Control: public, max-age=2592000, immutable

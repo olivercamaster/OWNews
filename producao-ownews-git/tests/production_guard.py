@@ -291,6 +291,7 @@ def run_static():
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
     test("home_selecao_test.js passa (P0 freshness: decaimento, budget, diversidade, SSR=API)", lambda: _run_node_test("home_selecao_test.js"))
+    test("newsroom_test.mjs passa (Live Newsroom: redator, gate, 2ª tentativa, memória, dedup, saúde, KV)", lambda: _run_node_test("newsroom_test.mjs"))
     test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
     test("editorial_layer_test.js passa (49 asserts Recovery 2.0)", lambda: _run_node_test("editorial_layer_test.js"))
     test("Política Editorial: texto explica as 3 prioridades do resolver", lambda: _check_politica_buddy_te_explica())
@@ -327,7 +328,7 @@ def run_static():
     test("Home: boot script antes do CSS, CSS claro no <style>, botão #temaBtn, toggle antes de </body>", lambda: _check_tema_home())
     test("paginaChrome: boot script, CSS claro, botão #temaBtn, toggle (uma única definição de cada)", lambda: _check_tema_chrome())
     test("tema claro é paleta própria (não inversão): fundo off-white, texto navy, color-scheme:light", lambda: _check_tema_paleta())
-    test("Buddy oficial: constante BUDDY_HEAD_PNG + rota /icons/buddy-head.png imutável", lambda: _check_buddy_asset())
+    test("Buddy oficial: public/icons/buddy-head.png (Static Assets) + cache imutável", lambda: _check_buddy_asset())
     test("Buddy só onde tem função (lista fechada: Buddy te explica, Ecossistema, /owbuddy, /newsletter) e sem animação", lambda: _check_buddy_usos())
     test("Buddy resume: pergunta oficial + Buddy pequeno + card de impacto separado (Editorial Original 4.0)", lambda: _check_buddy_explica_markup())
     test("Ecossistema: card OWBuddy com copy oficial e CTA para /owbuddy (sem loja/download)", lambda: _check_ecossistema())
@@ -563,13 +564,20 @@ def _check_tema_paleta():
 
 
 def _check_buddy_asset():
+    # Live Newsroom (2026-10-20): ícones e mascote saíram do worker.js
+    # (base64) para Workers Static Assets — mesmo arquivo, mesma rota.
     w = worker()
-    expect(w.count('const BUDDY_HEAD_PNG = "') == 1, "constante BUDDY_HEAD_PNG")
-    b64 = w.split('const BUDDY_HEAD_PNG = "', 1)[1].split('"', 1)[0]
-    expect(b64.startswith("iVBORw0KGgo"), "não é PNG base64")
-    expect(20000 < len(b64) < 60000, f"tamanho base64 fora do esperado: {len(b64)}")
-    expect_in('url.pathname === "/icons/buddy-head.png"', w, "rota")
-    expect_in('"Cache-Control": "public, max-age=2592000, immutable"', w.split('url.pathname === "/icons/buddy-head.png"', 1)[1][:600], "cache imutável")
+    png = ROOT / "public" / "icons" / "buddy-head.png"
+    expect(png.exists(), "public/icons/buddy-head.png ausente")
+    dados = png.read_bytes()
+    expect(dados.startswith(b"\x89PNG\r\n\x1a\n"), "não é PNG")
+    expect(15000 < len(dados) < 45000, f"tamanho fora do esperado: {len(dados)}")
+    for f in ("icon-192.png", "icon-512.png", "apple-touch-icon.png"):
+        expect((ROOT / "public" / "icons" / f).read_bytes().startswith(b"\x89PNG"), f)
+    expect_in('"assets": { "directory": "./public", "binding": "ASSETS" }', (ROOT / "wrangler.jsonc").read_text(), "binding de assets")
+    headers = (ROOT / "public" / "_headers").read_text()
+    expect_in("/icons/buddy-head.png\n  Cache-Control: public, max-age=2592000, immutable", headers, "cache imutável")
+    expect_in('env.ASSETS.fetch(request)', w, "fallback da rota /icons")
 
 
 def _check_buddy_usos():
@@ -1201,10 +1209,16 @@ def _check_home_hero():
 
 
 def _check_home_central():
+    # Contrato atual (Live Newsroom 2026-10-20): a antiga faixa
+    # "central-intencoes"/"QUERO ENTRAR" virou a seção Central Offshore
+    # (#carreiras) com cartões de intenção — mesmo propósito, markup novo.
     _, body = get("/")
-    expect("central-intencoes" in body, "Central Offshore intention paths missing")
-    expect("QUERO ENTRAR" in body or "quero-entrar" in body.lower() or
-           "ENTRAR NO OFFSHORE" in body, "Intention path 'Entrar' missing")
+    expect('<h2>Central Offshore</h2>' in body, "seção Central Offshore ausente")
+    expect(body.count('class="cof-card"') >= 4, "Central Offshore com menos de 4 caminhos de intenção")
+    for t in ("Quero entrar no offshore", "Procuro oportunidades", "Já trabalho offshore"):
+        expect(t in body, f"caminho de intenção '{t}' ausente")
+    for href in ('href="/comece-aqui"', 'href="/vagas"', 'href="/minha-escala"'):
+        expect(href in body, f"link {href} ausente na Central Offshore")
 
 
 def _check_home_news():
@@ -1220,8 +1234,13 @@ def _check_home_vagas():
 
 
 def _check_home_acesso_rapido():
+    # Contrato atual: faixa de acesso rápido é <nav aria-label="Acesso
+    # rápido"> com cartões (Telegram, Vagas, Modo Embarcado…), sem o título
+    # em caixa alta antigo.
     _, body = get("/")
-    expect("ACESSO RÁPIDO" in body, "ACESSO RÁPIDO section missing")
+    expect('id="accessRow" aria-label="Acesso rápido"' in body, "faixa Acesso rápido ausente")
+    expect(body.count('class="access-card') >= 3, "Acesso rápido com menos de 3 cartões")
+    expect('href="https://t.me/ownewsradar"' in body and 'id="embarcadoBtn"' in body, "Telegram/Modo Embarcado ausentes no Acesso rápido")
 
 
 def _check_me_form():

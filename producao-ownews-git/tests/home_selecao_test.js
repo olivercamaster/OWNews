@@ -22,7 +22,7 @@ const canonSrc = trecho("function selecaoCanonicaHome(selecao)", "async function
 const esc = (s) => String(s == null ? "" : s);
 const H = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
   editoriaSrc + "\n" + camadaSrc + "\n" + qSrc + "\n" + selSrc + "\n" + canonSrc +
-  "\nreturn { selecionarHomeServidor, homeScoreServidor, fatorFrescorHome, diagnosticoHome, selecaoCanonicaHome, HOME_SCORE_FORTE };"
+  "\nreturn { selecionarHomeServidor, homeScoreServidor, fatorFrescorHome, diagnosticoHome, selecaoCanonicaHome, HOME_SCORE_FORTE, editoriaDeServidor, materiaInternacional };"
 )(esc, esc);
 
 let pass = 0, fail = 0;
@@ -193,6 +193,37 @@ test("decaimento é monotônico (0–48h)", () => {
   let ant = 2;
   for (let h = 0; h <= 48; h += 0.5) { const f = H.fatorFrescorHome(h); expect(f <= ant, "h=" + h); ant = f; }
   expect(H.fatorFrescorHome(48.1) === 0);
+});
+
+console.log("\nEditoria — fonte ≠ país da matéria");
+
+const ED = (title, summary, credito) => H.editoriaDeServidor({ title, summary: summary || "", image_credit: credito || "Offshore Energy" });
+test("Líbia (fonte internacional genérica) → INTERNACIONAL", () => {
+  const e = ED("Eni e a Corporação Nacional de Petróleo da Líbia iniciam projeto de gás na África");
+  expect(e === "INTERNACIONAL", e);
+});
+test("Noruega → INTERNACIONAL; descoberta no Brasil pela mesma fonte → editoria temática", () => {
+  expect(ED("Vår Energi e Equinor descobrem gás e condensado em nova licença norueguesa") === "INTERNACIONAL");
+  const br = ED("Equinor anuncia descoberta no pré-sal da Bacia de Santos");
+  expect(br !== "INTERNACIONAL" && br !== "BRASIL", br);
+});
+test("fonte brasileira falando do exterior → INTERNACIONAL", () => {
+  expect(ED("Milei diz que Argentina está próxima de produzir 1 milhão de barris", "", "Eixos") === "INTERNACIONAL");
+});
+test("fonte internacional falando do Brasil → não é INTERNACIONAL", () => {
+  const e = ED("Transocean recebe contrato da Petrobras para sonda em Búzios", "", "Transocean");
+  expect(e !== "INTERNACIONAL", e);
+});
+test("fonte internacional sem país citado continua INTERNACIONAL", () => {
+  expect(ED("Fleet status report de outubro", "", "Transocean") === "INTERNACIONAL");
+});
+test("matéria brasileira sem tema específico continua BRASIL; 'irá' não vira Irã", () => {
+  expect(ED("Sindipetro irá realizar evento em Macaé", "", "Sindipetro NF") !== "INTERNACIONAL");
+});
+test("o mesmo classificador vai para os scripts do navegador (sem cópia divergente)", () => {
+  expect(FRONT.includes("${materiaInternacional.toString()}"), "Home");
+  expect((FRONT.match(/materiaInternacional\.toString\(\) \+/g) || []).length === 2, "páginas de lista");
+  expect(!/FONTES_INTERNACIONAIS(_B)?\.indexOf\(n\.image_credit\)!==-1\)return "INTERNACIONAL"/.test(FRONT), "regra antiga por fonte");
 });
 
 console.log("\n" + pass + " passaram, " + fail + " falharam");

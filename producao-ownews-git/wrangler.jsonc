@@ -34,6 +34,9 @@
   // OWNews (bem menor que o teto da Cloudflare, ver PERGUNTE_IA_LIMITE_DIA
   // no worker.js), o endpoint recusa educadamente — nunca cobra, nunca
   // habilita plano pago.
+  // Ícones/mascote (antes base64 no worker.js, ~154 KB): Static Assets não
+  // contam no tamanho do script. Cache-Control em public/_headers.
+  "assets": { "directory": "./public", "binding": "ASSETS" },
   "ai": { "binding": "AI" },
   // KV dedicado só pro orçamento diário / rate limit / cache de perguntas
   // normalizadas da IA — nenhum dado pessoal, só contadores e respostas já
