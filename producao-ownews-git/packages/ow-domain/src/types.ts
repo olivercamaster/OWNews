@@ -65,6 +65,8 @@ export interface EscalaSecundaria {
   diasFolga?: number;
   dataRef: string;
   tipoRef: TipoRef;
+  /** Oculta no calendário sem apagar os dados (Cruzar 2.1). Ausente = visível. */
+  oculta?: boolean;
 }
 
 export type DayKind = 'EMBARCADO' | 'FOLGA' | 'DOBRA' | 'FERIAS' | 'SEM_ESCALA';

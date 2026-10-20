@@ -523,3 +523,13 @@ Camada só visual: nenhuma rota, dado, ordem de módulo ou regra mudou. Commit i
 - **Cores funcionais mantidas:** EMB/embarcado verde, DEB âmbar, dobra, férias, feriado, eventos, Uber branco e Loja.
 
 **Para reverter só esta camada:** `git revert <commit do premium pass>`. O que entrou depois continua.
+
+## Cruzar Escalas 2.1 — gerenciamento (2026-10-20)
+
+- `Escala → Cruzar` abre **Escalas cruzadas** (`app/escala-cruzar.tsx`): por pessoa mostra ícone, nome, relação · ciclo, próximo embarque, folgas em comum e as ações **Editar / Ocultar|Mostrar / Excluir**; no fim, **Cruzar outra escala**.
+- Editar reutiliza `app/escala-secundaria-form.tsx` e grava no **mesmo id** (`salvarEscalaSecundaria`). A posição na lista é mantida. A relação ganhou **Cunhado/a**, e o texto livre continua preservado. O ícone escolhido não é trocado ao mudar a relação. A data é "Data de referência da escala" (Embarque/Desembarque) e mostra uma prévia do próximo embarque.
+- `EscalaSecundaria.oculta?: true` esconde a pessoa do calendário sem apagar dados. Ausente quer dizer visível, então dado antigo não precisa de migração.
+- Calendário: a célula com folga em comum ganha o ícone da pessoa (2+ pessoas: `people`) na linha de ícones já existente, sem mudar o tamanho. A legenda mostra **Juntos**. O detalhe do dia lista cada pessoa visível com o estado real (`cruzamentosDoDia`), com **Editar** e **Ver escalas cruzadas**. No hub há a seção "Escalas cruzadas" com **Gerenciar**.
+- Matemática: sempre `secundariaParaConfig` + `estaLivreNoDia` / `encontrarJanelasJuntos` (`packages/ow-domain/src/escala-cruzar.ts`). Sua escala principal nunca é gravada por estas telas.
+- Emoji antigo salvo (🤝, ❤️, 🤜🤛…) continua salvo e é exibido como ícone vetorial (`src/relacao-icones.ts`, mapa LEGADO). O `🤝 CRUZAR ESCALAS` visto em print é da página **OWNews web /minha-escala** (`worker.js`), que não foi alterada nesta missão.
+- Testes: `apps/owbuddy/tests/cruzar.test.mjs`.

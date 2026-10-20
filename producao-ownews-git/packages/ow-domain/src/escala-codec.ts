@@ -156,6 +156,9 @@ export function normalizeEscalaSecundaria(raw: unknown): EscalaSecundaria | null
       if (dEm === 14 && dFo === 14) tipo = '14x14';
       else if (dEm === 14 && dFo === 21) tipo = '14x21';
       else if (dEm === 14 && dFo === 28) tipo = '14x28';
+      else if (dEm === 21 && dFo === 21) tipo = '21x21';
+      else if (dEm === 28 && dFo === 28) tipo = '28x28';
+      else if (dEm === 7 && dFo === 7) tipo = '7x7';
       else if (dEm && dFo) tipo = 'custom';
       else return null;
     }
@@ -174,6 +177,7 @@ export function normalizeEscalaSecundaria(raw: unknown): EscalaSecundaria | null
     // ícone escolhido pelo usuário (emoji curto) — antes era descartado e virava 🔗
     if (typeof raw.icon === 'string' && raw.icon.trim() && raw.icon.length <= 16) sec.icon = raw.icon;
     if (tipo === 'custom') { sec.diasEmbarcado = dEm; sec.diasFolga = dFo; }
+    if (raw.oculta === true) sec.oculta = true;
     return sec;
   } catch {
     return null;

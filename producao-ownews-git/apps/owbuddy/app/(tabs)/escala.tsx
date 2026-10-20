@@ -20,6 +20,9 @@ import {
   hojeISO,
   msParaISO,
   ESCALA_TIPOS,
+  cruzamentosDoDia,
+  juntosNoDia,
+  rotuloCicloSecundaria,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig,
@@ -28,12 +31,15 @@ import type {
   EventoTipo,
   DayInfo,
   DayKind,
+  CruzamentoDia,
+  EscalaSecundaria,
 } from '@owbuddy/domain';
 import {
   getEscala,
   setEscala,
   getEventosPessoais,
   setEventosPessoais,
+  getEscalasCruzar,
 } from '../../src/storage';
 import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +48,7 @@ import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 import { confirmarRemocao } from '../../src/confirmar';
 import { EVENTO_VISUAL } from '../../src/evento-visual';
+import { ioniconRelacao } from '../../src/relacao-icones';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -80,8 +87,8 @@ function chunk<T>(arr: T[], n: number): T[][] {
 
 const MESES_EXTENSO = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
-/** Leitor de tela: "12 de outubro, embarque, embarcado dia 1, viagem". */
-function rotuloDia(day: DayInfo): string {
+/** Leitor de tela: "12 de outubro, embarque, embarcado dia 1, viagem, de folga junto com Ana". */
+function rotuloDia(day: DayInfo, juntos: EscalaSecundaria[] = []): string {
   const partes = [`${parseInt(day.iso.slice(8), 10)} de ${MESES_EXTENSO[parseInt(day.iso.slice(5, 7), 10) - 1]}`];
   if (day.isHoje) partes.push('hoje');
   if (day.isEmbarque) partes.push('embarque');
@@ -90,10 +97,15 @@ function rotuloDia(day: DayInfo): string {
   if (k[day.kind]) partes.push(`${k[day.kind]} dia ${day.diaDoBloco}`);
   if (day.feriado) partes.push(day.feriado.nome);
   for (const t of new Set(day.eventosPessoais.map(e => e.tipo))) partes.push(TIPO_META[t].label);
+  if (juntos.length) partes.push(`de folga junto com ${juntos.map(j => j.nome).join(' e ')}`);
   return partes.join(', ');
 }
 
-function DayCell({ day, size, onPress }: { day: DayInfo; size: number; onPress: () => void }) {
+// Cruzar: dia de folga junto com alguém = ícone da pessoa (2+ pessoas: "people"), na mesma
+// linha de ícones da célula — tamanho da célula não muda; com cruzamento, 1 evento + "+".
+const COR_JUNTOS = colors.green;
+
+function DayCell({ day, size, juntos, onPress }: { day: DayInfo; size: number; juntos: EscalaSecundaria[]; onPress: () => void }) {
   const s = KIND_STYLE[day.kind];
   const dayNum = parseInt(day.iso.slice(8));
   const numColor = day.isEmbarque ? '#6de88a' : day.isDesembarque ? colors.amber : s.text;
@@ -109,7 +121,7 @@ function DayCell({ day, size, onPress }: { day: DayInfo; size: number; onPress: 
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={rotuloDia(day)}
+      accessibilityLabel={rotuloDia(day, juntos)}
     >
       {/* Marcador de transição: etiqueta sólida e legível (antes: texto de 7px) */}
       {day.isEmbarque ? (
@@ -129,20 +141,29 @@ function DayCell({ day, size, onPress }: { day: DayInfo; size: number; onPress: 
       <View style={[styles.iconRow, c?.icons]}>
         {day.feriado?.tipo === 'feriado'     && <View style={[styles.dot, { backgroundColor: colors.orange }]} />}
         {day.feriado?.tipo === 'comemorativa' && <View style={[styles.dot, { backgroundColor: colors.mutedDim }]} />}
-        {tipos.slice(0, 2).map(t => {
+        {juntos.length > 0 && (
+          <Ionicons
+            name={juntos.length === 1 ? ioniconRelacao(juntos[0]!.icon) : 'people'}
+            size={c ? 9 : 11}
+            color={COR_JUNTOS}
+            testID="juntos-marca"
+          />
+        )}
+        {tipos.slice(0, juntos.length ? 1 : 2).map(t => {
           const m = TIPO_META[t];
           return <Ionicons key={t} name={m.icon} size={c ? 9 : 11} color={m.color} />;
         })}
-        {tipos.length > 2 && <Text style={styles.maisEventos}>+</Text>}
+        {tipos.length > (juntos.length ? 1 : 2) && <Text style={styles.maisEventos}>+</Text>}
       </View>
     </TouchableOpacity>
   );
 }
 
-function CalendarMonth({ config, excecoes, eventosPessoais, ano, mes, onDayPress }: {
+function CalendarMonth({ config, excecoes, eventosPessoais, cruzadas, ano, mes, onDayPress }: {
   config: EscalaConfig;
   excecoes: Excecao[];
   eventosPessoais: EventoPessoal[];
+  cruzadas: EscalaSecundaria[];
   ano: number;
   mes: number;
   onDayPress: (day: DayInfo) => void;
@@ -168,7 +189,7 @@ function CalendarMonth({ config, excecoes, eventosPessoais, ano, mes, onDayPress
         {weeks.map((week, wi) => (
           <View key={wi} style={styles.weekRow}>
             {week.map((day, di) => day
-              ? <DayCell key={di} day={day} size={size} onPress={() => onDayPress(day)} />
+              ? <DayCell key={di} day={day} size={size} juntos={cruzadas.length ? juntosNoDia(config, cruzadas, day.iso) : []} onPress={() => onDayPress(day)} />
               : <View key={di} style={{ width: size, height: size }} />
             )}
           </View>
@@ -179,15 +200,28 @@ function CalendarMonth({ config, excecoes, eventosPessoais, ano, mes, onDayPress
 }
 
 // Bottom sheet deslizante — sem dependências nativas
+const ESTADO_CRUZADO: Record<CruzamentoDia['estado'], { texto: (nome: string) => string; cor: string; icone: IoniconsName }> = {
+  JUNTOS:          { texto: () => 'Juntos neste dia — vocês estão de folga.', cor: colors.green, icone: 'checkmark-circle' },
+  SO_VOCE_LIVRE:   { texto: n => `Você de folga · ${n} a bordo.`, cor: colors.muted, icone: 'ellipse-outline' },
+  SO_PESSOA_LIVRE: { texto: n => `${n} de folga · você a bordo.`, cor: colors.muted, icone: 'ellipse-outline' },
+  AMBOS_A_BORDO:   { texto: () => 'Os dois a bordo neste dia.', cor: colors.muted, icone: 'ellipse-outline' },
+};
+
 function DayBottomSheet({
   day,
+  cruzamentos,
   onClose,
   onAddEvento,
   onEditEvento,
   onDeleteEvento,
+  onEditarCruzada,
+  onVerCruzadas,
 }: {
   day: DayInfo | null;
+  cruzamentos: CruzamentoDia[];
   onClose: () => void;
+  onEditarCruzada: (id: string) => void;
+  onVerCruzadas: () => void;
   onAddEvento: (iso: string) => void;
   onEditEvento: (ev: EventoPessoal) => void;
   onDeleteEvento: (id: string) => void;
@@ -296,6 +330,47 @@ function DayBottomSheet({
               );
             })}
 
+            {/* Escalas cruzadas: quem é cada ícone e o estado REAL de cada um neste dia */}
+            {cruzamentos.length > 0 && (
+              <View style={styles.cruzBloco}>
+                <View style={styles.cruzTituloRow}>
+                  <Text style={styles.cruzTitulo}>Escalas cruzadas</Text>
+                  <TouchableOpacity
+                    onPress={() => { close(); setTimeout(onVerCruzadas, 240); }}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.cruzVer}>Ver escalas cruzadas</Text>
+                  </TouchableOpacity>
+                </View>
+                {cruzamentos.map(({ sec, estado }) => {
+                  const e = ESTADO_CRUZADO[estado];
+                  const juntos = estado === 'JUNTOS';
+                  return (
+                    <View key={sec.id} style={styles.cruzRow} testID={`cruz-dia-${sec.id}`}>
+                      <View style={[styles.cruzIcone, juntos && styles.cruzIconeJuntos]}>
+                        <Ionicons name={ioniconRelacao(sec.icon)} size={16} color={juntos ? colors.green : colors.muted} />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.cruzNome} numberOfLines={1}>{sec.nome}</Text>
+                        {sec.relacao ? <Text style={styles.cruzRel} numberOfLines={1}>{sec.relacao}</Text> : null}
+                        <Text style={[styles.cruzEstado, { color: e.cor }]}>{e.texto(sec.nome)}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.cruzEditar}
+                        onPress={() => { close(); setTimeout(() => onEditarCruzada(sec.id), 240); }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Editar escala de ${sec.nome}`}
+                      >
+                        <Ionicons name="create-outline" size={14} color={tone.accentText} />
+                        <Text style={styles.cruzEditarTexto}>Editar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
             {day.eventosPessoais.length === 0 && day.kind === 'SEM_ESCALA' && !day.feriado && (
               <Text style={styles.sheetEmpty}>Nenhum evento neste dia.</Text>
             )}
@@ -309,15 +384,17 @@ function DayBottomSheet({
 export default function EscalaScreen() {
   const [config, setConfig] = useState<EscalaConfig | null>(null);
   const [eventosPessoais, setEPState] = useState<EventoPessoal[]>([]);
+  const [cruzadas, setCruzadas] = useState<EscalaSecundaria[]>([]);
   const [viewMes, setViewMes] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
-    const [cfg, ep] = await Promise.all([getEscala(), getEventosPessoais()]);
+    const [cfg, ep, cz] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar()]);
     setConfig(cfg);
     setEPState(ep);
+    setCruzadas(cz);
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -477,6 +554,7 @@ export default function EscalaScreen() {
           config={config}
           excecoes={excecoes}
           eventosPessoais={eventosPessoais}
+          cruzadas={cruzadas}
           ano={viewMes.ano}
           mes={viewMes.mes}
           onDayPress={setSelectedDay}
@@ -491,11 +569,42 @@ export default function EscalaScreen() {
           <LegendItem color="#ffc107" label="Dobra" />
           <LegendItem color="#7986cb" label="Férias" />
           <LegendItem color={colors.orange} dot label="Feriado" />
+          {cruzadas.some(c => !c.oculta) && <LegendItem icon="people" color={COR_JUNTOS} label="Juntos" />}
           {(['ANIVERSARIO','CURSO','COMPROMISSO','VIAGEM'] as EventoTipo[]).map(t => {
             const m = TIPO_META[t];
             return <LegendItem key={t} icon={m.icon} color={m.color} label={m.label} />;
           })}
         </View>
+
+        {/* ── Escalas cruzadas (atalho de gerenciamento; o calendário em si não muda) ── */}
+        {cruzadas.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionCardHeaderRow}>
+              <Text style={styles.sectionCardTitle}>Escalas cruzadas</Text>
+              <TouchableOpacity onPress={() => router.push('/escala-cruzar')} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.cruzVer}>Gerenciar</Text>
+              </TouchableOpacity>
+            </View>
+            {cruzadas.map(sec => (
+              <TouchableOpacity
+                key={sec.id}
+                style={styles.listRow}
+                onPress={() => router.push({ pathname: '/escala-secundaria-form', params: { id: sec.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Editar escala de ${sec.nome}`}
+              >
+                <Ionicons name={ioniconRelacao(sec.icon)} size={14} color={sec.oculta ? colors.mutedDim : COR_JUNTOS} />
+                <View style={styles.listRowInfo}>
+                  <Text style={[styles.listRowText, sec.oculta && { color: colors.mutedDim }]} numberOfLines={1}>{sec.nome}</Text>
+                  <Text style={styles.listRowDate} numberOfLines={1}>
+                    {sec.relacao ? `${sec.relacao} · ` : ''}{rotuloCicloSecundaria(sec)}{sec.oculta ? ' · oculta' : ''}
+                  </Text>
+                </View>
+                <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* ── Feriados do mês ── */}
         {feriadosDoMes.length > 0 && (
@@ -588,6 +697,9 @@ export default function EscalaScreen() {
       {/* ── Bottom sheet com detalhe do dia ── */}
       <DayBottomSheet
         day={selectedDay}
+        cruzamentos={selectedDay && cruzadas.length ? cruzamentosDoDia(config, cruzadas, selectedDay.iso) : []}
+        onEditarCruzada={(id) => router.push({ pathname: '/escala-secundaria-form', params: { id } })}
+        onVerCruzadas={() => router.push('/escala-cruzar')}
         onClose={() => setSelectedDay(null)}
         onAddEvento={(iso) => router.push({ pathname: '/escala-evento-form', params: { data: iso } })}
         onEditEvento={(ev) => router.push({ pathname: '/escala-evento-form', params: { id: ev.id } })}
@@ -711,5 +823,23 @@ const styles = StyleSheet.create({
   sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.lineSoft },
   sheetRowText: { fontSize: 13, color: colors.white, flex: 1 },
   sheetRowSub: { fontSize: 11, color: colors.mutedDim },
+  cruzBloco: { borderTopWidth: 1, borderTopColor: colors.lineSoft, paddingTop: spacing.sm, marginTop: 2, gap: spacing.sm },
+  cruzTituloRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cruzTitulo: { ...typography.micro },
+  cruzVer: { fontSize: 12, fontWeight: '700', color: tone.accentText },
+  cruzRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  cruzIcone: {
+    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: maritime.iconTile, borderWidth: 1, borderColor: tone.borderSubtle,
+  },
+  cruzIconeJuntos: { borderColor: 'rgba(47,191,113,0.45)' },
+  cruzNome: { fontSize: 14, fontWeight: '700', color: colors.white },
+  cruzRel: { fontSize: 12, color: colors.muted },
+  cruzEstado: { fontSize: 12, marginTop: 1 },
+  cruzEditar: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, paddingHorizontal: 8,
+    borderRadius: radius.sm, backgroundColor: maritime.iconTile, borderWidth: 1, borderColor: tone.borderSubtle,
+  },
+  cruzEditarTexto: { fontSize: 12, fontWeight: '700', color: tone.accentText },
   sheetEmpty: { fontSize: 13, color: colors.mutedDim, textAlign: 'center', paddingVertical: spacing.sm },
 });

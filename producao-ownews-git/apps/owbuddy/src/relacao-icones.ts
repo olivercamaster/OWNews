@@ -18,6 +18,12 @@ export const ICONES_RELACAO = {
 export type IconeRelacao = keyof typeof ICONES_RELACAO;
 export type IoniconRelacao = (typeof ICONES_RELACAO)[IconeRelacao];
 
+/** Nome falado (leitor de tela / testes) de cada ícone. */
+export const NOME_ICONE: Record<IconeRelacao, string> = {
+  coracao: 'Coração', irmaos: 'Pessoas', amizade: 'Rosto feliz', familia: 'Casa',
+  colega: 'Maleta', outro: 'Link', estrela: 'Estrela', barco: 'Barco',
+};
+
 export const ICONES_ORDEM: IconeRelacao[] = ['coracao', 'irmaos', 'amizade', 'familia', 'colega', 'outro', 'estrela', 'barco'];
 
 const LEGADO: Record<string, IconeRelacao> = {

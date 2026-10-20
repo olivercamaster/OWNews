@@ -102,7 +102,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="escala-cruzar"
           options={{
-            title: 'Cruzar Escalas',
+            title: 'Escalas cruzadas',
             headerStyle: { backgroundColor: colors.navy800 },
           }}
         />

@@ -9,24 +9,26 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { DIAS_BLOCO_MAX, ESCALA_TIPOS, diasDoCiclo } from '@owbuddy/domain';
+import { DIAS_BLOCO_MAX, ESCALA_TIPOS, diasDoCiclo, proximoEmbarqueSecundaria, removerEscalaSecundaria, salvarEscalaSecundaria } from '@owbuddy/domain';
 import type { EscalaSecundaria, EscalaTipo, TipoRef } from '@owbuddy/domain';
 import { getEscalasCruzar, setEscalasCruzar } from '../src/storage';
 import { OWDatePicker } from '../src/components/OWDatePicker';
-import { colors, maritime, spacing, radius, typography, surface } from '../src/theme';
+import { colors, maritime, spacing, radius, typography, surface, tone } from '../src/theme';
 import { formatDateBR } from '../src/format';
-import { confirmarRemocao } from '../src/confirmar';
-import { ICONES_ORDEM, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
+import { confirmar } from '../src/confirmar';
+import { ICONES_ORDEM, NOME_ICONE, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
 
 const TIPOS = ESCALA_TIPOS;
 
 type RelacaoChip = { label: string; icon: IconeRelacao; value: string };
-// Relações neutras ("/a", "/ã") — o app não infere gênero.
+// Relações neutras ("/a", "/ã") — o app não infere gênero. Texto livre ("Outro") é preservado
+// como foi digitado (ex.: "Cunhado" salvo antes continua "Cunhado").
 const RELACAO_OPTS: RelacaoChip[] = [
   { label: 'Companheira/o', icon: 'coracao', value: 'Companheira/o' },
   { label: 'Irmão/ã',       icon: 'irmaos',  value: 'Irmão/ã' },
+  { label: 'Cunhado/a',     icon: 'familia', value: 'Cunhado/a' },
   { label: 'Amigo/a',       icon: 'amizade', value: 'Amigo/a' },
   { label: 'Familiar',      icon: 'familia', value: 'Familiar' },
   { label: 'Colega',        icon: 'colega',  value: 'Colega' },
@@ -37,6 +39,11 @@ function gerarId(): string {
   return `sec_${Date.now()}`;
 }
 
+function voltar() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/escala-cruzar');
+}
+
 export default function EscalaSecundariaForm() {
   const params = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!params.id;
@@ -45,6 +52,9 @@ export default function EscalaSecundariaForm() {
   const [relacaoChip, setRelacaoChip] = useState('');
   const [relacaoCustom, setRelacaoCustom] = useState('');
   const [icon, setIcon] = useState<IconeRelacao>('coracao');
+  // Ícone escolhido à mão (ou já salvo) não é trocado ao mudar a relação.
+  const [iconManual, setIconManual] = useState(false);
+  const [oculta, setOculta] = useState(false);
   const [tipo, setTipo] = useState<EscalaTipo>('14x14');
   const [diasEmb, setDiasEmb] = useState('');
   const [diasFolga, setDiasFolga] = useState('');
@@ -66,7 +76,8 @@ export default function EscalaSecundariaForm() {
       const chip = RELACAO_OPTS.find(o => o.value === s.relacao && o.value !== 'Outro');
       if (chip) setRelacaoChip(chip.value);
       else if (s.relacao) { setRelacaoChip('Outro'); setRelacaoCustom(s.relacao); }
-      if (s.icon) setIcon(chaveIconeRelacao(s.icon)); // emoji antigo → chave vetorial
+      if (s.icon) { setIcon(chaveIconeRelacao(s.icon)); setIconManual(true); } // emoji antigo → chave vetorial
+      setOculta(!!s.oculta);
       setTipo(s.tipo);
       setDiasEmb(s.diasEmbarcado ? String(s.diasEmbarcado) : '');
       setDiasFolga(s.diasFolga ? String(s.diasFolga) : '');
@@ -77,7 +88,7 @@ export default function EscalaSecundariaForm() {
 
   const onSelectRelacao = (opt: RelacaoChip) => {
     setRelacaoChip(opt.value);
-    setIcon(opt.icon);
+    if (!iconManual) setIcon(opt.icon);
   };
 
   const relacaoFinal = (): string | undefined => {
@@ -95,6 +106,8 @@ export default function EscalaSecundariaForm() {
     }
 
     const escalas = await getEscalasCruzar();
+    // Mesmo registro (mesmo id): a lista é regravada e calendário/cruzamento recalculam
+    // na próxima leitura com a matemática canônica — nada de cálculo próprio aqui.
     const sec: EscalaSecundaria = {
       id: params.id ?? gerarId(),
       nome: nome.trim(),
@@ -105,20 +118,42 @@ export default function EscalaSecundariaForm() {
       diasFolga: isCustom ? (parseInt(diasFolga, 10) || undefined) : undefined,
       dataRef,
       tipoRef,
+      ...(oculta ? { oculta: true } : {}),
     };
-    await setEscalasCruzar([...escalas.filter(s => s.id !== sec.id), sec]);
-    router.replace('/escala-cruzar');
+    await setEscalasCruzar(salvarEscalaSecundaria(escalas, sec));
+    voltar();
   };
 
   const excluir = async () => {
     if (!params.id) return;
     const escalas = await getEscalasCruzar();
-    await setEscalasCruzar(escalas.filter(s => s.id !== params.id));
-    router.replace('/escala-cruzar');
+    await setEscalasCruzar(removerEscalaSecundaria(escalas, params.id));
+    voltar();
   };
+
+  const pedirExclusao = () => confirmar(
+    `Remover a escala de ${nome.trim() || 'esta pessoa'}?`,
+    'Isso remove apenas o cruzamento desta pessoa. Sua escala principal não será alterada.',
+    'Remover',
+    excluir,
+    true,
+  );
+
+  // Prévia ao vivo com a mesma regra canônica do calendário.
+  const previaCfgOk = !!dataRef && !!diasDoCiclo({
+    tipo, dataRef, tipoRef,
+    diasEmbarcado: isCustom ? parseInt(diasEmb, 10) : undefined,
+    diasFolga: isCustom ? parseInt(diasFolga, 10) : undefined,
+  });
+  const previaEmbarque = previaCfgOk ? proximoEmbarqueSecundaria({
+    id: 'previa', nome: 'previa', tipo, dataRef, tipoRef,
+    diasEmbarcado: isCustom ? parseInt(diasEmb, 10) : undefined,
+    diasFolga: isCustom ? parseInt(diasFolga, 10) : undefined,
+  }) : null;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Stack.Screen options={{ title: isEdit ? 'Editar escala cruzada' : 'Cruzar escala' }} />
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
 
         <Text style={styles.sectionLabel}>Nome</Text>
@@ -163,8 +198,9 @@ export default function EscalaSecundariaForm() {
             <TouchableOpacity
               key={ic}
               style={[styles.iconBtn, icon === ic && styles.iconBtnActive]}
-              onPress={() => setIcon(ic)}
+              onPress={() => { setIcon(ic); setIconManual(true); }}
               accessibilityRole="button"
+              accessibilityLabel={`Ícone ${NOME_ICONE[ic]}`}
               accessibilityState={{ selected: icon === ic }}
             >
               <Ionicons name={ioniconRelacao(ic)} size={22} color={icon === ic ? colors.cyan : colors.muted} />
@@ -208,31 +244,43 @@ export default function EscalaSecundariaForm() {
           />
         </>)}
 
-        <Text style={styles.sectionLabel}>Data de referência</Text>
-        <TouchableOpacity
-          style={[styles.input, styles.dateBtn]}
-          onPress={() => { setShowDatePicker(true); setErro(''); }}
-        >
-          <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
-          <Text style={[styles.dateBtnText, !dataRef && { color: colors.mutedDim }]}>
-            {dataRef ? formatDateBR(dataRef) : 'Selecionar data'}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.sectionLabel}>Nesta data estava...</Text>
+        <Text style={styles.sectionLabel}>Data de referência da escala</Text>
+        <Text style={styles.ajuda}>Escolha um embarque (ou desembarque) da pessoa que você saiba a data.</Text>
         <View style={styles.refRow}>
           {(['embarquei', 'desembarquei'] as TipoRef[]).map(t => (
             <TouchableOpacity
               key={t}
               style={[styles.refChip, tipoRef === t && styles.refChipActive]}
               onPress={() => setTipoRef(t)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: tipoRef === t }}
             >
               <Text style={[styles.refText, tipoRef === t && styles.refTextActive]}>
-                {t === 'embarquei' ? 'Embarcando' : 'Desembarcando'}
+                {t === 'embarquei' ? 'Embarque' : 'Desembarque'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity
+          style={[styles.input, styles.dateBtn, { marginTop: spacing.sm }]}
+          onPress={() => { setShowDatePicker(true); setErro(''); }}
+          accessibilityRole="button"
+          accessibilityLabel={tipoRef === 'embarquei' ? 'Data de embarque de referência' : 'Data de desembarque de referência'}
+        >
+          <Ionicons name="calendar-outline" size={16} color={colors.cyanDim} />
+          <Text style={[styles.dateBtnText, !dataRef && { color: colors.mutedDim }]}>
+            {dataRef
+              ? `${tipoRef === 'embarquei' ? 'Embarcou em' : 'Desembarcou em'} ${formatDateBR(dataRef)}`
+              : (tipoRef === 'embarquei' ? 'Selecionar data de embarque' : 'Selecionar data de desembarque')}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
+        {previaEmbarque ? (
+          <Text style={styles.previa}>
+            Próximo embarque: <Text style={styles.previaData}>{formatDateBR(previaEmbarque)}</Text>
+            {isEdit ? ' · ao salvar, o calendário é recalculado. Sua escala não muda.' : ''}
+          </Text>
+        ) : null}
 
         {erro ? <Text style={styles.erro}>{erro}</Text> : null}
 
@@ -241,16 +289,16 @@ export default function EscalaSecundariaForm() {
           onPress={save}
           disabled={!nome.trim() || !dataRef}
         >
-          <Text style={styles.saveBtnText}>Salvar escala</Text>
+          <Text style={styles.saveBtnText}>{isEdit ? 'Salvar alterações' : 'Salvar escala'}</Text>
         </TouchableOpacity>
 
         {isEdit && (
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => confirmarRemocao('Excluir escala?', nome, excluir)}>
-            <Text style={styles.deleteText}>Excluir escala</Text>
+          <TouchableOpacity style={styles.deleteBtn} onPress={pedirExclusao} accessibilityRole="button">
+            <Text style={styles.deleteText}>Excluir esta escala cruzada</Text>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={voltar}>
           <Text style={styles.cancelText}>Cancelar</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -258,7 +306,7 @@ export default function EscalaSecundariaForm() {
       <OWDatePicker
         visible={showDatePicker}
         value={dataRef}
-        title="Data de referência"
+        title={tipoRef === 'embarquei' ? 'Data de embarque' : 'Data de desembarque'}
         onConfirm={v => { setDataRef(v); setShowDatePicker(false); }}
         onCancel={() => setShowDatePicker(false)}
       />
@@ -270,6 +318,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.xs },
   sectionLabel: { ...typography.label, marginTop: spacing.md, marginBottom: 4 },
+  ajuda: { fontSize: 12, color: colors.mutedDim, marginBottom: spacing.sm, lineHeight: 17 },
+  previa: { fontSize: 12, color: colors.muted, marginTop: 6, lineHeight: 17 },
+  previaData: { color: tone.textEmphasis, fontWeight: '700' },
 
   tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
   tipoChip: {
@@ -307,7 +358,7 @@ const styles = StyleSheet.create({
   },
   dateBtnText: { fontSize: 15, color: colors.white, fontWeight: '500', flex: 1 },
 
-  erro: { color: '#f44336', fontSize: 13, marginTop: 4 },
+  erro: { color: colors.red, fontSize: 13, marginTop: 4 },
   saveBtn: {
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md,
     alignItems: 'center', marginTop: spacing.md,
@@ -315,7 +366,7 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { color: colors.navy950, fontWeight: '700', fontSize: 16 },
   deleteBtn: { padding: spacing.md, alignItems: 'center', marginTop: spacing.sm },
-  deleteText: { color: '#f44336', fontSize: 15 },
+  deleteText: { color: colors.red, fontSize: 15 },
   cancelBtn: { padding: spacing.md, alignItems: 'center' },
   cancelText: { color: colors.mutedDim, fontSize: 15 },
 });

@@ -9,11 +9,20 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { diasDoCiclo, encontrarJanelasJuntos, secundariaParaConfig, hojeISO } from '@owbuddy/domain';
-import type { EscalaSecundaria, JanelaJuntos } from '@owbuddy/domain';
+import {
+  definirOcultaSecundaria,
+  diasDoCiclo,
+  encontrarJanelasJuntos,
+  hojeISO,
+  proximoEmbarqueSecundaria,
+  removerEscalaSecundaria,
+  rotuloCicloSecundaria,
+  secundariaParaConfig,
+} from '@owbuddy/domain';
+import type { EscalaConfig, EscalaSecundaria } from '@owbuddy/domain';
 import { getEscala, getEscalasCruzar, setEscalasCruzar } from '../src/storage';
-import { colors, spacing, radius, typography, surface } from '../src/theme';
-import { confirmarRemocao } from '../src/confirmar';
+import { colors, maritime, spacing, radius, typography, surface, tone } from '../src/theme';
+import { confirmar } from '../src/confirmar';
 import { ioniconRelacao } from '../src/relacao-icones';
 
 const MESES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -23,112 +32,154 @@ function fmtData(iso: string): string {
   return `${parseInt(d)} ${MESES_CURTO[parseInt(m) - 1]}`;
 }
 
+function fmtDiaMes(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+
+/**
+ * Escalas cruzadas — lista + gerenciamento (Cruzar 2.1).
+ * Cada pessoa: ícone, nome, relação · ciclo, próximo embarque e as ações
+ * Editar / Ocultar|Mostrar / Excluir à vista (antes só um lápis e uma lixeira soltos).
+ */
 export default function EscalaCruzarScreen() {
   const [escalas, setEscalas] = useState<EscalaSecundaria[]>([]);
-  const [janelas, setJanelas] = useState<{ nome: string; janelas: JanelaJuntos[] }[]>([]);
-  const [semEscala, setSemEscala] = useState(false);
+  const [config, setConfig] = useState<EscalaConfig | null>(null);
+  const [carregado, setCarregado] = useState(false);
 
-  useFocusEffect(useCallback(() => {
-    load();
-  }, []));
-
-  const load = async () => {
-    const [config, secs] = await Promise.all([getEscala(), getEscalasCruzar()]);
+  const load = useCallback(async () => {
+    const [cfg, secs] = await Promise.all([getEscala(), getEscalasCruzar()]);
+    setConfig(cfg);
     setEscalas(secs);
+    setCarregado(true);
+  }, []);
 
-    setSemEscala(!config);
-    if (!config) { setJanelas([]); return; }
-    const hoje = hojeISO();
-    const resultados = secs.map(sec => ({
-      nome: sec.nome,
-      janelas: encontrarJanelasJuntos(config, secundariaParaConfig(sec), hoje, 180, 3),
-    }));
-    setJanelas(resultados);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const salvarLista = async (nova: EscalaSecundaria[]) => {
+    setEscalas(nova);
+    await setEscalasCruzar(nova);
   };
 
-  const remover = async (id: string) => {
-    const updated = escalas.filter(s => s.id !== id);
-    await setEscalasCruzar(updated);
-    setEscalas(updated);
-    setJanelas(j => j.filter((_, i) => escalas[i]?.id !== id));
-    load();
-  };
+  const alternarOculta = (sec: EscalaSecundaria) => salvarLista(definirOcultaSecundaria(escalas, sec.id, !sec.oculta));
+
+  const excluir = (sec: EscalaSecundaria) => confirmar(
+    `Remover a escala de ${sec.nome}?`,
+    'Isso remove apenas o cruzamento desta pessoa. Sua escala principal não será alterada.',
+    'Remover',
+    () => salvarLista(removerEscalaSecundaria(escalas, sec.id)),
+    true,
+  );
+
+  const editar = (sec: EscalaSecundaria) => router.push({ pathname: '/escala-secundaria-form', params: { id: sec.id } });
+
+  const hoje = hojeISO();
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <View style={styles.addRow}>
-        <Text style={styles.subtitle}>Compare sua escala com outra pessoa</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/escala-secundaria-form')}>
-          <Ionicons name="add" size={18} color={colors.navy950} />
-          <Text style={styles.addBtnText}>Adicionar</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.subtitle}>
+        {escalas.length > 0
+          ? 'Toque em Editar para mudar nome, relação, ícone, ciclo ou data de embarque.'
+          : 'Compare sua escala com a de outra pessoa e veja as folgas em comum.'}
+      </Text>
 
-      {escalas.length === 0 && (
+      {carregado && escalas.length === 0 && (
         <View style={styles.emptyCard}>
           <Ionicons name="people-outline" size={40} color={colors.mutedDim} />
-          <Text style={styles.emptyText}>Nenhuma escala adicionada ainda.</Text>
+          <Text style={styles.emptyText}>Nenhuma escala cruzada ainda.</Text>
           <Text style={styles.emptyHint}>Adicione a escala de um familiar, companheira/o ou colega para descobrir as próximas folgas em comum.</Text>
         </View>
       )}
 
-      {semEscala && escalas.length > 0 && (
-        <TouchableOpacity style={styles.emptyCard} onPress={() => router.push('/escala-config')}>
+      {carregado && !config && escalas.length > 0 && (
+        <TouchableOpacity style={styles.avisoCard} onPress={() => router.push('/escala-config')}>
           <Text style={styles.emptyHint}>Configure a sua escala para ver as folgas em comum.</Text>
         </TouchableOpacity>
       )}
 
-      {escalas.map((sec, i) => {
-        const resultado = janelas[i];
+      {escalas.map(sec => {
         const invalida = !diasDoCiclo(secundariaParaConfig(sec));
+        const proxEmb = invalida ? null : proximoEmbarqueSecundaria(sec);
+        const janelas = config && !invalida && !sec.oculta
+          ? encontrarJanelasJuntos(config, secundariaParaConfig(sec), hoje, 180, 3)
+          : [];
         return (
-          <TouchableOpacity
-            key={sec.id}
-            style={styles.card}
-            activeOpacity={0.85}
-            onPress={() => router.push({ pathname: '/escala-secundaria-form', params: { id: sec.id } })}
-            accessibilityLabel={`Editar escala de ${sec.nome}`}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardLeft}>
-                <View style={styles.cardIcon}>
-                  <Ionicons name={ioniconRelacao(sec.icon)} size={20} color={colors.cyanDim} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardNome}>{sec.nome}</Text>
-                  {sec.relacao && <Text style={styles.cardRelacao}>{sec.relacao}</Text>}
-                  <Text style={styles.cardEscala}>{sec.tipo === 'custom' ? `${sec.diasEmbarcado}×${sec.diasFolga}` : sec.tipo}</Text>
-                </View>
+          <View key={sec.id} style={[styles.card, sec.oculta && styles.cardOculto]} testID={`cruzada-${sec.id}`}>
+            <TouchableOpacity
+              style={styles.cardHeader}
+              activeOpacity={0.8}
+              onPress={() => editar(sec)}
+              accessibilityRole="button"
+              accessibilityLabel={`Editar escala de ${sec.nome}`}
+            >
+              <View style={styles.cardIcon}>
+                <Ionicons name={ioniconRelacao(sec.icon)} size={20} color={sec.oculta ? colors.mutedDim : colors.cyanDim} />
               </View>
-              <View style={styles.cardAcoes}>
-                <Ionicons name="pencil-outline" size={18} color={colors.mutedDim} />
-                <TouchableOpacity onPress={() => confirmarRemocao('Remover escala?', sec.nome, () => remover(sec.id))} hitSlop={10} accessibilityLabel={`Remover escala de ${sec.nome}`}>
-                  <Ionicons name="trash-outline" size={18} color={colors.mutedDim} />
-                </TouchableOpacity>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardNome} numberOfLines={1}>{sec.nome}</Text>
+                <Text style={styles.cardMeta} numberOfLines={1}>
+                  {sec.relacao ? `${sec.relacao} · ` : ''}{rotuloCicloSecundaria(sec)}
+                </Text>
+                {invalida ? (
+                  <Text style={styles.cardAviso}>Ciclo incompleto — toque em Editar para corrigir.</Text>
+                ) : proxEmb ? (
+                  <Text style={styles.cardProx}>Próximo embarque: <Text style={styles.cardProxData}>{fmtDiaMes(proxEmb)}</Text></Text>
+                ) : null}
+                {sec.oculta && <Text style={styles.cardOcultaTag}>Oculta no calendário</Text>}
               </View>
-            </View>
+            </TouchableOpacity>
 
-            {semEscala ? null : invalida ? (
-              <Text style={styles.semJanela}>Ciclo incompleto — toque para corrigir.</Text>
-            ) : resultado?.janelas.length === 0 ? (
-              <Text style={styles.semJanela}>Nenhuma folga em comum nos próximos 6 meses.</Text>
-            ) : (
-              <>
-                <Text style={styles.janelasTitulo}>Próximas folgas em comum:</Text>
-                {resultado?.janelas.map((j, ji) => (
-                  <View key={ji} style={styles.janelaRow}>
-                    <Ionicons name="people" size={14} color={colors.green} />
-                    <Text style={styles.janelaTexto}>
-                      {fmtData(j.inicio)} → {fmtData(j.fim)} · <Text style={styles.janelasDias}>{j.dias} {j.dias === 1 ? 'dia' : 'dias'}</Text>
-                    </Text>
-                  </View>
-                ))}
-              </>
+            {!sec.oculta && config && !invalida && (
+              janelas.length === 0 ? (
+                <Text style={styles.semJanela}>Nenhuma folga em comum nos próximos 6 meses.</Text>
+              ) : (
+                <View style={styles.janelas}>
+                  <Text style={styles.janelasTitulo}>Próximas folgas em comum</Text>
+                  {janelas.map((j, ji) => (
+                    <View key={ji} style={styles.janelaRow}>
+                      <Ionicons name="people" size={14} color={colors.green} />
+                      <Text style={styles.janelaTexto}>
+                        {fmtData(j.inicio)} → {fmtData(j.fim)} · <Text style={styles.janelasDias}>{j.dias} {j.dias === 1 ? 'dia' : 'dias'}</Text>
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )
             )}
-          </TouchableOpacity>
+
+            <View style={styles.acoes}>
+              <Acao icon="create-outline" label="Editar" onPress={() => editar(sec)} a11y={`Editar escala de ${sec.nome}`} />
+              <Acao
+                icon={sec.oculta ? 'eye-outline' : 'eye-off-outline'}
+                label={sec.oculta ? 'Mostrar' : 'Ocultar'}
+                onPress={() => alternarOculta(sec)}
+                a11y={sec.oculta ? `Mostrar ${sec.nome} no calendário` : `Ocultar ${sec.nome} do calendário`}
+              />
+              <Acao icon="trash-outline" label="Excluir" onPress={() => excluir(sec)} a11y={`Excluir escala de ${sec.nome}`} perigo />
+            </View>
+          </View>
         );
       })}
+
+      <TouchableOpacity
+        style={styles.addBtn}
+        onPress={() => router.push('/escala-secundaria-form')}
+        accessibilityRole="button"
+      >
+        <Ionicons name="add" size={18} color={colors.navy950} />
+        <Text style={styles.addBtnText}>{escalas.length > 0 ? 'Cruzar outra escala' : 'Cruzar uma escala'}</Text>
+      </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+function Acao({ icon, label, onPress, a11y, perigo }: { icon: IoniconsName; label: string; onPress: () => void; a11y: string; perigo?: boolean }) {
+  return (
+    <TouchableOpacity style={styles.acao} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} activeOpacity={0.7}>
+      <Ionicons name={icon} size={16} color={perigo ? colors.red : colors.cyanDim} />
+      <Text style={[styles.acaoTexto, perigo && { color: colors.red }]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -136,39 +187,59 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
 
-  addRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  subtitle: { ...typography.small, color: colors.muted, flex: 1 },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.cyan, borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm, paddingVertical: 6,
-  },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.navy950 },
+  subtitle: { ...typography.small, color: colors.muted },
 
   emptyCard: {
     backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.xl,
     alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.line,
+  },
+  avisoCard: {
+    backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1, borderColor: maritime.accentBorder,
   },
   emptyText: { ...typography.body, textAlign: 'center' },
   emptyHint: { ...typography.small, textAlign: 'center', color: colors.mutedDim, lineHeight: 18 },
 
   card: {
     backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.md,
-    borderWidth: 1, borderColor: colors.line, gap: spacing.sm,
+    borderWidth: 1, borderColor: colors.line, borderTopColor: tone.edgeLight, gap: spacing.sm,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, flex: 1 },
-  cardIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.cyanFaint, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  cardAcoes: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  cardOculto: { opacity: 0.72 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  cardIcon: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: maritime.iconTile,
+    borderWidth: 1, borderColor: tone.borderSubtle,
+    alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  cardInfo: { flex: 1, minWidth: 0 },
   cardNome: { fontSize: 16, fontWeight: '700', color: colors.white },
-  cardRelacao: { fontSize: 12, color: colors.cyanDim, marginTop: 1 },
-  cardEscala: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
+  cardMeta: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  cardProx: { fontSize: 12, color: colors.mutedDim, marginTop: 3 },
+  cardProxData: { color: tone.textEmphasis, fontWeight: '700' },
+  cardAviso: { fontSize: 12, color: colors.amber, marginTop: 3 },
+  cardOcultaTag: { fontSize: 11, color: colors.mutedDim, marginTop: 3, fontStyle: 'italic' },
 
   semJanela: { ...typography.small, color: colors.mutedDim, fontStyle: 'italic' },
-  janelasTitulo: { ...typography.micro, marginBottom: 4 },
+  janelas: { gap: 4 },
+  janelasTitulo: { ...typography.micro, marginBottom: 2 },
   janelaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   janelaTexto: { fontSize: 13, color: colors.white },
   janelasDias: { color: colors.green, fontWeight: '700' },
 
-  green: { color: colors.green },
+  acoes: {
+    flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.lineSoft,
+    paddingTop: spacing.sm, marginTop: 2, gap: spacing.xs,
+  },
+  acao: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    minHeight: 40, borderRadius: radius.sm, backgroundColor: maritime.iconTile,
+    borderWidth: 1, borderColor: tone.borderSubtle,
+  },
+  acaoTexto: { fontSize: 13, fontWeight: '600', color: tone.accentText },
+
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: colors.cyan, borderRadius: radius.md, minHeight: 48,
+  },
+  addBtnText: { fontSize: 15, fontWeight: '700', color: colors.navy950 },
 });
