@@ -365,6 +365,18 @@ await test("índice de newsletter ('NESTA EDIÇÃO' + legenda) → sem_material,
   const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, { title: "Diesel segue puxando emissões", summary: "" }, m, 1, {});
   expect(!r.ok && r.motivos[0] === "sem_material" && ia.chamadas.length === 0, JSON.stringify(r));
 });
+await test("título 'Emprego FEED…' (FEED job) é tradução literal; 'Contrato de FEED' passa", () => {
+  expect(T.validarTituloOWNews("Emprego FEED para topsides de FPSO da Barents Sea vai para a Aibel", "").includes("traducao_literal"));
+  expect(!T.validarTituloOWNews("Aibel ganha contrato de FEED dos topsides do FPSO de Wisting", "").includes("traducao_literal"));
+});
+await test("divulgação de live da fonte ('ao vivo' + YouTube/transmissão) → sem_material, sem IA", async () => {
+  const ia = iaFalsa([BOA]);
+  const m = "A eixos realiza nesta quinta uma transmissão ao vivo para comentar os resultados do primeiro leilão de gás natural da União. A transmissão começa às 14h no canal da eixos no YouTube. Segundo a PPSA, 36 empresas se habilitaram para adquirir 1,1 milhão de metros cúbicos por dia, divididos em 110 lotes de 10 mil metros cúbicos cada, em cinco grupos industriais. Os compradores podem ofertar entre um e 16 lotes.";
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, { title: "Leilão de gás da União: eixos comenta resultados ao vivo", summary: "" }, m, 1, {});
+  expect(!r.ok && r.motivos[0] === "sem_material" && ia.chamadas.length === 0, JSON.stringify(r));
+  const r2 = await T.gerarCamadaEditorialIA({ AI: iaFalsa([BOA]).AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r2.ok, "matéria normal não pode virar sem_material");
+});
 await test("anti-paráfrase: limiar 0,3 (reescrita colada em fonte em português vai para 2ª redação)", () => {
   const src = fs.readFileSync(SRC, "utf8");
   expect(src.includes("if (parafraseRasaDaFonte(t, fonte) >= 0.3) m.push('parafrase_rasa');"));

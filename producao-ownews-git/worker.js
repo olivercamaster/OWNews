@@ -5591,7 +5591,9 @@ const CORRECOES_NOTICIAS = [
   { id: "49102db3-94a9-49e9-92bd-2c64f5f8ecb9", data: '2026-10-22', titulo: "Reino Unido aprova campo de gás Jackdaw no Mar do Norte",
     texto: "O texto dizia que a aprovação de Jackdaw incluía a possibilidade de novas licenças fora das rodadas. Essa autorização do governo foi citada pelo executivo-chefe da NSTA no mesmo comunicado, mas não faz parte do consentimento do campo." },
   { id: "0f4b2478-b1c1-48a3-9a3c-061deadd3496", data: '2026-10-22', titulo: "Vår Energi e Equinor descobrem gás e condensado em nova licença norueguesa",
-    texto: "O texto atribuía à Formação Tilje os valores elevados de gás. Eles foram registrados no intervalo da Formação Nise, onde o poço não encontrou reservatório de arenito; na Tilje, houve indícios de hidrocarbonetos." }
+    texto: "O texto atribuía à Formação Tilje os valores elevados de gás. Eles foram registrados no intervalo da Formação Nise, onde o poço não encontrou reservatório de arenito; na Tilje, houve indícios de hidrocarbonetos." },
+  { id: "8d4e646e-3628-4277-bbdc-f2425afd851a", data: '2026-10-22', titulo: "Aibel ganha contrato de FEED dos topsides do FPSO de Wisting, da Equinor, no Mar de Barents",
+    texto: "O texto dizia que o estudo deve levar a uma decisão de execução até o fim de 2026. O que os sócios miram para o fim de 2026 é a seleção de conceito; o FEED, com conclusão prevista para o fim de 2027, servirá de base para a decisão de execução. O impacto também tratava os cerca de 250 profissionais da Aibel no projeto como contratações." }
 ];
 
 /* FONTE (rodapé da matéria): quem publicou os fatos, o que o OWNews fez,

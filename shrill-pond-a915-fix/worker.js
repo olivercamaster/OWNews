@@ -4077,7 +4077,8 @@ const BUDDY_IA_SISTEMA =
   'Ficha técnica e listas (dimensões, capacidades, nomes de estados ou empresas): não reproduza a frase da matéria com os mesmos números na mesma ordem — escolha só os dados essenciais e mude a estrutura (ex.: "Capaz de processar X, a unidade tem Y de comprimento"). ' +
   'Organize pela importância para quem acompanha o offshore, não na ordem da matéria. Atribua cada número e declaração a quem o informou (empresa, governo, consultoria); não junte valores de origens diferentes. ' +
   'Número seguido de unidade técnica (psi, kV, MW, GW, pés) é especificação, não quantidade: "árvores de 20 mil psi", nunca "20 mil árvores". ' +
-  'Fonte em inglês: rig = sonda, drillship = navio-sonda, vessel = embarcação ou navio, player = empresa, permit/licence = licença, well completion = completação do poço; nada palavra por palavra. ' +
+  'Fonte em inglês: rig = sonda, drillship = navio-sonda, vessel = embarcação ou navio, player = empresa, permit/licence = licença, well completion = completação do poço, job/award = contrato ou trabalho (nunca "emprego"); nada palavra por palavra. ' +
+  'Equipe que vai trabalhar no projeto ("250 employees") não é contratação nem vaga nova. ' +
   'Legendas de foto e chamadas de outras matérias ("NESTA EDIÇÃO", "Foto:", "Source:") não são fatos da notícia. ' +
   'Mais curto que a matéria; se ela tiver pouca informação, a nota é curta. Não repita frases do buddy. Sem conclusão, sem opinião, sem adjetivos promocionais.\n\n' +
   'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P, trabalhadores embarcados. ' +
@@ -4099,7 +4100,7 @@ const TITULO_PALAVRAS_FUNCIONAIS = new Set(['para', 'pela', 'pelo', 'pelas', 'pe
 /* Tradução literal que passava como título (auditoria 2026-10-22):
    "Jogador de petróleo do Paquistão", "Nave de construção submarina",
    "Par de perfurações da Transocean", "permissão offshore", "Fugro, EirGrid completa". */
-const TITULO_TRADUCAO_LITERAL_RE = /\bjogador(a|es)?\b|\bnave\b|\bpar de perfura|\bpermiss[aã]o offshore\b|^[A-Z][\w&.-]+, [A-Z][\w&.-]+ (completa|conclui|assina|anuncia|fecha|inicia)\b/i;
+const TITULO_TRADUCAO_LITERAL_RE = /^emprego\b|\bjogador(a|es)?\b|\bnave\b|\bpar de perfura|\bpermiss[aã]o offshore\b|^[A-Z][\w&.-]+, [A-Z][\w&.-]+ (completa|conclui|assina|anuncia|fecha|inicia)\b/i;
 function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
   const t = sanearTextoPublicacao(String(titulo || '')).trim();
   const m = [];
@@ -4226,7 +4227,9 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
   // Índice de newsletter (legenda de foto + chamadas "NESTA EDIÇÃO"): não é
   // matéria — virou nota com a legenda tratada como fato (Eixos, 21/10).
-  if (material.length < 300 || (/\bNESTA EDI[ÇC][ÃA]O\b/i.test(material) && material.length < 900)) return { ok: false, relacao: null, motivos: ['sem_material'] };
+  // Divulgação de live/programa da própria fonte também não é fato (22/10).
+  if (material.length < 300 || (/\bNESTA EDI[ÇC][ÃA]O\b/i.test(material) && material.length < 900) ||
+    (/\bao vivo\b/i.test(artigo.title || '') && /youtube|transmiss[ãa]o|live\b/i.test(material))) return { ok: false, relacao: null, motivos: ['sem_material'] };
   const manterTitulo = !!(opcoes && opcoes.manterTitulo);
   const errosTitulo = manterTitulo ? [] : validarTituloOWNews(artigo.title, material);
   const pedidoTitulo = errosTitulo.length
@@ -4448,7 +4451,7 @@ const BUDDY_IA_REJ_VALIDA_DESDE = Date.parse('2026-10-19T14:33:00Z');
 // a cada melhoria de redação este instante avança e a pauta (ainda no feed
 // e com até PAUTA_IDADE_MAX_H) ganha UMA nova avaliação. Definitiva (escopo,
 // substância) continua valendo 3 dias. Entrada antiga sem classe = corrigível.
-const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-22T09:04:00Z');
+const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-22T20:12:00Z');
 const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {

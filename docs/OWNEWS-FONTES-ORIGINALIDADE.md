@@ -69,3 +69,15 @@ Regras só na geração; a exibição não muda, então não derruba matéria pu
   - impacto sem especulação.
 - `BUDDY_IA_REJ_CORRIGIVEL_DESDE` = 2026-10-22T09:04Z (logo após o deploy do coletor; o cron das 08:59 ainda rodou o código antigo): as pautas corrigíveis ganham uma reavaliação.
 - Todas as reprovações novas são **corrigíveis**: 2ª redação dirigida, sem loop.
+
+## Mais Lidas — popularidade × recência (frontend `rankingMaisLidas`, 2026-10-22)
+
+- **Popularidade:** leitores únicos (navegadores distintos) nos últimos 7 dias. Vem da tabela `views` do DO PageViews, via `/top?unicos=1`, que faz `COUNT(DISTINCT session_id)`. Refresh e releitura do mesmo navegador contam uma vez só. Robôs, navegador automatizado e o navegador que já abriu o Command Center continuam fora.
+- **Recência:** a idade é medida por `published_at`, a mesma data que a Home exibe. O fator é f(h) = 1 / (1 + (h/24)²), contínuo e sem degrau: 6h 0,94 · 12h 0,80 · 24h 0,50 · 48h 0,20 · 72h 0,10 · 7d 0,01. Matéria com mais de 7 dias, ou com data mais de 15 min no futuro, fica fora.
+- **Score:** leitores × f(h). Em empate, vem primeiro a mais recente e, depois, a ordem por id.
+- **Elegibilidade:** matéria OWNews válida (não thin, duplicada ou insuficiente), com pelo menos 2 leitores e score de pelo menos 0,5. Pelo piso, 2 leitores valem até cerca de 41h e 5 leitores até cerca de 72h.
+- **Janela:** a menor entre 24, 48, 72, 96, 120, 144 e 168h que tenha 5 elegíveis.
+- **Viral:** matéria fora da janela (até 7 dias) concorre se tiver pelo menos 3 × a média de leitores por matéria lida na semana e mais leitores que todas as da janela. Mesmo assim, disputa pelo score com decaimento.
+- **Diversidade:** a mesma pauta (títulos com contenção ≥ 0,6, a mesma regra da Home) entra uma vez só.
+- **Bloco:** com menos de 3 matérias boas, o bloco some e a Agenda ocupa a linha inteira.
+- **Diagnóstico:** `/api/mais-lidas?diagnostico=1` mostra a idade, os leitores, o fator, o score e o motivo de cada item, além da média e do limiar viral.
