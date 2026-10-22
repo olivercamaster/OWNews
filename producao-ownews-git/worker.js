@@ -56,7 +56,7 @@ const SCRIPT_VISITAS =
   'var el=document.getElementById("visitasTotal");if(!el)return;' +
   'if(!dados||typeof dados.total!=="number"||dados.total<=0)return;' +
   'var fmt;try{fmt=dados.total.toLocaleString("pt-BR");}catch(e){fmt=String(dados.total);}' +
-  'el.textContent=fmt+(dados.total===1?" visita":" visitas")+(dados.desde?" desde "+dados.desde:"");el.title="Visitas registradas pelo próprio OWNews (1 por navegador por dia; robôs excluídos)";' +
+  'el.textContent=fmt+(dados.total===1?" visita":" visitas")+;el.title="Visitas registradas pelo próprio OWNews (1 por navegador por dia; robôs excluídos)";' +
   'el.hidden=false;' +
   '}' +
   'fetch("/api/visitas-total").then(function(r){if(!r.ok)throw new Error("visitas "+r.status);return r.json();}).then(render).catch(function(){});' +
