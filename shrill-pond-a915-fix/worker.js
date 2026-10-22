@@ -4448,7 +4448,7 @@ const BUDDY_IA_REJ_VALIDA_DESDE = Date.parse('2026-10-19T14:33:00Z');
 // a cada melhoria de redação este instante avança e a pauta (ainda no feed
 // e com até PAUTA_IDADE_MAX_H) ganha UMA nova avaliação. Definitiva (escopo,
 // substância) continua valendo 3 dias. Entrada antiga sem classe = corrigível.
-const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-22T08:45:00Z');
+const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-22T09:04:00Z');
 const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {

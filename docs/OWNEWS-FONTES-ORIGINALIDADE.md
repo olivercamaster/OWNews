@@ -67,5 +67,5 @@ Regras só na geração; a exibição não muda, então não derruba matéria pu
   - glossário rig/drillship/vessel/player/permit;
   - legendas não são fato;
   - impacto sem especulação.
-- `BUDDY_IA_REJ_CORRIGIVEL_DESDE` = 2026-10-22T08:45Z: as pautas corrigíveis ganham uma reavaliação.
+- `BUDDY_IA_REJ_CORRIGIVEL_DESDE` = 2026-10-22T09:04Z (logo após o deploy do coletor; o cron das 08:59 ainda rodou o código antigo): as pautas corrigíveis ganham uma reavaliação.
 - Todas as reprovações novas são **corrigíveis**: 2ª redação dirigida, sem loop.
