@@ -4077,7 +4077,7 @@ const BUDDY_IA_SISTEMA =
   'Ficha técnica e listas (dimensões, capacidades, nomes de estados ou empresas): não reproduza a frase da matéria com os mesmos números na mesma ordem — escolha só os dados essenciais e mude a estrutura (ex.: "Capaz de processar X, a unidade tem Y de comprimento"). ' +
   'Organize pela importância para quem acompanha o offshore, não na ordem da matéria. Atribua cada número e declaração a quem o informou (empresa, governo, consultoria); não junte valores de origens diferentes. ' +
   'Número seguido de unidade técnica (psi, kV, MW, GW, pés) é especificação, não quantidade: "árvores de 20 mil psi", nunca "20 mil árvores". ' +
-  'Fonte em inglês: rig = sonda, drillship = navio-sonda, vessel = embarcação ou navio, player = empresa, permit/licence = licença; nada palavra por palavra. ' +
+  'Fonte em inglês: rig = sonda, drillship = navio-sonda, vessel = embarcação ou navio, player = empresa, permit/licence = licença, well completion = completação do poço; nada palavra por palavra. ' +
   'Legendas de foto e chamadas de outras matérias ("NESTA EDIÇÃO", "Foto:", "Source:") não são fatos da notícia. ' +
   'Mais curto que a matéria; se ela tiver pouca informação, a nota é curta. Não repita frases do buddy. Sem conclusão, sem opinião, sem adjetivos promocionais.\n\n' +
   'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P, trabalhadores embarcados. ' +
