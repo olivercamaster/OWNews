@@ -287,7 +287,7 @@ def run_static():
     test("resolverCamadaEditorial: só banco ('ownews' completo; acervo 'ia' sem corpo), sem geração em runtime", lambda: _check_resolver_fallback())
     test("ehMateriaThin: thin = não é matéria OWNews com corpo próprio (não depende de camada)", lambda: _check_thin_no_camada())
     test("indexação exige Buddy + corpo OWNews + impacto (Editorial Original 4.0)", lambda: _check_thin_noindex())
-    test("bloco Fonte: autoria honesta (IA declarada, sem apuração própria inventada)", lambda: _check_buddy_footer_fallback())
+    test("bloco Fonte: enxuto e honesto; IA e limites declarados uma vez em Como produzimos", lambda: _check_buddy_footer_fallback())
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
     test("home_selecao_test.js passa (Topo Fresco: hard cap 24h, faixas, laterais, Últimas, Giro, geografia)", lambda: _run_node_test("home_selecao_test.js"))
@@ -311,7 +311,7 @@ def run_static():
         "vagas_sem_base", worker().split("function validarImpactoOffshore(texto)", 1)[1].split("\nfunction ", 1)[0], "vagas_sem_base"))
     test("Política Editorial menciona bloco de impacto offshore", lambda: expect_in(
         'O que isso impacta para o offshore',
-        worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0], "impacto na política"))
+        worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes(", 1)[0], "impacto na política"))
     test("validarTextoCamadaEditorial: rejeita truncado (motivo 'truncado')", lambda: expect_in(
         "motivo: 'truncado'",
         worker().split("function validarTextoCamadaEditorial(texto)", 1)[1].split("\nfunction ", 1)[0],
@@ -406,7 +406,7 @@ def _check_sitemap_rotas():
 
 def _check_politica_editorial_secoes():
     w = worker()
-    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes(", 1)[0]
     for anc in ('id="o-que-publicamos"', 'id="selecao"', 'id="fontes"', 'id="producao-automatizada"', 'id="buddy-te-explica"',
                 'id="conteudo-original"', 'id="autoria"', 'id="correcoes"', 'id="publicidade"'):
         expect_in(anc, bloco, anc)
@@ -484,11 +484,22 @@ def _check_thin_noindex():
 
 def _check_buddy_footer_fallback():
     w = worker()
+    # Fontes e Transparência (2026-10-22): rodapé curto — fonte, frase de
+    # elaboração, data, Como produzimos, Reportar erro. A metodologia (IA,
+    # checagens, sem apuração própria, limites) fica UMA vez na Política.
     fn = w.split("function blocoProvenienciaNoticia(artigo, camada)", 1)[1].split("\nfunction ", 1)[0]
-    expect_in("inteligência artificial", fn, "IA declarada no bloco Fonte")
-    expect_in("Não houve apuração própria", fn, "sem falsa reportagem própria")
+    expect_in("Conteúdo elaborado pelo OWNews a partir das informações da fonte citada.", fn, "frase de elaboração")
     expect_in("não tem texto editorial do OWNews", fn, "página sem matéria OWNews explicada")
-    expect_in('rel="noopener nofollow"', fn, "link de origem")
+    expect_in("/politica-editorial#como-produzimos", fn, "link Como produzimos")
+    expect_in("#como-reportar", fn, "link Reportar erro")
+    expect_in('rel="noopener nofollow"', fn, "link de origem só para documento primário/registro")
+    expect_not_in("↗", fn, "link externo ostensivo da fonte voltou")
+    expect_not_in("apuração do OWNews", fn, "apuração inventada")
+    pol = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes(", 1)[0]
+    expect_in("inteligência artificial", pol, "IA declarada na metodologia")
+    expect_in("Não fazemos apuração própria das notícias", pol, "sem falsa reportagem própria")
+    expect_in('id="como-produzimos"', pol, "âncora Como produzimos")
+    expect_not_in("Revisado por jornalista", w, "revisão humana inventada")
 
 
 def _check_home_thin_filter():
@@ -504,7 +515,7 @@ def _check_home_thin_filter():
 
 def _check_politica_buddy_te_explica():
     w = worker()
-    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    bloco = w.split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes(", 1)[0]
     pe_bloco = bloco.split('id="buddy-te-explica"', 1)[1][:3500]
     expect_in("inteligência artificial", bloco, "IA declarada")
     expect_in("O OWNews não republica o texto das matérias de terceiros", bloco, "fim da republicação descrito")
@@ -694,10 +705,10 @@ def _check_hierarquia_headings():
 
 
 def _check_politica_filosofia():
-    bloco = worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes()", 1)[0]
+    bloco = worker().split("function renderPoliticaEditorial()", 1)[1].split("function renderCorrecoes(", 1)[0]
     expect_in("A fonte é matéria-prima factual; a nota publicada é do OWNews", bloco, "modelo editorial")
     expect_in("Não há revisão humana nota a nota", bloco, "sem revisão humana inventada")
-    expect_in('o bloco "Fonte" diz quem publicou os fatos originalmente', bloco, "nome real do bloco")
+    expect_in('o rodapé "Fonte" diz quem publicou os fatos originalmente', bloco, "nome real do bloco")
 
 
 # Snapshot estrutural de "Últimas Notícias" (Home 3.0, db0816d; CSS compacto

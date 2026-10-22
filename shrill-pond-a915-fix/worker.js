@@ -3135,7 +3135,7 @@ async function buscarTitulosRecentes(env, dias) {
   const desde = new Date(Date.now() - dias * 86400000).toISOString();
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles` +
-    `?select=id,title,image_credit,original_url,buddy_summary,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}`;
+    `?select=id,title,image_credit,original_url,buddy_summary,buddy_source,content&status=eq.published&published_at=gte.${encodeURIComponent(desde)}`;
 
   const resposta = await fetch(endpoint, { headers: supabaseHeaders(env) });
   if (!resposta.ok) return [];
@@ -3891,6 +3891,31 @@ function numerosSustentadosPelaFonte(texto, fonte) {
   const daFonte = new Set(nums(fonte).flat());
   return nums(texto).every((v) => v.some((n) => daFonte.has(n)));
 }
+/* Número que na fonte é ESPECIFICAÇÃO técnica ("20,000 psi", "525 kV") e no
+   texto virou QUANTIDADE ("20 mil árvores") — erro real de 21/10/2026.
+   Só vale quando a fonte nunca usa o número sem a unidade. */
+const Q4_UNIDADE_TECNICA = /^\s*(?:mil\s+)?(psi|kv|mw|gw|mwh|gwh|kw|hp|bar)\b/i;
+function numeroComUnidadeTrocada(texto, fonte) {
+  const ocorr = (s) => {
+    const r = [];
+    String(s || '').replace(/(\d[\d.,]*\d|\d)(\s+mil(?![A-Za-zÀ-ú]))?/g, (m, n, mil, pos, str) => {
+      const p = n.match(/^(\d+)(?:[.,](\d{1,2}))?$/);
+      const v = [n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')];
+      if (mil && p) v.push((p[1] + (p[2] || '').padEnd(3, '0')).replace(/^0+(?=\d)/, ''));
+      const u = (str.slice(pos + n.length, pos + n.length + 16).match(Q4_UNIDADE_TECNICA) || [])[1];
+      r.push({ v, u: u ? u.toLowerCase() : null });
+      return m;
+    });
+    return r;
+  };
+  const daFonte = {};
+  ocorr(fonte).forEach((o) => o.v.forEach((x) => { const e = daFonte[x] || (daFonte[x] = { u: 0, sem: false }); if (o.u) e.u++; else e.sem = true; }));
+  return ocorr(texto).some((o) => !o.u && o.v.some((x) => daFonte[x] && daFonte[x].u && !daFonte[x].sem));
+}
+/* Impacto especulativo (auditoria 2026-10-22: "pode elevar a demanda",
+   "podendo gerar novos contratos", "cadeia offshore"). Só na geração —
+   na exibição não derruba matéria já publicada. */
+const IMPACTO_ESPECULATIVO_RE = /\b(pode(m)?|podendo|poder[aá]|poder[aã]o)\s+(\S+\s+)?(elevar|acelerar|aumentar|ampliar|estimular|gerar|abrir|impulsionar|beneficiar|criar|atrair)\b|\bcadeia (de suprimentos |de servi[çc]os )?offshore\b/i;
 function clicheIA(texto) {
   const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));
   return re ? String(texto).match(re)[0].toLowerCase() : null;
@@ -3930,7 +3955,9 @@ function validarCorpoOWNews(corpo, artigo, buddy, impacto, opcoes) {
     const fonte = String(o.fonte);
     const lead = String((artigo && artigo.summary) || '');
     if (trechoCopiadoDaFonte(t, fonte) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
-    if (parafraseRasaDaFonte(t, fonte) >= 0.4) m.push('parafrase_rasa');
+    // 0,4 → 0,3 (auditoria 2026-10-22): reescritas coladas em fonte em
+    // português passavam com 0,30–0,34; acima disso vira 2ª redação.
+    if (parafraseRasaDaFonte(t, fonte) >= 0.3) m.push('parafrase_rasa');
     if (!numerosSustentadosPelaFonte(t, [titulo, lead, fonte].join(' '))) m.push('numero_sem_fonte');
     if (t.length > Math.max(fonte.length * 1.15 + 250, 700)) m.push('maior_que_fonte');
   }
@@ -3954,6 +3981,10 @@ function validarMateriaOWNews(mat, artigo, fonte) {
   if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
   if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
   if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  if (f) {
+    if (impacto && IMPACTO_ESPECULATIVO_RE.test(impacto)) motivos.push('impacto:especulativo');
+    [['buddy', buddy], ['corpo', corpo], ['impacto', impacto]].forEach(([k, v]) => { if (v && numeroComUnidadeTrocada(v, f)) motivos.push(k + ':numero_unidade_trocada'); });
+  }
   // Impacto que só diz que "não afeta o offshore" não é impacto útil: a
   // nota não tem relevância offshore suficiente para ser publicada.
   if (impacto && /^[^;:.]{0,80}?\b(n[aã]o|nada|sem)\s+(\S+\s+){0,2}?(afeta|altera|alcan[çc]a|toca|envolve|muda|mexe|atinge|interfere|impacta|chega)\b[^;.]{0,40}\b(offshore|opera[çc][aã]o|opera[çc][oõ]es|plataformas?|produ[çc][aã]o|mar)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
@@ -4040,15 +4071,19 @@ const BUDDY_IA_SISTEMA =
   'Você é redator do OWNews, portal brasileiro para quem trabalha no setor offshore de petróleo e gás. A matéria recebida é só MATERIAL FACTUAL: o OWNews não republica o texto da fonte, escreve a própria nota. Responda SOMENTE com um objeto JSON: ' +
   '{"relacao_offshore": "direta"|"indireta"|"nenhuma", "titulo": string, "buddy": string, "corpo": [string], "impacto": string}.\n\n' +
   'TITULO: o fato em uma frase factual de português do Brasil, até 110 caracteres, maiúscula só no início, em nomes próprios e siglas; sem exclamação, sem adjetivo de impacto, sem opinião. Se o título recebido já é assim, repita-o igual.\n\n' +
-  'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto, com palavras próprias (nenhuma sequência de mais de 6 palavras igual à matéria). Não repita o título.\n\n' +
+  'BUDDY ("Em poucas palavras, o que aconteceu?"): 2 ou 3 frases completas, até 420 caracteres, português do Brasil natural e direto, com palavras próprias (nenhuma sequência de mais de 6 palavras igual à matéria). Não repita o título nem reproduza a abertura da matéria: diga o fato central e o dado que o torna relevante.\n\n' +
   'CORPO: lista de 2 a 4 parágrafos curtos com os fatos e o contexto: o que aconteceu, quem, onde, quando, números, estágio, próximo passo confirmado — só o que a matéria sustenta. ' +
   'Sintetize com vocabulário e ordem próprios: nunca copie frases nem troque palavras de frases da matéria; nenhuma sequência de mais de 6 palavras igual ao texto. Atribua declarações ("segundo a Petrobras"). ' +
   'Ficha técnica e listas (dimensões, capacidades, nomes de estados ou empresas): não reproduza a frase da matéria com os mesmos números na mesma ordem — escolha só os dados essenciais e mude a estrutura (ex.: "Capaz de processar X, a unidade tem Y de comprimento"). ' +
+  'Organize pela importância para quem acompanha o offshore, não na ordem da matéria. Atribua cada número e declaração a quem o informou (empresa, governo, consultoria); não junte valores de origens diferentes. ' +
+  'Número seguido de unidade técnica (psi, kV, MW, GW, pés) é especificação, não quantidade: "árvores de 20 mil psi", nunca "20 mil árvores". ' +
+  'Fonte em inglês: rig = sonda, drillship = navio-sonda, vessel = embarcação ou navio, player = empresa, permit/licence = licença; nada palavra por palavra. ' +
+  'Legendas de foto e chamadas de outras matérias ("NESTA EDIÇÃO", "Foto:", "Source:") não são fatos da notícia. ' +
   'Mais curto que a matéria; se ela tiver pouca informação, a nota é curta. Não repita frases do buddy. Sem conclusão, sem opinião, sem adjetivos promocionais.\n\n' +
   'RELACAO_OFFSHORE: "direta" = plataformas, sondas, FPSOs, navios de apoio, campos ou blocos no mar, contratos e serviços offshore, regulação de E&P, trabalhadores embarcados. ' +
   '"indireta" = energia em terra, combustíveis, refino, gás, política ou economia do petróleo. "nenhuma" = fora do setor de energia.\n\n' +
   'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) — com pelo menos um nome próprio ou número escrito exatamente como aparece na matéria, no meio da frase — e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
-  'Se o efeito é indireto, diga concretamente como, sem especular. Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
+  'Se o efeito é indireto, diga concretamente como, sem especular ("pode elevar", "podendo gerar", "cadeia offshore" sem dizer qual). Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
   'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. Números exatamente como na matéria: não arredonde, não some, não subtraia, não converta unidades (escreva "58 mil", nunca "58 000"). ' +
   'Fale de vagas ou empregos só se a matéria informar contratação ou número de empregos. ' +
   'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
@@ -4061,6 +4096,10 @@ const BUDDY_IA_SISTEMA =
 const TITULO_SENSACIONAL_RE = /!|\b(bomba|chocante|inacredit[aá]vel|incr[ií]vel|urgente|exclusivo|veja|confira|explode|derrete|humilha|detona|vergonha|absurdo|esc[aâ]ndalo)\b/i;
 const TITULO_FUNCAO_MAIUSC_RE = /[A-Za-zÀ-ú0-9,]\s(Da|De|Do|Das|Dos|Para|Com|Em|No|Na|Nos|Nas|Por|Pelo|Pela|Ao|Aos|Sobre|Após|Entre|Contra|Que)\s/;
 const TITULO_PALAVRAS_FUNCIONAIS = new Set(['para', 'pela', 'pelo', 'pelas', 'pelos', 'sobre', 'entre', 'após', 'apos', 'como', 'mais', 'menos', 'contra', 'desde', 'até', 'durante', 'pelo', 'seus', 'suas', 'esta', 'este', 'essa', 'esse', 'isso', 'onde', 'quando', 'também', 'ainda', 'muito', 'mesmo', 'mesma', 'cada', 'outro', 'outra', 'todos', 'todas', 'neste', 'nesta', 'deste', 'desta', 'perante', 'segundo']);
+/* Tradução literal que passava como título (auditoria 2026-10-22):
+   "Jogador de petróleo do Paquistão", "Nave de construção submarina",
+   "Par de perfurações da Transocean", "permissão offshore", "Fugro, EirGrid completa". */
+const TITULO_TRADUCAO_LITERAL_RE = /\bjogador(a|es)?\b|\bnave\b|\bpar de perfura|\bpermiss[aã]o offshore\b|^[A-Z][\w&.-]+, [A-Z][\w&.-]+ (completa|conclui|assina|anuncia|fecha|inicia)\b/i;
 function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
   const t = sanearTextoPublicacao(String(titulo || '')).trim();
   const m = [];
@@ -4078,6 +4117,8 @@ function validarTituloOWNews(titulo, fonteTexto, tituloOriginal) {
   const maiusc = conteudo.filter((p) => /^[A-ZÀ-Ú][a-zà-ú]+$/.test(p)).length;
   if (TITULO_FUNCAO_MAIUSC_RE.test(t) || (maiusc >= 4 && maiusc >= 0.85 * conteudo.length)) m.push('title_case');
   if (clicheIA(t)) m.push('cliche_ia');
+  if (TITULO_TRADUCAO_LITERAL_RE.test(t)) m.push('traducao_literal');
+  if (fonteTexto && numeroComUnidadeTrocada(t, fonteTexto)) m.push('numero_unidade_trocada');
   if (tituloOriginal !== undefined) {
     const base = String(tituloOriginal || '') + ' ' + String(fonteTexto || '');
     const baseMin = base.toLowerCase();
@@ -4141,7 +4182,7 @@ function extrairJsonIA(resposta) {
 // frase/parágrafo incompleto eram as reprovações mais comuns com a IA real e
 // não ganhavam segunda chance. Escopo (fora_escopo, sem_relevancia_offshore)
 // e material insuficiente nunca entram aqui.
-const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|longo|cliche_ia|generico|sem_ancora|incomplet|espaco_antes|parenteses|numero_sem_fonte|nome_sem_fonte|emprego_sem_base|proibido_impacto|maior_que_fonte|sensacionalista|ingles/;
+const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|longo|cliche_ia|generico|especulativo|sem_ancora|incomplet|espaco_antes|parenteses|numero_sem_fonte|unidade_trocada|nome_sem_fonte|emprego_sem_base|proibido_impacto|maior_que_fonte|sensacionalista|ingles/;
 const BUDDY_IA_DICAS_REESCRITA = [
   [/copia_|parafrase_rasa|frase_redundante/, 'Não reaproveite frases da matéria: reescreva com estrutura e vocabulário próprios.'],
   [/repete_/, 'Buddy, corpo e impacto devem dizer coisas diferentes; não repita o título nem o buddy no corpo.'],
@@ -4151,6 +4192,9 @@ const BUDDY_IA_DICAS_REESCRITA = [
   [/impacto:sem_ancora|sem_ancora/, 'No impacto, cite ao menos um nome próprio (empresa, unidade, campo, bacia, órgão) ou número que aparece na matéria.'],
   [/generico|cliche_ia|proibido_impacto/, 'Evite frases genéricas que serviriam para qualquer notícia; diga o que muda para quem trabalha no offshore com base no fato.'],
   [/numero_sem_fonte|nome_sem_fonte/, 'Use só números e nomes que aparecem na matéria.'],
+  [/especulativo/, 'No impacto, não especule ("pode elevar", "podendo gerar", "cadeia offshore"): diga o efeito que a matéria sustenta (prazo, unidade, contrato, etapa) ou devolva impacto "".'],
+  [/unidade_trocada/, 'Número com unidade técnica (psi, kV, MW, GW) é especificação, não quantidade: escreva "árvores de 20 mil psi", nunca "20 mil árvores".'],
+  [/traducao_literal/, 'Título em português de redação: sonda, navio-sonda, embarcação, empresa, licença — nada traduzido palavra por palavra.'],
   [/emprego_sem_base/, 'Não fale em vagas, empregos ou salários se a matéria não trata disso.'],
   [/sensacionalista/, 'Tom factual, sem exclamação nem adjetivo de impacto.'],
   [/ingles/, 'Escreva tudo em português do Brasil.'],
@@ -4180,7 +4224,9 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
   const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
-  if (material.length < 300) return { ok: false, relacao: null, motivos: ['sem_material'] };
+  // Índice de newsletter (legenda de foto + chamadas "NESTA EDIÇÃO"): não é
+  // matéria — virou nota com a legenda tratada como fato (Eixos, 21/10).
+  if (material.length < 300 || (/\bNESTA EDI[ÇC][ÃA]O\b/i.test(material) && material.length < 900)) return { ok: false, relacao: null, motivos: ['sem_material'] };
   const manterTitulo = !!(opcoes && opcoes.manterTitulo);
   const errosTitulo = manterTitulo ? [] : validarTituloOWNews(artigo.title, material);
   const pedidoTitulo = errosTitulo.length
@@ -4402,7 +4448,7 @@ const BUDDY_IA_REJ_VALIDA_DESDE = Date.parse('2026-10-19T14:33:00Z');
 // a cada melhoria de redação este instante avança e a pauta (ainda no feed
 // e com até PAUTA_IDADE_MAX_H) ganha UMA nova avaliação. Definitiva (escopo,
 // substância) continua valendo 3 dias. Entrada antiga sem classe = corrigível.
-const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-20T13:25:00Z');
+const BUDDY_IA_REJ_CORRIGIVEL_DESDE = Date.parse('2026-10-22T08:45:00Z');
 const BUDDY_IA_TETO_DIA = 24;
 const BUDDY_IA_INTERVALO_MS = 60 * 60 * 1000;
 export class BuddyIAPoller {
@@ -4882,8 +4928,14 @@ slug: criarSlug(tituloPublicado),
         // diferentes, fatos iguais): publica como 'duplicada' — fica
         // acessível, mas fora do índice e da Home. Limiar calibrado no
         // acervo (2026-10-17): pares reais >= 0,6; notas distintas <= 0,57.
-        const gemea = (contexto.recentes || []).find((r) => r.buddy_source === MATERIA_OWNEWS && r.buddy_summary &&
-          Math.min(similaridadeTextos(camadaIA.buddy_summary, r.buddy_summary).contencao, similaridadeTextos(r.buddy_summary, camadaIA.buddy_summary).contencao) >= 0.6);
+        // Mesmo fato em fontes de idiomas diferentes (BP/TechnipFMC, 21/10:
+        // Buddy 0,45 e corpo 0,40) não chegava a 0,6 no Buddy: Buddy >= 0,4
+        // E corpo >= 0,4 também é gêmea (nenhum par distinto no acervo de 45).
+        const simMin = (x, y) => Math.min(similaridadeTextos(x, y).contencao, similaridadeTextos(y, x).contencao);
+        const gemea = (contexto.recentes || []).find((r) => r.buddy_source === MATERIA_OWNEWS && r.buddy_summary && (() => {
+          const sb = simMin(camadaIA.buddy_summary, r.buddy_summary);
+          return sb >= 0.6 || (sb >= 0.4 && !!r.content && simMin(camadaIA.corpo, r.content) >= 0.4);
+        })());
         if (gemea) { artigo.buddy_source = 'duplicada'; resultado.duplicadas_evento = (resultado.duplicadas_evento || 0) + 1; }
       }
 

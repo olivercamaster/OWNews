@@ -337,5 +337,41 @@ await test("Telegram: só matéria OWNews de até 24h entra como candidata; 2 no
   expect(T.SLOTS_NOTICIAS_TELEGRAM.map((s) => s.horaAlvoBRT + ":" + s.minAlvoBRT).join(",") === "8:50,17:50");
 });
 
+console.log("\nFontes e originalidade (auditoria 2026-10-22) — pipeline");
+
+await test("título: tradução literal reprovada (jogador, nave, par de perfurações, 'X, Y completa')", () => {
+  for (const t of ["Jogador de petróleo do Paquistão escolhe empresa norueguesa para aquisição de dados", "Nave de construção submarina pronta para metanol chega à Noruega", "Par de perfurações da Transocean soma US$ 550 milhões em novos contratos", "Fugro, EirGrid completa pesquisas marítimas para ligação eólica"])
+    expect(T.validarTituloOWNews(t, "").includes("traducao_literal"), t);
+  expect(!T.validarTituloOWNews("Duas sondas da Transocean somam US$ 550 milhões em novos contratos no Golfo dos EUA", "").includes("traducao_literal"));
+});
+await test("título: especificação virou quantidade ('20 mil árvores' de '20,000 psi') é reprovado", () => {
+  const f = "TechnipFMC will supply 20,000 psi (20K) subsea tree systems to BP.";
+  expect(T.validarTituloOWNews("TechnipFMC fornecerá 20 mil árvores submarinas de 20K psi à BP nos EUA", f).includes("numero_unidade_trocada"));
+  expect(!T.validarTituloOWNews("TechnipFMC vai fornecer árvores submarinas de 20 mil psi para a BP nos EUA", f).includes("numero_unidade_trocada"));
+});
+await test("matéria: número trocado e impacto especulativo viram 2ª redação dirigida (corrigível)", async () => {
+  const ruim = Object.assign({}, BOA, { impacto: "A chegada da P-82 a Búzios pode elevar a demanda por serviços para a cadeia offshore da Bacia de Santos." });
+  const ia = iaFalsa([ruim, BOA]);
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
+  expect(r.ok && r.tentativas === 2, JSON.stringify(r));
+  expect(/não especule/.test(ia.chamadas[1].messages[1].content), "dica do especulativo ausente");
+  expect(T.classeReprovacao(["impacto:especulativo", "corpo:numero_unidade_trocada"]) === "corrigivel");
+});
+await test("índice de newsletter ('NESTA EDIÇÃO' + legenda) → sem_material, nenhuma chamada de IA", async () => {
+  const ia = iaFalsa([BOA]);
+  const m = "As unidades de hidrotratamento da Refinaria Abreu e Lima (RNEST), da Petrobras, reduzem enxofre. Foto: Fernando Frazão/Agência Brasil NESTA EDIÇÃO. Maior consumo de diesel puxou aumento de emissões do setor energético, aponta Seeg. Brasil ficou a 85 milhões de toneladas de distância da NDC para 2025. No mundo, agência da ONU fala em buscar menor excesso possível, já que 1,5 grau está em vias de ser ultrapassado.";
+  const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, { title: "Diesel segue puxando emissões", summary: "" }, m, 1, {});
+  expect(!r.ok && r.motivos[0] === "sem_material" && ia.chamadas.length === 0, JSON.stringify(r));
+});
+await test("anti-paráfrase: limiar 0,3 (reescrita colada em fonte em português vai para 2ª redação)", () => {
+  const src = fs.readFileSync(SRC, "utf8");
+  expect(src.includes("if (parafraseRasaDaFonte(t, fonte) >= 0.3) m.push('parafrase_rasa');"));
+});
+await test("dedup de evento entre idiomas: Buddy >= 0,4 e corpo >= 0,4 (BP/TechnipFMC 21/10)", () => {
+  const src = fs.readFileSync(SRC, "utf8");
+  expect(src.includes("return sb >= 0.6 || (sb >= 0.4 && !!r.content && simMin(camadaIA.corpo, r.content) >= 0.4);"));
+  expect(/select=id,title,image_credit,original_url,buddy_summary,buddy_source,content&status=eq\.published/.test(src), "recentes sem content");
+});
+
 console.log("\n" + pass + " passaram, " + fail + " falharam");
 process.exit(fail ? 1 : 0);

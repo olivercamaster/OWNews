@@ -192,12 +192,32 @@ test("classificarOrigemFonte: oficial/empresa citada = primária; imprensa = con
   expect(mod.classificarOrigemFonte("") === "desconhecida");
   expect(mod.classificarOrigemFonte("nao-e-url") === "desconhecida");
 });
-test("blocoProvenienciaNoticia só chama de 'Fonte primária' o que é verificável pelo domínio", () => {
-  const oficial = mod.blocoProvenienciaNoticia({ image_credit: "Agência Petrobras", original_url: "https://agencia.petrobras.com.br/x", published_at: "2026-10-05T12:00:00Z" }, null);
-  const imprensa = mod.blocoProvenienciaNoticia({ image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-05T12:00:00Z" }, null);
-  expect(oficial.includes("Fonte primária (oficial):"), "oficial sem rótulo primária");
-  expect(!imprensa.includes("Fonte primária"), "imprensa rotulada como primária");
-  expect(imprensa.includes("<strong>Fonte:</strong>"), "imprensa sem rótulo neutro");
+test("bloco Fonte: secundária sem link externo; primária com link só para documento (nunca homepage)", () => {
+  const cam = { fonte: "ownews", corpo: "x" };
+  const oficial = mod.blocoProvenienciaNoticia({ id: "a", image_credit: "Petrobras", original_url: "https://agencia.petrobras.com.br/w/negocio/p-82-viagem", published_at: "2026-10-05T12:00:00Z" }, cam);
+  const imprensa = mod.blocoProvenienciaNoticia({ id: "b", image_credit: "PetroNotícias", original_url: "https://petronoticias.com.br/a-materia/", published_at: "2026-10-20T12:00:00Z" }, cam);
+  const home = mod.blocoProvenienciaNoticia({ id: "c", image_credit: "ANP", original_url: "https://www.gov.br/anp", published_at: "2026-10-20T12:00:00Z" }, cam);
+  const pdf = mod.blocoProvenienciaNoticia({ id: "d", image_credit: "ANP", original_url: "https://www.gov.br/anp/relatorio-2025.pdf" }, cam);
+  expect(oficial.includes('href="https://agencia.petrobras.com.br/w/negocio/p-82-viagem"') && oficial.includes("Ver comunicado original"), oficial);
+  expect(imprensa.includes("Fonte: <strong>PetroNotícias</strong>") && !imprensa.includes("petronoticias.com.br"), "secundária com link: " + imprensa);
+  expect(imprensa.includes("Conteúdo elaborado pelo OWNews a partir das informações da fonte citada.") && imprensa.includes("Publicado em 20/10/2026"), imprensa);
+  expect(!home.includes("gov.br/anp\""), "homepage tratada como documento");
+  expect(pdf.includes("Ver documento original"), pdf);
+  expect(!/↗|inteligência artificial|apuração/.test(imprensa), "rodapé voltou a ser aviso longo");
+  const datas = mod.blocoProvenienciaNoticia({ id: "i", image_credit: "PetroNotícias", original_url: "https://petronoticias.com.br/x/", published_at: "2026-10-19T18:00:00Z", created_at: "2026-10-20T16:36:00Z", buddy_reviewed_at: "2026-10-20T16:36:00Z" }, cam);
+  expect(datas.includes("Publicado em 20/10/2026") && !datas.includes("Atualizado"), "data OWNews (created_at), não a da fonte: " + datas);
+});
+test("bloco Fonte: fonte ausente/URL inválida, HTML escapado, Reportar erro com o link da matéria", () => {
+  const cam = { fonte: "ownews", corpo: "x" };
+  const semNome = mod.blocoProvenienciaNoticia({ id: "e", image_credit: "", original_url: "https://www.offshore-energy.biz/x" }, cam);
+  const nada = mod.blocoProvenienciaNoticia({ id: "f", image_credit: null, original_url: "nao-e-url" }, cam);
+  const xss = mod.blocoProvenienciaNoticia({ id: "g", image_credit: "<script>x</script>", original_url: "javascript:alert(1)" }, null);
+  expect(semNome.includes("Fonte: <strong>offshore-energy.biz</strong>"), semNome);
+  expect(nada.includes("Fonte: <strong>não informada</strong>") && !nada.includes("nao-e-url"), nada);
+  expect(!xss.includes("<script>") && !xss.includes("javascript:"), xss);
+  expect(semNome.includes('href="/correcoes?pagina=%2Fnoticia%3Fid%3De#como-reportar"') && semNome.includes('href="/politica-editorial#como-produzimos"'), semNome);
+  const legado = mod.blocoProvenienciaNoticia({ id: "h", image_credit: "Eixos", original_url: "https://eixos.com.br/a" }, null);
+  expect(legado.includes("não tem texto editorial do OWNews") && legado.includes("Ler na fonte"), legado);
 });
 test("blocoEntendaMelhor gera links /explica/ válidos e vazio sem slugs", () => {
   expect(mod.blocoEntendaMelhor([]) === "");

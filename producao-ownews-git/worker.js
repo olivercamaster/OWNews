@@ -5569,21 +5569,61 @@ function classificarOrigemFonte(urlFonte) {
   return 'consultada';
 }
 
-/* FONTE / ORIGEM: de onde vieram os fatos e o que o OWNews fez com eles.
-   Honesto: não há apuração própria além da fonte citada; o texto é do
-   OWNews, escrito com apoio de IA e checagens automáticas. */
+/* Link para o documento de origem: só fonte primária (órgão público,
+   operadora, empresa citada) e só quando a URL aponta para um documento —
+   nunca para a homepage ou uma seção do site. */
+function linkDocumentoPrimario(urlFonte) {
+  if (classificarOrigemFonte(urlFonte) !== 'primaria') return null;
+  let u;
+  try { u = new URL(urlFonte); } catch (e) { return null; }
+  const caminho = u.pathname.replace(/\/+$/, '');
+  if (u.protocol !== 'https:' || caminho.split('/').filter(Boolean).length < 2) return null;
+  return { url: u.href, rotulo: /\.pdf$/i.test(caminho) ? 'Ver documento original' : 'Ver comunicado original' };
+}
+
+/* Correções que mudam o sentido de uma notícia: nota na própria matéria e
+   registro em /correcoes (Política de Correções). Data = dia da correção. */
+const CORRECOES_NOTICIAS = [
+  { id: "4de434ae-8c6f-4430-9be6-591934398ec2", data: '2026-10-22', titulo: "TechnipFMC e BP assinam memorando para árvores submarinas de 20 mil psi no Golfo dos EUA",
+    texto: "O título e o texto diziam que a TechnipFMC forneceria \"20 mil árvores submarinas\". O número 20 mil se refere à pressão de trabalho dos equipamentos (20 mil psi); o anúncio não informa quantas árvores serão fornecidas." },
+  { id: "268e6894-b497-4c93-8b78-4f70af345185", data: '2026-10-22', titulo: "Sumitomo Electric inaugura primeira fábrica britânica de cabos submarinos HVDC na Escócia",
+    texto: "O texto atribuía à fábrica um investimento de £24,5 milhões. O investimento da Sumitomo Electric é de £350 milhões; os £24,5 milhões foram o aporte do governo escocês na construção, segundo o primeiro-ministro John Swinney." },
+  { id: "49102db3-94a9-49e9-92bd-2c64f5f8ecb9", data: '2026-10-22', titulo: "Reino Unido aprova campo de gás Jackdaw no Mar do Norte",
+    texto: "O texto dizia que a aprovação de Jackdaw incluía a possibilidade de novas licenças fora das rodadas. Essa autorização do governo foi citada pelo executivo-chefe da NSTA no mesmo comunicado, mas não faz parte do consentimento do campo." },
+  { id: "0f4b2478-b1c1-48a3-9a3c-061deadd3496", data: '2026-10-22', titulo: "Vår Energi e Equinor descobrem gás e condensado em nova licença norueguesa",
+    texto: "O texto atribuía à Formação Tilje os valores elevados de gás. Eles foram registrados no intervalo da Formação Nise, onde o poço não encontrou reservatório de arenito; na Tilje, houve indícios de hidrocarbonetos." }
+];
+
+/* FONTE (rodapé da matéria): quem publicou os fatos, o que o OWNews fez,
+   data e caminhos para a metodologia e para reportar erro. O detalhe do
+   processo (IA, checagens, limites) fica UMA vez em /politica-editorial.
+   A URL original segue no banco (original_url), no JSON-LD (isBasedOn) e no
+   arquivo interno da fonte; na página, só fonte primária ganha link. */
 function blocoProvenienciaNoticia(artigo, camada) {
-  const nome = artigo.image_credit ? escaparHTML(artigo.image_credit) : null;
-  const rotulo = classificarOrigemFonte(artigo.original_url) === 'primaria' ? 'Fonte primária (oficial)' : 'Fonte';
-  const link = artigo.original_url ? '<a href="' + escaparHTML(artigo.original_url) + '" target="_blank" rel="noopener nofollow">' + (nome || 'publicação original') + ' ↗</a>' : (nome || 'não informada');
-  const publicado = artigo.published_at ? formatarDataCurtaServidor(artigo.published_at) : null;
+  let host = '';
+  try { host = new URL(artigo.original_url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+  const nome = escaparHTML(String(artigo.image_credit || '').trim() || host || 'não informada');
   const ownews = camada && camada.fonte === 'ownews' && camada.corpo;
-  return '<section class="noticia-proveniencia" aria-label="Fonte e origem">' +
-    '<p class="noticia-proveniencia-fonte"><strong>' + rotulo + ':</strong> ' + link + '</p>' +
-    (ownews
-      ? '<p>Os fatos desta nota foram publicados originalmente por ' + (nome || 'a fonte acima') + '. O OWNews selecionou o assunto e escreveu o resumo, o texto e a análise de impacto, com apoio de inteligência artificial e checagens automáticas (sem reproduzir o texto original; números conferidos com a fonte). Não houve apuração própria além da fonte citada.</p>'
-      : '<p>Esta nota não tem texto editorial do OWNews. Para não reproduzir a publicação de terceiros, mostramos só o título e a referência: leia a matéria completa na fonte.</p>') +
-    '<p>' + (publicado ? 'Publicado no OWNews em ' + escaparHTML(publicado) + ' · ' : '') + '<a href="/politica-editorial">Como produzimos</a> · <a href="/correcoes">Reportar erro</a></p>' +
+  const primario = linkDocumentoPrimario(artigo.original_url);
+  const externo = primario || (!ownews && host ? { url: artigo.original_url, rotulo: 'Ler na fonte' } : null);
+  // published_at é a data da FONTE; a publicação no OWNews é created_at.
+  // "Atualizado" só quando o texto foi revisado depois (correção/reescrita).
+  const dataOWNews = artigo.created_at || artigo.published_at;
+  const publicado = dataOWNews ? formatarDataCurtaServidor(dataOWNews) : null;
+  const revisado = artigo.buddy_reviewed_at && dataOWNews && Date.parse(artigo.buddy_reviewed_at) - Date.parse(dataOWNews) > 6 * 3600000
+    ? formatarDataCurtaServidor(artigo.buddy_reviewed_at) : null;
+  const correcao = CORRECOES_NOTICIAS.find((c) => c.id === artigo.id);
+  return '<section class="materia-fonte" aria-label="Fonte">' +
+    '<p class="materia-fonte-nome">Fonte: <strong>' + nome + '</strong>' +
+    (externo ? ' · <a href="' + escaparHTML(externo.url) + '" target="_blank" rel="noopener nofollow">' + externo.rotulo + '</a>' : '') + '</p>' +
+    '<p>' + (ownews
+      ? 'Conteúdo elaborado pelo OWNews a partir das informações da fonte citada.'
+      : 'Registro da pauta: esta página não tem texto editorial do OWNews.') + '</p>' +
+    (correcao ? '<p class="materia-fonte-correcao"><strong>Correção (' + escaparHTML(formatarDataCurtaServidor(correcao.data)) + '):</strong> ' + escaparHTML(correcao.texto) + '</p>' : '') +
+    '<p class="materia-fonte-meta">' + (publicado ? 'Publicado em ' + escaparHTML(publicado) + ' · ' : '') +
+    (revisado ? 'Atualizado em ' + escaparHTML(revisado) + ' · ' : '') +
+    '<a href="/politica-editorial#como-produzimos">Como produzimos</a> · ' +
+    '<a href="/correcoes?pagina=' + encodeURIComponent('/noticia?id=' + artigo.id) + '#como-reportar">Reportar erro</a></p>' +
     '</section>';
 }
 
@@ -5623,8 +5663,11 @@ const CSS_CAMADA_EDITORIAL =
   '.entenda-melhor-titulo{font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--white)}' +
   '.entenda-melhor-resumo{font-family:var(--ui);font-size:12px;line-height:1.45;color:var(--muted-dim)}' +
   '.noticia-proveniencia{margin-top:22px;padding:12px 14px;border:1px solid var(--line-hair);border-radius:8px;font-family:var(--ui);font-size:12px;line-height:1.55;color:var(--muted-dim)}' +
+  '.materia-fonte{margin-top:26px;padding-top:14px;border-top:1px solid var(--line-hair);font-family:var(--ui);font-size:13px;line-height:1.5;color:var(--muted)}' +
+  '.materia-fonte p{margin:0 0 4px}.materia-fonte-nome{color:var(--white)}.materia-fonte-nome strong{font-weight:700}' +
+  '.materia-fonte a{display:inline-block;padding:6px 0;color:var(--muted);text-decoration:underline;text-underline-offset:2px}.materia-fonte a:hover{color:var(--cyan-dim)}' +
+  '.materia-fonte-meta{font-size:12.5px;color:var(--muted-dim)}.materia-fonte-correcao{margin:6px 0!important;color:var(--white)}' +
   '.noticia-proveniencia p{margin:0 0 6px}.noticia-proveniencia strong{color:var(--white)}.noticia-proveniencia a{color:var(--muted);text-decoration:underline}' +
-  '.noticia-proveniencia-fonte{font-size:14px;color:var(--white)}.noticia-proveniencia .noticia-proveniencia-fonte a{color:var(--cyan-dim);font-weight:700;text-decoration:none}' +
   '@media(min-width:720px){.entenda-melhor{flex-direction:row;flex-wrap:wrap}.entenda-melhor-label{width:100%}.entenda-melhor-item{flex:1 1 200px}}';
 /* ==== CAMADA EDITORIAL: FIM ==== */
 
@@ -5898,6 +5941,31 @@ function numerosSustentadosPelaFonte(texto, fonte) {
   const daFonte = new Set(nums(fonte).flat());
   return nums(texto).every((v) => v.some((n) => daFonte.has(n)));
 }
+/* Número que na fonte é ESPECIFICAÇÃO técnica ("20,000 psi", "525 kV") e no
+   texto virou QUANTIDADE ("20 mil árvores") — erro real de 21/10/2026.
+   Só vale quando a fonte nunca usa o número sem a unidade. */
+const Q4_UNIDADE_TECNICA = /^\s*(?:mil\s+)?(psi|kv|mw|gw|mwh|gwh|kw|hp|bar)\b/i;
+function numeroComUnidadeTrocada(texto, fonte) {
+  const ocorr = (s) => {
+    const r = [];
+    String(s || '').replace(/(\d[\d.,]*\d|\d)(\s+mil(?![A-Za-zÀ-ú]))?/g, (m, n, mil, pos, str) => {
+      const p = n.match(/^(\d+)(?:[.,](\d{1,2}))?$/);
+      const v = [n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')];
+      if (mil && p) v.push((p[1] + (p[2] || '').padEnd(3, '0')).replace(/^0+(?=\d)/, ''));
+      const u = (str.slice(pos + n.length, pos + n.length + 16).match(Q4_UNIDADE_TECNICA) || [])[1];
+      r.push({ v, u: u ? u.toLowerCase() : null });
+      return m;
+    });
+    return r;
+  };
+  const daFonte = {};
+  ocorr(fonte).forEach((o) => o.v.forEach((x) => { const e = daFonte[x] || (daFonte[x] = { u: 0, sem: false }); if (o.u) e.u++; else e.sem = true; }));
+  return ocorr(texto).some((o) => !o.u && o.v.some((x) => daFonte[x] && daFonte[x].u && !daFonte[x].sem));
+}
+/* Impacto especulativo (auditoria 2026-10-22: "pode elevar a demanda",
+   "podendo gerar novos contratos", "cadeia offshore"). Só na geração —
+   na exibição não derruba matéria já publicada. */
+const IMPACTO_ESPECULATIVO_RE = /\b(pode(m)?|podendo|poder[aá]|poder[aã]o)\s+(\S+\s+)?(elevar|acelerar|aumentar|ampliar|estimular|gerar|abrir|impulsionar|beneficiar|criar|atrair)\b|\bcadeia (de suprimentos |de servi[çc]os )?offshore\b/i;
 function clicheIA(texto) {
   const re = Q4_CLICHES.find((r) => r.test(String(texto || '')));
   return re ? String(texto).match(re)[0].toLowerCase() : null;
@@ -5937,7 +6005,9 @@ function validarCorpoOWNews(corpo, artigo, buddy, impacto, opcoes) {
     const fonte = String(o.fonte);
     const lead = String((artigo && artigo.summary) || '');
     if (trechoCopiadoDaFonte(t, fonte) || trechoCopiadoDaFonte(t, lead)) m.push('copia_fonte');
-    if (parafraseRasaDaFonte(t, fonte) >= 0.4) m.push('parafrase_rasa');
+    // 0,4 → 0,3 (auditoria 2026-10-22): reescritas coladas em fonte em
+    // português passavam com 0,30–0,34; acima disso vira 2ª redação.
+    if (parafraseRasaDaFonte(t, fonte) >= 0.3) m.push('parafrase_rasa');
     if (!numerosSustentadosPelaFonte(t, [titulo, lead, fonte].join(' '))) m.push('numero_sem_fonte');
     if (t.length > Math.max(fonte.length * 1.15 + 250, 700)) m.push('maior_que_fonte');
   }
@@ -5961,6 +6031,10 @@ function validarMateriaOWNews(mat, artigo, fonte) {
   if (impacto && !numerosSustentadosPelaFonte(impacto, base)) motivos.push('impacto:numero_sem_fonte');
   if (buddy && clicheIA(buddy)) motivos.push('buddy:cliche_ia');
   if (impacto && clicheIA(impacto)) motivos.push('impacto:cliche_ia');
+  if (f) {
+    if (impacto && IMPACTO_ESPECULATIVO_RE.test(impacto)) motivos.push('impacto:especulativo');
+    [['buddy', buddy], ['corpo', corpo], ['impacto', impacto]].forEach(([k, v]) => { if (v && numeroComUnidadeTrocada(v, f)) motivos.push(k + ':numero_unidade_trocada'); });
+  }
   // Impacto que só diz que "não afeta o offshore" não é impacto útil: a
   // nota não tem relevância offshore suficiente para ser publicada.
   if (impacto && /^[^;:.]{0,80}?\b(n[aã]o|nada|sem)\s+(\S+\s+){0,2}?(afeta|altera|alcan[çc]a|toca|envolve|muda|mexe|atinge|interfere|impacta|chega)\b[^;.]{0,40}\b(offshore|opera[çc][aã]o|opera[çc][oõ]es|plataformas?|produ[çc][aã]o|mar)\b/i.test(impacto)) motivos.push('impacto:sem_relevancia_offshore');
@@ -16833,12 +16907,25 @@ function renderPoliticaEditorial() {
     "<h2>O que publicamos</h2>" +
     '<p class="area-desc">O OWNews cobre o setor offshore brasileiro: óleo e gás, plataformas, FPSOs, sondas, embarcações de apoio, portos, regulação (ANP, PPSA, MME, EPE, Ibama), empresas, vagas e vida a bordo. Publicamos quatro tipos de conteúdo, e cada um é identificado como tal na própria página:</p>' +
     '<ul class="hub-lista">' +
-    '<li><strong>Notícia</strong> — nota do OWNews sobre um fato do setor publicado por uma fonte identificada (órgão oficial, empresa, imprensa especializada, sindicato), com data, crédito e link para a origem. O texto é do OWNews; os fatos são da fonte. Fica na página /noticia e na Home.</li>' +
+    '<li><strong>Notícia</strong> — nota do OWNews sobre um fato do setor publicado por uma fonte identificada (órgão oficial, empresa, imprensa especializada, sindicato), com data e o nome da fonte. O texto é do OWNews; os fatos são da fonte. Fica na página /noticia e na Home.</li>' +
     '<li><strong>Explicativo</strong> (OWNews Explica, Guias) — texto original e atemporal sobre como algo funciona. Não noticia; explica. Fica em /explica e /guias.</li>' +
     '<li><strong>Referência</strong> (Funções, Carreiras, Glossário, Radar Offshore, Certificados) — dados estruturados sobre funções, unidades e termos, com fonte por dado.</li>' +
     '<li><strong>Ferramenta</strong> (Minha Escala, Meus Certificados, Checklist de Embarque, Meus Alertas) — utilitários que rodam no seu navegador. Não têm pretensão editorial.</li>' +
     '</ul>' +
     '<p class="area-desc">O OWNews <strong>não</strong> escreve análise de opinião própria, não faz previsões de preço e não publica salário sem fonte pública identificada. Quando uma fonte monitorada publica um artigo de opinião, ele aparece com a fonte identificada.</p>' +
+    "</div>" +
+
+    '<div class="area-group" id="como-produzimos">' +
+    "<h2>Como produzimos uma notícia</h2>" +
+    '<ol class="hub-lista">' +
+    '<li><strong>Pauta</strong> — software monitora um conjunto fixo de fontes: órgãos públicos, operadoras e empresas do setor, imprensa especializada do Brasil e do exterior e sindicatos.</li>' +
+    '<li><strong>Seleção</strong> — cada item recebe uma pontuação automática de relevância para o offshore e de atualidade. O que está fora do setor é descartado, e o mesmo fato vindo de outra fonte não vira uma segunda nota no índice.</li>' +
+    '<li><strong>Redação</strong> — um modelo de inteligência artificial escreve, a partir do material da fonte e seguindo as regras do OWNews, os três blocos da nota: o Buddy resume, o texto e o impacto para o offshore. Fonte em inglês é lida e reescrita em português, não traduzida frase a frase.</li>' +
+    '<li><strong>Checagens</strong> — antes de publicar, regras automáticas conferem cópia e paráfrase da fonte, números, nomes, idioma, frases genéricas e repetição entre os blocos (detalhes abaixo). Reprovou, não publica; quando a falha é só de redação, o texto é reescrito, num número pequeno e fixo de tentativas, e passa de novo pelas mesmas regras.</li>' +
+    '<li><strong>Publicação</strong> — não há revisão humana nota a nota. A equipe acompanha os indicadores do processo, audita amostras e corrige o que encontra ou o que os leitores apontam.</li>' +
+    '</ol>' +
+    '<p class="area-desc"><strong>O que é da fonte e o que é do OWNews.</strong> Fatos, números e declarações vêm da fonte citada no rodapé de cada notícia. A seleção, a organização, o texto, o contexto e a leitura de impacto para o offshore são do OWNews. Não fazemos apuração própria das notícias: não entrevistamos, não confirmamos com outras fontes e não visitamos locais. Quando a nota diz "segundo a empresa", é a empresa quem afirma.</p>' +
+    '<p class="area-desc"><strong>Limites.</strong> Um texto escrito com IA pode errar, por exemplo ao traduzir um termo técnico ou ao atribuir um número a quem não o informou; se a fonte errar, a nota pode repetir o erro. O bloco de impacto é uma leitura editorial baseada nos fatos publicados, não uma previsão. Por isso a fonte é sempre identificada e os erros podem ser reportados em <a href="/correcoes">Correções</a>.</p>' +
     "</div>" +
 
     '<div class="area-group" id="selecao">' +
@@ -16848,7 +16935,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="fontes">' +
     "<h2>Fontes e atribuição</h2>" +
-    '<p class="area-desc">A fonte é matéria-prima factual; a nota publicada é do OWNews. <strong>O OWNews não republica o texto das matérias de terceiros.</strong> Para cada notícia selecionada, o OWNews escreve três blocos próprios a partir dos fatos da fonte: o <strong>Buddy resume</strong> (o que aconteceu, em poucas palavras), o <strong>texto da nota</strong> (fatos e contexto, organizados e redigidos pelo OWNews) e <strong>O que isso impacta para o offshore</strong>. O texto coletado da fonte é guardado internamente só para produção, conferência e auditoria — não é exibido ao leitor. Citação direta da fonte, quando usada, é curta, entre aspas e atribuída. Ao final de cada notícia, o bloco "Fonte" diz quem publicou os fatos originalmente, com link para a matéria original, e distingue fonte primária (órgão público, operadora, empresa citada) de cobertura consultada. O OWNews não faz apuração própria das notícias: quando um fato vem de uma fonte, a nota diz de onde veio — não se apresenta como reportagem própria. Imagens: quando a fonte oferece foto utilizável, ela aparece com crédito; quando não oferece (ou bloqueia a exibição em outros sites), usamos uma capa editorial genérica do OWNews, identificada como tal — nunca a foto de outra unidade ou navio como se fosse do fato. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha.</p>' +
+    '<p class="area-desc">A fonte é matéria-prima factual; a nota publicada é do OWNews. <strong>O OWNews não republica o texto das matérias de terceiros.</strong> Para cada notícia selecionada, o OWNews escreve três blocos próprios a partir dos fatos da fonte: o <strong>Buddy resume</strong> (o que aconteceu, em poucas palavras), o <strong>texto da nota</strong> (fatos e contexto, organizados e redigidos pelo OWNews) e <strong>O que isso impacta para o offshore</strong>. O texto coletado da fonte é guardado internamente só para produção, conferência e auditoria — não é exibido ao leitor. Citação direta da fonte, quando usada, é curta, entre aspas e atribuída. Ao final de cada notícia, o rodapé "Fonte" diz quem publicou os fatos originalmente. Quando a fonte é primária (órgão público, operadora ou empresa citada) e há um comunicado ou documento específico, o rodapé traz o link para ele. Quando a fonte é outro veículo, citamos o nome do veículo; o endereço da matéria original fica registrado internamente, para auditoria, checagem e correções. O OWNews não faz apuração própria das notícias: quando um fato vem de uma fonte, a nota diz de onde veio — não se apresenta como reportagem própria. Imagens: quando a fonte oferece foto utilizável, ela aparece com crédito; quando não oferece (ou bloqueia a exibição em outros sites), usamos uma capa editorial genérica do OWNews, identificada como tal — nunca a foto de outra unidade ou navio como se fosse do fato. No Radar Offshore, todo dado técnico publicado (IMO, MMSI, dimensões, operador) tem fonte pública citada na própria ficha.</p>' +
     "</div>" +
 
     '<div class="area-group" id="producao-automatizada">' +
@@ -16858,7 +16945,7 @@ function renderPoliticaEditorial() {
 
     '<div class="area-group" id="buddy-te-explica">' +
     '<h2>Como cada nota é escrita e conferida</h2>' +
-    '<p class="area-desc"><strong>Buddy resume</strong> responde "em poucas palavras, o que aconteceu?" em 2 a 4 frases. <strong>O texto da nota</strong> reúne, em 2 a 5 parágrafos, o que aconteceu, quem está envolvido, onde, quando, números, estágio e próximo passo — só o que a fonte sustenta; fonte curta gera nota curta. <strong>O que isso impacta para o offshore</strong> explica por que o fato interessa a quem trabalha ou acompanha o setor (operação, campanha, cronograma, logística, fornecedores, produção, regulação); quando o efeito é indireto, a nota diz isso, sem especular sobre vagas, salários ou "oportunidades". Antes de publicar, regras automáticas conferem: nenhum trecho longo igual ao texto da fonte e nenhuma paráfrase colada a ela; todo número citado existe na fonte; frases completas, em português, sem restos de página; sem fórmulas genéricas ou de "texto de IA"; e os três blocos não repetem uns aos outros. Se qualquer bloco reprova, a notícia não é publicada. Quando a fonte não traz fatos suficientes para uma nota própria, a página antiga continua acessível só com título e link para a origem, fora dos buscadores. Textos escritos com IA podem conter imprecisões: a fonte original está sempre linkada e erros podem ser reportados em <a href="/correcoes">Correções</a>.</p>' +
+    '<p class="area-desc"><strong>Buddy resume</strong> responde "em poucas palavras, o que aconteceu?" em 2 a 4 frases. <strong>O texto da nota</strong> reúne, em 2 a 5 parágrafos, o que aconteceu, quem está envolvido, onde, quando, números, estágio e próximo passo — só o que a fonte sustenta; fonte curta gera nota curta. <strong>O que isso impacta para o offshore</strong> explica por que o fato interessa a quem trabalha ou acompanha o setor (operação, campanha, cronograma, logística, fornecedores, produção, regulação); quando o efeito é indireto, a nota diz isso, sem especular sobre vagas, salários ou "oportunidades". Antes de publicar, regras automáticas conferem: nenhum trecho longo igual ao texto da fonte e nenhuma paráfrase colada a ela; todo número citado existe na fonte; frases completas, em português, sem restos de página; sem fórmulas genéricas ou de "texto de IA"; e os três blocos não repetem uns aos outros. Se qualquer bloco reprova, a notícia não é publicada. Quando a fonte não traz fatos suficientes para uma nota própria, a página antiga continua acessível só com título e link para a origem, fora dos buscadores. Textos escritos com IA podem conter imprecisões: a fonte está sempre identificada e erros podem ser reportados em <a href="/correcoes">Correções</a>.</p>' +
     "</div>" +
 
     '<div class="area-group" id="conteudo-original">' +
@@ -16968,7 +17055,11 @@ function renderOWBuddyLanding() {
   );
 }
 
-function renderCorrecoes() {
+function renderCorrecoes(paginaReportada) {
+  // "Reportar erro" da matéria chega com ?pagina=/noticia?id=<uuid>: o link
+  // exato vai pronto para colar na mensagem. Só caminho interno conhecido.
+  const pagina = /^\/noticia\?id=[0-9a-f-]{36}$/i.test(String(paginaReportada || '')) ? 'https://ownews.com.br' + paginaReportada : null;
+  const registro = CORRECOES_NOTICIAS.slice().sort((a, b) => (a.data < b.data ? 1 : -1));
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Correções" }]) +
     '<div class="hub-hero">' +
@@ -16989,17 +17080,19 @@ function renderCorrecoes() {
 
     '<div class="area-group">' +
     "<h2>Como corrigimos</h2>" +
-    '<p class="area-desc">Corrigimos no próprio texto e registramos a data de revisão — nas notícias, a data de publicação aparece no bloco "Fonte"; nos verbetes do Explica, no rodapé da página. Quando a correção muda o sentido da matéria, acrescentamos uma nota explicando o que estava errado. Matérias duplicadas ou que não têm conteúdo além do resumo da fonte saem da indexação com redirecionamento para a versão mantida; não apagamos páginas em silêncio. Não temos, hoje, uma redação com múltiplos revisores, e dizemos isso abertamente: por isso cada aviso de leitor é tratado como prioridade.</p>' +
+    '<p class="area-desc">Corrigimos no próprio texto e registramos a data de revisão — nas notícias, as datas de publicação e de atualização aparecem no rodapé "Fonte"; nos verbetes do Explica, no rodapé da página. A data de publicação nunca muda: uma correção não transforma a nota em notícia nova. Quando a correção muda o sentido da matéria, acrescentamos uma nota explicando o que estava errado. Matérias duplicadas ou que não têm conteúdo além do resumo da fonte saem da indexação com redirecionamento para a versão mantida; não apagamos páginas em silêncio. Não temos, hoje, uma redação com múltiplos revisores, e dizemos isso abertamente: por isso cada aviso de leitor é tratado como prioridade.</p>' +
     "</div>" +
 
-    '<div class="area-group">' +
+    '<div class="area-group" id="como-reportar">' +
     "<h2>Como reportar</h2>" +
+    (pagina ? '<p class="area-desc" style="padding:12px 14px;border:1px solid var(--line-soft);border-radius:8px"><strong>Página que você quer reportar:</strong><br><a href="' + escaparHTML(pagina) + '" style="word-break:break-all">' + escaparHTML(pagina) + '</a><br><button type="button" class="compartilhar-link" style="margin-top:8px" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + escaparHTML(pagina) + '\').then(()=>{this.textContent=\'Link copiado\'})">Copiar link</button></p>' : '') +
     '<p class="area-desc">Mande o link da página e o que está errado pelo Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a>, que hoje é o canal direto do OWNews. Se possível, inclua a fonte que mostra a informação correta. Pedidos de correção vindos de empresas ou órgãos citados recebem o mesmo tratamento: verificamos a fonte e corrigimos — não removemos informação correta por pedido.</p>' +
     "</div>" +
 
     '<div class="area-group">' +
     "<h2>Registro de correções</h2>" +
-    '<p class="area-desc">Esta seção lista correções relevantes (as que mudam o sentido de uma informação) a partir de outubro de 2026, com data e página. Ajustes de digitação e de formatação não entram aqui. Até o momento não há correções relevantes registradas.</p>' +
+    '<p class="area-desc">Esta seção lista correções relevantes (as que mudam o sentido de uma informação) a partir de outubro de 2026, com data e página. Ajustes de digitação e de formatação não entram aqui.' + (registro.length ? '' : ' Até o momento não há correções relevantes registradas.') + '</p>' +
+    (registro.length ? '<ul class="hub-lista">' + registro.map((c) => '<li><strong>' + escaparHTML(formatarDataCurtaServidor(c.data)) + '</strong> — <a href="/noticia?id=' + encodeURIComponent(c.id) + '">' + escaparHTML(c.titulo) + '</a>: ' + escaparHTML(c.texto) + '</li>').join('') + '</ul>' : '') +
     "</div>" +
 
     '<div class="hub-continue">' +
@@ -22784,7 +22877,7 @@ export default {
     }
 
     if (url.pathname === "/correcoes") {
-      return new Response(renderCorrecoes(), {
+      return new Response(renderCorrecoes(url.searchParams.get("pagina")), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
     }
@@ -22823,7 +22916,7 @@ export default {
       // o select com as colunas; se o PostgREST devolver 400 (42703), memoriza
       // por isolate e passa a usar o select base. Zero custo extra depois da
       // primeira requisição; quando a migration rodar, passa a ler sozinho.
-      const selectBaseNoticia = 'id,title,summary,content,image_url,image_caption,image_credit,original_url,published_at,slug';
+      const selectBaseNoticia = 'id,title,summary,content,image_url,image_caption,image_credit,original_url,published_at,created_at,slug';
       const selectCamadaNoticia = selectBaseNoticia + ',buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source';
       const montarApiUrlNoticia = (sel) => supabaseUrl + '/rest/v1/articles?id=eq.' + encodeURIComponent(id) + '&status=eq.published&select=' + sel;
       const cabecalhosNoticia = { headers: { apikey: supabaseKey, Authorization: 'Bearer ' + supabaseKey } };
@@ -22958,7 +23051,9 @@ export default {
         inLanguage: "pt-BR",
         articleSection: editoriaDeServidor(artigo),
         datePublished: artigo.published_at || undefined,
-        dateModified: (camadaEditorial && camadaEditorial.revisado_em) ? camadaEditorial.revisado_em : (artigo.published_at || undefined),
+        // Revisão do texto OWNews (correção/reescrita) em ISO completo, nunca
+        // anterior à publicação (antes: só a data, que podia ficar "antes").
+        dateModified: (artigo.buddy_reviewed_at && artigo.published_at && Date.parse(artigo.buddy_reviewed_at) > Date.parse(artigo.published_at)) ? artigo.buddy_reviewed_at : (artigo.published_at || undefined),
         mainEntityOfPage: "https://ownews.com.br" + urlArtigo,
         image: [imagemArtigo.src],
         // Autor/publisher refletem quem de fato publica esta página (OWNews);

@@ -51,7 +51,7 @@ const metaSrc = funcao(FRONT, "function descricaoMetaSegura(texto, max)");
 const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const M = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
   explicaSrc + "\nfunction explicaPorSlug(s){return EXPLICA_ARTIGOS.find((e)=>e.slug===s)||null;}\n" + camadaSrc + "\n" + qSrc + "\n" + metaSrc +
-  "\nreturn { detectarErrosTexto, sanearTextoPublicacao, similaridadeTextos, trechoCopiadoDaFonte, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia, resolverCamadaEditorial, descricaoMetaSegura, pareceIngles, blocoBuddyExplica, blocoImpactoOffshore, blocoCorpoOWNews, blocoProvenienciaNoticia, ehMateriaThin, deckNoticiaOWNews, validarCorpoOWNews, validarMateriaOWNews, numerosSustentadosPelaFonte, MATERIA_OWNEWS };"
+  "\nreturn { detectarErrosTexto, sanearTextoPublicacao, similaridadeTextos, trechoCopiadoDaFonte, validarBuddyPublicavel, validarImpactoPublicavel, classificarIndexacaoNoticia, resolverCamadaEditorial, descricaoMetaSegura, pareceIngles, blocoBuddyExplica, blocoImpactoOffshore, blocoCorpoOWNews, blocoProvenienciaNoticia, ehMateriaThin, deckNoticiaOWNews, validarCorpoOWNews, validarMateriaOWNews, numerosSustentadosPelaFonte, numeroComUnidadeTrocada, IMPACTO_ESPECULATIVO_RE, MATERIA_OWNEWS };"
 )(esc, (s) => String(s || ""));
 
 let pass = 0, fail = 0;
@@ -327,12 +327,49 @@ test("canonical da notícia é /noticia?id=<uuid>", () => {
   const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
   expect(rota.includes("const urlArtigo = '/noticia?id=' + encodeURIComponent(artigo.id);") && rota.includes("urlArtigo,\n"), "canonical");
 });
-test("fonte preservada: nome, link original e declaração honesta de autoria", () => {
-  const html = M.blocoProvenienciaNoticia({ image_credit: "ANP", original_url: "https://www.gov.br/anp/x", published_at: "2026-10-17T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
-  expect(html.includes('href="https://www.gov.br/anp/x"') && html.includes("ANP ↗") && html.includes("Fonte primária (oficial)"), html);
-  expect(html.includes("Não houve apuração própria") && html.includes("inteligência artificial"), "autoria honesta");
-  const sem = M.blocoProvenienciaNoticia({ image_credit: "Eixos", original_url: "https://eixos.com.br/a" }, null);
+test("fonte preservada: nome visível, URL original só em isBasedOn/documento primário, rodapé curto", () => {
+  const html = M.blocoProvenienciaNoticia({ id: "1", image_credit: "ANP", original_url: "https://www.gov.br/anp/pt-br/noticia-x", published_at: "2026-10-17T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
+  expect(html.includes("Fonte: <strong>ANP</strong>") && html.includes('href="https://www.gov.br/anp/pt-br/noticia-x"') && html.includes("Ver comunicado original"), html);
+  expect(html.includes("Conteúdo elaborado pelo OWNews") && html.length < 900, "rodapé longo: " + html.length);
+  const sec = M.blocoProvenienciaNoticia({ id: "2", image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-17T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
+  expect(!sec.includes("offshore-energy.biz/x"), "secundária linkada por padrão");
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  expect(rota.includes("if (artigo.original_url) jsonLdArtigo.isBasedOn = artigo.original_url;"), "provenance sumiu do JSON-LD");
+  expect(rota.includes('author: { "@type": "Organization", name: "OWNews"') && !/"@type": "Person"/.test(rota), "autoria");
+  expect(rota.includes("mainEntityOfPage: \"https://ownews.com.br\" + urlArtigo") && !/canonical[^\n]*original_url/.test(rota), "canonical");
+  const sem = M.blocoProvenienciaNoticia({ id: "3", image_credit: "Eixos", original_url: "https://eixos.com.br/a" }, null);
   expect(sem.includes("não tem texto editorial do OWNews"), sem);
+});
+test("NewsArticle: dateModified ISO completo e nunca antes de datePublished", () => {
+  const ini = FRONT.indexOf('if (url.pathname === "/noticia") {');
+  const rota = FRONT.slice(ini, FRONT.indexOf('if (url.pathname === "/api/buddy/feed"', ini));
+  expect(rota.includes("Date.parse(artigo.buddy_reviewed_at) > Date.parse(artigo.published_at)) ? artigo.buddy_reviewed_at : (artigo.published_at || undefined)"), "dateModified");
+  expect(rota.includes("datePublished: artigo.published_at || undefined"), "datePublished");
+});
+test("gate (geração): número de especificação virou quantidade; impacto especulativo; só com fonte", () => {
+  const fonte = "BP has entered into an agreement with TechnipFMC for the supply of 20,000 psi (20K) subsea tree systems for its Paleogene projects. Kaskida will produce 80,000 barrels per day.";
+  expect(M.numeroComUnidadeTrocada("A TechnipFMC fornecerá 20 mil árvores submarinas à BP.", fonte), "20 mil árvores não pego");
+  expect(!M.numeroComUnidadeTrocada("Os sistemas de 20 mil psi atendem a BP; Kaskida terá 80 mil barris por dia.", fonte), "uso correto acusado");
+  expect(!M.numeroComUnidadeTrocada("Kaskida terá 80 mil barris por dia.", fonte));
+  expect(M.IMPACTO_ESPECULATIVO_RE.test("A expansão pode elevar a demanda por serviços logísticos."));
+  expect(M.IMPACTO_ESPECULATIVO_RE.test("O achado aumenta o potencial, podendo gerar novos contratos."));
+  expect(!M.IMPACTO_ESPECULATIVO_RE.test("A revisão do SGSO, em consulta até 5/1/2027, muda os requisitos das plataformas."));
+  const mat = { buddy_summary: MAT_OWNEWS.buddy_summary, why_it_matters: "A expansão pode elevar a demanda por serviços da Petrobras.", corpo: MAT_OWNEWS.content };
+  const semFonte = M.validarMateriaOWNews(mat, MAT_OWNEWS, "");
+  expect(!semFonte.motivos.includes("impacto:especulativo"), "regra nova aplicada na exibição (derrubaria matéria publicada)");
+});
+test("Correções: registro tem id/data/texto, nota aparece na matéria e Reportar erro só aceita /noticia?id=", () => {
+  const ini = FRONT.indexOf("const CORRECOES_NOTICIAS = [");
+  const reg = new Function(FRONT.slice(ini, FRONT.indexOf("\n];", ini) + 3) + "\nreturn CORRECOES_NOTICIAS;")();
+  expect(reg.length >= 1 && reg.every((c) => /^[0-9a-f-]{36}$/.test(c.id) && /^\d{4}-\d{2}-\d{2}$/.test(c.data) && c.texto.length > 40 && c.titulo), "registro inválido");
+  const html = M.blocoProvenienciaNoticia({ id: reg[0].id, image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-21T07:49:00Z", buddy_reviewed_at: "2026-10-22T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
+  expect(html.includes("Correção (") && html.includes("Atualizado em") && html.includes("Publicado em 21/10/2026"), html);
+  const render = new Function("CORRECOES_NOTICIAS", "breadcrumb", "paginaChrome", "escaparHTML", "formatarDataCurtaServidor", funcao(FRONT, "function renderCorrecoes(paginaReportada)") + "\nreturn renderCorrecoes;")(reg, () => "", (t, d, c) => c, esc, (d) => d);
+  const ok = render("/noticia?id=" + reg[0].id), fora = render("https://evil.example/x"), js = render("/noticia?id=1');alert(1)//");
+  expect(ok.includes("Página que você quer reportar") && ok.includes("https://ownews.com.br/noticia?id=" + reg[0].id) && ok.includes('id="como-reportar"'), "caixa de reporte");
+  expect(!fora.includes("evil.example") && !js.includes("alert(1)"), "aceitou página externa/injeção");
+  expect(ok.includes(reg[0].titulo) && !ok.includes("não há correções relevantes registradas"), "registro não listado");
 });
 test("cliente não remove nem esconde os blocos editoriais", () => {
   expect(!/querySelector(All)?\(["']\.(buddy-explica|noticia-corpo|buddy-explica-porque-card)/.test(FRONT), "script mexe nos blocos");
