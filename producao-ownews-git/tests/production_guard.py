@@ -231,6 +231,10 @@ def run_static():
 
     test("Cruzar CTA button present", lambda: _check_cruzar_cta())
 
+    test("footer counter has no start date ('desde')", lambda: _check_footer_sem_desde())
+
+    test("Mais Lidas uses freshness-aware unique-reader ranking", lambda: _check_mais_lidas_frescor())
+
     suite("CRUZAR ESCALAS — ENGINE")
 
     test("calcularEscala present and used in cruzar init", lambda: _check_cruzar_engine_calc())
@@ -891,6 +895,23 @@ def _check_cruzar_cta():
     expect("CRUZAR ESCALAS" in c,
            "Cruzar Escalas CTA button text missing")
     expect("cruzarBtnAdicionar" in c, "cruzarBtnAdicionar ID missing")
+
+
+def _check_footer_sem_desde():
+    c = worker()
+    expect('dados.desde' not in c, "footer still renders the counter start date")
+    expect('" visita":" visitas"' in c, "visit counter plural missing")
+    expect('"1 leitor online agora":dados.online+" leitores online agora"' in c, "online plural missing")
+    expect("OWNews © 2026 · by OffshoreWorks" in c, "footer signature missing")
+
+
+def _check_mais_lidas_frescor():
+    c = worker()
+    expect("function rankingMaisLidas(" in c, "rankingMaisLidas missing")
+    expect("/top?horas=168&limite=40&unicos=1" in c, "Mais Lidas must use unique readers")
+    expect("COUNT(DISTINCT session_id)" in c, "DO unique count missing")
+    expect("Acessos reais nos últimos 7 dias" not in c, "old 7-day subtitle still present")
+    expect("h > 168) return 0" in c, "7-day hard limit missing")
 
 
 # ── CRUZAR ENGINE ──────────────────────────────────────────────────────────────

@@ -56,7 +56,7 @@ const SCRIPT_VISITAS =
   'var el=document.getElementById("visitasTotal");if(!el)return;' +
   'if(!dados||typeof dados.total!=="number"||dados.total<=0)return;' +
   'var fmt;try{fmt=dados.total.toLocaleString("pt-BR");}catch(e){fmt=String(dados.total);}' +
-  'el.textContent=fmt+(dados.total===1?" visita":" visitas")+;el.title="Visitas registradas pelo próprio OWNews (1 por navegador por dia; robôs excluídos)";' +
+  'el.textContent=fmt+(dados.total===1?" visita":" visitas");el.title="Visitas registradas pelo próprio OWNews (1 por navegador por dia; robôs excluídos)";' +
   'el.hidden=false;' +
   '}' +
   'fetch("/api/visitas-total").then(function(r){if(!r.ok)throw new Error("visitas "+r.status);return r.json();}).then(render).catch(function(){});' +
@@ -3038,7 +3038,7 @@ ${CSS_TEMA_CLARO}
        — função e HTML internos 100% preservados, só a posição mudou. -->
   <div class="ml-ag-grid">
   <section class="ed-section" id="maisLidas" hidden>
-    <div class="ed-head"><h2>Mais Lidas</h2><span class="ed-sub" title="Contagem própria do OWNews: um acesso por navegador a cada 30 minutos; robôs excluídos">Acessos reais nos últimos 7 dias</span></div>
+    <div class="ed-head"><h2>Mais Lidas</h2><span class="ed-sub" title="Contagem própria do OWNews: leitores únicos por navegador nos últimos 7 dias, com peso maior para as matérias mais novas; robôs excluídos">Mais acessadas recentemente</span></div>
     <div class="row-list" id="maisLidasBody"></div>
   </section>
   <aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>
@@ -4616,7 +4616,7 @@ function renderMaisLidas(itens){
     const img = imagemDe(n);
     return '<article class="row" onclick="' + irPara(n.id) + '">' +
       '<div class="row-thumb" ' + capaAtributos(img) + '>' + botaoCarregarImagem() + notaIlustrativa(img, true) + '</div>' +
-      '<div class="row-main"><span class="eyebrow">#' + (i + 1) + ' MAIS LIDA' + (n.views ? ' · ' + Number(n.views).toLocaleString('pt-BR') + ' acessos' : '') + '</span><h3>' + escaparHTML(n.title) + '</h3><span class="byline">' + escaparHTML(tempoRelativo(n.published_at)) + '</span></div>' +
+      '<div class="row-main"><span class="eyebrow">#' + (i + 1) + ' MAIS LIDA' + (n.views ? ' · ' + Number(n.views).toLocaleString('pt-BR') + ' leitores' : '') + '</span><h3>' + escaparHTML(n.title) + '</h3><span class="byline">' + escaparHTML(tempoRelativo(n.published_at)) + '</span></div>' +
       '</article>';
   }).join('');
 }
@@ -19410,20 +19410,70 @@ async function responderVisitasTotal(request, env) {
 }
 
 /* =========================================================================
-   MAIS LIDAS (Etapa 7, 2026-09-24) — a rota interna "/top" da PageViews já
-   existia, pronta, desde a rodada que criou a Durable Object (comentário
-   original: "pronta pra quando 'Mais Lidas' for exibido"). Auditoria desta
-   etapa: dados reais sendo gravados desde 2026-09-17 via
-   scriptRegistrarPageview em toda página de notícia — nenhum dado
-   inventado, nenhuma integração nova, só a rota pública que faltava.
+   MAIS LIDAS — popularidade × recência (2026-10-22).
+   Antes: soma de acessos em 7 dias, sem olhar a idade da matéria — a
+   matéria de 6–7 dias com acumulado alto dominava o bloco.
+   Agora:
+   - popularidade = leitores únicos (navegadores distintos) nos últimos 7
+     dias; refresh/releitura do mesmo navegador conta uma vez só;
+   - recência = idade pela data da matéria (a mesma da Home), decaimento
+     contínuo f(h) = 1 / (1 + (h/24)²): 6h 0,94 · 12h 0,80 · 24h 0,50 ·
+     48h 0,20 · 72h 0,10 · 7d 0,01 — sem degrau em 24h;
+   - score = leitores × f(h); empate fica com a mais recente;
+   - janela: a menor de 24/48/72/96/120/144/168h com MAIS_LIDAS_ITENS
+     matérias elegíveis (>= MAIS_LIDAS_LEITORES_MIN leitores); > 7 dias
+     nunca entra;
+   - viral: matéria fora da janela (até 7d) só concorre se tiver
+     >= MAIS_LIDAS_FATOR_VIRAL × a média de leitores por matéria lida na
+     semana (régua relativa ao tráfego real) e mais leitores que todas as
+     da janela — e ainda assim disputa pelo score com decaimento;
+   - piso: score >= MAIS_LIDAS_SCORE_MIN (2 leitores valem até ~41h, 5 até
+     ~72h); abaixo disso não entra só para completar 5 cards;
+   - diversidade leve: mesma pauta (títulos parecidos) entra uma vez;
+   - só matéria OWNews válida (thin/duplicada/insuficiente fora).
+   Menos de 3 boas → o bloco some (o cliente esconde). Sem gravação nova:
+   lê a tabela "views" do PageViews. ===================================== */
+const MAIS_LIDAS_ITENS = 5;
+const MAIS_LIDAS_LEITORES_MIN = 2;
+const MAIS_LIDAS_JANELAS_H = [24, 48, 72, 96, 120, 144, 168];
+const MAIS_LIDAS_FATOR_VIRAL = 3;
+const MAIS_LIDAS_SCORE_MIN = 0.5;
 
-   Threshold conservador: só mostra o bloco quando há pelo menos
-   MAIS_LIDAS_MINIMO_ITENS matérias com pelo menos MAIS_LIDAS_VIEWS_MINIMO
-   views reais nos últimos 7 dias — abaixo disso, a seção fica ausente
-   (nunca aparece com "1 view" fingindo ranking relevante; "mostrar menos"
-   já é o padrão usado em todo o resto da Home). ========================= */
-const MAIS_LIDAS_VIEWS_MINIMO = 3;
-const MAIS_LIDAS_MINIMO_ITENS = 3;
+function fatorRecenciaMaisLidas(h) {
+  if (!Number.isFinite(h) || h < -HOME_TOLERANCIA_FUTURO_H || h > 168) return 0;
+  return 1 / (1 + Math.pow(Math.max(0, h) / 24, 2));
+}
+// contagens: [{article_id, views}] (leitores únicos/7d); artigos: linhas do Supabase.
+function rankingMaisLidas(contagens, artigos, agoraMs) {
+  const leitores = new Map((contagens || []).map((c) => [c.article_id, Number(c.views) || 0]));
+  const lidos = [...leitores.values()].filter((v) => v > 0);
+  const media = lidos.length ? lidos.reduce((a, b) => a + b, 0) / lidos.length : 0;
+  const cands = (artigos || []).filter((a) => !ehMateriaThin(a, null)).map((a) => {
+    const h = (agoraMs - new Date(a.published_at).getTime()) / 3600000;
+    const v = leitores.get(a.id) || 0;
+    const f = fatorRecenciaMaisLidas(h);
+    return { a, h, v, f, score: v * f };
+  }).filter((c) => c.f > 0 && c.v >= MAIS_LIDAS_LEITORES_MIN && c.score >= MAIS_LIDAS_SCORE_MIN);
+  let janela = 168;
+  for (const j of MAIS_LIDAS_JANELAS_H) {
+    if (cands.filter((c) => c.h <= j).length >= MAIS_LIDAS_ITENS) { janela = j; break; }
+  }
+  const naJanela = cands.filter((c) => c.h <= janela);
+  const maxJanela = naJanela.reduce((m, c) => Math.max(m, c.v), 0);
+  const limiarViral = Math.max(MAIS_LIDAS_FATOR_VIRAL * media, maxJanela + 1);
+  naJanela.forEach((c) => { c.motivo = 'janela_' + janela + 'h'; });
+  const virais = cands.filter((c) => c.h > janela && c.v >= limiarViral);
+  virais.forEach((c) => { c.motivo = 'viral'; });
+  const ordenados = naJanela.concat(virais)
+    .sort((x, y) => y.score - x.score || x.h - y.h || String(x.a.id).localeCompare(String(y.a.id)));
+  const escolhidos = [];
+  for (const c of ordenados) {
+    if (escolhidos.length >= MAIS_LIDAS_ITENS) break;
+    if (escolhidos.some((e) => mesmaPautaHome(e.a, c.a))) continue;
+    escolhidos.push(c);
+  }
+  return { janela, media, limiarViral, escolhidos };
+}
 
 async function responderMaisLidas(request, env) {
   const headers = { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "public, max-age=300" };
@@ -19435,32 +19485,33 @@ async function responderMaisLidas(request, env) {
   try {
     const idDO = env.PAGEVIEWS.idFromName("global");
     const stub = env.PAGEVIEWS.get(idDO);
-    const respostaDO = await stub.fetch("https://pageviews.interno/top?horas=168&limite=10");
+    const respostaDO = await stub.fetch("https://pageviews.interno/top?horas=168&limite=40&unicos=1");
     const dadosDO = await respostaDO.json();
-    const rankeados = (dadosDO.itens || []).filter((it) => it.views >= MAIS_LIDAS_VIEWS_MINIMO);
-    if (rankeados.length < MAIS_LIDAS_MINIMO_ITENS) {
+    const contagens = (dadosDO.itens || []).filter((it) => it.views >= MAIS_LIDAS_LEITORES_MIN);
+    if (contagens.length < 3) {
       return new Response(JSON.stringify({ itens: [] }), { status: 200, headers });
     }
-
-    const ids = rankeados.slice(0, 5).map((it) => it.article_id);
     const supabaseUrl = "https://awyowuhwkqfyhwgdpepp.supabase.co";
     const supabaseKey = "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt";
-    const idsParam = ids.map((id) => encodeURIComponent(id)).join(",");
+    const idsParam = contagens.map((it) => encodeURIComponent(it.article_id)).join(",");
+    // Artigo apagado/despublicado depois de contabilizado simplesmente some.
     const respArtigos = await fetch(
-      supabaseUrl + "/rest/v1/articles?select=id,title,image_url,image_credit,published_at&status=eq.published&id=in.(" + idsParam + ")",
+      supabaseUrl + "/rest/v1/articles?select=id,title,image_url,image_credit,published_at,content,buddy_source&status=eq.published&id=in.(" + idsParam + ")",
       { headers: { apikey: supabaseKey } }
     );
     const artigos = respArtigos.ok ? await respArtigos.json() : [];
-    const porId = new Map(artigos.map((a) => [a.id, a]));
-    // Reordena pela contagem real de views (a query "in" não preserva ordem);
-    // artigo apagado/despublicado depois de contabilizado simplesmente some
-    // da lista, nunca vira erro.
-    // AdSense 3.0: inclui a contagem real (acessos únicos por navegador a
-    // cada 30 min, robôs e navegador automatizado excluídos, 7 dias).
-    const viewsPorId = new Map(rankeados.map((it) => [it.article_id, it.views]));
-    const itens = ids.map((id) => porId.get(id)).filter(Boolean)
-      .map((a) => ({ ...a, views: viewsPorId.get(a.id) || null, title: a.title ? decodificarEntidadesHTMLServidor(a.title) : a.title }));
-    return new Response(JSON.stringify({ itens }), { status: 200, headers });
+    const agora = Date.now();
+    const r = rankingMaisLidas(dadosDO.itens || [], artigos, agora);
+    const diag = new URL(request.url).searchParams.get("diagnostico") === "1";
+    const itens = r.escolhidos.map((c) => {
+      const a = c.a;
+      const item = { id: a.id, title: a.title ? decodificarEntidadesHTMLServidor(a.title) : a.title, image_url: a.image_url, image_credit: a.image_credit, published_at: a.published_at, views: c.v };
+      if (diag) Object.assign(item, { horas: +c.h.toFixed(1), fator: +c.f.toFixed(3), score: +c.score.toFixed(2), motivo: c.motivo });
+      return item;
+    });
+    const corpo = { itens };
+    if (diag) corpo.diagnostico = { agora: new Date(agora).toISOString(), janelaH: r.janela, mediaLeitores7d: +r.media.toFixed(2), limiarViral: +r.limiarViral.toFixed(2), materiasLidas7d: (dadosDO.itens || []).length, contagens: (dadosDO.itens || []).slice(0, 15) };
+    return new Response(JSON.stringify(corpo), { status: 200, headers });
   } catch {
     return new Response(JSON.stringify({ itens: [] }), { status: 503, headers });
   }
@@ -19769,8 +19820,6 @@ export class PageViews {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
-    /* Pronta para quando "Mais Lidas" for exibido — sem rota pública
-       apontando pra cá nesta rodada. */
     if (request.method === "GET" && url.pathname === "/top") {
       // Command Center (2026-09-26): antes só aceitava 24 ou 168 (fixo,
       // usado pelo Mais Lidas); agora aceita qualquer janela até a
@@ -19779,8 +19828,10 @@ export class PageViews {
       const janelaHoras = Math.min(Math.max(parseInt(url.searchParams.get("horas") || "24", 10) || 24, 1), 192);
       const limite = Math.min(parseInt(url.searchParams.get("limite") || "10", 10) || 10, 50);
       const desde = Date.now() - janelaHoras * 3600000;
+      // unicos=1 (Mais Lidas): navegadores distintos — releitura não infla.
+      const contagem = url.searchParams.get("unicos") === "1" ? "COUNT(DISTINCT session_id)" : "COUNT(*)";
       const cursor = this.sql.exec(
-        "SELECT article_id, COUNT(*) as views FROM views WHERE ts > ? GROUP BY article_id ORDER BY views DESC LIMIT ?",
+        "SELECT article_id, " + contagem + " as views FROM views WHERE ts > ? GROUP BY article_id ORDER BY views DESC LIMIT ?",
         desde, limite
       );
       return new Response(JSON.stringify({ janelaHoras, itens: [...cursor] }), {

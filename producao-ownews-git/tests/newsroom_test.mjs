@@ -202,11 +202,13 @@ await test("memória de reprovação: corrigível de versão anterior expira; de
   const antes = T.BUDDY_IA_REJ_CORRIGIVEL_DESDE - 3600000;
   mapa.set("rej:legado", antes);                                   // número antigo (sem classe)
   mapa.set("rej:corr-velha", { t: antes, c: "corrigivel" });
-  mapa.set("rej:def-velha", { t: Math.max(antes, T.BUDDY_IA_REJ_VALIDA_DESDE + 1), c: "definitiva" });
+  const tDef = Math.max(antes, T.BUDDY_IA_REJ_VALIDA_DESDE + 1);
+  mapa.set("rej:def-velha", { t: tDef, c: "definitiva" });
   mapa.set("rej:expirada", { t: Date.now() - 4 * 86400000, c: "definitiva" });
   await poller.fetch(new Request("https://buddy-ia.interno/rejeitar", { method: "POST", body: JSON.stringify({ hash: "nova", classe: "corrigivel" }) }));
   const vivos = await (await poller.fetch(new Request("https://buddy-ia.interno/rejeicoes"))).json();
-  const esperado = Date.now() - (T.BUDDY_IA_REJ_VALIDA_DESDE) < 3 * 86400000 ? ["def-velha", "nova"] : ["nova"];
+  // definitiva vale 3 dias a partir do próprio t (não do marco de versão)
+  const esperado = Date.now() - tDef < 3 * 86400000 ? ["def-velha", "nova"] : ["nova"];
   expect(JSON.stringify(vivos.sort()) === JSON.stringify(esperado.sort()), JSON.stringify(vivos));
   expect(!mapa.has("rej:expirada"), "expirada não foi limpa");
 });
