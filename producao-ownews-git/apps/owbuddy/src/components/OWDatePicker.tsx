@@ -256,6 +256,7 @@ const styles = themed(() => StyleSheet.create({
   btnOk: {
     flex: 2, padding: spacing.md, borderRadius: radius.md,
     backgroundColor: colors.cyan, alignItems: 'center',
+    ...maritime.botaoPrimario,
   },
   btnOkText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
 }));

@@ -1,7 +1,7 @@
 /**
  * OWCard — card glass padrão do OWBuddy.
  * Usa maritime.glass por padrão; pode ser elevated ou custom.
- * LEITURA > EFEITO: superfície quase opaca, borda luminosa fina, elevação discreta.
+ * LEITURA > EFEITO: superfície opaca de painel, aresta de luz de 1 px em cima, sombra profunda e macia.
  */
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View, type ViewStyle, type StyleProp } from 'react-native';
@@ -41,6 +41,8 @@ const styles = themed(() => StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
+    borderTopColor: maritime.edgeLight,
+    borderBottomColor: maritime.edgeDark,
     ...maritime.cardShadow,
   },
   elevated: {
@@ -49,6 +51,8 @@ const styles = themed(() => StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: maritime.glassBorder,
+    borderTopColor: maritime.edgeLight,
+    borderBottomColor: maritime.edgeDark,
     ...maritime.cardShadow,
   },
 }));

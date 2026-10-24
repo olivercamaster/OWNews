@@ -158,7 +158,8 @@ export default function MinhaViagem() {
           {rota ? <Text style={styles.heroRota}>{rota}</Text> : null}
         </View>
 
-        {/* Detalhes */}
+        {/* Detalhes (sem nenhum campo preenchido o card não aparece — era uma caixa vazia) */}
+        {viagem.num_voo || viagem.empresa || viagem.localizador || viagem.assento || viagem.poltrona || viagem.ponto || viagem.obs ? (
         <OWCard style={styles.detailCard}>
           {viagem.num_voo ? <DetailRow icon="airplane" label="Voo" value={viagem.num_voo} /> : null}
           {viagem.empresa && (viagem.tipo === 'AVIAO' || viagem.tipo === 'ONIBUS' || viagem.tipo === 'EMPRESA') ? (
@@ -171,6 +172,7 @@ export default function MinhaViagem() {
           {viagem.ponto ? <DetailRow icon="location-outline" label="Ponto" value={viagem.ponto} /> : null}
           {viagem.obs ? <DetailRow icon="document-text-outline" label="Obs." value={viagem.obs} private /> : null}
         </OWCard>
+        ) : null}
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.editBtn} onPress={startEdit} accessibilityRole="button">
@@ -578,7 +580,7 @@ const formStyles = themed(() => StyleSheet.create({
     borderWidth: 1, borderColor: maritime.glassBorder, alignItems: 'center',
   },
   cancelText: { color: colors.muted, fontWeight: '600' },
-  saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.cyan, alignItems: 'center' },
+  saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.cyan, alignItems: 'center', ...maritime.botaoPrimario },
   saveText: { color: colors.onAccent, fontWeight: '700', fontSize: 15 },
 }));
 
@@ -615,7 +617,7 @@ const styles = themed(() => StyleSheet.create({
   },
   mapaTexto: { color: colors.cyanDim, fontWeight: '600', flexShrink: 1 },
   transporte: { marginTop: spacing.md, gap: 6 },
-  transporteTitulo: { ...typography.micro, color: colors.cyanDim },
+  transporteTitulo: { ...typography.micro, color: colors.kicker },
   transporteSub: { fontSize: 13, color: colors.muted, lineHeight: 18 },
   transporteBotoes: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
   transporteBtn: {

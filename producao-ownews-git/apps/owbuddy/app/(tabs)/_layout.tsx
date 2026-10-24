@@ -10,11 +10,24 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
   useTema();
   return (
-    <Ionicons
-      name={focused ? name : (`${name}-outline` as IoniconsName)}
-      size={24}
-      color={focused ? tokens.navigationActive : tokens.navigationInactive}
-    />
+    <View style={{ alignItems: 'center' }}>
+      {/* Aba ativa: filete de luz ambiente na aresta da barra (cockpit), sem glow em volta do ícone */}
+      {focused ? (
+        <View
+          style={{
+            position: 'absolute', top: -9, width: 18, height: 2, borderRadius: 1,
+            backgroundColor: tokens.navigationActive,
+            shadowColor: tokens.navigationActive, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: maritime.progressGlow, shadowRadius: 4,
+          }}
+        />
+      ) : null}
+      <Ionicons
+        name={focused ? name : (`${name}-outline` as IoniconsName)}
+        size={24}
+        color={focused ? tokens.navigationActive : tokens.navigationInactive}
+      />
+    </View>
   );
 }
 

@@ -56,6 +56,7 @@ import { contadorVagasHome, frescorClima, noticiaRecenteHome } from '../../src/f
 import { AcontecimentoLinha } from '../../src/components/AcontecimentoLinha';
 import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
+import { OWProgresso } from '../../src/components/OWProgresso';
 
 // Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
 const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = themed(() => ({
@@ -251,7 +252,7 @@ export default function TelaHoje() {
       case 'escala':
         pecas.push(tileOuLinha({ icon: 'calendar-outline', label: 'Minha Escala',
           sub: resumo.calc ? `${resumo.calc.dEm} × ${resumo.calc.dFo} · calendário` : 'Configurar agora',
-          accent: escala ? colors.cyan : colors.mutedDim, onPress: () => router.navigate(escala ? '/escala' : '/escala-config') }));
+          accent: escala ? colors.iconDefault : colors.mutedDim, onPress: () => router.navigate(escala ? '/escala' : '/escala-config') }));
         break;
       case 'embarque':
         pecas.push(tileOuLinha({ icon: 'checkbox-outline', label: 'Meu Embarque',
@@ -535,7 +536,7 @@ function CardDestaque({ icon, titulo, numero, texto, cta, onPress }: {
       <Sheen />
       <View style={styles.destaqueTopo}>
         <View style={styles.tileIcon}>
-          <Ionicons name={icon} size={19} color={colors.cyanDim} />
+          <Ionicons name={icon} size={19} color={colors.iconDefault} />
         </View>
         <Text style={styles.tileLabel}>{titulo}</Text>
       </View>
@@ -622,10 +623,9 @@ function HomeHero({
   }
 
   const destino = contexto.tipo === 'PRE_EMBARQUE' ? '/mala' : '/escala';
-  const pct = `${Math.round(Math.min(1, Math.max(0, progresso)) * 100)}%` as `${number}%`;
   return (
     <TouchableOpacity
-      style={[styles.hero, { borderColor: cor + '40' }]}
+      style={[styles.hero, { borderColor: cor + '2e' }]}
       onPress={() => router.navigate(destino)}
       activeOpacity={0.88}
       accessibilityRole="button"
@@ -651,10 +651,8 @@ function HomeHero({
         ) : null}
       </View>
       <Text style={styles.heroTitulo}>{contexto.titulo}</Text>
-      {contexto.destaque ? <Text style={[styles.heroDestaque, { color: cor }]}>{contexto.destaque}</Text> : null}
-      <View style={styles.heroBar}>
-        <View style={[styles.heroBarFill, { width: pct, backgroundColor: cor }]} />
-      </View>
+      {contexto.destaque ? <DestaqueInstrumento texto={contexto.destaque} cor={cor} /> : null}
+      <OWProgresso valor={progresso} cor={cor} style={styles.heroBar} />
       <View style={styles.heroBottom}>
         <Text style={styles.heroDetalhe}>{contexto.detalhe}</Text>
         <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
@@ -667,6 +665,23 @@ function HomeHero({
       ) : null}
       {voz ? <Text style={styles.heroVoz}>“{voz}”</Text> : null}
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Linha de destaque como leitura de instrumento: o PRIMEIRO número aparece primeiro
+ * ("Dia **9** de 14", "Mala: **8** de 11 itens prontos"). O texto é o mesmo de contextoHome().
+ */
+function DestaqueInstrumento({ texto, cor }: { texto: string; cor: string }) {
+  useTema();
+  const m = /^(\D*?)(\d+)(.*)$/.exec(texto);
+  if (!m) return <Text style={[styles.heroDestaque, { color: cor }]}>{texto}</Text>;
+  return (
+    <Text style={styles.heroDestaque} accessibilityLabel={texto}>
+      <Text style={styles.heroDestaqueAux}>{m[1]}</Text>
+      <Text style={[styles.heroNumero, { color: cor }]}>{m[2]}</Text>
+      <Text style={styles.heroDestaqueAux}>{m[3]}</Text>
+    </Text>
   );
 }
 
@@ -684,7 +699,7 @@ function HomeTile({
   destaque?: boolean;
 }) {
   useTema();
-  const cor = accent ?? colors.cyanDim;
+  const cor = accent ?? colors.iconDefault;
   // 320–349 dp: tipografia e respiro um pouco menores para o título caber inteiro.
   const estreita = useWindowDimensions().width < 350;
   return (
@@ -732,7 +747,7 @@ function ActionRow({
       activeOpacity={0.72}
     >
       <View style={styles.actionIconWrap}>
-        <Ionicons name={icon} size={17} color={accent ?? colors.cyanDim} />
+        <Ionicons name={icon} size={17} color={accent ?? colors.iconDefault} />
       </View>
       <View style={styles.actionContent}>
         <Text style={styles.actionLabel}>{label}</Text>
@@ -783,8 +798,8 @@ const styles = themed(() => StyleSheet.create({
   // Dica de descoberta (uma vez)
   dica: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: maritime.accentSoft, borderRadius: radius.md,
-    borderWidth: 1, borderColor: maritime.accentBorder,
+    backgroundColor: maritime.glass, borderRadius: radius.md,
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
     paddingHorizontal: spacing.sm + 4, paddingVertical: 6, marginBottom: spacing.md,
   },
   dicaTexto: { flex: 1, fontSize: 13, color: colors.white, lineHeight: 18 },
@@ -834,15 +849,18 @@ const styles = themed(() => StyleSheet.create({
     ...maritime.cardShadow,
   },
   heroVazio: { gap: spacing.sm },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm + 2 },
+  // 320 dp: a data desce para a linha de baixo em vez de espremer o chip
+  heroTop: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: spacing.sm, rowGap: 6, marginBottom: spacing.sm + 2 },
   heroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.xl, paddingHorizontal: 10, paddingVertical: 4 },
   heroDot: { width: 6, height: 6, borderRadius: 3 },
   heroChipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.9 },
   heroData: { fontSize: 12, color: colors.muted, fontWeight: '600' },
-  heroTitulo: { fontSize: 23, fontWeight: '700', color: colors.white, letterSpacing: -0.2 },
-  heroDestaque: { fontSize: 16, fontWeight: '700', marginTop: 4 },
-  heroBar: { height: 4, backgroundColor: maritime.sunken, borderRadius: 2, overflow: 'hidden', marginTop: spacing.md },
-  heroBarFill: { height: '100%', borderRadius: 2 },
+  heroTitulo: { fontSize: 21, fontWeight: '700', color: colors.white, letterSpacing: -0.2 },
+  // Leitura de instrumento: número grande, tabular; o resto da frase em apoio
+  heroDestaque: { fontSize: 16, fontWeight: '700', marginTop: 2 },
+  heroDestaqueAux: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  heroNumero: { fontSize: 38, lineHeight: 46, fontWeight: '700', letterSpacing: -1, fontVariant: ['tabular-nums'] },
+  heroBar: { marginTop: spacing.sm + 2 },
   heroBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm + 2 },
   heroDetalhe: { flex: 1, fontSize: 14, color: colors.muted, lineHeight: 20 },
   heroAero: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm },
@@ -851,6 +869,7 @@ const styles = themed(() => StyleSheet.create({
   heroCta: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     backgroundColor: colors.cyan, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 9, marginTop: spacing.xs,
+    ...maritime.botaoPrimario,
   },
   heroCtaText: { fontSize: 14, fontWeight: '700', color: colors.onAccent },
 

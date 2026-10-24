@@ -42,6 +42,7 @@ import {
   setEventosPessoais,
   getEscalasCruzar,
 } from '../../src/storage';
+import { OWProgresso } from '../../src/components/OWProgresso';
 import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../../src/theme';
 import { useTema } from '../../src/tema';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -479,7 +480,7 @@ export default function EscalaScreen() {
       <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: bottomNavSpace(insets.bottom) }]}>
 
         {/* ── Status hero ── */}
-        <View style={[styles.heroCard, { borderColor: calc?.embarcado ? tokens.calendarEmbarcadoBorder : colors.line }]}>
+        <View style={[styles.heroCard, calc?.embarcado ? { borderColor: colors.green + '2e', borderTopColor: maritime.edgeLight } : null]}>
           {calc?.embarcado ? (
             <>
               <View style={styles.heroRow}>
@@ -495,9 +496,7 @@ export default function EscalaScreen() {
                   <Text style={styles.heroCountdownLabel}>{calc.diasRestantes === 1 ? 'dia p/ desembarque' : 'dias p/ desembarque'}</Text>
                 </View>
               </View>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.round(progressPct * 100)}%` }]} />
-              </View>
+              <OWProgresso valor={progressPct} cor={tokens.calendarEmbarcadoText} />
               {aeroporto && (
                 <Text style={styles.heroBadge}>
                   <Ionicons name="navigate-outline" size={11} /> {aeroporto.code} · {aeroporto.nome}
@@ -519,9 +518,7 @@ export default function EscalaScreen() {
                   <Text style={styles.heroCountdownLabel}>{calc?.diasRestantes === 1 ? 'dia p/ embarque' : 'dias p/ embarque'}</Text>
                 </View>
               </View>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.round(progressPct * 100)}%`, backgroundColor: colors.amber }]} />
-              </View>
+              <OWProgresso valor={progressPct} cor={colors.amber} />
               {aeroporto && (
                 <Text style={styles.heroBadge}>
                   <Ionicons name="navigate-outline" size={11} /> {aeroporto.code} · {aeroporto.nome}
@@ -732,7 +729,7 @@ function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string
   useTema();
   return (
     <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label}>
-      <Ionicons name={icon} size={20} color={colors.cyanDim} />
+      <Ionicons name={icon} size={20} color={colors.iconDefault} />
       <Text style={styles.actionLabel}>{label}</Text>
     </TouchableOpacity>
   );
@@ -762,12 +759,15 @@ const styles = themed(() => StyleSheet.create({
   setupRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: surface.bg, padding: spacing.xl, gap: spacing.md },
   setupTitle: { ...typography.h1, textAlign: 'center' },
   setupSub: { ...typography.body, textAlign: 'center', color: colors.muted },
-  setupBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, marginTop: spacing.sm },
+  setupBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, marginTop: spacing.sm, ...maritime.botaoPrimario },
   setupBtnText: { fontWeight: '700', fontSize: 16, color: colors.onAccent },
 
+  // Peça do painel: superfície elevada, aresta de luz em cima, sombra profunda
   heroCard: {
-    backgroundColor: surface.card, borderRadius: radius.lg, padding: spacing.md,
+    backgroundColor: maritime.glassElevated, borderRadius: radius.lg, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, gap: spacing.sm,
+    borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, borderBottomColor: maritime.edgeDark,
+    ...maritime.cardShadow,
   },
   heroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
   heroLeft: { flex: 1, minWidth: 0 },
@@ -775,24 +775,23 @@ const styles = themed(() => StyleSheet.create({
   heroValue: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 2 },
   heroDate: { fontSize: 12, color: colors.mutedDim, marginTop: 2 },
   heroRight: { alignItems: 'flex-end', maxWidth: 104 },
-  heroCountdown: { fontSize: 28, fontWeight: '700', color: tokens.calendarEmbarcadoText },
-  heroCountdownLabel: { fontSize: 11, color: colors.mutedDim, marginTop: -2, textAlign: 'right' },
+  // Leitura de instrumento: o número é a primeira coisa que o olho pega
+  heroCountdown: { fontSize: 40, lineHeight: 46, fontWeight: '700', letterSpacing: -1, fontVariant: ['tabular-nums'], color: tokens.calendarEmbarcadoText },
+  heroCountdownLabel: { fontSize: 11, color: colors.muted, marginTop: -2, textAlign: 'right' },
   heroBadge: { fontSize: 12, color: colors.cyanDim, fontWeight: '600' },
-  progressBar: { height: 6, backgroundColor: colors.navy800, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: tokens.calendarEmbarcadoText, borderRadius: 3 },
   auditLine: { fontSize: 11, color: colors.mutedDim, marginTop: -spacing.sm, marginBottom: spacing.md, paddingHorizontal: 2 },
 
   casaLinha: { fontSize: 15, fontWeight: '700', color: colors.white, textAlign: 'center', marginTop: -4, marginBottom: spacing.sm },
   shareBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46,
-    borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
+    borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, backgroundColor: maritime.glass,
     marginTop: spacing.sm, marginBottom: spacing.xs,
   },
   shareTexto: { color: colors.cyanDim, fontWeight: '700', fontSize: 14 },
   actionRow: {
     flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md,
-    backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.sm,
-    borderWidth: 1, borderColor: colors.line,
+    backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.sm,
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
   },
   actionBtn: { alignItems: 'center', gap: 3, flex: 1, minHeight: 44, justifyContent: 'center' },
   actionLabel: { fontSize: 12, color: colors.muted, fontWeight: '600' },

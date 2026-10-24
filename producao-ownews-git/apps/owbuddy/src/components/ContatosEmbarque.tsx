@@ -84,7 +84,7 @@ export function ContatosEmbarque() {
 const styles = themed(() => StyleSheet.create({
   card: { marginTop: spacing.md },
   topo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  titulo: { ...typography.micro, color: colors.cyanDim },
+  titulo: { ...typography.micro, color: colors.kicker },
   addLink: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 36, paddingHorizontal: 4 },
   addLinkTexto: { color: colors.cyanDim, fontWeight: '700', fontSize: 13 },
   vazio: { fontSize: 13, color: colors.muted, lineHeight: 18, marginTop: 2 },

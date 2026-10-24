@@ -277,6 +277,7 @@ const styles = themed(() => StyleSheet.create({
   aeroNomeActive: { color: colors.white },
   saveBtn: {
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center',
+    ...maritime.botaoPrimario,
   },
   saveBtnDisabled: { opacity: 0.4 },
   dateBtn: {

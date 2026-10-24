@@ -36,7 +36,8 @@ import type { ChecklistData, ChecklistItem, EscalaResumo } from '@owbuddy/domain
 import { getEscala, getChecklist, setChecklist, getOcultarConcluidos, setOcultarConcluidos } from '../../src/storage';
 import { confirmar } from '../../src/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface, themed, tokens } from '../../src/theme';
+import { bottomNavSpace, colors, maritime, spacing, radius, typography, surface, themed, tokens, tone } from '../../src/theme';
+import { OWProgresso } from '../../src/components/OWProgresso';
 import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
@@ -264,14 +265,12 @@ export default function MeuEmbarque() {
                     <Ionicons name="checkmark" size={30} color={colors.onAccent} />
                   </View>
                 ) : (
-                  <View style={[styles.progressCircle, { borderColor: corProgresso }]}>
+                  <View style={styles.progressCircle}>
                     <Text style={[styles.progressPct, { color: corProgresso }]}>{pct}%</Text>
                   </View>
                 )}
               </View>
-              <View style={styles.progressBg}>
-                <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: corProgresso }]} />
-              </View>
+              <OWProgresso valor={pct / 100} cor={corProgresso} style={styles.progressBg} />
               <Text style={[styles.buddyMsg, tudo && styles.buddyMsgDone]}>
                 {labelBuddy(counts.feitos, counts.total, counts.pendentes, alvo?.dias ?? null)}
               </Text>
@@ -296,7 +295,7 @@ export default function MeuEmbarque() {
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             {/* @ts-ignore — icon name comes from domain ICON_CAT; valid Ionicons names */}
-            <Ionicons name={section.icon} size={13} color={colors.cyanDim} />
+            <Ionicons name={section.icon} size={13} color={colors.iconDefault} />
             <Text style={styles.sectionHeaderText}>{section.label}</Text>
           </View>
         )}
@@ -486,7 +485,7 @@ const styles = themed(() => StyleSheet.create({
     borderWidth: 1,
     borderColor: maritime.glassBorder,
     borderLeftWidth: 2,
-    borderLeftColor: colors.cyan,
+    borderLeftColor: tokens.accentRule,
     gap: 5,
   },
   buddyIntroRow: {
@@ -513,7 +512,7 @@ const styles = themed(() => StyleSheet.create({
     borderWidth: 1, borderColor: maritime.glassBorder,
   },
   embarqueLeft: { flex: 1 },
-  embarqueLabel: { ...typography.micro, color: colors.cyanDim },
+  embarqueLabel: { ...typography.micro, color: colors.kicker },
   embarqueData: { fontSize: 18, fontWeight: '700', color: colors.white, marginTop: 2 },
   embarqueSub: { ...typography.small, marginTop: 2 },
   embarqueAero: { fontSize: 11, color: colors.mutedDim, marginTop: 2 },
@@ -549,19 +548,16 @@ const styles = themed(() => StyleSheet.create({
   },
   toggleOkText: { fontSize: 13, color: colors.cyanDim, fontWeight: '600' },
   allHidden: { ...typography.small, color: colors.mutedDim, textAlign: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  counterBig: { fontSize: 36, fontWeight: '700', color: colors.white },
+  counterBig: { fontSize: 40, fontWeight: '700', color: colors.white, letterSpacing: -1, fontVariant: ['tabular-nums'] },
   counterSub: { ...typography.small, marginTop: 2 },
+  // Mostrador neutro: a cor fica só no número (a barra embaixo já mostra o avanço)
   progressCircle: {
-    width: 60, height: 60, borderRadius: 30, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center',
+    width: 60, height: 60, borderRadius: 30, borderWidth: 1.5, borderColor: tone.border,
+    backgroundColor: maritime.sunken, alignItems: 'center', justifyContent: 'center',
   },
-  progressPct: { fontSize: 15, fontWeight: '700' },
+  progressPct: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
-  progressBg: {
-    height: 3, backgroundColor: maritime.sunken,
-    marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: 2, overflow: 'hidden',
-  },
-  progressFill: { height: 3, borderRadius: 2 },
+  progressBg: { marginHorizontal: spacing.md, marginBottom: spacing.sm },
 
   buddyMsg: {
     ...typography.small, fontStyle: 'italic', color: colors.mutedDim,
@@ -634,5 +630,6 @@ const styles = themed(() => StyleSheet.create({
   addBtn: {
     width: 44, height: 44, backgroundColor: colors.cyan,
     borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
+    ...maritime.botaoPrimario,
   },
 }));

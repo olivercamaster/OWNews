@@ -62,6 +62,7 @@ const styles = themed(() => StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    ...maritime.botaoPrimario,
   },
   btnText: { color: colors.onAccent, fontWeight: '700', fontSize: 15 },
 }));

@@ -642,7 +642,7 @@ const styles = themed(() => StyleSheet.create({
   privNote: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.xl },
   privText: { ...typography.small, color: colors.mutedDim },
 
-  saveBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center' },
+  saveBtn: { backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center', ...maritime.botaoPrimario },
   saveBtnDone: { backgroundColor: colors.green },
   saveBtnText: { color: colors.onAccent, fontWeight: '700', fontSize: 16 },
   aboutBox: { alignItems: 'center', marginTop: spacing.xl, paddingBottom: spacing.sm },

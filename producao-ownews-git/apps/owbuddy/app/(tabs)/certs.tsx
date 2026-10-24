@@ -377,7 +377,7 @@ const fStyles = themed(() => StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   cancelBtn: { flex: 1, padding: spacing.md, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
   cancelText: { color: colors.muted, fontWeight: '600' },
-  saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.sm, backgroundColor: colors.cyan, alignItems: 'center' },
+  saveBtn: { flex: 2, padding: spacing.md, borderRadius: radius.sm, backgroundColor: colors.cyan, alignItems: 'center', ...maritime.botaoPrimario },
   saveText: { color: colors.onAccent, fontWeight: '700' },
 }));
 
@@ -388,11 +388,11 @@ const styles = themed(() => StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   titulo: { ...typography.h2 },
   subtitulo: { ...typography.small, color: colors.mutedDim, marginTop: 2 },
-  addTopo: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: 12, minHeight: 40 },
+  addTopo: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: 12, minHeight: 40, ...maritime.botaoPrimario },
   addTopoText: { color: colors.onAccent, fontWeight: '700', fontSize: 14 },
   card: { backgroundColor: maritime.glass, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: maritime.glassBorder, ...maritime.cardShadow },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
-  certTipo: { ...typography.micro, color: colors.cyanDim, marginBottom: 2 },
+  certTipo: { ...typography.micro, color: colors.kicker, marginBottom: 2 },
   certNome: { ...typography.h3 },
   badge: { borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },

@@ -25,6 +25,15 @@ export interface TokensSemanticos {
   surfaceSunken: string;
   borderSubtle: string;
   borderStrong: string;
+  // Cockpit 2026-10-24: nomes canônicos do sistema (borda de acento, divisória, acento contido)
+  borderAccent: string;
+  divider: string;
+  accentMuted: string;
+  // Ícone neutro (o acento fica para estado/ação)
+  iconDefault: string;
+  // Rótulo de seção dentro de card (no escuro deixa de ser ciano) e filete lateral de destaque
+  textKicker: string;
+  accentRule: string;
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
@@ -102,8 +111,15 @@ const ESCURO: TokensSemanticos = {
   surfaceElevated: '#0f1c27',
   surfacePressed:  '#13222e',
   surfaceSunken:   '#060e15',
-  borderSubtle: 'rgba(150, 188, 214, 0.13)',
-  borderStrong: 'rgba(150, 188, 214, 0.20)',
+  // Cockpit: contorno mais fino; a separação vem de tom + aresta superior + sombra
+  borderSubtle: 'rgba(150, 188, 214, 0.10)',
+  borderStrong: 'rgba(150, 188, 214, 0.17)',
+  borderAccent: 'rgba(20, 169, 236, 0.26)',
+  divider:      'rgba(150, 188, 214, 0.08)',
+  accentMuted:  '#3f8db4',
+  iconDefault:  '#a3b6c4',
+  textKicker:   '#8e9dab',
+  accentRule:   'rgba(20, 169, 236, 0.55)',
   textPrimary:   '#eef3f6',
   // Escala 2.0: secundários levemente mais legíveis (sem virar branco)
   textSecondary: '#a4b4c0',
@@ -114,7 +130,7 @@ const ESCURO: TokensSemanticos = {
   accent:        '#14a9ec',
   accentPressed: '#0f93d0',
   accentSoft:    'rgba(20, 169, 236, 0.10)',
-  accentBorder:  'rgba(20, 169, 236, 0.30)',
+  accentBorder:  'rgba(20, 169, 236, 0.26)',
   accentText:    '#62c5ee',
   onAccent:      '#03121c',
   success:     '#33c27a',
@@ -127,11 +143,12 @@ const ESCURO: TokensSemanticos = {
   infoSoft:    'rgba(98, 197, 238, 0.10)',
   shadow:  '#000000',
   overlay: 'rgba(1, 6, 10, 0.66)',
-  navigationBackground: 'rgba(4, 11, 17, 0.97)',
-  navigationBorder:     'rgba(150, 188, 214, 0.11)',
+  // Barra integrada ao painel: opaca (nada vaza por baixo), um tom acima do fundo
+  navigationBackground: '#060d14',
+  navigationBorder:     'rgba(150, 188, 214, 0.09)',
   navigationActive:     '#14a9ec',
-  navigationInactive:   '#8494a1',
-  headerBackground:     '#061019',
+  navigationInactive:   '#7f8f9c',
+  headerBackground:     '#040b11',
   inputBackground:  '#060e15',
   inputBorder:      'rgba(150, 188, 214, 0.15)',
   inputFocus:       'rgba(20, 169, 236, 0.55)',
@@ -178,6 +195,12 @@ const CLARO: TokensSemanticos = {
   surfaceSunken:   '#f1f4f7',
   borderSubtle: 'rgba(16, 46, 72, 0.09)',
   borderStrong: 'rgba(16, 46, 72, 0.16)',
+  borderAccent: 'rgba(8, 106, 160, 0.30)',
+  divider:      'rgba(16, 46, 72, 0.08)',
+  accentMuted:  '#4f87a8',
+  iconDefault:  '#075f90',
+  textKicker:   '#075f90',
+  accentRule:   '#086aa0',
   // Navy quase preto + grafite azulado (contraste AA sobre branco e sobre o fundo)
   textPrimary:   '#0b1824',
   textSecondary: '#445664',
@@ -270,6 +293,10 @@ interface Material {
   watermarkTint: string; watermarkOpacity: number; homeWatermarkOpacity: number;
   // Destaque do tile principal da Home (aresta superior)
   tileHighlight: string;
+  // Instrumentação: trilho do progresso e aresta de luz do botão primário
+  progressTrack: string;
+  progressGlow: number;
+  primaryEdgeTop: string;
 }
 
 const MATERIAL_ESCURO: Material = {
@@ -278,29 +305,38 @@ const MATERIAL_ESCURO: Material = {
   surfaceTop: '#0e1922', surfaceBottom: '#091219',
   elevatedTop: '#132230', elevatedBottom: '#0b1720',
   edgeLight: 'rgba(214, 234, 248, 0.10)',
-  edgeDark:  'rgba(0, 4, 8, 0.60)',
+  edgeDark:  'rgba(0, 3, 6, 0.72)',
   borderActive: 'rgba(20, 169, 236, 0.42)',
   iconTile: 'rgba(160, 196, 222, 0.065)',
   line: '#1b2b38', lineSoft: '#14212c',
   // Fundo: quase preto; faixa central só um tom acima — identidade marítima sem "tudo azul"
-  bgGradient: ['#01060b', '#030b11', '#05111a', '#040e16', '#02080d'],
+  // Cockpit: topo um tom mais profundo, centro navy quase preto — variação tonal, não decoração
+  bgGradient: ['#01050a', '#030a10', '#050f17', '#040c13', '#02070b'],
   bgLocations: [0, 0.30, 0.56, 0.82, 1],
   glowGradient: ['rgba(60, 140, 185, 0.060)', 'rgba(60, 140, 185, 0.018)', 'rgba(60, 140, 185, 0)'],
   glowLocations: [0, 0.45, 0.85],
   depthGradient: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.32)'],
-  glass: 'rgba(11, 21, 29, 0.97)',
-  glassElevated: 'rgba(15, 28, 39, 0.98)',
+  // Superfície opaca (peça do painel, não vidro): batimetria nunca atravessa o texto
+  glass: '#0a141c',
+  glassElevated: '#0d1922',
   glassBorderActive: 'rgba(20, 169, 236, 0.38)',
-  sheenGradient: ['rgba(205, 228, 246, 0.050)', 'rgba(205, 228, 246, 0.012)', 'rgba(205, 228, 246, 0)'],
-  sheenLocations: [0, 0.30, 0.60],
+  // Reflexo de display: só no terço de cima, some antes do meio
+  sheenGradient: ['rgba(205, 228, 246, 0.055)', 'rgba(205, 228, 246, 0.012)', 'rgba(205, 228, 246, 0)'],
+  sheenLocations: [0, 0.22, 0.5],
   heroGradient: ['rgba(19, 36, 50, 0.99)', 'rgba(13, 26, 37, 0.99)', 'rgba(8, 17, 25, 0.99)'],
   fieldBorder: ESCURO.inputBorder,
-  cardShadow: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 18, elevation: 4 },
-  navShadow:  { shadowColor: '#000000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 22, elevation: 16 },
-  bathymetryColor: '#5c9fc2', bathymetryOpacity: 0.022,
-  // Gravação tonal no material
-  watermarkTint: '#8aaabd', watermarkOpacity: 0.06, homeWatermarkOpacity: 0.055,
-  tileHighlight: 'rgba(150, 215, 245, 0.24)',
+  // Sombra profunda e macia: o card assenta no painel em vez de flutuar
+  cardShadow: { shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.42, shadowRadius: 24, elevation: 5 },
+  navShadow:  { shadowColor: '#000000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.5, shadowRadius: 18, elevation: 16 },
+  // Batimetria como gravação no painel
+  bathymetryColor: '#5c9fc2', bathymetryOpacity: 0.017,
+  // Gravação tonal no material (Home mais contida)
+  watermarkTint: '#8aaabd', watermarkOpacity: 0.06, homeWatermarkOpacity: 0.04,
+  tileHighlight: 'rgba(150, 215, 245, 0.16)',
+  progressTrack: 'rgba(150, 188, 214, 0.10)',
+  // Luz ambiente só no marcador do progresso
+  progressGlow: 0.55,
+  primaryEdgeTop: 'rgba(225, 245, 255, 0.30)',
 };
 
 const MATERIAL_CLARO: Material = {
@@ -335,6 +371,10 @@ const MATERIAL_CLARO: Material = {
   // Quase impressão / baixo-relevo
   watermarkTint: '#4f7690', watermarkOpacity: 0.05, homeWatermarkOpacity: 0.06,
   tileHighlight: 'rgba(255, 255, 255, 1)',
+  progressTrack: CLARO.surfaceSunken,
+  progressGlow: 0,
+  // No claro a aresta é a própria cor do botão (nada muda no visual aprovado)
+  primaryEdgeTop: CLARO.accent,
 };
 
 const MATERIAL_POR_TEMA: Record<TemaEfetivo, Material> = { escuro: MATERIAL_ESCURO, claro: MATERIAL_CLARO };
@@ -370,6 +410,9 @@ function construir(tema: TemaEfetivo) {
     white: t.textPrimary,
     muted: t.textSecondary,
     mutedDim: t.textMuted,
+    // Ícone neutro de navegação/lista (o acento fica para estado e ação)
+    iconDefault: t.iconDefault,
+    kicker: t.textKicker,
     // Texto/ícone sobre o acento (botão primário)
     onAccent: t.onAccent,
     green: t.success,
@@ -426,6 +469,10 @@ function construir(tema: TemaEfetivo) {
     accentBorder: t.accentBorder,
     tileHighlight: m.tileHighlight,
     overlay: t.overlay,
+    progressTrack: m.progressTrack,
+    progressGlow: m.progressGlow,
+    // Botão primário: sólido, com aresta de luz de 1 px em cima (peça de painel, não botão web)
+    botaoPrimario: { borderWidth: 1, borderColor: tema === 'escuro' ? t.accentPressed : t.accent, borderTopColor: m.primaryEdgeTop },
     // Nav flutuante — sem glow
     navBg: t.navigationBackground,
     navBorder: t.navigationBorder,
