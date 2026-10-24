@@ -38,7 +38,7 @@ test('caso real: embarque 16/10/2026, hoje 24/10/2026, 14x14 → EMBARCADO Dia 9
   const home = D.contextoHome(r, D.calcularMomento(CASO, HOJE), null);
   assert.equal(home.titulo, 'Você está embarcado');
   assert.equal(home.destaque, 'Dia 9 de 14');
-  assert.equal(home.detalhe, '6 dias para o desembarque.');
+  assert.equal(home.detalhe, 'Faltam 6 dias pra casa.');
 });
 
 test('caso real dia a dia: 16–29/10 embarcado Dia 1–14, 30/10 folga Dia 1 (desembarque), 12/11 folga Dia 14, 13/11 embarque', () => {
@@ -72,11 +72,11 @@ test('referência = ontem → Dia 2, "Você embarcou ontem" (nunca "hoje")', () 
   assert.equal(D.contextoHome(r, D.calcularMomento(c, HOJE), null).titulo, 'Você embarcou ontem');
 });
 
-test('desembarque hoje → folga Dia 1, "Hoje é dia de desembarque"', () => {
+test('desembarque hoje → folga Dia 1, "Desembarque hoje"', () => {
   const c = cfg('2026-10-10'); // 10–23 embarcado, 24/10 = folga D1
   const r = D.resumoEscala(c, HOJE);
   assert.equal(r.estado, 'DE_FOLGA');
-  assert.equal(D.contextoHome(r, D.calcularMomento(c, HOJE), null).titulo, 'Hoje é dia de desembarque');
+  assert.equal(D.contextoHome(r, D.calcularMomento(c, HOJE), null).titulo, 'Desembarque hoje');
 });
 
 // ─── Resumo antes de confirmar ─────────────────────────────────────────────

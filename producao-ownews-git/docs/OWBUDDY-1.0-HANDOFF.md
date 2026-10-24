@@ -593,3 +593,35 @@ Aparência escolhida pelo usuário: **Automático** (padrão para todos, inclusi
 - **Testes:**
   - `tests/escala-config-2.test.mjs`;
   - preview: `tests/e2e/escala-config-preview.cjs` (relógio fixo em 24/10/2026).
+
+## Auditoria final pré-RC + Companheiro offshore (2026-10-24)
+
+Checkpoint antes: tag `owbuddy-pre-auditoria-rc`. Nada de APK nesta rodada.
+
+**Correções (P0/P1)**
+- Mala zerava na MANHÃ do embarque (alvo era o próximo embarque já no Dia 1). Agora `cicloAlvoChecklist(resumo)` = hoje no Dia 1, próximo embarque a partir do Dia 2; `sincronizarChecklistComCiclo(lista, alvo, hoje)` só reseta quando o embarque da lista JÁ PASSOU. Escala editada só re-chaveia; relógio para trás nunca apaga marcações; lista sem ciclo adota o alvo sem desmarcar.
+- Web: `Alert.alert` não existe no navegador → Salvar/Remover de Certificados e Viagem eram botões mortos no preview. Erros agora inline; exclusões via `confirmar()`.
+- Toque duplo: `useAcaoUnica` (src/acoes.ts) em todo Salvar/Confirmar; ids com sufixo aleatório; item de mala repetido não duplica.
+- Android Voltar fecha os formulários internos de Certificados e Viagem (`useVoltarAndroid`). Modais já usam `onRequestClose`.
+- Build RC: `expo-network` estava por engano no package.json da RAIZ e puxava react 19.3.0 duplicado (era o erro do expo-doctor/APK). Removido; `overrides` react/react-dom 19.2.3 na raiz; patches do SDK 57 alinhados (`expo install --fix`); flag redundante de symlinks saiu do metro.config. `expo-doctor`: 21/21.
+- Conta OW: "Excluir minha Conta OW" abre e-mail de pedido para suporte@ownews.com.br (o app não apaga conta sem backend — ver pendências). Seção "Privacidade e dados": política + "Apagar dados deste aparelho" (só chaves `owbuddy_*`/`ownews_*`, confirmação explícita). Sair ≠ apagar dados ≠ excluir conta.
+- Conectividade reage na hora (listener do expo-network + eventos online/offline na web).
+
+**Padrões de UX (aprender uma vez)**
+- Adicionar: botão visível no topo/fim da lista + estado vazio com a ação.
+- Editar: tocar no item abre a edição (mala: ⋯ abre o painel do item; o toque marca/desmarca).
+- Excluir: dentro da edição, palavra "Excluir" em todo o app, com confirmação curta.
+- Voltar: cabeçalho com "<" nos formulários internos + Cancelar + Voltar do Android.
+- Feedback: faixa discreta `avisar()` (src/feedback.tsx): "Salvo", "Atualizado", "Excluído".
+
+**Funções aprovadas**
+- Mala inteligente (aba Embarque): "Usar em todos os embarques" ao criar/editar (desmarcado = `rec:false`, sai no próximo ciclo); progresso "N de M itens prontos" / "Mala pronta".
+- Documentos (aba Certificados, mesma chave `ownews_certificados`): `tipo` (Certificado, Passaporte, CNH, ASO, Outro) + `aviso_dias` (7/15/30/60/90, padrão 30). Sem foto/número. Dado antigo sem `aviso_dias` mantém a janela de 90 dias.
+- Onde preciso estar? (`src/onde-estar.ts`): véspera/dia da viagem já cadastrada; só campos preenchidos; base da escala no dia do embarque; Abrir no mapa (`geo:` Android, Apple Maps iOS, Google Maps web; aeroporto conhecido usa coordenadas da tabela; texto vira busca — sem geocodificar).
+- Contatos do embarque (aba Viagem, `owbuddy_contatos_embarque`, só local): Ligar (`tel:`) e WhatsApp (`wa.me`, sem mensagem).
+- Falta quanto pra casa? (`faltaPraCasa`): "Faltam 6 dias pra casa" / "Mais 9 dias em casa" — derivado, nunca persistido.
+- Compartilhar escala (aba Escala → "Compartilhar minha escala"): imagem do mês via `mesCompartilhado()` (só o ciclo). Nativo: react-native-view-shot + expo-sharing (menu do sistema). Web: Web Share com arquivo ou download do PNG.
+
+**Retenção contextual (ciclo = loop)**: Home muda prioridade/cópia, não layout: 3 dias antes → linha Viagem + Documentos; véspera/dia → card "onde preciso estar" (dia: acima do card da escala); embarcado → Dia N + "Faltam N dias pra casa"; desembarque → "Desembarque hoje · 14 dias embarcado concluídos"; dia seguinte → "Primeiro dia em casa". Lembretes da véspera viram UM aviso (embarque + voo + mala). Sem streak, pontos ou notificação de "volte ao app".
+
+**Testes**: `tests/companheiro.test.mjs` (29) + `tests/e2e/companheiro-preview.cjs` (jornada completa no navegador, relógio 24/10/2026).

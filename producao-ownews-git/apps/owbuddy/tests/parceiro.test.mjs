@@ -100,7 +100,7 @@ test('ordenação: faixa → criticidade → data; limite de 3 na Home sem dupli
   // uma ação principal por item
   assert.equal(l.find(a => a.tipo === 'VIAGEM').acao.label, 'Ir para o aeroporto');
   assert.equal(l.find(a => a.subtipo === 'ANIVERSARIO').acao.tipo, 'presente');
-  assert.equal(l.find(a => a.tipo === 'CERTIFICADO').acao.label, 'Ver certificado');
+  assert.equal(l.find(a => a.tipo === 'CERTIFICADO').acao.label, 'Ver documento');
   assert.equal(pg.acao.label, 'Ver regra');
 });
 
@@ -119,7 +119,7 @@ test('checklist incompleto aparece mesmo com o card do Meu Embarque oculto (só 
   const esc = { tipo: '14x14', dataRef: '2026-10-21', tipoRef: 'embarquei' };
   const l = gerar({ escala: esc, checklist: { ciclo: '2026-10-21', items: [{ id: 'a', t: 'A', cat: 'documentos', ok: false }, { id: 'b', t: 'B', cat: 'documentos', ok: false }] } });
   const ck = l.find(a => a.tipo === 'CHECKLIST');
-  assert.equal(ck.titulo, 'Faltam 2 itens para o embarque');
+  assert.equal(ck.titulo, 'Faltam 2 itens na mala');
   assert.equal(ck.dias, 2);
 });
 

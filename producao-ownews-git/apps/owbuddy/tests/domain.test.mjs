@@ -320,7 +320,7 @@ test('contextoHome: embarcado → dia X de Y e desembarque previsto (números da
   assert.equal(c.titulo, 'Você está embarcado');
   assert.equal(c.destaque, 'Dia 6 de 14');
   const r = D.resumoEscala(cfg14('2026-10-14'), new Date('2026-10-19T12:00:00'));
-  assert.equal(c.detalhe, `${r.diasParaDesembarque} dias para o desembarque.`);
+  assert.equal(c.detalhe, `Faltam ${r.diasParaDesembarque} dias pra casa.`);
 });
 
 test('contextoHome: pré-embarque (≤ 5 dias, calcularMomento) usa a lista do ciclo', () => {
@@ -328,11 +328,11 @@ test('contextoHome: pré-embarque (≤ 5 dias, calcularMomento) usa a lista do c
   const c = ctx(cfg14('2026-10-21'), '2026-10-19', { total: 11, feitos: 9, pendentes: 2 });
   assert.equal(c.tipo, 'PRE_EMBARQUE');
   assert.equal(c.titulo, 'Embarque em 2 dias');
-  assert.equal(c.destaque, '9 de 11 itens preparados');
-  assert.equal(c.detalhe, 'Você ainda tem 2 coisas para conferir.');
+  assert.equal(c.destaque, 'Mala: 9 de 11 itens prontos');
+  assert.equal(c.detalhe, 'Faltam 2 itens na mala.');
   const pronto = ctx(cfg14('2026-10-20'), '2026-10-19', { total: 11, feitos: 11, pendentes: 0 });
   assert.equal(pronto.titulo, 'Embarque amanhã');
-  assert.equal(pronto.detalhe, 'Tudo pronto. Bom embarque!');
+  assert.equal(pronto.detalhe, 'Mala pronta.');
 });
 
 test('contextoHome: folga longe do embarque', () => {
@@ -340,7 +340,7 @@ test('contextoHome: folga longe do embarque', () => {
   const c = ctx(cfg14('2026-10-28'), '2026-10-19', { total: 11, feitos: 0, pendentes: 11 });
   assert.equal(c.tipo, 'FOLGA');
   assert.equal(c.titulo, 'Você está de folga');
-  assert.equal(c.detalhe, '9 dias para o próximo embarque.');
+  assert.equal(c.detalhe, 'Mais 9 dias em casa.');
 });
 
 test('checklist: ocultar item padrão e restaurar sem tocar nos personalizados', () => {
@@ -396,10 +396,10 @@ test('14×14 embarquei 19/10/2026: dias, desembarque, folga e próximo embarque 
   assert.equal(nov.find(d => d.isEmbarque).iso, '2026-11-16');
   const ctxHome = D.contextoHome(r, D.calcularMomento(cfg, new Date('2026-10-19T12:00:00')), null);
   assert.equal(ctxHome.destaque, 'Dia 1 de 14');
-  assert.equal(ctxHome.detalhe, '14 dias para o desembarque.');
+  assert.equal(ctxHome.detalhe, 'Faltam 14 dias pra casa.');
   // Último dia a bordo: "Desembarque amanhã."
   const ultimo = D.resumoEscala(cfg, new Date('2026-11-01T12:00:00'));
-  assert.equal(D.contextoHome(ultimo, D.calcularMomento(cfg, new Date('2026-11-01T12:00:00')), null).detalhe, 'Desembarque amanhã.');
+  assert.equal(D.contextoHome(ultimo, D.calcularMomento(cfg, new Date('2026-11-01T12:00:00')), null).detalhe, 'Amanhã você volta pra casa.');
 });
 
 test('todos os ciclos da UI continuam suportados e fecham o ciclo', () => {

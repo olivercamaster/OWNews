@@ -68,7 +68,7 @@ ok(/embarque/.test(n13)&&/dia 1\b/.test(n13),'Calendário 13/11: '+n13);
 ok(/folga/i.test(n12),'Calendário 12/11 folga: '+n12);
 // 6. Home configurada
 await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500); t=await txt(p);
-ok(t.includes('Você está embarcado')&&t.includes('Dia 9 de 14')&&t.includes('6 dias para o desembarque.')&&t.includes('30/10/2026'),'Home: Embarcado · Dia 9 de 14 · 6 dias · 30/10/2026');
+ok(t.includes('Você está embarcado')&&t.includes('Dia 9 de 14')&&t.includes('Faltam 6 dias pra casa.')&&t.includes('30/10/2026'),'Home: Embarcado · Dia 9 de 14 · 6 dias · 30/10/2026');
 ok(!/embarcou hoje|dia de embarque/i.test(t),'Home nunca diz "embarcou hoje"');
 await p.screenshot({path:OUT+'/6-home.png',fullPage:true});
 // 7. Meu Embarque / Próximos

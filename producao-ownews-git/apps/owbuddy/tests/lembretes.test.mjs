@@ -31,7 +31,7 @@ test('checklist: 2 dias antes 19:00 só se há pendência; texto sem conteúdo d
   const l = D.planejarLembretes(base()).filter(x => x.tipo === 'checklist');
   assert.equal(l.length, 1);
   assert.equal(l[0].quando, '2026-11-07T19:00');
-  assert.match(l[0].corpo, /Vai lembrando, eu guardo pra você\./);
+  assert.equal(l[0].corpo, 'Embarque em 2 dias. Falta 1 item na mala.');
   assert.ok(!l[0].corpo.includes('Passaporte'), 'item do checklist não vai para a tela bloqueada');
   const tudoFeito = { ...CHECK, items: CHECK.items.map(i => ({ ...i, ok: true })) };
   assert.equal(D.planejarLembretes(base({ checklist: tudoFeito })).filter(x => x.tipo === 'checklist').length, 0);

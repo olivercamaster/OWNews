@@ -19,15 +19,15 @@ async function nova(W,seed,bloquear){ const ctx=await b.newContext({viewport:{wi
 // HOME
 let {ctx,p}=await nova(390,esc(HOJE));
 await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500); let t=await txt(p);
-ok(t.includes('Hoje é dia de embarque')&&t.includes('Dia 1 de 14')&&t.includes('14 dias para o desembarque.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · 14 dias para o desembarque · '+br(dia(14)));
-ok(/Meu Embarque 0\/11 preparados/.test(t)&&!/\b11 Meu Embarque/.test(t),'Meu Embarque sem badge redundante');
+ok(t.includes('Hoje é dia de embarque')&&t.includes('Dia 1 de 14')&&t.includes('Faltam 14 dias pra casa.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · Faltam 14 dias pra casa · '+br(dia(14)));
+ok(/Meu Embarque Mala: 0 de 11/.test(t)&&!/\b11 Meu Embarque/.test(t),'Meu Embarque sem badge redundante');
 ok(/Vagas \d+ vagas verificadas/.test(t),'Vagas com dado real e fresco → contador');
 const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,240}?) Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com manchete recente: '+(man?man[1].slice(0,60):''));
 ok(/\bFerramentas\b/.test(t)&&/\bLoja\b/.test(t),'Ferramentas + Loja secundários');
 const tabs=await p.evaluate(()=>[...document.querySelectorAll('[role="tab"],a[href]')].map(e=>e.innerText.replace(/[\uE000-\uF8FF\s]/g,'').trim()).filter(Boolean));
 ok(tabs.slice(-5).join('|')==='Início|Escala|Embarque|Viagem|Certificados','Bottom nav: '+JSON.stringify(tabs.slice(-6)));
 await p.screenshot({path:OUT+'/rc-home-390.png'}); await ctx.close();
-for(const [nome,d,esperado] of [['sem',null,'Vamos começar pela sua escala'],['pre',dia(2),'Embarque em 2 dias'],['folga',dia(9),'9 dias para o próximo embarque.']]){
+for(const [nome,d,esperado] of [['sem',null,'Vamos começar pela sua escala'],['pre',dia(2),'Embarque em 2 dias'],['folga',dia(9),'Mais 9 dias em casa.']]){
  ({ctx,p}=await nova(390,d?esc(d):{})); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
  ok((await txt(p)).includes(esperado),`Home ${nome}: "${esperado}"`); await ctx.close(); }
 // vagas/notícias indisponíveis (endpoint falha, sem cache)
