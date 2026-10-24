@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, BuddyPrefs, DataPessoal, ViagemFolga, EscalaSecundaria, EventoPessoal } from '@owbuddy/domain';
-import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope, normalizarConfigPagamento, normalizarPrefsHome } from '@owbuddy/domain';
+import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope, normalizarConfigPagamento, normalizarPrefsHome, normalizarContatos } from '@owbuddy/domain';
+import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
@@ -22,6 +23,7 @@ export const KEYS = {
   PAGAMENTO:        'owbuddy_pagamento_v1',
   HOME_PREFS:       'owbuddy_home_prefs',
   APARENCIA:        'owbuddy_aparencia',
+  CONTATOS:         'owbuddy_contatos_embarque',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -220,6 +222,32 @@ export async function getEscalasCruzar(): Promise<EscalaSecundaria[]> {
 
 export async function setEscalasCruzar(escalas: EscalaSecundaria[]): Promise<void> {
   await set(KEYS.ESCALAS_CRUZAR, escalas);
+}
+
+// ─── Contatos do embarque ───────────────────────────────────────────────────
+// Só local: nunca sincroniza, nunca vai para analytics nem para notificação.
+export async function getContatos(): Promise<ContatoEmbarque[]> {
+  return normalizarContatos(await get<unknown>(KEYS.CONTATOS));
+}
+
+export async function setContatos(lista: ContatoEmbarque[]): Promise<void> {
+  await set(KEYS.CONTATOS, lista);
+}
+
+// ─── Apagar dados deste aparelho (Privacidade) ──────────────────────────────
+// Só quando a pessoa pede, com confirmação. Remove tudo do OWBuddy/OWNews salvo
+// NESTE aparelho (escala, mala, documentos, viagem, contatos, preferências, caches).
+// Não toca na Conta OW (a nuvem) — excluir conta é outro pedido.
+export async function apagarDadosDoAparelho(): Promise<number> {
+  try {
+    const todas = await AsyncStorage.getAllKeys();
+    const nossas = todas.filter(k => k.startsWith('owbuddy_') || k.startsWith('ownews_'));
+    if (nossas.length) await AsyncStorage.multiRemove(nossas);
+    avisarMudanca();
+    return nossas.length;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── Aparência (Automático / Escuro / Claro) ─────────────────────────────────

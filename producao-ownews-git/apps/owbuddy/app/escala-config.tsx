@@ -20,6 +20,8 @@ import { useTema } from '../src/tema';
 import { OWDatePicker } from '../src/components/OWDatePicker';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
+import { useAcaoUnica } from '../src/acoes';
+import { avisar } from '../src/feedback';
 
 export default function EscalaConfigScreen() {
   useTema();
@@ -48,7 +50,7 @@ export default function EscalaConfigScreen() {
     return confirmacaoEscala(form as EscalaConfig);
   }, [form]);
 
-  const save = async () => {
+  const [save] = useAcaoUnica(async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
     if (!diasDoCiclo(form as EscalaConfig)) {
       setErro(`Informe dias embarcado e de folga entre 1 e ${DIAS_BLOCO_MAX}.`);
@@ -67,9 +69,10 @@ export default function EscalaConfigScreen() {
     }
     await setEscala(isoConfig);
     analytics.track('scale_configured', { tipo: form.tipo });
+    avisar(editando ? 'Escala atualizada' : 'Escala salva');
     // Go to main escala view if it exists in stack, otherwise back
     router.replace('/escala');
-  };
+  });
 
   const tipo = form.tipo ?? '14x14';
   const isCustom = tipo === 'custom';

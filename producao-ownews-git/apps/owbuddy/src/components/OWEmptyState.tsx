@@ -22,12 +22,12 @@ export function OWEmptyState({ icon, title, description, actionLabel, onAction }
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={40} color={colors.mutedDim} />
+        <Ionicons name={icon} size={36} color={colors.cyanDim} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.desc}>{description}</Text> : null}
       {actionLabel && onAction ? (
-        <TouchableOpacity style={styles.btn} onPress={onAction}>
+        <TouchableOpacity style={styles.btn} onPress={onAction} accessibilityRole="button">
           <Text style={styles.btnText}>{actionLabel}</Text>
         </TouchableOpacity>
       ) : null}
@@ -46,7 +46,10 @@ const styles = themed(() => StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: maritime.iconTile,
+    // Pastilha com o acento do app (antes: cinza + ícone cinza parecia "placeholder").
+    backgroundColor: colors.cyanFaint,
+    borderWidth: 1,
+    borderColor: maritime.accentBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,

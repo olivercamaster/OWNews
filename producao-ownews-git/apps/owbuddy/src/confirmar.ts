@@ -15,5 +15,5 @@ export function confirmar(titulo: string, mensagem: string, rotulo: string, aoCo
 
 /** Confirmação antes de apagar. */
 export function confirmarRemocao(titulo: string, mensagem: string, aoConfirmar: () => void): void {
-  confirmar(titulo, mensagem, 'Remover', aoConfirmar, true);
+  confirmar(titulo, mensagem, 'Excluir', aoConfirmar, true);
 }

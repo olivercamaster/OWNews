@@ -7,12 +7,25 @@
 
 type EventName =
   | 'screen_view'
+  // Retorno ao app (sem id de usuário/aparelho: só o evento, para contar uso, nunca para rastrear)
+  | 'app_open'
   | 'aparencia_alterada'
   | 'scale_configured'
   | 'checklist_item_created'
   | 'checklist_reset'
   | 'trip_created'
+  | 'trip_updated'
   | 'trip_deleted'
+  | 'trip_map_opened'
+  // Contatos do embarque e mala — só a AÇÃO, nunca nome, telefone ou texto do item.
+  | 'contact_created'
+  | 'contact_updated'
+  | 'contact_deleted'
+  | 'contact_call'
+  | 'contact_whatsapp'
+  | 'checklist_item_updated'
+  | 'checklist_item_deleted'
+  | 'share_scale'
   | 'certificate_created'
   | 'certificate_deleted'
   | 'city_configured'

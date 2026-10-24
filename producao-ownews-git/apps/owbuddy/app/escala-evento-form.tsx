@@ -36,6 +36,8 @@ import { formatDateBR } from '../src/format';
 import { confirmarRemocao } from '../src/confirmar';
 import { EVENTO_VISUAL } from '../src/evento-visual';
 import { analytics } from '../src/analytics';
+import { useAcaoUnica } from '../src/acoes';
+import { avisar } from '../src/feedback';
 
 const PLACEHOLDER: Partial<Record<EventoTipo, string>> = {
   ANIVERSARIO: 'Ex.: Aniversário da Ana',
@@ -113,7 +115,7 @@ export default function LembrarDeAlgo() {
   const tiposVisiveis: EventoTipo[] = TIPOS_EVENTO_CADASTRO.includes(tipo) ? TIPOS_EVENTO_CADASTRO : [...TIPOS_EVENTO_CADASTRO, tipo];
   const fraseEscala = dataIni ? fraseEscalaNaData(escalaNaData(escala, dataIni), dataIni === hojeISO()) : null;
 
-  const save = async () => {
+  const [save] = useAcaoUnica(async () => {
     if (!nome.trim() && !(aniversario && pessoa.trim())) {
       setErro(aniversario ? 'Informe um título ou o nome da pessoa.' : 'Informe um título.');
       return;
@@ -142,15 +144,17 @@ export default function LembrarDeAlgo() {
     const all = await getEventosPessoais();
     await setEventosPessoais(editId ? all.map(e => (e.id === editId ? ev : e)) : [...all, ev]);
     analytics.track(editId ? 'event_updated' : 'event_created', { event_type: tipo, recorrencia });
+    avisar(editId ? 'Atualizado' : 'Salvo');
     if (router.canGoBack()) router.back(); else router.replace('/proximos');
-  };
+  });
 
   const del = () => {
-    confirmarRemocao('Remover?', nome || pessoa || 'Este lembrete', async () => {
+    confirmarRemocao('Excluir este lembrete?', nome || pessoa || 'Ele sai da sua lista.', async () => {
       if (editId) {
         const all = await getEventosPessoais();
         await setEventosPessoais(all.map(e => (e.id === editId ? { ...e, _deleted: true, updated_at: new Date().toISOString() } : e)));
         analytics.track('event_deleted', { event_type: tipo });
+        avisar('Excluído');
       }
       if (router.canGoBack()) router.back(); else router.replace('/proximos');
     });
@@ -291,7 +295,7 @@ export default function LembrarDeAlgo() {
           {isEdit && (
             <TouchableOpacity style={styles.secundario} onPress={del} accessibilityRole="button">
               <Ionicons name="trash-outline" size={16} color={colors.red} />
-              <Text style={[styles.secundarioTexto, { color: colors.red }]}>Remover</Text>
+              <Text style={[styles.secundarioTexto, { color: colors.red }]}>Excluir</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

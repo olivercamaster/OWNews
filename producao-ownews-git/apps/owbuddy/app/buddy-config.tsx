@@ -18,7 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { getPreviewMensagem, DEFAULT_BUDDY_PREFS, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
 import type { BuddyPrefs, BuddyTom, BuddyTrat, PrefsLembretes } from '@owbuddy/domain';
-import { getBuddyPrefs, setBuddyPrefs } from '../src/storage';
+import { apagarDadosDoAparelho, getBuddyPrefs, setBuddyPrefs } from '../src/storage';
+import { confirmar } from '../src/confirmar';
+import { avisar } from '../src/feedback';
 import { colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../src/theme';
 import { useTema } from '../src/tema';
 import { OPCOES_APARENCIA } from '../src/aparencia';
@@ -51,6 +53,9 @@ const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
   { value: 'parceiro', label: 'Parceiro',      sub: 'irmão, parça, brother, bro…' },
   { value: 'parceira', label: 'Parceira',      sub: 'parceira, guerreira, campeã…' },
 ];
+
+const EMAIL_SUPORTE = 'suporte@ownews.com.br';
+const URL_PRIVACIDADE = 'https://ownews.com.br/privacidade';
 
 export default function BuddyConfig() {
   const { modo: modoAparencia, setModo: setModoAparencia } = useTema();
@@ -171,6 +176,40 @@ export default function BuddyConfig() {
     setSession(null);
     setSyncMsg(null);
     analytics.track('conta_logout');
+  };
+
+  // Exclusão da Conta OW: o app não apaga a conta sozinho (precisa do backend) —
+  // abre um e-mail já preenchido para o suporte. Dados deste aparelho ficam.
+  const pedirExclusaoConta = () => {
+    const email = session?.user.email ?? '';
+    confirmar(
+      'Excluir sua Conta OW?',
+      'Vamos abrir um e-mail para o suporte do OWNews com o pedido de exclusão da conta e dos dados sincronizados. Os dados deste aparelho não são apagados por isso.',
+      'Abrir e-mail',
+      () => {
+        const assunto = encodeURIComponent('Excluir minha Conta OW');
+        const corpo = encodeURIComponent(`Quero excluir minha Conta OW e os dados sincronizados.\nE-mail da conta: ${email}`);
+        Linking.openURL(`mailto:${EMAIL_SUPORTE}?subject=${assunto}&body=${corpo}`)
+          .catch(() => avisar(`Envie um e-mail para ${EMAIL_SUPORTE} pedindo a exclusão`));
+      },
+      true,
+    );
+  };
+
+  const apagarAparelho = () => {
+    confirmar(
+      'Apagar dados deste aparelho?',
+      'Escala, mala, documentos, viagem, contatos, datas e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada.',
+      'Apagar tudo',
+      async () => {
+        await apagarDadosDoAparelho();
+        await signOut();
+        setSession(null);
+        avisar('Dados deste aparelho apagados');
+        router.replace('/');
+      },
+      true,
+    );
   };
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -394,7 +433,7 @@ export default function BuddyConfig() {
               <Text style={styles.contaEmail} numberOfLines={1}>{session.user.email}</Text>
             </View>
             <Text style={styles.contaDesc}>
-              Sincroniza escala, certificados, lista do Meu Embarque e estas preferências com o OWNews. Viagem, eventos, Cruzar e notícias ficam só neste aparelho.
+              Sincroniza escala, certificados e documentos (nome e validade), a mala e estas preferências com o OWNews. Viagem, contatos, datas, Cruzar e pagamento ficam só neste aparelho.
             </Text>
             {syncMsg ? (
               <Text style={[styles.syncMsg, syncLoading && styles.syncMsgLoading]}>{syncMsg}</Text>
@@ -420,6 +459,9 @@ export default function BuddyConfig() {
               </TouchableOpacity>
             </View>
             <Text style={styles.switchSub}>Sair não apaga nada deste aparelho.</Text>
+            <TouchableOpacity onPress={pedirExclusaoConta} accessibilityRole="button" style={styles.linkPerigo}>
+              <Text style={styles.linkPerigoTexto}>Excluir minha Conta OW</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.contaCard}>
@@ -489,6 +531,22 @@ export default function BuddyConfig() {
         )}
 
         {/* Version */}
+        {/* ── Privacidade e dados ── */}
+        <Text style={styles.sectionTitle}>Privacidade e dados</Text>
+        <View style={styles.contaCard}>
+          <Text style={styles.contaDesc}>
+            Seus dados ficam neste aparelho. Com a Conta OW, só escala, certificados/documentos (nome e validade), a mala e estas preferências sincronizam. Viagem, contatos, datas e pagamento nunca saem daqui. Nada pessoal vai para estatísticas de uso.
+          </Text>
+          <TouchableOpacity onPress={() => Linking.openURL(URL_PRIVACIDADE).catch(() => {})} accessibilityRole="link" style={styles.linkLinha}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.cyanDim} />
+            <Text style={styles.linkLinhaTexto}>Política de privacidade</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={apagarAparelho} accessibilityRole="button" style={styles.linkLinha}>
+            <Ionicons name="trash-outline" size={16} color={colors.red} />
+            <Text style={[styles.linkLinhaTexto, { color: colors.red }]}>Apagar dados deste aparelho</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.aboutBox}>
           <Text style={styles.aboutApp}>OWBuddy</Text>
           <Text style={styles.aboutVersion}>Versão {VERSAO_APP}</Text>
@@ -611,6 +669,10 @@ const styles = themed(() => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  linkPerigo: { minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' },
+  linkPerigoTexto: { fontSize: 13, color: colors.red, fontWeight: '600' },
+  linkLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  linkLinhaTexto: { fontSize: 14, color: colors.cyanDim, fontWeight: '600' },
   contaDesc: { ...typography.small, color: colors.muted, lineHeight: 20 },
   contaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   contaEmail: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.white },

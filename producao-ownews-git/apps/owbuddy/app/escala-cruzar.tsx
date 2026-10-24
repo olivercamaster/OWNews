@@ -65,9 +65,9 @@ export default function EscalaCruzarScreen() {
   const alternarOculta = (sec: EscalaSecundaria) => salvarLista(definirOcultaSecundaria(escalas, sec.id, !sec.oculta));
 
   const excluir = (sec: EscalaSecundaria) => confirmar(
-    `Remover a escala de ${sec.nome}?`,
+    `Excluir a escala de ${sec.nome}?`,
     'Isso remove apenas o cruzamento desta pessoa. Sua escala principal não será alterada.',
-    'Remover',
+    'Excluir',
     () => salvarLista(removerEscalaSecundaria(escalas, sec.id)),
     true,
   );

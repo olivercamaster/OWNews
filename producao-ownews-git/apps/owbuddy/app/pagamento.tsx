@@ -23,6 +23,7 @@ import { OWBackground } from '../src/components/OWBackground';
 import { formatDateBR } from '../src/format';
 import { confirmar } from '../src/confirmar';
 import { analytics } from '../src/analytics';
+import { useAcaoUnica } from '../src/acoes';
 
 const REGRAS: RegraPagamento[] = ['ULTIMO_UTIL', 'PRIMEIRO_UTIL', 'QUINTO_UTIL', 'DIA_FIXO', 'NESIMO_UTIL'];
 const AJUSTES: AjusteFimDeSemana[] = ['ANTECIPAR', 'POSTERGAR', 'SEM_AJUSTE'];
@@ -45,7 +46,7 @@ export default function MeuPagamento() {
 
   const mudar = (p: Partial<ConfigPagamento>) => { setCfg(c => ({ ...c, ...p })); setMsg(''); };
 
-  const salvar = async () => {
+  const [salvar] = useAcaoUnica(async () => {
     const final: ConfigPagamento = {
       ...cfg,
       dia: cfg.regra === 'DIA_FIXO' ? (cfg.dia ?? 5) : cfg.dia,
@@ -55,9 +56,9 @@ export default function MeuPagamento() {
     setSalvo(final);
     setMsg('Regra salva.');
     analytics.track('payment_rule_configured', { regra: final.regra, ajuste: final.ajuste, aviso_dias: final.avisoDias });
-  };
+  });
 
-  const remover = () => confirmar('Remover Meu Pagamento?', 'A regra sai deste aparelho. Nada mais é alterado.', 'Remover', async () => {
+  const remover = () => confirmar('Excluir Meu Pagamento?', 'A regra sai deste aparelho. Nada mais é alterado.', 'Excluir', async () => {
     await setPagamento(null);
     setSalvo(null);
     setCfg({ ...CONFIG_PAGAMENTO_PADRAO });
@@ -154,7 +155,7 @@ export default function MeuPagamento() {
         </TouchableOpacity>
         {salvo && (
           <TouchableOpacity style={styles.remover} onPress={remover} accessibilityRole="button">
-            <Text style={styles.removerTexto}>Remover Meu Pagamento</Text>
+            <Text style={styles.removerTexto}>Excluir Meu Pagamento</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

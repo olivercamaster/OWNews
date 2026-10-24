@@ -20,6 +20,7 @@ import { useTema } from '../src/tema';
 import { formatDateBR } from '../src/format';
 import { confirmar } from '../src/confirmar';
 import { ICONES_ORDEM, NOME_ICONE, chaveIconeRelacao, ioniconRelacao, type IconeRelacao } from '../src/relacao-icones';
+import { useAcaoUnica } from '../src/acoes';
 
 const TIPOS = ESCALA_TIPOS;
 
@@ -99,7 +100,7 @@ export default function EscalaSecundariaForm() {
     return relacaoChip;
   };
 
-  const save = async () => {
+  const [save] = useAcaoUnica(async () => {
     if (!nome.trim()) { setErro('Informe o nome da pessoa.'); return; }
     if (!dataRef) { setErro('Selecione a data de referência.'); return; }
     if (isCustom && !diasDoCiclo({ tipo, diasEmbarcado: parseInt(diasEmb, 10), diasFolga: parseInt(diasFolga, 10), dataRef, tipoRef })) {
@@ -124,7 +125,7 @@ export default function EscalaSecundariaForm() {
     };
     await setEscalasCruzar(salvarEscalaSecundaria(escalas, sec));
     voltar();
-  };
+  });
 
   const excluir = async () => {
     if (!params.id) return;
@@ -134,9 +135,9 @@ export default function EscalaSecundariaForm() {
   };
 
   const pedirExclusao = () => confirmar(
-    `Remover a escala de ${nome.trim() || 'esta pessoa'}?`,
+    `Excluir a escala de ${nome.trim() || 'esta pessoa'}?`,
     'Isso remove apenas o cruzamento desta pessoa. Sua escala principal não será alterada.',
-    'Remover',
+    'Excluir',
     excluir,
     true,
   );

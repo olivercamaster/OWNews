@@ -8,6 +8,8 @@ import { TemaProvider, useTema } from '../src/tema';
 import { estiloStatusBar } from '../src/aparencia';
 import { instalarNotificacoes, replanejarLembretes } from '../src/notifications';
 import { aoMudarDadosDoLembrete } from '../src/storage';
+import { OWToastHost } from '../src/feedback';
+import { analytics } from '../src/analytics';
 
 // Premium Material Pass: foco de campo elegante no web (borda ciano + halo fino).
 // Regra única para todos os TextInput — no Android/iOS vale o foco nativo.
@@ -70,7 +72,8 @@ function AppShell() {
   useEffect(() => {
     const limpar = instalarNotificacoes();
     replanejarLembretes();
-    const app = AppState.addEventListener('change', s => { if (s === 'active') replanejarLembretes(); });
+    analytics.track('app_open');
+    const app = AppState.addEventListener('change', s => { if (s === 'active') { replanejarLembretes(); analytics.track('app_open'); } });
     const dados = aoMudarDadosDoLembrete(() => { replanejarLembretes(); });
     return () => { limpar(); app.remove(); dados(); };
   }, []);
@@ -218,7 +221,16 @@ function AppShell() {
             headerStyle: { backgroundColor: colors.navy800 },
           }}
         />
+        <Stack.Screen
+          name="contato-form"
+          options={{
+            title: 'Contato do embarque',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
       </Stack>
+      <OWToastHost />
       </ThemeProvider>
       </View>
     </View>

@@ -16,6 +16,7 @@ import { OWDatePicker } from '../src/components/OWDatePicker';
 import { colors, spacing, radius, typography, surface, themed } from '../src/theme';
 import { useTema } from '../src/tema';
 import { formatDateBR } from '../src/format';
+import { useAcaoUnica } from '../src/acoes';
 
 function gerarId(): string {
   return `exc_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -31,7 +32,7 @@ export default function EscalaExcecaoForm() {
   const [showPickerIni, setShowPickerIni] = useState(false);
   const [showPickerFim, setShowPickerFim] = useState(false);
 
-  const save = async () => {
+  const [save] = useAcaoUnica(async () => {
     if (!ini || !fim) { setErro('Selecione as duas datas.'); return; }
     if (fim < ini) { setErro('Data final deve ser igual ou posterior à data inicial.'); return; }
 
@@ -41,7 +42,7 @@ export default function EscalaExcecaoForm() {
     const updated = { ...config, excecoes: [...(config.excecoes ?? []).filter(e => e.id !== exc.id), exc] };
     await setEscala(updated);
     router.replace('/escala');
-  };
+  });
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

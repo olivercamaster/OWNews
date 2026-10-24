@@ -23,6 +23,10 @@ import {
   restaurarItensPadrao,
   resumoEscala,
   sincronizarChecklistComCiclo,
+  cicloAlvoChecklist,
+  ehRecorrente,
+  progressoMala,
+  diasEntreISO,
   getAeroporto,
   LABEL_CAT,
   ICON_CAT,
@@ -37,6 +41,8 @@ import { useTema } from '../../src/tema';
 import { OWBackground } from '../../src/components/OWBackground';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
+import { avisar } from '../../src/feedback';
+import { useAcaoUnica } from '../../src/acoes';
 
 /** "Embarque hoje" / "Embarque amanhã" / "Faltam N dias" — mesma régua do OWNews /meu-embarque. */
 function labelEmbarque(dias: number): string {
@@ -95,9 +101,11 @@ export default function MeuEmbarque() {
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
-  const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
-  // Menu de ações do item (⋯ ou toque longo). `confirmando` = 2º passo antes de excluir.
-  const [menu, setMenu] = useState<{ item: ChecklistItem; confirmando: boolean } | null>(null);
+  const [novoTodo, setNovoTodo] = useState(true);
+  // Painel do item (⋯ ou toque longo): editar nome, "todos os embarques", ocultar/excluir.
+  // `confirmando` = 2º passo antes de excluir.
+  const [menu, setMenu] = useState<{ item: ChecklistItem; confirmando: boolean; texto: string; todo: boolean } | null>(null);
+  const [alvo, setAlvo] = useState<{ iso: string; dias: number } | null>(null);
   const [ocultarOk, setOcultarOk] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -107,8 +115,11 @@ export default function MeuEmbarque() {
     const r = resumoEscala(escala);
     setResumo(r);
     setAeroportoNome(escala?.aeroporto ? (getAeroporto(escala.aeroporto)?.nome ?? escala.aeroporto) : null);
-    // sincronizarChecklistComCiclo já aplica normalizarChecklistCats internamente
-    const sync = sincronizarChecklistComCiclo(checklist, r.proximoEmbarqueISO);
+    // Mala do embarque-alvo: no dia do embarque ainda é a de hoje (não zera de manhã).
+    // sincronizarChecklistComCiclo já aplica normalizarChecklistCats internamente.
+    const alvoISO = cicloAlvoChecklist(r);
+    setAlvo(alvoISO ? { iso: alvoISO, dias: diasEntreISO(r.hojeISO, alvoISO) } : null);
+    const sync = sincronizarChecklistComCiclo(checklist, alvoISO, r.hojeISO);
     if (sync.alterado) {
       await setChecklist(sync.data);
       if (sync.resetado) analytics.track('checklist_reset');
@@ -128,18 +139,25 @@ export default function MeuEmbarque() {
 
   const toggle = (id: string) => { if (data) persist(toggleItem(data, id)); };
 
-  const add = async () => {
+  const [add] = useAcaoUnica(async () => {
     const text = novoItem.trim();
     if (!text || !data) return;
-    await persist(addItem(data, text)); // vai para 'personalizados'
+    const novo = addItem(data, text, 'personalizados', novoTodo);
     setNovoItem('');
-  };
+    if (novo === data) { avisar('Esse item já está na lista'); return; }
+    await persist(novo);
+    analytics.track('checklist_item_created', { todo_embarque: novoTodo });
+    avisar('Item adicionado');
+  });
 
-  const abrirMenu = (item: ChecklistItem) => setMenu({ item, confirmando: false });
+  const abrirMenu = (item: ChecklistItem) => setMenu({ item, confirmando: false, texto: item.t, todo: ehRecorrente(item) });
 
-  const editar = () => {
-    if (!menu) return;
-    setEditando({ id: menu.item.id, texto: menu.item.t });
+  const salvarItem = async () => {
+    if (!menu || !data) return;
+    if (!menu.texto.trim()) return;
+    await persist(editarItem(data, menu.item.id, menu.texto, menu.todo));
+    analytics.track('checklist_item_updated');
+    avisar('Item atualizado');
     setMenu(null);
   };
 
@@ -151,6 +169,8 @@ export default function MeuEmbarque() {
       return;
     }
     persist(removeItem(data, menu.item.id));
+    analytics.track('checklist_item_deleted');
+    avisar(ehItemPadrao(menu.item.id) ? 'Item oculto' : 'Item excluído');
     setMenu(null);
   };
 
@@ -162,11 +182,6 @@ export default function MeuEmbarque() {
     setOcultarConcluidos(v);
   };
 
-  const salvarEdicao = async () => {
-    if (data && editando) await persist(editarItem(data, editando.id, editando.texto));
-    setEditando(null);
-  };
-
   const desmarcar = () => {
     confirmar('Desmarcar todos?', 'Os itens continuam na lista, só voltam a ficar pendentes.', 'Desmarcar',
       () => { if (data) persist(desmarcarTodos(data)); });
@@ -175,6 +190,7 @@ export default function MeuEmbarque() {
   if (!data || !resumo) return <OWBackground showWatermark={false}><View style={styles.root} /></OWBackground>;
 
   const counts = contarPendentes(data);
+  const prog = progressoMala(data);
   const pct = counts.total > 0 ? Math.round((counts.feitos / counts.total) * 100) : 0;
   const tudo = counts.total > 0 && counts.pendentes === 0;
   const temEscala = resumo.estado !== 'SEM_ESCALA';
@@ -198,22 +214,22 @@ export default function MeuEmbarque() {
                 <Text style={styles.buddyIntroTitle}>Vai lembrando. Eu guardo pra você.</Text>
               </View>
               <Text style={styles.buddyIntroSub}>
-                Marque o que já resolveu. Com os lembretes ligados (Meu Buddy), eu aviso 2 dias antes do embarque se ainda faltar algo. Use ⋯ para editar, excluir ou ocultar um item.
+                Toque no item para marcar. Em ⋯ você edita, escolhe se vale para todo embarque e exclui. No embarque seguinte, eu desmarco tudo de novo — os itens continuam.
               </Text>
             </View>
 
             {/* ── Próximo embarque ── */}
-            {temEscala && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null ? (
+            {temEscala && alvo ? (
               <TouchableOpacity style={styles.embarqueCard} onPress={() => router.push('/escala')} activeOpacity={0.85}>
                 <View style={styles.embarqueLeft}>
                   <Text style={styles.embarqueLabel}>
-                    {resumo.estado === 'EMBARCADO' ? 'PRÓXIMO EMBARQUE (APÓS A FOLGA)' : 'PRÓXIMO EMBARQUE'}
+                    {alvo.dias === 0 ? 'EMBARQUE HOJE' : resumo.estado === 'EMBARCADO' ? 'PRÓXIMO EMBARQUE (APÓS A FOLGA)' : 'PRÓXIMO EMBARQUE'}
                   </Text>
-                  <Text style={styles.embarqueData}>{formatDateBR(resumo.proximoEmbarqueISO)}</Text>
+                  <Text style={styles.embarqueData}>{formatDateBR(alvo.iso)}</Text>
                   <Text style={styles.embarqueSub}>
-                    {labelEmbarque(resumo.diasParaEmbarque)}
+                    {labelEmbarque(alvo.dias)}
                     {' · '}
-                    {counts.feitos}/{counts.total} {counts.feitos === 1 ? 'item pronto' : 'itens prontos'}
+                    {prog.texto}
                   </Text>
                   {aeroportoNome ? <Text style={styles.embarqueAero}>{aeroportoNome}</Text> : null}
                 </View>
@@ -237,10 +253,10 @@ export default function MeuEmbarque() {
                   </Text>
                   <Text style={[styles.counterSub, tudo && styles.counterSubDone]}>
                     {tudo
-                      ? 'Tudo preparado'
+                      ? 'Mala pronta'
                       : counts.total === 0
                         ? 'Lista vazia'
-                        : `${counts.pendentes} ${counts.pendentes === 1 ? 'item pendente' : 'itens pendentes'}`}
+                        : `${counts.feitos} de ${counts.total} itens prontos`}
                   </Text>
                 </View>
                 {tudo ? (
@@ -257,7 +273,7 @@ export default function MeuEmbarque() {
                 <View style={[styles.progressFill, { width: `${pct}%` as `${number}%`, backgroundColor: corProgresso }]} />
               </View>
               <Text style={[styles.buddyMsg, tudo && styles.buddyMsgDone]}>
-                {labelBuddy(counts.feitos, counts.total, counts.pendentes, resumo.diasParaEmbarque ?? null)}
+                {labelBuddy(counts.feitos, counts.total, counts.pendentes, alvo?.dias ?? null)}
               </Text>
             </View>
 
@@ -284,49 +300,31 @@ export default function MeuEmbarque() {
             <Text style={styles.sectionHeaderText}>{section.label}</Text>
           </View>
         )}
-        renderItem={({ item }) => (
-          editando?.id === item.id ? (
-            <View style={styles.itemRow}>
-              <TextInput
-                style={[styles.addInput, { flex: 1 }]}
-                value={editando.texto}
-                onChangeText={t => setEditando({ id: item.id, texto: t })}
-                autoFocus
-                maxLength={60}
-                returnKeyType="done"
-                onSubmitEditing={salvarEdicao}
-                accessibilityLabel="Editar item"
-              />
-              <TouchableOpacity onPress={salvarEdicao} hitSlop={10} accessibilityLabel="Salvar item">
-                <Ionicons name="checkmark-circle" size={28} color={colors.cyan} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditando(null)} hitSlop={10} accessibilityLabel="Cancelar edição">
-                <Ionicons name="close-circle-outline" size={28} color={colors.mutedDim} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <MalaItem item={item} onToggle={toggle} onOptions={abrirMenu} />
-          )
-        )}
+        renderItem={({ item }) => <MalaItem item={item} onToggle={toggle} onOptions={abrirMenu} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         SectionSeparatorComponent={() => <View style={styles.sectionSep} />}
         ListFooterComponent={
           /* ── Adicionar ── */
           <>
-          <View style={styles.addRow}>
+          <View style={styles.addWrap}>
+          <Text style={styles.addTitulo}>Adicionar item</Text>
+          <View style={styles.addRowInner}>
             <TextInput
               style={styles.addInput}
               value={novoItem}
               onChangeText={setNovoItem}
-              placeholder="Adicionar item personalizado..."
+              placeholder="Ex.: carregador, chinelo, remédio"
               placeholderTextColor={colors.mutedDim}
               returnKeyType="done"
-              onSubmitEditing={add}
+              onSubmitEditing={() => add()}
               maxLength={60}
+              accessibilityLabel="Nome do novo item"
             />
-            <TouchableOpacity style={styles.addBtn} onPress={add} disabled={!novoItem.trim()}>
-              <Ionicons name="add" size={26} color={colors.onAccent} style={!novoItem.trim() ? { opacity: 0.4 } : undefined} />
+            <TouchableOpacity style={[styles.addBtn, !novoItem.trim() && styles.addBtnOff]} onPress={() => add()} disabled={!novoItem.trim()} accessibilityRole="button" accessibilityLabel="Adicionar item" accessibilityState={{ disabled: !novoItem.trim() }}>
+              <Ionicons name="add" size={26} color={colors.onAccent} />
             </TouchableOpacity>
+          </View>
+          <TodoEmbarque valor={novoTodo} onChange={setNovoTodo} />
           </View>
           {counts.feitos > 0 && (
             <TouchableOpacity style={styles.resetBtn} onPress={desmarcar} accessibilityRole="button">
@@ -364,13 +362,22 @@ export default function MeuEmbarque() {
               </>
             ) : (
               <>
-                <Text style={styles.sheetTitle} numberOfLines={2}>{menu.item.t}</Text>
+                <Text style={styles.sheetTitle}>Editar item</Text>
                 <Text style={styles.sheetSub}>
                   {ehItemPadrao(menu.item.id) ? 'Item padrão do OWBuddy' : 'Item personalizado'}
                 </Text>
-                <TouchableOpacity style={styles.sheetBtn} onPress={editar} accessibilityRole="button">
-                  <Ionicons name="create-outline" size={18} color={colors.cyanDim} />
-                  <Text style={styles.sheetBtnText}>Editar nome</Text>
+                <TextInput
+                  style={styles.addInput}
+                  value={menu.texto}
+                  onChangeText={t => setMenu({ ...menu, texto: t })}
+                  maxLength={60}
+                  returnKeyType="done"
+                  onSubmitEditing={salvarItem}
+                  accessibilityLabel="Nome do item"
+                />
+                <TodoEmbarque valor={menu.todo} onChange={v => setMenu({ ...menu, todo: v })} />
+                <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnPrimario, !menu.texto.trim() && { opacity: 0.5 }]} onPress={salvarItem} disabled={!menu.texto.trim()} accessibilityRole="button">
+                  <Text style={[styles.sheetBtnText, { color: colors.onAccent }]}>Salvar</Text>
                 </TouchableOpacity>
                 {ehItemPadrao(menu.item.id) ? (
                   <TouchableOpacity style={styles.sheetBtn} onPress={excluirOuOcultar} accessibilityRole="button">
@@ -395,6 +402,28 @@ export default function MeuEmbarque() {
         </Pressable>
       </Modal>
     </OWBackground>
+  );
+}
+
+/** "Usar em todos os embarques" — sem ele, o item vale só para este embarque. */
+function TodoEmbarque({ valor, onChange }: { valor: boolean; onChange: (v: boolean) => void }) {
+  useTema();
+  return (
+    <TouchableOpacity
+      style={styles.todoRow}
+      onPress={() => onChange(!valor)}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: valor }}
+      accessibilityLabel="Usar em todos os embarques"
+    >
+      <View style={[styles.checkbox, valor && styles.checkboxDone]}>
+        {valor && <Ionicons name="checkmark" size={14} color={colors.onAccent} />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.todoTexto}>Usar em todos os embarques</Text>
+        {!valor && <Text style={styles.todoSub}>Só neste embarque — sai da lista no próximo.</Text>}
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -423,14 +452,17 @@ function MalaItem({
         <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
           {item.ok && <Ionicons name="checkmark" size={14} color={colors.onAccent} />}
         </View>
-        <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
+          {!ehRecorrente(item) && <Text style={styles.soEste}>só neste embarque</Text>}
+        </View>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.moreBtn}
         onPress={() => onOptions(item)}
         hitSlop={6}
         accessibilityRole="button"
-        accessibilityLabel={`Opções de ${item.t}`}
+        accessibilityLabel={`Editar ou excluir ${item.t}`}
       >
         <Ionicons name="ellipsis-horizontal" size={18} color={colors.mutedDim} />
       </TouchableOpacity>
@@ -563,11 +595,18 @@ const styles = themed(() => StyleSheet.create({
   // Concluído: check verde + texto mais apagado. Sem risco — lista 100% não vira "parede riscada".
   itemTextDone: { color: colors.mutedDim },
 
-  addRow: {
-    flexDirection: 'row', padding: spacing.md, paddingTop: spacing.sm,
-    gap: spacing.sm, borderTopWidth: 1, borderTopColor: maritime.glassBorder,
-    marginTop: spacing.sm,
+  addWrap: {
+    padding: spacing.md, paddingTop: spacing.sm,
+    borderTopWidth: 1, borderTopColor: maritime.glassBorder, marginTop: spacing.sm,
   },
+  addTitulo: { ...typography.label, color: colors.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  addRowInner: { flexDirection: 'row', gap: spacing.sm },
+  addBtnOff: { opacity: 0.45 },
+  todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, marginTop: 6 },
+  todoTexto: { fontSize: 14, color: colors.white, fontWeight: '500' },
+  todoSub: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
+  soEste: { fontSize: 11, color: colors.amber, marginTop: 1, fontWeight: '600' },
+  sheetBtnPrimario: { backgroundColor: colors.cyan, borderTopWidth: 0, borderRadius: radius.md, justifyContent: 'center', marginTop: spacing.sm, marginBottom: spacing.xs },
   addInput: {
     flex: 1, backgroundColor: maritime.field, borderRadius: radius.sm,
     paddingHorizontal: spacing.sm, paddingVertical: 10,

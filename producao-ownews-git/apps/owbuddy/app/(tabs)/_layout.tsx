@@ -142,6 +142,7 @@ export default function TabLayout() {
         name="certs"
         options={{
           title: 'Certificados',
+          headerTitle: 'Certificados e documentos',
           tabBarIcon: ({ focused }) => <TabIcon name="document-text" focused={focused} />,
           headerStyle: { backgroundColor: colors.navy900 },
         }}
