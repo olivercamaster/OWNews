@@ -183,8 +183,31 @@ test('saudação: manhã/tarde/noite, com e sem nome, 4 estilos', () => {
   assert.equal(D.saudacaoTopo(dia('2026-10-19', 8), 'PARCEIRO', 'Oliver'), 'Bom dia, Oliver!');
   assert.equal(D.saudacaoTopo(dia('2026-10-19', 14), 'DISCRETO', 'Oliver'), 'Boa tarde, Oliver.');
   assert.equal(D.saudacaoTopo(dia('2026-10-19', 21), 'DIRETO', ''), 'Boa noite.');
-  assert.equal(D.saudacaoTopo(dia('2026-10-19', 3), 'MOTIVACIONAL', null), 'Boa noite!');
+  assert.equal(D.saudacaoTopo(dia('2026-10-19', 3), 'MOTIVACIONAL', null), 'Boa noite, Buddy!');
   for (const e of D.ESTILOS_SAUDACAO) assert.ok(D.fraseDoDia(dia('2026-10-19', 9), e).length > 3);
+});
+
+test('saudação: vocativo do dia (irmão, parça, brother…), feminino sem "amiga", direto/discreto sem vocativo', () => {
+  const dias = Array.from({ length: 30 }, (_, i) => dia(`2026-11-${String(i + 1).padStart(2, '0')}`, 8));
+  const masc = new Set(dias.map(d => D.saudacaoTopo(d, 'PARCEIRO', null, 'parceiro')));
+  assert.ok(masc.size >= 8, 'pouca variedade: ' + [...masc].join(' | '));
+  for (const v of ['irmão', 'parça', 'brother', 'bro', 'Buddy']) assert.ok([...masc].some(t => t === `Bom dia, ${v}!`), v);
+  const fem = dias.map(d => D.saudacaoTopo(d, 'PARCEIRO', null, 'parceira'));
+  assert.ok(fem.every(t => !/amig/i.test(t)), 'feminino nunca usa amiga');
+  assert.ok(fem.some(t => t === 'Bom dia, parceira!') && fem.some(t => t === 'Bom dia, guerreira!'));
+  assert.ok(D.VOCATIVOS.parceira.length < D.VOCATIVOS.parceiro.length, 'feminino mais limitado');
+  assert.ok(Object.values(D.VOCATIVOS).flat().every(v => !/amig/i.test(v)));
+  // com nome: nome na maioria dos dias, vocativo às vezes
+  const comNome = dias.map(d => D.saudacaoTopo(d, 'PARCEIRO', 'Oliver', 'parceiro'));
+  const nNome = comNome.filter(t => t.includes('Oliver')).length;
+  assert.ok(nNome >= 18 && nNome < 30, 'nome em ~2/3 dos dias: ' + nNome);
+  // sem tratamento + nome: sempre o nome
+  assert.ok(dias.every(d => D.saudacaoTopo(d, 'PARCEIRO', 'Ana', 'neutro') === 'Bom dia, Ana!'));
+  // direto/discreto não brincam
+  assert.equal(D.saudacaoTopo(dias[0], 'DIRETO', null, 'parceiro'), 'Bom dia.');
+  assert.equal(D.saudacaoTopo(dias[0], 'DISCRETO', 'Ana', 'parceira'), 'Bom dia, Ana.');
+  // estável no mesmo dia
+  assert.equal(D.saudacaoTopo(dia('2026-11-03', 6), 'PARCEIRO', null, 'parceiro').split(', ')[1], D.saudacaoTopo(dia('2026-11-03', 23), 'PARCEIRO', null, 'parceiro').split(', ')[1]);
 });
 
 test('frase do dia: biblioteca >= 60, curta, muda todo dia e não repete em dias seguidos', () => {

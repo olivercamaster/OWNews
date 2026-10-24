@@ -19,7 +19,7 @@ async function nova(W,seed,bloquear){ const ctx=await b.newContext({viewport:{wi
 // HOME
 let {ctx,p}=await nova(390,esc(HOJE));
 await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500); let t=await txt(p);
-ok(t.includes('Você está embarcado')&&t.includes('Dia 1 de 14')&&t.includes('14 dias para o desembarque.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · 14 dias para o desembarque · '+br(dia(14)));
+ok(t.includes('Hoje é dia de embarque')&&t.includes('Dia 1 de 14')&&t.includes('14 dias para o desembarque.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · 14 dias para o desembarque · '+br(dia(14)));
 ok(/Meu Embarque 0\/11 preparados/.test(t)&&!/\b11 Meu Embarque/.test(t),'Meu Embarque sem badge redundante');
 ok(/Vagas \d+ vagas verificadas/.test(t),'Vagas com dado real e fresco → contador');
 const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,240}?) Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com manchete recente: '+(man?man[1].slice(0,60):''));

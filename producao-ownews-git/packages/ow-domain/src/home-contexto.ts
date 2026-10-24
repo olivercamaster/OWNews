@@ -56,10 +56,15 @@ export function contextoHome(
 
   if (resumo.estado === 'EMBARCADO') {
     const dias = resumo.diasParaDesembarque ?? calc.diasRestantes;
+    // "Embarque hoje/ontem" só pela diferença real entre hoje e o dia do
+    // embarque calculado (Dia 1 = hoje) — nunca pela data em que o app foi configurado.
+    const titulo = calc.diaDoBloco === 1 ? 'Hoje é dia de embarque'
+      : calc.diaDoBloco === 2 ? 'Você embarcou ontem'
+      : 'Você está embarcado';
     return {
       tipo: 'EMBARCADO',
       kicker: 'Embarcado',
-      titulo: 'Você está embarcado',
+      titulo,
       destaque: `Dia ${calc.diaDoBloco} de ${calc.dEm}`,
       detalhe: emDias(dias, 'Desembarque hoje.', 'Desembarque amanhã.',
         n => `${n} dias para o desembarque.`),
@@ -90,7 +95,7 @@ export function contextoHome(
   return {
     tipo: 'FOLGA',
     kicker: 'De folga',
-    titulo: 'Você está de folga',
+    titulo: calc.diaDoBloco === 1 ? 'Hoje é dia de desembarque' : 'Você está de folga',
     destaque: `Dia ${calc.diaDoBloco} de ${calc.dFo}`,
     detalhe: emDias(dias, 'Embarque hoje.', 'Próximo embarque amanhã.',
       n => `${n} dias para o próximo embarque.`),

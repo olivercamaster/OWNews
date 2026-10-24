@@ -43,6 +43,7 @@ export default function PersonalizarHome() {
   useTema();
   const [p, setP] = useState<PrefsHome>(PREFS_HOME_PADRAO);
   const [nome, setNome] = useState('');
+  const [trat, setTrat] = useState<'neutro' | 'parceiro' | 'parceira'>('neutro');
   const [city, setCity] = useState<City | null>(null);
   const [picker, setPicker] = useState(false);
   const [arrastando, setArrastando] = useState(false);
@@ -54,6 +55,7 @@ export default function PersonalizarHome() {
       setP(home);
       if (!h.dicaVista) setPrefsHome(home);
       setNome(b.apelido?.trim() ?? '');
+      setTrat(b.trat ?? 'neutro');
       setCity(c);
     });
   }, []));
@@ -116,7 +118,7 @@ export default function PersonalizarHome() {
         {/* ── Saudação ── */}
         <Text style={styles.secao}>Saudação</Text>
         <View style={styles.preview}>
-          <Text style={styles.previewSaud}>{saudacaoTopo(agora, p.estiloSaudacao, nome)}</Text>
+          <Text style={styles.previewSaud}>{saudacaoTopo(agora, p.estiloSaudacao, nome, trat)}</Text>
           {p.fraseDoDia && <Text style={styles.previewFrase}>“{fraseDoDia(agora, p.estiloSaudacao)}”</Text>}
         </View>
         <View style={styles.chips}>

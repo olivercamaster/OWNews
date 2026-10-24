@@ -532,12 +532,13 @@ export default function EscalaScreen() {
           {config.tipo === 'custom' && config.diasEmbarcado && config.diasFolga ? ` (${config.diasEmbarcado}×${config.diasFolga})` : ''}
           {' · '}{config.tipoRef === 'desembarquei' ? 'desembarquei' : 'embarquei'} em {formatDateBR(config.dataRef)}
           {config.origem === 'conta' ? ' · da conta OW' : config.origem === 'dispositivo' ? ' · deste aparelho' : ''}
-          {config.updated_at ? ` · ${formatDateBR(config.updated_at)}` : ''}
+          {/* data da última edição (dia LOCAL) — rotulada para não parecer data de embarque */}
+          {config.updated_at && !isNaN(Date.parse(config.updated_at)) ? ` · ajustada em ${formatDateBR(hojeISO(new Date(config.updated_at)))}` : ''}
         </Text>
 
         {/* ── Action row ── */}
         <View style={styles.actionRow}>
-          <ActionBtn icon="settings-outline"   label="Ajustes"  onPress={() => router.push('/escala-config')} />
+          <ActionBtn icon="create-outline"     label="Editar"   onPress={() => router.push('/escala-config')} />
           <ActionBtn icon="add-circle-outline"  label="Dobra"   onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'dobra' } })} />
           <ActionBtn icon="umbrella-outline"    label="Férias"  onPress={() => router.push({ pathname: '/escala-excecao-form', params: { tipo: 'ferias' } })} />
           <ActionBtn icon="calendar-outline"    label="Evento"  onPress={() => router.push('/escala-evento-form')} />

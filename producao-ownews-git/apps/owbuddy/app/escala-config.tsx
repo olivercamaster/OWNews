@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +12,7 @@ import {
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { calcularMomento, descreverMomento, diasDoCiclo, AEROPORTOS_ESCALA, DIAS_BLOCO_MAX, ESCALA_TIPOS } from '@owbuddy/domain';
+import { confirmacaoEscala, diasDoCiclo, AEROPORTOS_ESCALA, DIAS_BLOCO_MAX, ESCALA_TIPOS } from '@owbuddy/domain';
 import type { EscalaConfig, TipoRef } from '@owbuddy/domain';
 import { getEscala, setEscala } from '../src/storage';
 import { colors, maritime, spacing, radius, typography, surface, themed } from '../src/theme';
@@ -24,29 +24,29 @@ import { analytics } from '../src/analytics';
 export default function EscalaConfigScreen() {
   useTema();
   const [form, setForm] = useState<Partial<EscalaConfig>>({ tipo: '14x14', tipoRef: 'embarquei' });
-  const [preview, setPreview] = useState('');
   const [erro, setErro] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editando, setEditando] = useState(false);
 
+  // Edição: abre com a escala salva (o picker abre na data salva). Nova
+  // configuração: nenhuma data até o usuário escolher — o picker só
+  // COMEÇA em hoje; nada é gravado antes de "Confirmar escala".
   useFocusEffect(useCallback(() => {
     getEscala().then(cfg => {
-      if (cfg) setForm({ ...cfg });
+      if (cfg) { setForm({ ...cfg }); setEditando(true); }
     });
   }, []));
 
   const update = (partial: Partial<EscalaConfig>) => {
-    const updated = { ...form, ...partial };
-    setForm(updated);
+    setForm(f => ({ ...f, ...partial }));
     setErro('');
-    if (updated.tipo && updated.dataRef && updated.tipoRef && diasDoCiclo(updated as EscalaConfig)) {
-      try {
-        const m = calcularMomento(updated as EscalaConfig);
-        setPreview(descreverMomento(m));
-      } catch { setPreview(''); }
-    } else {
-      setPreview('');
-    }
   };
+
+  // Resumo pela regra canônica (resumoEscala → calcEscalaISO), recalculado a cada mudança.
+  const confirmacao = useMemo(() => {
+    if (!form.tipo || !form.dataRef || !form.tipoRef || !diasDoCiclo(form as EscalaConfig)) return null;
+    return confirmacaoEscala(form as EscalaConfig);
+  }, [form]);
 
   const save = async () => {
     if (!form.tipo || !form.dataRef || !form.tipoRef) return;
@@ -77,13 +77,7 @@ export default function EscalaConfigScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-        {preview ? (
-          <View style={styles.previewCard}>
-            <Text style={styles.previewText}>{preview}</Text>
-          </View>
-        ) : null}
-
-        <Text style={styles.sectionLabel}>Ciclo de trabalho</Text>
+        <Text style={styles.sectionLabel}>Qual é a sua escala?</Text>
         <View style={styles.tipoGrid}>
           {ESCALA_TIPOS.map(t => (
             <TouchableOpacity
@@ -101,32 +95,43 @@ export default function EscalaConfigScreen() {
           <Field label="Dias de folga" value={String(form.diasFolga ?? '')} onChange={v => update({ diasFolga: parseInt(v.replace(/\D/g, ''), 10) || undefined })} keyboardType="numeric" placeholder="Ex: 28" maxLength={3} />
         </>)}
 
-        <Text style={styles.sectionLabel}>Data de referência</Text>
-        <TouchableOpacity
-          style={styles.dateBtn}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
-          <Text style={[styles.dateBtnText, !form.dataRef && { color: colors.mutedDim }]}>
-            {form.dataRef ? formatDateBR(form.dataRef) : 'Selecionar data'}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
-        </TouchableOpacity>
-
-        <Text style={styles.sectionLabel}>Nesta data eu estava...</Text>
+        <Text style={styles.sectionLabel}>Qual data você sabe?</Text>
         <View style={styles.tratRow}>
           {(['embarquei', 'desembarquei'] as TipoRef[]).map(t => (
             <TouchableOpacity
               key={t}
               style={[styles.tratChip, form.tipoRef === t && styles.tratChipActive]}
               onPress={() => update({ tipoRef: t })}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: form.tipoRef === t }}
             >
               <Text style={[styles.tratText, form.tipoRef === t && styles.tratTextActive]}>
-                {t === 'embarquei' ? 'Embarquei' : 'Desembarquei'}
+                {t === 'embarquei' ? 'Último embarque' : 'Último desembarque'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
+
+        <Text style={styles.sectionLabel}>
+          {form.tipoRef === 'desembarquei' ? 'Quando foi seu último desembarque?' : 'Quando foi seu último embarque?'}
+        </Text>
+        <TouchableOpacity
+          style={styles.dateBtn}
+          onPress={() => setShowDatePicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel={form.dataRef ? `Data escolhida ${formatDateBR(form.dataRef)}. Alterar` : 'Escolher data'}
+        >
+          <Ionicons name="calendar-outline" size={18} color={colors.cyanDim} />
+          <Text style={[styles.dateBtnText, !form.dataRef && { color: colors.muted }]}>
+            {form.dataRef ? formatDateBR(form.dataRef) : 'Escolher data'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </TouchableOpacity>
+        <Text style={styles.sectionHint}>
+          {form.tipoRef === 'desembarquei'
+            ? 'O dia do desembarque conta como o 1º dia de folga.'
+            : 'O dia do embarque conta como o Dia 1 a bordo — mesmo que você esteja configurando o app dias depois.'}
+        </Text>
 
         <Text style={styles.sectionLabel}>Aeroporto / Base de embarque</Text>
         <Text style={styles.sectionHint}>Usado para exibir o clima do seu próximo embarque.</Text>
@@ -143,32 +148,54 @@ export default function EscalaConfigScreen() {
           ))}
         </View>
 
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.mutedDim} />
-          <Text style={styles.infoText}>
-            "Embarquei" em 12: o dia 12 é o 1º dia a bordo. "Desembarquei" em 12: o dia 12 é o 1º dia de folga. Feriados, dobras e férias não alteram o ciclo.
-          </Text>
-        </View>
+        {confirmacao ? (
+          <View style={styles.resumo} accessibilityLabel="Confira sua escala">
+            <Text style={styles.resumoTitulo}>Confira antes de salvar</Text>
+            <Linha rotulo="Sua escala" valor={confirmacao.ciclo} />
+            <Linha rotulo={form.tipoRef === 'desembarquei' ? 'Último desembarque' : 'Último embarque'} valor={formatDateBR(confirmacao.dataRefISO)} />
+            <Linha rotulo="Hoje" valor={confirmacao.hoje} destaque />
+            <Linha rotulo="Próximo desembarque" valor={formatDateBR(confirmacao.proximoDesembarqueISO)} />
+            <Linha rotulo="Próximo embarque" valor={formatDateBR(confirmacao.proximoEmbarqueISO)} />
+            {confirmacao.futura ? (
+              <Text style={styles.resumoAviso}>Essa data ainda não chegou. Se for o seu próximo embarque, tudo certo: o ciclo foi calculado a partir dela.</Text>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={styles.sectionHint}>Escolha a escala e a data para ver o resumo.</Text>
+        )}
+
+        <Text style={styles.nota}>Feriados, dobras e férias não alteram o ciclo.</Text>
 
         {erro ? <Text style={styles.erroText}>{erro}</Text> : null}
 
         <TouchableOpacity
-          style={[styles.saveBtn, (!form.tipo || !form.dataRef || !form.tipoRef) && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, !confirmacao && styles.saveBtnDisabled]}
           onPress={save}
-          disabled={!form.tipo || !form.dataRef || !form.tipoRef}
+          disabled={!confirmacao}
+          accessibilityRole="button"
         >
-          <Text style={styles.saveBtnText}>Salvar escala</Text>
+          <Text style={styles.saveBtnText}>{editando ? 'Salvar alterações' : 'Confirmar escala'}</Text>
         </TouchableOpacity>
       </ScrollView>
 
       <OWDatePicker
         visible={showDatePicker}
         value={form.dataRef}
-        title="Data de referência"
+        title={form.tipoRef === 'desembarquei' ? 'Último desembarque' : 'Último embarque'}
         onConfirm={v => { update({ dataRef: v }); setShowDatePicker(false); }}
         onCancel={() => setShowDatePicker(false)}
       />
     </KeyboardAvoidingView>
+  );
+}
+
+function Linha({ rotulo, valor, destaque }: { rotulo: string; valor: string; destaque?: boolean }) {
+  useTema();
+  return (
+    <View style={styles.linha}>
+      <Text style={styles.linhaRotulo}>{rotulo}</Text>
+      <Text style={[styles.linhaValor, destaque && styles.linhaDestaque]}>{valor}</Text>
+    </View>
   );
 }
 
@@ -205,13 +232,19 @@ const fStyles = themed(() => StyleSheet.create({
 const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: surface.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
-  previewCard: {
-    backgroundColor: colors.navy800, borderRadius: radius.md, padding: spacing.md,
-    marginBottom: spacing.lg, borderLeftWidth: 2, borderLeftColor: colors.green,
+  resumo: {
+    backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.md,
+    marginTop: spacing.sm, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.line,
   },
-  previewText: { ...typography.body, color: colors.green },
+  resumoTitulo: { ...typography.label, color: colors.cyan, marginBottom: spacing.sm },
+  linha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  linhaRotulo: { ...typography.small, color: colors.muted, flexShrink: 1 },
+  linhaValor: { fontSize: 15, fontWeight: '600', color: colors.white, textAlign: 'right', flexShrink: 1 },
+  linhaDestaque: { color: colors.green },
+  resumoAviso: { ...typography.small, color: colors.amber, marginTop: spacing.sm, lineHeight: 18 },
+  nota: { ...typography.small, color: colors.muted, marginBottom: spacing.md },
   sectionLabel: { ...typography.label, marginBottom: 4, marginTop: spacing.md },
-  sectionHint: { ...typography.small, color: colors.mutedDim, marginBottom: spacing.sm },
+  sectionHint: { ...typography.small, color: colors.muted, marginBottom: spacing.sm, lineHeight: 18 },
   tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tipoChip: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.sm,
@@ -235,16 +268,10 @@ const styles = themed(() => StyleSheet.create({
     alignItems: 'center', minWidth: '30%',
   },
   aeroChipActive: { borderColor: colors.cyan, backgroundColor: colors.navy700 },
-  aeroCode: { fontSize: 12, fontWeight: '700', color: colors.mutedDim, fontFamily: 'monospace' },
+  aeroCode: { fontSize: 12, fontWeight: '700', color: colors.muted, fontFamily: 'monospace' },
   aeroCodeActive: { color: colors.cyan },
-  aeroNome: { fontSize: 11, color: colors.mutedDim, marginTop: 2, textAlign: 'center' },
+  aeroNome: { fontSize: 11, color: colors.muted, marginTop: 2, textAlign: 'center' },
   aeroNomeActive: { color: colors.white },
-  infoBox: {
-    flexDirection: 'row', gap: spacing.sm, backgroundColor: surface.card,
-    borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.lg,
-    borderWidth: 1, borderColor: colors.lineSoft, alignItems: 'flex-start',
-  },
-  infoText: { ...typography.small, flex: 1, lineHeight: 18 },
   saveBtn: {
     backgroundColor: colors.cyan, borderRadius: radius.sm, padding: spacing.md, alignItems: 'center',
   },

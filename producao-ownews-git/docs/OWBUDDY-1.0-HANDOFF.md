@@ -564,3 +564,32 @@ Aparência escolhida pelo usuário: **Automático** (padrão para todos, inclusi
 - Preview web (Playwright, fora do `npm test`): `tests/e2e/aparencia-preview.cjs` (fluxo Automático/Escuro/Claro, sistema mudando, persistência, dados intactos, 320–430 px) e `tests/e2e/rc-preview.cjs` (suíte RC, datas relativas a hoje).
 
 **Para reverter só esta camada:** `git revert <commit do dark/light>`.
+
+## Configuração de Escala 2.0 (2026-10-24)
+
+- **Bug do teste real:** "embarque 16/10" configurado em 24/10 virava "embarquei hoje". A matemática (`calcEscalaISO`) sempre esteve certa; o defeito estava no `OWDatePicker`:
+  - `scrollToIndex` com `viewPosition: 0.5`, somado ao padding de 2 linhas, mostrava o seletor 2 itens deslocado. Abria em "22 Ago 2024" enquanto o estado era 24 Out 2026.
+  - Na web, a seleção só mudava em `onMomentumScrollEnd`, que não dispara. O OK salvava o dia inicial (hoje).
+- **Correção:**
+  - o offset é calculado por `i * ITEM_H`;
+  - a seleção acompanha `onScroll`;
+  - a rolagem programática é ignorada como gesto;
+  - as colunas só montam depois de sincronizar a abertura.
+- **Regras puras** (testáveis) ficam em `src/data-seletor.ts`:
+  - sem valor salvo, abre em hoje LOCAL;
+  - com valor salvo, abre no valor;
+  - anos de −8 a +10, sempre incluindo o ano salvo.
+- **Tela `escala-config`:**
+  - perguntas "Qual é a sua escala?", "Qual data você sabe?" e "Quando foi seu último embarque?";
+  - resumo `confirmacaoEscala()` (domínio, regra canônica) antes de "Confirmar escala";
+  - nada é gravado antes disso;
+  - data futura é aceita (pode ser o próximo embarque) e sinalizada.
+- **Home** (`contextoHome`):
+  - Dia 1: "Hoje é dia de embarque";
+  - Dia 2: "Você embarcou ontem";
+  - depois disso: "Você está embarcado";
+  - folga Dia 1: "Hoje é dia de desembarque".
+- **Saudação:** `saudacaoTopo(agora, estilo, nome, trat)`. Nos estilos Parceiro/Motivacional entra um vocativo do dia (`VOCATIVOS`). O feminino tem lista menor e nunca usa "amiga".
+- **Testes:**
+  - `tests/escala-config-2.test.mjs`;
+  - preview: `tests/e2e/escala-config-preview.cjs` (relógio fixo em 24/10/2026).

@@ -19,7 +19,7 @@ function composeOpener(prefs, seed) {
   }
   if (tom === 'resenha') {
     if (nome) return pick([`${nome},`, ''], Math.floor(seed / 3));
-    const vocs = { neutro: ['Então...', ''], parceiro: ['Amigão,', 'Brother,', 'Cara,'], parceira: ['Amiga,', 'Mana,'] };
+    const vocs = { neutro: ['Então...', ''], parceiro: ['Amigão,', 'Brother,', 'Cara,'], parceira: ['Parceira,', 'Guerreira,'] };
     return pick(vocs[trat], seed);
   }
   return '';

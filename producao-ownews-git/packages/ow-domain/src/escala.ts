@@ -253,3 +253,40 @@ export function descreverMomento(momento: Momento): string {
   if (momento.diasDesembarque != null) return `${label} · ${momento.diasDesembarque}d para desembarque`;
   return label;
 }
+
+// ─── Confirmação da configuração ────────────────────────────────────────────
+
+/** "Hoje: Embarcado · Dia 9 de 14" — o que o usuário confere antes de salvar. */
+export interface ConfirmacaoEscala {
+  /** Ciclo legível ("14 × 14", "21 × 28"). */
+  ciclo: string;
+  /** Data informada (último embarque ou desembarque). */
+  dataRefISO: string;
+  /** Data informada ainda não chegou (o ciclo é projetado para trás). */
+  futura: boolean;
+  estado: 'EMBARCADO' | 'DE_FOLGA';
+  /** "Embarcado · Dia 9 de 14" / "De folga · Dia 3 de 14". */
+  hoje: string;
+  proximoDesembarqueISO: string;
+  proximoEmbarqueISO: string;
+}
+
+/**
+ * Resumo para conferir a escala ANTES de salvar — mesma regra canônica
+ * (resumoEscala → calcEscalaISO). Nunca usa data de cadastro: só dataRef.
+ */
+export function confirmacaoEscala(config: EscalaConfig, today: Date = new Date()): ConfirmacaoEscala | null {
+  const r = resumoEscala(config, today);
+  if (!r.calc || !r.proximoDesembarqueISO || !r.proximoEmbarqueISO) return null;
+  const { calc } = r;
+  const embarcado = r.estado === 'EMBARCADO';
+  return {
+    ciclo: `${calc.dEm} × ${calc.dFo}`,
+    dataRefISO: config.dataRef,
+    futura: config.dataRef > r.hojeISO,
+    estado: embarcado ? 'EMBARCADO' : 'DE_FOLGA',
+    hoje: `${embarcado ? 'Embarcado' : 'De folga'} · Dia ${calc.diaDoBloco} de ${embarcado ? calc.dEm : calc.dFo}`,
+    proximoDesembarqueISO: r.proximoDesembarqueISO,
+    proximoEmbarqueISO: r.proximoEmbarqueISO,
+  };
+}

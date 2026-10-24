@@ -47,9 +47,9 @@ const ESTILOS: { value: BuddyTom; label: string; desc: string }[] = [
 ];
 
 const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
-  { value: 'neutro',   label: 'Sem vocativo', sub: 'sem "parceiro" ou "parceira"' },
-  { value: 'parceiro', label: 'Parceiro',      sub: 'vocativo masculino' },
-  { value: 'parceira', label: 'Parceira',      sub: 'vocativo feminino' },
+  { value: 'neutro',   label: 'Sem vocativo', sub: '"Bom dia, Buddy!"' },
+  { value: 'parceiro', label: 'Parceiro',      sub: 'irmão, parça, brother, bro…' },
+  { value: 'parceira', label: 'Parceira',      sub: 'parceira, guerreira, campeã…' },
 ];
 
 export default function BuddyConfig() {

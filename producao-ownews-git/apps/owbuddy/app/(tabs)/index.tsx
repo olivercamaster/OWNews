@@ -183,14 +183,16 @@ export default function TelaHoje() {
   const totalCerts = certs.filter(c => !c._deleted).length;
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
   const nome = prefs.apelido?.trim();
-  const saudacao = saudacaoTopo(agora, home.estiloSaudacao, nome);
+  const saudacao = saudacaoTopo(agora, home.estiloSaudacao, nome, prefs.trat);
   const frase = home.fraseDoDia ? fraseDoDia(agora, home.estiloSaudacao) : null;
   const tamMomento = tamanhoDe(home, 'momento');
 
   // Buddy Agora: SEMPRE calculado com todos os dados — ocultar um card não desliga nada.
   const acontecimentos = gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento, hoje: agora });
-  // O card da escala (normal) já mostra embarque/desembarque e, no pré-embarque, a lista.
-  const excluir: AcontecimentoTipo[] = ['EMBARQUE', 'DESEMBARQUE'];
+  // O card da escala já mostra a data dele (embarcado: desembarque; folga: embarque)
+  // e, no pré-embarque, a lista. Só isso sai daqui — embarcado, o próximo
+  // embarque (após a folga) continua em Próximos dias.
+  const excluir: AcontecimentoTipo[] = contexto.tipo === 'EMBARCADO' ? ['DESEMBARQUE'] : ['EMBARQUE', 'DESEMBARQUE'];
   if (tamMomento === 'NORMAL' && contexto.tipo === 'PRE_EMBARQUE') excluir.push('CHECKLIST');
   const tamProximos = tamanhoDe(home, 'proximos');
   const proximos = acontecimentosParaHome(acontecimentos, { max: tamProximos === 'COMPACTO' ? 1 : 3, excluirTipos: excluir });
@@ -530,15 +532,15 @@ function Atalhos() {
     <View style={styles.secondaryRow}>
       <TouchableOpacity style={styles.toolsLink} onPress={() => { analytics.track('preciso_de_opened', { origem: 'home' }); router.push('/preciso-de'); }} activeOpacity={0.7} accessibilityRole="button">
         <Ionicons name="flash-outline" size={15} color={colors.cyanDim} />
-        <Text style={styles.toolsLinkText}>Preciso de…</Text>
+        <Text style={styles.toolsLinkText} numberOfLines={1}>Preciso de…</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/ferramentas')} activeOpacity={0.7} accessibilityRole="button">
         <Ionicons name="hammer-outline" size={15} color={colors.cyanDim} />
-        <Text style={styles.toolsLinkText}>Ferramentas</Text>
+        <Text style={styles.toolsLinkText} numberOfLines={1}>Ferramentas</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.toolsLink} onPress={() => router.push('/loja')} activeOpacity={0.7} accessibilityRole="button">
         <Ionicons name="storefront-outline" size={15} color={colors.cyanDim} />
-        <Text style={styles.toolsLinkText}>Loja</Text>
+        <Text style={styles.toolsLinkText} numberOfLines={1}>Loja</Text>
       </TouchableOpacity>
     </View>
   );
@@ -915,11 +917,13 @@ const styles = themed(() => StyleSheet.create({
   // Ferramentas — prioridade menor, link discreto
   secondaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   toolsLink: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48,
-    paddingHorizontal: spacing.sm, borderRadius: radius.md,
+    // largura pelo conteúdo ("Loja" cede espaço a "Ferramentas"); nunca estoura a borda
+    flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, minHeight: 48,
+    paddingHorizontal: 8, borderRadius: radius.md,
     borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight, backgroundColor: maritime.glass,
   },
-  toolsLinkText: { fontSize: 13, color: colors.muted, fontWeight: '600' },
+  toolsLinkText: { fontSize: 13, color: colors.muted, fontWeight: '600', flexShrink: 1 },
 
   // Alert cards
   alertCard: {

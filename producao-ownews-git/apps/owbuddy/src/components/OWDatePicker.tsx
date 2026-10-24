@@ -14,28 +14,14 @@ import {
 } from 'react-native';
 import { colors, maritime, radius, spacing, tone, typography, themed } from '../theme';
 import { useTema } from '../tema';
+import { anosDoSeletor, dataInicialSeletor, dataPorExtenso } from '../data-seletor';
 
 const MESES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const ITEM_H = 48;
 const VISIBLE = 5;
 
-const THIS_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 12 }, (_, i) => THIS_YEAR - 2 + i);
-
 function daysInMonth(month: number, year: number): number {
   return new Date(year, month, 0).getDate();
-}
-
-function parseISO(v: string | undefined): { d: number; m: number; y: number } {
-  if (!v || v.length < 10) {
-    const t = new Date();
-    return { d: t.getDate(), m: t.getMonth() + 1, y: t.getFullYear() };
-  }
-  return {
-    y: parseInt(v.slice(0, 4), 10),
-    m: parseInt(v.slice(5, 7), 10),
-    d: parseInt(v.slice(8, 10), 10),
-  };
 }
 
 function toISO(d: number, m: number, y: number): string {
@@ -63,12 +49,38 @@ function PickerCol({
 }) {
   useTema();
   const ref = useRef<FlatList>(null);
+  // Índice que veio da própria rolagem: não rola de novo (evita brigar com o dedo).
+  const daRolagem = useRef(-1);
+  // Rolagem feita pelo código: os eventos de scroll dela não são gesto do
+  // usuário (sem isso, a edição abria em "20" a caminho do 16).
+  const programada = useRef<{ alvo: number; ate: number } | null>(null);
+
+  // Com paddingVertical de 2 itens, o item i fica na faixa central quando o
+  // offset é i * ITEM_H. (scrollToIndex + viewPosition somava o padding e
+  // deslocava 2 itens: abria em "22 Ago 2024" mostrando 24 Out 2026.)
+  const rolarPara = (i: number, animated: boolean) => {
+    programada.current = { alvo: Math.max(0, i), ate: Date.now() + (animated ? 600 : 250) };
+    ref.current?.scrollToOffset({ offset: Math.max(0, i) * ITEM_H, animated });
+  };
 
   useEffect(() => {
-    setTimeout(() => {
-      ref.current?.scrollToIndex({ index: Math.max(0, selectedIndex), animated: false, viewPosition: 0.5 });
-    }, 50);
+    if (daRolagem.current === selectedIndex) { daRolagem.current = -1; return; }
+    const t = setTimeout(() => rolarPara(selectedIndex, false), 50);
+    return () => clearTimeout(t);
   }, [selectedIndex]);
+
+  // A seleção acompanha o que está na faixa central — em toda plataforma.
+  // (Antes só mudava no onMomentumScrollEnd, que não dispara na web: o
+  // usuário rolava até 16 e o OK salvava o dia inicial.)
+  const lerCentro = (y: number) => {
+    const idx = Math.min(data.length - 1, Math.max(0, Math.round(y / ITEM_H)));
+    const prog = programada.current;
+    if (prog) {
+      if (idx === prog.alvo || Date.now() > prog.ate) programada.current = null;
+      if (Date.now() <= prog.ate) return;
+    }
+    if (idx !== selectedIndex) { daRolagem.current = idx; onSelect(idx); }
+  };
 
   return (
     <View style={styles.colWrap}>
@@ -82,9 +94,13 @@ function PickerCol({
           renderItem={({ item, index }) => (
             <TouchableOpacity
               style={styles.item}
+              accessibilityRole="button"
+              accessibilityLabel={`${label} ${item}`}
+              accessibilityState={{ selected: index === selectedIndex }}
               onPress={() => {
+                daRolagem.current = -1;
                 onSelect(index);
-                ref.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                rolarPara(index, true);
               }}
             >
               <Text style={[styles.itemText, index === selectedIndex && styles.itemTextSel]}>
@@ -95,15 +111,14 @@ function PickerCol({
           showsVerticalScrollIndicator={false}
           snapToInterval={ITEM_H}
           decelerationRate="fast"
-          onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-            onSelect(Math.min(data.length - 1, Math.max(0, idx)));
-          }}
+          scrollEventThrottle={32}
+          onScroll={(e) => lerCentro(e.nativeEvent.contentOffset.y)}
+          onMomentumScrollEnd={(e) => lerCentro(e.nativeEvent.contentOffset.y)}
           getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
           style={{ height: ITEM_H * VISIBLE }}
           contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
-          initialScrollIndex={Math.max(0, selectedIndex)}
-          onScrollToIndexFailed={() => {}}
+          contentOffset={{ x: 0, y: Math.max(0, selectedIndex) * ITEM_H }}
+          onLayout={() => rolarPara(selectedIndex, false)}
         />
       </View>
     </View>
@@ -112,25 +127,32 @@ function PickerCol({
 
 export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCancel }: OWDatePickerProps) {
   useTema();
-  const init = parseISO(value);
+  const [anos, setAnos] = useState<number[]>(() => anosDoSeletor(new Date(), value));
+  const init = dataInicialSeletor(value);
   const [selD, setSelD] = useState(init.d - 1);     // índice em DAYS
   const [selM, setSelM] = useState(init.m - 1);     // índice em MESES_PT
-  const [selY, setSelY] = useState(() => {           // índice em YEARS
-    const i = YEARS.indexOf(init.y);
-    return i >= 0 ? i : 2;
-  });
+  const [selY, setSelY] = useState(() => Math.max(0, anos.indexOf(init.y)));
+  // As colunas só montam depois de sincronizar o estado desta abertura —
+  // montar com o estado da abertura anterior gerava rolagem fantasma.
+  const [abertura, setAbertura] = useState<number | null>(null);
 
+  // Cada abertura recalcula: valor salvo (edição) ou hoje local (nova data).
   useEffect(() => {
     if (visible) {
-      const t = parseISO(value);
+      const hoje = new Date();
+      const lista = anosDoSeletor(hoje, value);
+      const t = dataInicialSeletor(value, hoje);
+      setAnos(lista);
       setSelD(t.d - 1);
       setSelM(t.m - 1);
-      const yi = YEARS.indexOf(t.y);
-      setSelY(yi >= 0 ? yi : 2);
+      setSelY(Math.max(0, lista.indexOf(t.y)));
+      setAbertura(n => (n ?? 0) + 1);
+    } else {
+      setAbertura(null);
     }
   }, [visible, value]);
 
-  const year  = YEARS[selY]!;
+  const year  = anos[selY] ?? anos[0]!;
   const month = selM + 1;
   const maxDay = daysInMonth(month, year);
   const DAYS = Array.from({ length: maxDay }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -148,7 +170,11 @@ export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCanc
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <Text style={styles.title}>{title}</Text>
-          <View style={styles.columns}>
+          <Text style={styles.selecionada} accessibilityLiveRegion="polite">
+            {dataPorExtenso(clampedD + 1, month, year)}
+          </Text>
+          <View style={styles.columns} key={abertura ?? 'fechado'}>
+            {abertura != null && (<>
             <PickerCol
               data={DAYS}
               selectedIndex={clampedD}
@@ -162,11 +188,12 @@ export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCanc
               label="MÊS"
             />
             <PickerCol
-              data={YEARS.map(String)}
+              data={anos.map(String)}
               selectedIndex={selY}
               onSelect={setSelY}
               label="ANO"
             />
+            </>)}
           </View>
           <View style={styles.btnRow}>
             <TouchableOpacity style={styles.btnCancel} onPress={onCancel}>
@@ -199,8 +226,9 @@ const styles = themed(() => StyleSheet.create({
     borderTopWidth: 1,
     borderColor: maritime.glassBorder,
   },
-  title: { ...typography.h3, textAlign: 'center', marginBottom: spacing.lg },
-  columns: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: spacing.sm },
+  title: { ...typography.h3, textAlign: 'center', marginBottom: 4 },
+  selecionada: { ...typography.small, color: colors.cyan, textAlign: 'center', marginBottom: spacing.md },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: spacing.sm, minHeight: ITEM_H * VISIBLE + 24 },
   colWrap: { alignItems: 'center', flex: 1 },
   colLabel: { ...typography.micro, color: colors.mutedDim, marginBottom: 8 },
   pickerWrap: { position: 'relative', width: '100%' },

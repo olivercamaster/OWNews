@@ -129,12 +129,39 @@ export function periodoDoDia(hora: number): Periodo {
 
 const BASE: Record<Periodo, string> = { manha: 'Bom dia', tarde: 'Boa tarde', noite: 'Boa noite' };
 
-/** "Boa tarde, Oliver!" / "Boa tarde." — nome só se o usuário configurou (Meu Buddy). */
-export function saudacaoTopo(agora: Date, estilo: EstiloSaudacao, nome?: string | null): string {
+/**
+ * Vocativos da saudação (estilos Parceiro e Motivacional), um por dia.
+ * Masculino: resenha respeitosa. Feminino: lista menor e sem "amiga"
+ * (pedido do dono — soa condescendente). Sem tratamento: "Buddy".
+ */
+export const VOCATIVOS: Record<'neutro' | 'parceiro' | 'parceira', string[]> = {
+  neutro: ['Buddy'],
+  parceiro: ['Buddy', 'irmão', 'parceiro', 'parça', 'brother', 'bro', 'meu chapa', 'campeão', 'guerreiro', 'chefe', 'mestre', 'meu consagrado'],
+  parceira: ['Buddy', 'parceira', 'guerreira', 'campeã', 'chefe'],
+};
+
+/**
+ * "Bom dia, irmão!" / "Boa tarde, Oliver!" / "Boa noite."
+ * - Parceiro/Motivacional: com nome, o nome em 2 de cada 3 dias e um
+ *   vocativo no outro; sem nome, um vocativo do dia (sem tratamento → "Buddy").
+ * - Direto/Discreto: só o nome, se houver.
+ */
+export function saudacaoTopo(
+  agora: Date,
+  estilo: EstiloSaudacao,
+  nome?: string | null,
+  trat?: 'neutro' | 'parceiro' | 'parceira' | null,
+): string {
   const base = BASE[periodoDoDia(agora.getHours())];
   const n = nome?.trim();
-  const fim = estilo === 'PARCEIRO' || estilo === 'MOTIVACIONAL' ? '!' : '.';
-  return n ? `${base}, ${n}${fim}` : `${base}${fim}`;
+  const informal = estilo === 'PARCEIRO' || estilo === 'MOTIVACIONAL';
+  const fim = informal ? '!' : '.';
+  if (!informal) return n ? `${base}, ${n}${fim}` : `${base}${fim}`;
+  const dia = numeroDoDia(agora);
+  const pool = VOCATIVOS[trat ?? 'neutro'] ?? VOCATIVOS.neutro;
+  const voc = pool[dia % pool.length]!;
+  if (n && (dia % 3 !== 0 || (trat ?? 'neutro') === 'neutro')) return `${base}, ${n}${fim}`;
+  return `${base}, ${voc}${fim}`;
 }
 
 /** Número do dia LOCAL (estável o dia todo; muda à meia-noite do aparelho). */

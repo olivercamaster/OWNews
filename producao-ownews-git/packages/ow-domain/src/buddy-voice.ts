@@ -36,7 +36,7 @@ function composeOpener(prefs: BuddyPrefs, seed: number): string {
     const vocs: Record<BuddyTrat, string[]> = {
       neutro:   ['Então...', ''],
       parceiro: ['Amigão,', 'Brother,', 'Cara,'],
-      parceira: ['Amiga,', 'Mana,'],
+      parceira: ['Parceira,', 'Guerreira,'],
     };
     return pick(vocs[trat], seed);
   }
