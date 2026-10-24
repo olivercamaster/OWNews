@@ -306,6 +306,96 @@ const MARINHA_CATEGORIAS = [
   "transporte-aquaviario"
 ];
 
+// ─── Exclusão da Conta OW (Play Store / LGPD, 2026-10-24) ─────────────────────
+// O Supabase Auth só apaga usuário com privilégio administrativo; a chave fica
+// AQUI (Worker Secret), nunca no site nem no app. Regras:
+//  - o usuário só pode excluir a PRÓPRIA conta: o id vem do token validado no
+//    Supabase (GET /auth/v1/user), nunca do corpo/URL da requisição;
+//  - exige login com senha recente (claim amr.timestamp ≤ 10 min): a pessoa
+//    digita a senha de novo na página /excluir-conta antes de excluir;
+//  - token malformado/vencido é recusado sem chamar o Supabase (anti-abuso);
+//  - respostas sem detalhe interno.
+const EXCLUSAO_JANELA_SEG = 600;
+
+function decodificarJwtPayload(token) {
+  const partes = String(token || "").split(".");
+  if (partes.length !== 3 || partes.some(p => !/^[A-Za-z0-9_-]+$/.test(p))) return null;
+  try {
+    const b64 = partes[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "===".slice((b64.length + 3) % 4)));
+  } catch { return null; }
+}
+
+/** Pré-validação local do token (sem rede). {ok, sub} ou {ok:false, motivo}. */
+function avaliarTokenExclusao(token, agoraSeg, supabaseUrl) {
+  const p = decodificarJwtPayload(token);
+  if (!p || typeof p.sub !== "string" || !/^[0-9a-f-]{36}$/i.test(p.sub)) return { ok: false, motivo: "sessao_invalida" };
+  if (p.role !== "authenticated") return { ok: false, motivo: "sessao_invalida" };
+  if (typeof p.iss === "string" && supabaseUrl && !p.iss.startsWith(supabaseUrl)) return { ok: false, motivo: "sessao_invalida" };
+  if (typeof p.exp !== "number" || p.exp <= agoraSeg) return { ok: false, motivo: "sessao_invalida" };
+  const senha = Array.isArray(p.amr) ? p.amr.filter(a => a && a.method === "password" && typeof a.timestamp === "number") : [];
+  const ultimo = senha.reduce((m, a) => Math.max(m, a.timestamp), 0);
+  if (!ultimo || agoraSeg - ultimo > EXCLUSAO_JANELA_SEG) return { ok: false, motivo: "reautenticar" };
+  return { ok: true, sub: p.sub };
+}
+
+const CORS_CONTA = {
+  "Access-Control-Allow-Origin": "https://ownews.com.br",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Max-Age": "600",
+  "Vary": "Origin",
+};
+
+function respostaConta(status, corpo) {
+  return new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS_CONTA } });
+}
+
+async function rotaExcluirConta(request, env, agoraSeg = Math.floor(Date.now() / 1000)) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_CONTA });
+  if (request.method !== "POST") return respostaConta(405, { ok: false, erro: "metodo" });
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return respostaConta(503, { ok: false, erro: "indisponivel" });
+  const m = /^Bearer\s+(\S+)$/.exec(request.headers.get("Authorization") || "");
+  if (!m) return respostaConta(401, { ok: false, erro: "sessao_invalida" });
+  const pre = avaliarTokenExclusao(m[1], agoraSeg, env.SUPABASE_URL);
+  if (!pre.ok) return respostaConta(401, { ok: false, erro: pre.motivo });
+  // O Supabase confirma a sessão (assinatura, revogação) e devolve QUEM é o usuário.
+  let usuario;
+  try {
+    const r = await fetch(env.SUPABASE_URL + "/auth/v1/user", { headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + m[1] } });
+    if (!r.ok) return respostaConta(401, { ok: false, erro: "sessao_invalida" });
+    usuario = await r.json();
+  } catch { return respostaConta(502, { ok: false, erro: "falha" }); }
+  if (!usuario || usuario.id !== pre.sub) return respostaConta(401, { ok: false, erro: "sessao_invalida" });
+  try {
+    const d = await fetch(env.SUPABASE_URL + "/auth/v1/admin/users/" + encodeURIComponent(usuario.id), {
+      method: "DELETE",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY },
+    });
+    if (!d.ok) return respostaConta(502, { ok: false, erro: "falha" });
+  } catch { return respostaConta(502, { ok: false, erro: "falha" }); }
+  console.log("conta_excluida");  // sem id/e-mail no log
+  return respostaConta(200, { ok: true });
+}
+
+// Contas de TESTE para validar a exclusão em produção (admin-only; só @example.com,
+// domínio reservado que não recebe e-mail — impossível criar conta "real" por aqui).
+async function rotaAdminContaTeste(request, env) {
+  if (request.method !== "POST") return respostaConta(405, { ok: false });
+  let corpo = {};
+  try { corpo = await request.json(); } catch {}
+  const email = String(corpo.email || "");
+  if (!/^owbuddy-teste-[a-z0-9]{6,20}@example\.com$/.test(email) || typeof corpo.senha !== "string" || corpo.senha.length < 12) {
+    return respostaConta(400, { ok: false, erro: "parametros" });
+  }
+  const r = await fetch(env.SUPABASE_URL + "/auth/v1/admin/users", {
+    method: "POST",
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: corpo.senha, email_confirm: true, user_metadata: { conta_de_teste: true } }),
+  });
+  return respostaConta(r.ok ? 200 : 502, { ok: r.ok });
+}
+
 const ROTAS_PUBLICAS_COLLECTOR = new Set(["/aeroportos", "/mercado", "/saude", "/offvoos", "/"]);
 function tokenAdminValido(request, env) {
   const esperado = env && env.OWNEWS_ADMIN_TOKEN;
@@ -327,9 +417,14 @@ export default {
     // pelo site ficam abertas; todo o resto exige o Worker Secret
     // OWNEWS_ADMIN_TOKEN no cabeçalho X-OWNews-Token. Sem secret
     // configurado = tudo fechado (fail closed).
+    // Pública, mas autenticada pela SESSÃO do próprio usuário (ver rotaExcluirConta).
+    if (url.pathname === "/conta/excluir") return rotaExcluirConta(request, env);
+
     if (!ROTAS_PUBLICAS_COLLECTOR.has(url.pathname) && !tokenAdminValido(request, env)) {
       return new Response(JSON.stringify({ erro: "não autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
     }
+
+    if (url.pathname === "/admin/conta-teste") return rotaAdminContaTeste(request, env);
 
     if (url.pathname === "/admin/materia-ownews") {
       return rotaAdminMateriaOWNews(request, env);

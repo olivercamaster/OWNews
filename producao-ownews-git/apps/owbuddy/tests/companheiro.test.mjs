@@ -360,4 +360,13 @@ test('apagar dados do aparelho: só chaves do OWBuddy/OWNews, separado de Sair e
   assert.match(cfg, /Excluir minha Conta OW/);
   assert.match(cfg, /Apagar dados deste aparelho/);
   assert.match(cfg, /'Apagar tudo'/, 'confirmação explícita');
+  // ownews.com.br não recebe e-mail (MX nulo): exclusão vai para a página pública da Play Store
+  assert.match(cfg, /URL_EXCLUIR_CONTA = 'https:\/\/ownews\.com\.br\/excluir-conta'/);
+  assert.doesNotMatch(cfg, /mailto:|suporte@ownews/);
+});
+
+test('estatísticas de uso não saem do aparelho nesta versão (sem rede no analytics)', () => {
+  const a = readFileSync(new URL('../src/analytics.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(a.replace(/\/\/.*$/gm, ''), /fetch\(|XMLHttpRequest|sendBeacon|https?:\/\//);
+  assert.match(a, /if \(__DEV__\)/);
 });

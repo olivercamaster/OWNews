@@ -625,3 +625,11 @@ Checkpoint antes: tag `owbuddy-pre-auditoria-rc`. Nada de APK nesta rodada.
 **Retenção contextual (ciclo = loop)**: Home muda prioridade/cópia, não layout: 3 dias antes → linha Viagem + Documentos; véspera/dia → card "onde preciso estar" (dia: acima do card da escala); embarcado → Dia N + "Faltam N dias pra casa"; desembarque → "Desembarque hoje · 14 dias embarcado concluídos"; dia seguinte → "Primeiro dia em casa". Lembretes da véspera viram UM aviso (embarque + voo + mala). Sem streak, pontos ou notificação de "volte ao app".
 
 **Testes**: `tests/companheiro.test.mjs` (29) + `tests/e2e/companheiro-preview.cjs` (jornada completa no navegador, relógio 24/10/2026).
+
+## Conta OW: exclusão real + privacidade (Play Store, 2026-10-24)
+
+- **Bug confirmado**: o OWNews web chamava `DELETE /auth/v1/user` com o token do usuário — o Supabase Auth não oferece isso (só a API admin apaga usuário), então caía sempre em "Contate suporte@ownews.com.br". E **ownews.com.br tem MX nulo** (`0 .`): nenhum e-mail @ownews.com.br é recebido — o mailto do app 1.0 ia para o vazio.
+- **Exclusão real**: página pública `https://ownews.com.br/excluir-conta` (instruções sem JS e sem login; formulário e-mail + senha) → `POST /api/conta/excluir` (front, repassa SÓ o Authorization) → coletor `shrill-pond-a915` `POST /conta/excluir` (único lugar com `SUPABASE_SERVICE_ROLE_KEY`). O coletor: pré-valida o JWT sem rede (formato, exp, iss, role, `amr` password ≤ 10 min), confirma o usuário em `GET /auth/v1/user` e apaga `admin/users/{id do token}`. Nada do corpo/URL é usado — A nunca apaga B. Teste: `shrill-pond-a915-fix/tests/conta_exclusao_test.js`.
+- `/admin/conta-teste` (admin token) cria contas confirmadas SÓ `owbuddy-teste-*@example.com`, para validar em produção.
+- App: "Excluir minha Conta OW" abre a página pública (não mais mailto). Minha Escala web: botão leva à página.
+- `/privacidade` reescrita com seção OWBuddy (#owbuddy) e exclusão (#exclusao) conforme o código real; mapa Data Safety no relatório da missão.

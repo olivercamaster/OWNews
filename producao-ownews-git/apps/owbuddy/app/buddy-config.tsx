@@ -54,7 +54,7 @@ const TRATS: { value: BuddyTrat; label: string; sub: string }[] = [
   { value: 'parceira', label: 'Parceira',      sub: 'parceira, guerreira, campeã…' },
 ];
 
-const EMAIL_SUPORTE = 'suporte@ownews.com.br';
+const URL_EXCLUIR_CONTA = 'https://ownews.com.br/excluir-conta';
 const URL_PRIVACIDADE = 'https://ownews.com.br/privacidade';
 
 export default function BuddyConfig() {
@@ -178,22 +178,10 @@ export default function BuddyConfig() {
     analytics.track('conta_logout');
   };
 
-  // Exclusão da Conta OW: o app não apaga a conta sozinho (precisa do backend) —
-  // abre um e-mail já preenchido para o suporte. Dados deste aparelho ficam.
+  // Exclusão da Conta OW: página pública do OWNews (exige a senha de novo e apaga a
+  // conta na hora, pelo servidor). Os dados deste aparelho ficam até "Apagar dados".
   const pedirExclusaoConta = () => {
-    const email = session?.user.email ?? '';
-    confirmar(
-      'Excluir sua Conta OW?',
-      'Vamos abrir um e-mail para o suporte do OWNews com o pedido de exclusão da conta e dos dados sincronizados. Os dados deste aparelho não são apagados por isso.',
-      'Abrir e-mail',
-      () => {
-        const assunto = encodeURIComponent('Excluir minha Conta OW');
-        const corpo = encodeURIComponent(`Quero excluir minha Conta OW e os dados sincronizados.\nE-mail da conta: ${email}`);
-        Linking.openURL(`mailto:${EMAIL_SUPORTE}?subject=${assunto}&body=${corpo}`)
-          .catch(() => avisar(`Envie um e-mail para ${EMAIL_SUPORTE} pedindo a exclusão`));
-      },
-      true,
-    );
+    Linking.openURL(URL_EXCLUIR_CONTA).catch(() => avisar('Abra ownews.com.br/excluir-conta no navegador'));
   };
 
   const apagarAparelho = () => {
@@ -433,7 +421,7 @@ export default function BuddyConfig() {
               <Text style={styles.contaEmail} numberOfLines={1}>{session.user.email}</Text>
             </View>
             <Text style={styles.contaDesc}>
-              Sincroniza escala, certificados e documentos (nome e validade), a mala e estas preferências com o OWNews. Viagem, contatos, datas, Cruzar e pagamento ficam só neste aparelho.
+              Sincroniza escala, certificados e documentos (sem foto nem número), a mala e estas preferências com o OWNews. Viagem, contatos, datas, Cruzar e pagamento ficam só neste aparelho.
             </Text>
             {syncMsg ? (
               <Text style={[styles.syncMsg, syncLoading && styles.syncMsgLoading]}>{syncMsg}</Text>
@@ -535,7 +523,7 @@ export default function BuddyConfig() {
         <Text style={styles.sectionTitle}>Privacidade e dados</Text>
         <View style={styles.contaCard}>
           <Text style={styles.contaDesc}>
-            Seus dados ficam neste aparelho. Com a Conta OW, só escala, certificados/documentos (nome e validade), a mala e estas preferências sincronizam. Viagem, contatos, datas e pagamento nunca saem daqui. Nada pessoal vai para estatísticas de uso.
+            Seus dados ficam neste aparelho. Com a Conta OW, só escala, certificados e documentos (sem foto nem número), a mala e estas preferências sincronizam. Viagem, contatos, datas e pagamento nunca saem daqui. Nada pessoal vai para estatísticas de uso.
           </Text>
           <TouchableOpacity onPress={() => Linking.openURL(URL_PRIVACIDADE).catch(() => {})} accessibilityRole="link" style={styles.linkLinha}>
             <Ionicons name="shield-checkmark-outline" size={16} color={colors.cyanDim} />

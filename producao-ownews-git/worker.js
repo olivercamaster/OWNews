@@ -3337,6 +3337,7 @@ document.addEventListener('keydown', (e) => {
 const SUPABASE_URL = 'https://awyowuhwkqfyhwgdpepp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt';
 const AEROPORTOS_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
+const COLETOR_BASE_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
 
 /* ---------- MODO EMBARCADO (Fase A, 2026-09-18) ----------
    Lido de localStorage ANTES do primeiro render (SEED_ARTICLES) pra já
@@ -16860,39 +16861,105 @@ function renderPrivacidade() {
     '<div class="hub-hero">' +
     '<span class="eyebrow">Privacidade</span>' +
     "<h1>Política de Privacidade</h1>" +
-    '<p class="hub-lead">Esta página descreve exatamente o que o OWNews coleta hoje — e deixa claro o que não coletamos.</p>' +
+    '<p class="hub-lead">O que o OWNews (site) e o aplicativo OWBuddy coletam hoje, o que fica só no seu aparelho e como excluir sua conta. Responsável: OffshoreWorks, que publica o OWNews e o OWBuddy. Atualizada em 24/10/2026.</p>' +
     "</div>" +
     '<div class="area-group" style="margin-top:8px">' +
-    "<h2>O que coletamos hoje</h2>" +
-    '<p class="area-desc"><strong>Contagem de leitores online</strong>: um identificador aleatório gerado no seu navegador (guardado só no localStorage do seu aparelho) é usado para contar quantas pessoas estão no site agora — esse número existe só em memória por até 120 segundos e nunca é gravado permanentemente. <strong>Páginas mais lidas</strong>: registramos visualizações de página (rota + timestamp) para calcular o ranking de notícias mais acessadas, guardadas por até 8 dias e depois apagadas automaticamente. Nenhum desses dois recursos guarda IP, nome, e-mail ou qualquer outro dado que identifique você pessoalmente.</p>' +
+    "<h2>Site OWNews: o que coletamos</h2>" +
+    '<p class="area-desc"><strong>Contagem de leitores online</strong>: um identificador aleatório gerado no seu navegador (guardado só no localStorage do seu aparelho) conta quantas pessoas estão no site agora — esse número existe só em memória por até 120 segundos. <strong>Páginas mais lidas</strong>: registramos visualizações de página (rota + horário) para o ranking de mais lidas, guardadas por até 8 dias. Nenhum dos dois guarda IP, nome, e-mail ou outro dado que identifique você.</p>' +
+    '<p class="area-desc">Ficam <strong>só no seu navegador</strong> (localStorage, nunca enviados): favoritos do Radar Offshore, vagas favoritas e a Minha Escala quando você não entra em uma conta. A sua preferência de tema (claro ou escuro) também fica só no localStorage, sem cookie e sem envio ao servidor.</p>' +
     "</div>" +
-    '<div class="area-group">' +
-    "<h2>O que fica só no seu navegador</h2>" +
-    '<p class="area-desc">Seus favoritos no Radar Offshore ("Meus Navios"), suas vagas favoritas em /vagas e os dados da calculadora Minha Escala (quando você não entra em uma conta) ficam salvos apenas no localStorage do seu navegador — não são enviados para nenhum servidor. Se você limpar os dados do navegador ou trocar de aparelho, essas informações são perdidas. A sua preferência de tema (claro ou escuro) também fica só no localStorage, sem cookie e sem envio ao servidor.</p>' +
+    '<div class="area-group" id="owbuddy">' +
+    "<h2>Aplicativo OWBuddy</h2>" +
+    '<p class="area-desc">O OWBuddy funciona <strong>sem conta</strong>. Tudo o que você cadastra fica guardado no próprio celular. Não usamos localização por GPS, câmera, microfone nem contatos da agenda do telefone.</p>' +
+    '<p class="area-desc"><strong>Só no seu aparelho (nunca enviado)</strong>: viagem (voo, horário, localizador, assento, observações), contatos do embarque (nome e telefone que você digita), datas importantes, Meu Pagamento (só a regra da data — o app não pede salário), escalas de outras pessoas no Cruzar, cidade do clima, layout da Home, aparência e lembretes.</p>' +
+    '<p class="area-desc"><strong>Com a Conta OW (opcional)</strong>, sincronizam com a sua conta: escala (ciclo, data de referência, base/aeroporto, dobras e férias), certificados e documentos (tipo, nome, validade, emissão, instituição, aviso e observação que você escreveu — nunca foto nem número do documento), a lista do Meu Embarque e as preferências do Buddy (tom, tratamento e apelido).</p>' +
+    '<p class="area-desc"><strong>Serviços usados pelo app</strong>: notícias, vagas, unidades e aeroportos vêm do OWNews; o clima vem da Open-Meteo, que recebe só as coordenadas da cidade que você escolheu (e o nome digitado na busca de cidade); a Conta OW usa o Supabase. Ligar, WhatsApp, mapa, Uber e 99 só abrem o app correspondente — o OWBuddy não envia nada por você.</p>' +
+    '<p class="area-desc"><strong>Notificações</strong>: lembretes locais (embarque, mala, viagem, validades, datas, pagamento), agendados no próprio aparelho, desligados até você ativar e escolher as categorias em Meu Buddy. Não há servidor de push do OWBuddy; o texto não mostra nomes de pessoas, documentos nem itens da mala.</p>' +
+    '<p class="area-desc"><strong>Compartilhar minha escala</strong>: a imagem é criada no aparelho só quando você toca em compartilhar e contém apenas o calendário da escala (sem nome, empresa, voo, hotel, documentos ou contatos). Depois que você escolhe o destino no menu do sistema, o envio é feito pelo app escolhido.</p>' +
+    '<p class="area-desc"><strong>Estatísticas de uso</strong>: nesta versão o app não envia estatísticas de uso a nenhum serviço. Se isso mudar, serão apenas eventos genéricos (por exemplo, "escala compartilhada"), nunca o conteúdo que você digita, e esta página será atualizada antes.</p>' +
     "</div>" +
     '<div class="area-group" id="quando-voce-escolhe">' +
-    "<h2>Quando você escolhe usar um recurso com dados</h2>" +
-    '<p class="area-desc"><strong>Conta OWNews (opcional)</strong>: ao criar uma conta, seu e-mail, nome e senha são processados pelo nosso provedor de autenticação (Supabase). Enquanto você está conectado, a configuração da sua escala, as datas pessoais, os certificados cadastrados, o perfil opcional (apelido e função) e as preferências de comunicação ficam guardados junto da conta para sincronizar entre aparelhos; o Cruzar Escala também usa a escala da conta. Viagem, aeroporto, empresas acompanhadas e notícias salvas no OWBuddy continuam só no aparelho. <strong>Newsletter</strong>: ao se inscrever, guardamos o e-mail informado para enviar o Radar da Semana. <strong>Alertas no navegador</strong>: ao ativar, guardamos a assinatura técnica de notificação que o próprio navegador gera (não contém nome nem e-mail). <strong>Pergunte ao OWNews</strong>: a pergunta digitada é processada por um modelo de inteligência artificial da Cloudflare (Workers AI); guardamos respostas a perguntas repetidas em cache e um contador por hora associado a um código derivado do endereço IP, só para limitar abuso. <strong>Pesquisa Salarial</strong>: respostas anônimas, sem nome, CPF ou e-mail.</p>' +
+    "<h2>Conta OW e outros recursos com dados</h2>" +
+    '<p class="area-desc"><strong>Conta OW (opcional, a mesma no site e no app)</strong>: e-mail e senha são processados pelo nosso provedor de autenticação (Supabase). Junto da conta ficam o que você sincroniza: no site, escala, datas pessoais, Cruzar Escala, certificados, perfil opcional (nome, função) e preferências de comunicação; no app, os itens listados acima. <strong>Newsletter</strong>: o e-mail informado, para enviar o Radar da Semana (descadastro pelo link de cada e-mail). <strong>Alertas no navegador</strong>: a assinatura técnica de notificação gerada pelo navegador (sem nome nem e-mail). <strong>Pergunte ao OWNews</strong>: a pergunta é processada pela Cloudflare (Workers AI); guardamos respostas repetidas em cache e um contador por hora ligado a um código derivado do IP, só contra abuso. <strong>Pesquisa Salarial</strong>: respostas anônimas, sem nome, CPF ou e-mail.</p>' +
+    "</div>" +
+    '<div class="area-group" id="exclusao">' +
+    "<h2>Excluir sua conta e seus dados</h2>" +
+    '<p class="area-desc">Você pode excluir a Conta OW a qualquer momento, sem falar com ninguém, em <a href="/excluir-conta"><strong>ownews.com.br/excluir-conta</strong></a> (também no app: Meu Buddy → Conta OW → Excluir minha Conta OW). A exclusão é imediata e apaga a conta e tudo o que estava sincronizado nela. Os dados que ficam só no aparelho se apagam no próprio app (Meu Buddy → Privacidade e dados → Apagar dados deste aparelho) ou desinstalando o app. Sair da conta não apaga nada.</p>' +
     "</div>" +
     '<div class="area-group">' +
     "<h2>O que não fazemos</h2>" +
-    '<p class="area-desc">Não exigimos cadastro ou login para usar o site. Não vendemos dados a terceiros. Não usamos, hoje, nenhum serviço de publicidade — nenhum cookie de anúncio é definido, nenhum script de terceiro voltado a anúncios é carregado.</p>' +
+    '<p class="area-desc">Não exigimos cadastro para usar o site nem o app. Não vendemos dados. Nenhum anúncio está ativo hoje; caso o OWNews passe a exibir anúncios via Google AdSense, esta página será atualizada antes, explicando o uso de cookies de publicidade e o link para as <a href="https://adssettings.google.com" target="_blank" rel="noopener">configurações de anúncios do Google</a>. Os dados trafegam por HTTPS.</p>' +
     "</div>" +
     '<div class="area-group">' +
-    "<h2>Se ativarmos publicidade no futuro</h2>" +
-    '<p class="area-desc">Caso o OWNews passe a exibir anúncios via Google AdSense, esta página será atualizada antes da ativação para explicar que a Google e parceiros de publicidade podem usar cookies para exibir anúncios com base em visitas anteriores, com um link para as <a href="https://adssettings.google.com" target="_blank" rel="noopener">configurações de anúncios do Google</a>, onde é possível desativar a personalização. Nenhum anúncio está ativo nesta versão do site.</p>' +
+    "<h2>Contato</h2>" +
+    '<p class="area-desc">Dúvidas sobre privacidade: mensagem direta no Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a>.</p>' +
     "</div>" +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
+    '<a href="/excluir-conta">Excluir conta →</a>' +
     '<a href="/sobre">Sobre o OWNews →</a>' +
-    '<a href="/contato">Contato →</a>' +
     '<a href="/termos-de-uso">Termos de Uso →</a>' +
     "</div>";
   return paginaChrome(
     "Política de Privacidade",
-    "O que o OWNews coleta (e o que não coleta): contagem de leitores online, páginas mais lidas, e dados que ficam só no seu navegador.",
+    "O que o OWNews e o app OWBuddy coletam, o que fica só no seu aparelho, o que sincroniza com a Conta OW e como excluir sua conta.",
     conteudo,
     "/privacidade"
+  );
+}
+
+/* Excluir Conta OW (Play Store / LGPD, 2026-10-24). Página pública: as instruções
+   funcionam sem JavaScript e sem login. A exclusão em si pede e-mail + senha
+   (login recente) e chama /api/conta/excluir, que repassa ao coletor — único
+   lugar com a chave administrativa do Supabase. O usuário só exclui a própria conta. */
+function renderExcluirConta() {
+  const conteudo =
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Excluir conta" }]) +
+    '<div class="hub-hero">' +
+    '<span class="eyebrow">OWBuddy · OWNews · Conta OW</span>' +
+    "<h1>Excluir sua Conta OW</h1>" +
+    '<p class="hub-lead">A Conta OW é a mesma no app OWBuddy e no site OWNews (OffshoreWorks). Aqui você exclui a conta e os dados ligados a ela, sem precisar do app.</p>' +
+    "</div>" +
+    '<div class="area-group" style="margin-top:8px">' +
+    "<h2>Como excluir</h2>" +
+    '<p class="area-desc">Digite o e-mail e a senha da sua Conta OW abaixo e toque em <strong>Excluir minha conta</strong>. A exclusão é imediata e não pode ser desfeita. Esqueceu a senha? Use <em>Esqueci minha senha</em> na <a href="/minha-escala">Minha Escala</a> ou no app e volte aqui.</p>' +
+    '<form id="exc" class="exc-form" autocomplete="on" onsubmit="return false">' +
+    '<label for="excEmail">E-mail</label><input id="excEmail" type="email" autocomplete="email" required>' +
+    '<label for="excSenha">Senha</label><input id="excSenha" type="password" autocomplete="current-password" required>' +
+    '<label class="exc-ok"><input id="excConf" type="checkbox"> Entendo que a conta e os dados sincronizados serão apagados para sempre.</label>' +
+    '<button id="excBtn" type="submit" class="exc-btn">Excluir minha conta</button>' +
+    '<p id="excMsg" class="exc-msg" role="status" aria-live="polite"></p>' +
+    '<noscript><p class="exc-msg">Para excluir por aqui é preciso JavaScript. Sem ele, peça a exclusão pelo Instagram <a href="https://www.instagram.com/ownewsbr">@ownewsbr</a>.</p></noscript>' +
+    "</form>" +
+    "</div>" +
+    '<div class="area-group">' +
+    "<h2>O que é apagado</h2>" +
+    '<p class="area-desc">A conta (e-mail e senha) e tudo o que estava sincronizado nela: escala, certificados e documentos, lista do Meu Embarque, preferências do Buddy e, no site, datas pessoais, Cruzar Escala, perfil (nome, função) e preferências de comunicação. A exclusão é imediata; só os backups automáticos do provedor podem guardar uma cópia por um curto período, até serem substituídos.</p>' +
+    "</div>" +
+    '<div class="area-group">' +
+    "<h2>O que fica só no seu aparelho</h2>" +
+    '<p class="area-desc">No OWBuddy, viagem, contatos do embarque, datas importantes, Meu Pagamento, Cruzar, cidade e preferências nunca foram enviados — não estão na conta. Para apagá-los: <strong>Meu Buddy → Privacidade e dados → Apagar dados deste aparelho</strong>, ou desinstale o app. No site, use a limpeza de dados do navegador.</p>' +
+    "</div>" +
+    '<div class="area-group">' +
+    "<h2>Sair ≠ apagar dados ≠ excluir conta</h2>" +
+    '<p class="area-desc"><strong>Sair da conta</strong>: desconecta este aparelho; nada é apagado. <strong>Apagar dados deste aparelho</strong>: limpa o celular; a conta continua. <strong>Excluir conta</strong>: apaga a conta e o que está nela; o que está no aparelho continua até você apagar. A newsletter tem descadastro próprio no link de cada e-mail.</p>' +
+    "</div>" +
+    '<div class="area-group">' +
+    "<h2>Problemas?</h2>" +
+    '<p class="area-desc">Se a exclusão não funcionar, mande mensagem direta no Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a> com o e-mail da conta. Veja também a <a href="/privacidade#exclusao">Política de Privacidade</a>.</p>' +
+    "</div>" +
+    '<style>.exc-form{display:grid;gap:8px;max-width:420px;margin-top:12px}.exc-form input[type=email],.exc-form input[type=password]{min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--line,#2b3c4a);background:transparent;color:inherit;font-size:16px}.exc-ok{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.4;margin:6px 0}.exc-ok input{width:20px;height:20px;flex:none;margin-top:1px}.exc-btn{min-height:46px;border:0;border-radius:10px;background:#c0392b;color:#fff;font-weight:700;font-size:16px;cursor:pointer}.exc-btn:disabled{opacity:.55;cursor:default}.exc-msg{min-height:1.4em;font-size:14px;margin:4px 0 0}</style>' +
+    "<script>(function(){var S=\"https://awyowuhwkqfyhwgdpepp.supabase.co/auth/v1\",K=\"sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt\";var f=document.getElementById(\"exc\"),b=document.getElementById(\"excBtn\"),m=document.getElementById(\"excMsg\");function msg(t){m.textContent=t;}" +
+    "f.addEventListener(\"submit\",function(){var e=document.getElementById(\"excEmail\").value.trim(),p=document.getElementById(\"excSenha\").value;if(!e||!p){msg(\"Informe e-mail e senha.\");return;}if(!document.getElementById(\"excConf\").checked){msg(\"Marque a confirmação para continuar.\");return;}" +
+    "b.disabled=true;msg(\"Confirmando sua senha…\");fetch(S+\"/token?grant_type=password\",{method:\"POST\",headers:{apikey:K,\"Content-Type\":\"application/json\"},body:JSON.stringify({email:e,password:p})}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});}).then(function(x){" +
+    "if(!x.ok||!x.d.access_token){b.disabled=false;msg(\"E-mail ou senha incorretos (ou e-mail ainda não confirmado).\");return;}msg(\"Excluindo…\");" +
+    "return fetch(\"/api/conta/excluir\",{method:\"POST\",headers:{Authorization:\"Bearer \"+x.d.access_token}}).then(function(r){if(r.ok){try{localStorage.removeItem(\"ownews_auth_sessao\");}catch(_){}f.reset();msg(\"Pronto: sua Conta OW e os dados dela foram excluídos.\");}else{b.disabled=false;msg(r.status===401?\"Sessão não confirmada. Digite a senha de novo.\":\"Não foi possível excluir agora. Tente de novo em alguns minutos.\");}});" +
+    "}).catch(function(){b.disabled=false;msg(\"Sem conexão. Tente de novo.\");});});})();</script>";
+  return paginaChrome(
+    "Excluir Conta OW (OWBuddy e OWNews)",
+    "Como excluir sua Conta OW do app OWBuddy e do site OWNews: o que é apagado, o que fica só no aparelho e a diferença entre sair, apagar dados e excluir conta.",
+    conteudo,
+    "/excluir-conta"
   );
 }
 
@@ -17529,11 +17596,6 @@ function renderMinhaEscala() {
     '<button type="button" class="escala-conta-btn" id="btnContaSalvarPerfil">Salvar perfil</button>' +
     '<p class="escala-conta-msg" id="msgContaEditarPerfil"></p>' +
     '<hr class="escala-conta-edit-sep">' +
-    '<div id="escalaContaExcluirConfirm" hidden>' +
-    '<p style="font-size:12.5px;color:var(--muted);margin:0 0 6px">Ação irreversível. Seus dados locais não serão apagados.</p>' +
-    '<button type="button" class="escala-conta-btn-danger" id="btnConfirmarExclusao">Confirmar exclusão</button>' +
-    '<button type="button" class="escala-conta-link" id="btnCancelarExclusao" style="margin-left:8px">Cancelar</button>' +
-    '</div>' +
     '<button type="button" class="escala-conta-link" id="btnContaExcluir" style="color:var(--muted-dim);font-size:11.5px;margin-top:6px">Excluir minha conta</button>' +
     '</div>' +
     '</div>' +
@@ -18240,25 +18302,9 @@ function renderMinhaEscala() {
     '});' +
     // Excluir conta
     'var _btnExcluirConta=document.getElementById("btnContaExcluir");' +
-    'var _excluirConfirmPanel=document.getElementById("escalaContaExcluirConfirm");' +
-    'if(_btnExcluirConta&&_excluirConfirmPanel)_btnExcluirConta.addEventListener("click",function(){' +
-    '_excluirConfirmPanel.hidden=false;_btnExcluirConta.hidden=true;' +
-    '});' +
-    'var _btnCancelarExclusao=document.getElementById("btnCancelarExclusao");' +
-    'if(_btnCancelarExclusao&&_excluirConfirmPanel)_btnCancelarExclusao.addEventListener("click",function(){' +
-    '_excluirConfirmPanel.hidden=true;var _ex=document.getElementById("btnContaExcluir");if(_ex)_ex.hidden=false;' +
-    '});' +
-    'var _btnConfirmarExclusao=document.getElementById("btnConfirmarExclusao");' +
-    'if(_btnConfirmarExclusao)_btnConfirmarExclusao.addEventListener("click",function(){' +
-    'var s=getSessao();if(!s)return;' +
-    '_btnConfirmarExclusao.disabled=true;_btnConfirmarExclusao.textContent="Excluindo…";' +
-    'authFetch("/user",{method:"DELETE",headers:{Authorization:"Bearer "+s.access_token}}).then(function(r){' +
-    'if(r.ok||r.status===204){setSessao(null);atualizarUIContaEscala();setMsg("msgContaLogado","Conta excluída.",true);}' +
-    'else{_btnConfirmarExclusao.disabled=false;_btnConfirmarExclusao.textContent="Confirmar exclusão";' +
-    'setMsg("msgContaEditarPerfil","Não foi possível excluir. Contate suporte@ownews.com.br.",false);}' +
-    '}).catch(function(){_btnConfirmarExclusao.disabled=false;_btnConfirmarExclusao.textContent="Confirmar exclusão";' +
-    'setMsg("msgContaEditarPerfil","Erro de conexão.",false);});' +
-    '});' +
+    // Exclusão real (2026-10-24): DELETE /auth/v1/user não existe para o próprio usuário
+    // no Supabase (só a API admin apaga) — o botão leva à página com login recente.
+    'if(_btnExcluirConta)_btnExcluirConta.addEventListener("click",function(){location.href="/excluir-conta";});' +
     // Conflito — usar escala da conta
     'var _btnCC=document.getElementById("btnConflitoConta");' +
     'if(_btnCC)_btnCC.addEventListener("click",function(){' +
@@ -22915,6 +22961,24 @@ export default {
       return new Response(renderPrivacidade(), {
         headers: { "Content-Type": "text/html; charset=UTF-8" }
       });
+    }
+
+    if (url.pathname === "/excluir-conta") {
+      return new Response(renderExcluirConta(), {
+        headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store" }
+      });
+    }
+
+    // Exclusão da Conta OW: repassa SÓ o token do usuário ao coletor (que tem a chave
+    // administrativa). Nada do corpo é repassado — o coletor identifica o usuário pelo token.
+    if (url.pathname === "/api/conta/excluir") {
+      if (request.method !== "POST") return new Response(JSON.stringify({ ok: false, erro: "metodo" }), { status: 405, headers: { "Content-Type": "application/json" } });
+      try {
+        const r = await fetch(COLETOR_BASE_URL + "/conta/excluir", { method: "POST", headers: { Authorization: request.headers.get("Authorization") || "" } });
+        return new Response(await r.text(), { status: r.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+      } catch {
+        return new Response(JSON.stringify({ ok: false, erro: "falha" }), { status: 502, headers: { "Content-Type": "application/json" } });
+      }
     }
 
     if (url.pathname === "/politica-editorial") {
