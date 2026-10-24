@@ -41,6 +41,7 @@ import {
   getEventosPessoais,
   setEventosPessoais,
   getEscalasCruzar,
+  getHistorico,
 } from '../../src/storage';
 import { OWProgresso } from '../../src/components/OWProgresso';
 import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../../src/theme';
@@ -397,11 +398,14 @@ export default function EscalaScreen() {
   const [viewMes, setViewMes] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
   const [compartilhando, setCompartilhando] = useState(false);
+  // Meu Histórico (realizado): só a contagem para o atalho — a escala nunca lê nem grava o histórico.
+  const [registrados, setRegistrados] = useState(0);
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
-    const [cfg, ep, cz] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar()]);
+    const [cfg, ep, cz, hist] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar(), getHistorico()]);
+    setRegistrados(hist.registros.length);
     setConfig(cfg);
     setEPState(ep);
     setCruzadas(cz);
@@ -463,6 +467,10 @@ export default function EscalaScreen() {
         </Text>
         <TouchableOpacity style={styles.setupBtn} onPress={() => router.push('/escala-config')}>
           <Text style={styles.setupBtnText}>{config ? 'Revisar escala' : 'Configurar escala'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.setupHistorico} onPress={() => router.push('/historico')} accessibilityRole="button">
+          <Ionicons name="time-outline" size={16} color={colors.cyanDim} />
+          <Text style={styles.setupHistoricoTexto}>Meu Histórico</Text>
         </TouchableOpacity>
       </View>
     );
@@ -547,6 +555,18 @@ export default function EscalaScreen() {
           <ActionBtn icon="calendar-outline"    label="Evento"  onPress={() => router.push('/escala-evento-form')} />
           <ActionBtn icon="people-outline"      label="Cruzar"  onPress={() => router.push('/escala-cruzar')} />
         </View>
+
+        {/* ── Meu Histórico: o realizado, ao lado do planejado ── */}
+        <TouchableOpacity style={styles.historico} onPress={() => router.push('/historico')} accessibilityRole="button" accessibilityLabel="Meu Histórico">
+          <Ionicons name="time-outline" size={20} color={colors.iconDefault} />
+          <View style={styles.historicoTextos}>
+            <Text style={styles.historicoTitulo}>Meu Histórico</Text>
+            <Text style={styles.historicoSub} numberOfLines={1}>
+              {registrados > 0 ? `${registrados} ${registrados === 1 ? 'embarque registrado' : 'embarques registrados'}` : 'O que realmente aconteceu em cada embarque'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
 
         {/* ── Calendar header ── */}
         <View style={styles.calHeader}>
@@ -761,6 +781,16 @@ const styles = themed(() => StyleSheet.create({
   setupSub: { ...typography.body, textAlign: 'center', color: colors.muted },
   setupBtn: { backgroundColor: colors.cyan, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, marginTop: spacing.sm, ...maritime.botaoPrimario },
   setupBtnText: { fontWeight: '700', fontSize: 16, color: colors.onAccent },
+  setupHistorico: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: spacing.md },
+  setupHistoricoTexto: { fontSize: 14, fontWeight: '700', color: colors.cyanDim },
+  historico: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54, marginTop: -spacing.xs, marginBottom: spacing.md,
+    paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: maritime.glass,
+    borderWidth: 1, borderColor: maritime.glassBorder, borderTopColor: maritime.edgeLight,
+  },
+  historicoTextos: { flex: 1, minWidth: 0 },
+  historicoTitulo: { fontSize: 15, fontWeight: '700', color: colors.white },
+  historicoSub: { fontSize: 12, color: colors.muted, marginTop: 1 },
 
   // Peça do painel: superfície elevada, aresta de luz em cima, sombra profunda
   heroCard: {

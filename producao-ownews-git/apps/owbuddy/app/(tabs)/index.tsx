@@ -29,15 +29,19 @@ import {
   modulosVisiveis,
   tamanhoDe,
   DEF_MODULO,
+  avisoHistoricoHome,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem,
   EventoPessoal, ConfigPagamento, PrefsHome, ModuloHome, Acontecimento, AcontecimentoTipo,
+  HistoricoData, AvisosHistorico,
 } from '@owbuddy/domain';
 import {
   getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref,
   getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome, getContatos,
+  getHistorico, getAvisosHistorico,
 } from '../../src/storage';
+import { AvisoFinalizar, AvisoSugestao } from '../../src/components/HistoricoAvisos';
 import { ondePrecisoEstar, linhasPreparacao } from '../../src/onde-estar';
 import { OndeEstarCard, PreparacaoCard } from '../../src/components/MomentoEmbarque';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,6 +83,8 @@ type HomeState = {
   pagamento: ConfigPagamento | null;
   home: PrefsHome;
   contatos: number;
+  historico: HistoricoData;
+  avisosHistorico: AvisosHistorico;
 };
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -101,11 +107,11 @@ export default function TelaHoje() {
   const load = useCallback(async () => {
     // Tudo LOCAL e de uma vez (inclusive o layout da Home): a primeira pintura já sai na
     // ordem do usuário — sem cards trocando de lugar depois de carregar.
-    const [escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos] = await Promise.all([
+    const [escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos, historico, avisosHistorico] = await Promise.all([
       getEscala(), getBuddyPrefs(), getViagem(), getChecklist(), getCerts(), getCityPref(),
-      getEventosPessoais(), getPagamento(), getPrefsHome(), getContatos(),
+      getEventosPessoais(), getPagamento(), getPrefsHome(), getContatos(), getHistorico(), getAvisosHistorico(),
     ]);
-    setState({ escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos: contatos.length });
+    setState({ escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos: contatos.length, historico, avisosHistorico });
     const visiveis = new Set(modulosVisiveis(home));
     // Rede só para o que está visível (e com cache): Vagas, Notícias e clima.
     if (visiveis.has('vagas')) {
@@ -317,6 +323,18 @@ export default function TelaHoje() {
     const i = pecas.findIndex(p => p.id === 'momento');
     // Viagem HOJE domina: vem antes do card da escala.
     pecas.splice(i < 0 ? 0 : onde?.quando === 'HOJE' ? i : i + 1, 0, contextoOperacional);
+  }
+
+  // Meu Histórico: só aparece com uma ação útil (finalizar o embarque cujo desembarque previsto
+  // chegou, ou registrar o embarque atual nos primeiros dias) — no máximo um aviso, com "Agora não".
+  const avisoHist = avisoHistoricoHome(escala, state.historico, state.avisosHistorico, agora, resumo.hojeISO);
+  if (avisoHist) {
+    const i = pecas.reduce((ult, p, k) => (p.grupo === 'topo' || p.id === 'momento' ? k : ult), -1);
+    pecas.splice(i + 1, 0, { id: 'momento', key: 'historico', grupo: 'topo', forma: 'bloco', render: () => (
+      avisoHist.tipo === 'FINALIZAR'
+        ? <AvisoFinalizar p={avisoHist.pendencia} onFeito={load} />
+        : <AvisoSugestao s={avisoHist.sugestao} onFeito={load} />
+    ) });
   }
 
   return (

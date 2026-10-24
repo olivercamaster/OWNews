@@ -187,7 +187,7 @@ export default function BuddyConfig() {
   const apagarAparelho = () => {
     confirmar(
       'Apagar dados deste aparelho?',
-      'Escala, mala, documentos, viagem, contatos, datas e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada.',
+      'Escala, mala, documentos, viagem, contatos, datas, Meu Histórico e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada.',
       'Apagar tudo',
       async () => {
         await apagarDadosDoAparelho();
@@ -421,7 +421,7 @@ export default function BuddyConfig() {
               <Text style={styles.contaEmail} numberOfLines={1}>{session.user.email}</Text>
             </View>
             <Text style={styles.contaDesc}>
-              Sincroniza escala, certificados e documentos (sem foto nem número), a mala e estas preferências com o OWNews. Viagem, contatos, datas, Cruzar e pagamento ficam só neste aparelho.
+              Sincroniza escala, certificados e documentos (sem foto nem número), a mala e estas preferências com o OWNews. Viagem, contatos, datas, Meu Histórico, Cruzar e pagamento ficam só neste aparelho.
             </Text>
             {syncMsg ? (
               <Text style={[styles.syncMsg, syncLoading && styles.syncMsgLoading]}>{syncMsg}</Text>

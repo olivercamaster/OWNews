@@ -17,3 +17,20 @@ export function confirmar(titulo: string, mensagem: string, rotulo: string, aoCo
 export function confirmarRemocao(titulo: string, mensagem: string, aoConfirmar: () => void): void {
   confirmar(titulo, mensagem, 'Excluir', aoConfirmar, true);
 }
+
+/**
+ * Pergunta de duas opções que devolve a escolha (true = confirmou). Para encadear avisos
+ * antes de salvar ("Essa data ainda não chegou", "sobrepõe outro registro"...).
+ */
+export function perguntar(titulo: string, mensagem: string, rotulo: string, rotuloCancelar = 'Cancelar'): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    return Promise.resolve(typeof window !== 'undefined' && window.confirm(`${titulo}\n${mensagem}`));
+  }
+  return new Promise(resolve => {
+    Alert.alert(titulo, mensagem, [
+      { text: rotuloCancelar, style: 'cancel', onPress: () => resolve(false) },
+      { text: rotulo, onPress: () => resolve(true) },
+    ], { cancelable: true, onDismiss: () => resolve(false) });
+  });
+}

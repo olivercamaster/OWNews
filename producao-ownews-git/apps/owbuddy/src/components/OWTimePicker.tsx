@@ -68,8 +68,10 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
   useEffect(() => {
     if (visible) {
       setTimeout(() => {
-        hRef.current?.scrollToIndex({ index: selH, animated: false, viewPosition: 0.5 });
-        mRef.current?.scrollToIndex({ index: selM, animated: false, viewPosition: 0.5 });
+        // Com paddingVertical de 2 itens, o item i fica na faixa central no offset i * ITEM_H
+        // (mesma regra do OWDatePicker).
+        hRef.current?.scrollToOffset({ offset: selH * ITEM_H, animated: false });
+        mRef.current?.scrollToOffset({ offset: selM * ITEM_H, animated: false });
       }, 50);
     }
   }, [visible]);
@@ -104,7 +106,7 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                       accessibilityState={{ selected: index === selH }}
                       onPress={() => {
                         setSelH(index);
-                        hRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                        hRef.current?.scrollToOffset({ offset: index * ITEM_H, animated: true });
                       }}
                     >
                       <Text style={[styles.itemText, index === selH && styles.itemTextSel]}>
@@ -122,7 +124,10 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                   getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
                   style={{ height: ITEM_H * VISIBLE }}
                   contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
-                  initialScrollIndex={selH}
+                  // Lista curta: renderiza tudo e posiciona por offset. Com initialScrollIndex, no
+                  // navegador as horas acima da inicial (00–07) nunca eram desenhadas.
+                  contentOffset={{ x: 0, y: selH * ITEM_H }}
+                  initialNumToRender={HOURS.length}
                   onScrollToIndexFailed={() => {}}
                 />
               </View>
@@ -146,7 +151,7 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                       accessibilityState={{ selected: index === selM }}
                       onPress={() => {
                         setSelM(index);
-                        mRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                        mRef.current?.scrollToOffset({ offset: index * ITEM_H, animated: true });
                       }}
                     >
                       <Text style={[styles.itemText, index === selM && styles.itemTextSel]}>
@@ -164,7 +169,8 @@ export function OWTimePicker({ visible, value, onConfirm, onCancel }: OWTimePick
                   getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
                   style={{ height: ITEM_H * VISIBLE }}
                   contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
-                  initialScrollIndex={selM}
+                  contentOffset={{ x: 0, y: selM * ITEM_H }}
+                  initialNumToRender={MINUTES.length}
                   onScrollToIndexFailed={() => {}}
                 />
               </View>

@@ -3,6 +3,8 @@ import type { EscalaConfig, EscalaOrigem, Certificado, ChecklistData, Viagem, Bu
 import { normalizeEscalaConfig, normalizeEscalasSecundarias, toEscalaEnvelope, normalizarConfigPagamento, normalizarPrefsHome, normalizarContatos } from '@owbuddy/domain';
 import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
+import { lerHistorico, lerAvisos, HISTORICO_VERSAO } from '@owbuddy/domain';
+import type { HistoricoData, AvisosHistorico } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
 
@@ -24,6 +26,10 @@ export const KEYS = {
   HOME_PREFS:       'owbuddy_home_prefs',
   APARENCIA:        'owbuddy_aparencia',
   CONTATOS:         'owbuddy_contatos_embarque',
+  // Meu Histórico — só neste aparelho (fora do sync, do analytics e das notificações).
+  HISTORICO:        'owbuddy_historico',
+  HISTORICO_AVISOS: 'owbuddy_historico_avisos',
+  HISTORICO_BACKUP: 'owbuddy_historico_backup',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -232,6 +238,53 @@ export async function getContatos(): Promise<ContatoEmbarque[]> {
 
 export async function setContatos(lista: ContatoEmbarque[]): Promise<void> {
   await set(KEYS.CONTATOS, lista);
+}
+
+// ─── Meu Histórico ──────────────────────────────────────────────────────────
+// Local-first: nunca sincroniza com a Conta OW, nunca vai para analytics, log ou notificação.
+// Leitura tolerante (lerHistorico). Se algo vier ilegível — ou de uma versão mais nova do
+// app —, o valor bruto é copiado UMA vez para HISTORICO_BACKUP antes de qualquer regravação,
+// e uma versão desconhecida nunca é sobrescrita.
+let filaHistorico: Promise<unknown> = Promise.resolve();
+
+export async function getHistorico(): Promise<HistoricoData> {
+  let raw: unknown = null;
+  try {
+    const s = await AsyncStorage.getItem(KEYS.HISTORICO);
+    raw = s ? JSON.parse(s) : null;
+  } catch {
+    raw = await AsyncStorage.getItem(KEYS.HISTORICO).catch(() => null); // JSON quebrado: guarda o texto
+  }
+  const leitura = lerHistorico(raw);
+  if ((leitura.descartados > 0 || leitura.versaoDesconhecida) && raw != null && (await get<unknown>(KEYS.HISTORICO_BACKUP)) == null) {
+    await set(KEYS.HISTORICO_BACKUP, { em: new Date().toISOString(), raw });
+  }
+  return leitura.data;
+}
+
+/**
+ * Lê o histórico MAIS RECENTE, aplica a alteração e grava — em fila (dois toques ou duas
+ * telas nunca se atropelam). Devolve o histórico gravado.
+ */
+export function alterarHistorico(fn: (h: HistoricoData) => HistoricoData): Promise<HistoricoData> {
+  const exec = filaHistorico.then(async () => {
+    const atual = await getHistorico();
+    const bruto = await get<{ v?: unknown }>(KEYS.HISTORICO);
+    if (bruto && typeof bruto.v === 'number' && bruto.v > HISTORICO_VERSAO) return atual; // versão nova: só leitura
+    const novo = fn(atual);
+    if (novo !== atual) await set(KEYS.HISTORICO, novo);
+    return novo;
+  });
+  filaHistorico = exec.catch(() => {});
+  return exec;
+}
+
+export async function getAvisosHistorico(): Promise<AvisosHistorico> {
+  return lerAvisos(await get<unknown>(KEYS.HISTORICO_AVISOS));
+}
+
+export async function setAvisosHistorico(av: AvisosHistorico): Promise<void> {
+  await set(KEYS.HISTORICO_AVISOS, av);
 }
 
 // ─── Apagar dados deste aparelho (Privacidade) ──────────────────────────────

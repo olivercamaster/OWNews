@@ -34,6 +34,8 @@ interface OWDatePickerProps {
   title?: string;
   onConfirm: (v: string) => void;
   onCancel: () => void;
+  /** Quantos anos para trás o seletor oferece (padrão 8). */
+  anosAtras?: number;
 }
 
 function PickerCol({
@@ -125,9 +127,9 @@ function PickerCol({
   );
 }
 
-export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCancel }: OWDatePickerProps) {
+export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCancel, anosAtras }: OWDatePickerProps) {
   useTema();
-  const [anos, setAnos] = useState<number[]>(() => anosDoSeletor(new Date(), value));
+  const [anos, setAnos] = useState<number[]>(() => anosDoSeletor(new Date(), value, anosAtras));
   const init = dataInicialSeletor(value);
   const [selD, setSelD] = useState(init.d - 1);     // índice em DAYS
   const [selM, setSelM] = useState(init.m - 1);     // índice em MESES_PT
@@ -140,7 +142,7 @@ export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCanc
   useEffect(() => {
     if (visible) {
       const hoje = new Date();
-      const lista = anosDoSeletor(hoje, value);
+      const lista = anosDoSeletor(hoje, value, anosAtras);
       const t = dataInicialSeletor(value, hoje);
       setAnos(lista);
       setSelD(t.d - 1);
@@ -150,7 +152,7 @@ export function OWDatePicker({ visible, value, title = 'Data', onConfirm, onCanc
     } else {
       setAbertura(null);
     }
-  }, [visible, value]);
+  }, [visible, value, anosAtras]);
 
   const year  = anos[selY] ?? anos[0]!;
   const month = selM + 1;

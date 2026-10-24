@@ -76,7 +76,16 @@ type EventName =
   | 'greeting_style_changed'
   | 'daily_phrase_toggled'
   | 'weather_enabled'
-  | 'weather_disabled';
+  | 'weather_disabled'
+  // Meu Histórico — só a AÇÃO (e o tipo do acontecimento). NUNCA unidade, empresa, função,
+  // datas, hotel, voo, observação ou qualquer texto do registro.
+  | 'historico_aberto'
+  | 'embarque_registrado'
+  | 'embarque_editado'
+  | 'embarque_excluido'
+  | 'acontecimento_registrado'
+  | 'acontecimento_editado'
+  | 'acontecimento_excluido';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

@@ -3,14 +3,14 @@
  */
 
 /**
- * Anos do seletor: 8 para trás e 10 para frente do ano LOCAL atual, e
- * sempre o ano do valor salvo (emissão antiga de certificado, por exemplo).
- * Calculado na abertura — nunca fixo no carregamento do módulo.
+ * Anos do seletor: 8 para trás (ou `anosAtras`, ex.: Meu Histórico) e 10 para frente
+ * do ano LOCAL atual, e sempre o ano do valor salvo (emissão antiga de certificado,
+ * por exemplo). Calculado na abertura — nunca fixo no carregamento do módulo.
  */
-export function anosDoSeletor(hoje: Date, valor?: string): number[] {
+export function anosDoSeletor(hoje: Date, valor?: string, anosAtras = 8): number[] {
   const atual = hoje.getFullYear();
   const y = valor && valor.length >= 10 ? parseInt(valor.slice(0, 4), 10) : atual;
-  const ini = Math.min(atual - 8, y), fim = Math.max(atual + 10, y);
+  const ini = Math.min(atual - anosAtras, y), fim = Math.max(atual + 10, y);
   return Array.from({ length: fim - ini + 1 }, (_, i) => ini + i);
 }
 

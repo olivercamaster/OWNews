@@ -126,6 +126,9 @@ alguma rota não tiver tela.
 | `owbuddy_city_pref`, `owbuddy_weather_cache` | cidade e clima da Home |
 | `owbuddy_lembretes_prefs` | preferências de lembrete |
 | `owbuddy_aparencia` | aparência: `"auto"` \| `"escuro"` \| `"claro"` (só local, fora do sync; sem valor = Automático) |
+| `owbuddy_historico` | Meu Histórico `{v:1, registros[], acontecimentos[], seq}` — SÓ local (fora do sync, analytics, log e notificação) |
+| `owbuddy_historico_avisos` | anti-spam dos avisos do Histórico (sugestões dispensadas, finalização adiada) |
+| `owbuddy_historico_backup` | cópia única do bruto se o histórico vier ilegível ou de versão mais nova (antes de regravar) |
 | `owbuddy_cache_feed_v3`, `owbuddy_noticias_abertas_v1` | notícias (cache) |
 | `owbuddy_cache_aeroportos_v1`, `owbuddy_cache_vagas`, `owbuddy_cache_unidades_v1` | caches online |
 | `sb-…-auth-token` | sessão Supabase (gerida pelo supabase-js) |
@@ -633,3 +636,21 @@ Checkpoint antes: tag `owbuddy-pre-auditoria-rc`. Nada de APK nesta rodada.
 - `/admin/conta-teste` (admin token) cria contas confirmadas SÓ `owbuddy-teste-*@example.com`, para validar em produção.
 - App: "Excluir minha Conta OW" abre a página pública (não mais mailto). Minha Escala web: botão leva à página.
 - `/privacidade` reescrita com seção OWBuddy (#owbuddy) e exclusão (#exclusao) conforme o código real; mapa Data Safety no relatório da missão.
+
+## Meu Histórico (2026-10-24)
+
+**Escala = planejado. Histórico = realizado.** Nada do Histórico grava na escala, e a escala nunca vira histórico sozinha.
+
+- Regras puras: `packages/ow-domain/src/historico.ts`. Telas: `/historico` (lista por ano), `/historico-registro?id=` (registro + LINHA DO TEMPO), `/historico-form` (`?sugestao=1` revisão do ciclo atual, `?id=` edição, `&finalizar=1` desembarque), `/historico-acontecimento?registro=&id=`. Avisos compartilhados: `src/components/HistoricoAvisos.tsx`; ações: `src/historico-acoes.ts`.
+- **Entrada**: aba Escala → linha "Meu Histórico" logo abaixo da barra de ações (sem sexta aba; a barra de 5 ações não comporta mais um item em 320 px). Também no estado "sem escala" da aba.
+- **Duração** (mesma convenção da escala): `desembarque − embarque` — 16/10 → 30/10 = 14 dias (Dia 1 = 16, Dia 14 = 29). Em andamento: "Dia N registrado" = dias desde o embarque REAL + 1 (independe do Dia N da escala). Ano = ano do embarque.
+- **Sugestão** (`sugestaoCicloAtual`): só o ciclo atual (embarcado) ou o que terminou há ≤ 7 dias; some se já há registro a ±4 dias ou outro em andamento. NUNCA cria registros de ciclos passados calculáveis. A revisão mostra "O Buddy já sabe" (datas previstas, Minha Viagem do ciclo — marcada, base/aeroporto da escala — desmarcada) e o usuário confirma/corrige.
+- **Previsto ≠ realizado**: `previsto {embarque, desembarque}` é uma foto do planejado no momento do registro. Data futura pede confirmação ("Essa data ainda não chegou."): embarque futuro → registro `planejado` (fora das estatísticas, sem Embarque automático); desembarque futuro → vira desembarque previsto e o registro segue em andamento. Acontecimento futuro → "Planejado" até a pessoa marcar "Aconteceu".
+- **Finalização**: desembarque previsto chegou → Home mostra UM aviso ("Registrar hoje / Alterar data / Agora não"; atrasado: "Confirmar 30/10 / Escolher outra data"). "Agora não" adia para amanhã (no dia) ou 3 dias (atrasado). Próximos dias mostra a mesma ação como linha. Sugestão de registrar o embarque atual só na Home nos dias 1–3 do embarque; depois de 2 sugestões dispensadas a Home para de sugerir (a tela do Histórico continua).
+- **Linha do tempo**: data → horário → ordem de criação (`seq`). Sem horário: Desembarque abre o dia; Hotel, Embarque e Casa fecham; os demais ficam após os com horário, em ordem de criação. Antes do embarque e depois do desembarque entram normalmente. Embarque/Desembarque são acontecimentos automáticos (`auto`) mantidos pelo registro (sem duplicar; editar a data deles corrige o registro). Dobra só quando a pessoa escolhe "Registrar como dobra" (desembarque depois do previsto) — sem inferir causa. "Transferido" é um tipo próprio (nunca "cancelado").
+- **Importar Minha Viagem**: copia só trajeto (tipo, data, hora, origem, destino, nº do voo) — sem localizador, assento ou observação. Deduplicação por `importadoDe`.
+- **Duplicidade/sobreposição**: aviso "Revisar / Salvar mesmo assim" (não bloqueia). Duplo toque: id criado na abertura do formulário + `useAcaoUnica` + `alterarHistorico` em fila.
+- **Privacidade**: local-first. `sync.ts` não conhece o Histórico; analytics só `historico_aberto`, `embarque_registrado/editado/excluido`, `acontecimento_registrado/editado/excluido` com `origem` literal ou o tipo do acontecimento. "Apagar dados deste aparelho" apaga (prefixo `owbuddy_`); Sair e Excluir Conta OW não. `/privacidade` continua correta (tudo que se cadastra no OWBuddy fica no celular; o Histórico não está na lista do que sincroniza).
+- **Futuro (estrutura pronta, não implementado)**: exportação PDF/CSV/backup, tempo por função/unidade, relatório pessoal. Não é documento oficial.
+- **Correção junto**: `OWTimePicker` posiciona por offset (como o `OWDatePicker`) e renderiza as 24/60 linhas — no navegador as horas antes da inicial (00–07) não eram desenhadas. `OWDatePicker` ganhou `anosAtras` (Histórico usa 40 anos).
+- Testes: `tests/historico.test.mjs` (31) + `tests/e2e/historico-preview.cjs` (jornada completa, 320–430 px, escuro e claro).

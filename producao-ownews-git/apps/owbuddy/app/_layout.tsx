@@ -222,6 +222,36 @@ function AppShell() {
           }}
         />
         <Stack.Screen
+          name="historico"
+          options={{
+            title: 'Meu Histórico',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="historico-registro"
+          options={{
+            title: 'Embarque',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
+          name="historico-form"
+          options={{
+            title: 'Registrar embarque',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="historico-acontecimento"
+          options={{
+            title: 'Acontecimento',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
           name="contato-form"
           options={{
             title: 'Contato do embarque',
