@@ -14,6 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   resumoEscala,
+  faltaPraCasa,
   gerarMesDias,
   getAeroporto,
   datasImportantesDoAno,
@@ -50,6 +51,7 @@ import { analytics } from '../../src/analytics';
 import { confirmarRemocao } from '../../src/confirmar';
 import { EVENTO_VISUAL } from '../../src/evento-visual';
 import { ioniconRelacao } from '../../src/relacao-icones';
+import { CompartilharEscala } from '../../src/components/CompartilharEscala';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -324,10 +326,10 @@ function DayBottomSheet({
                     <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => confirmarRemocao('Remover evento?', ev.nome, () => onDeleteEvento(ev.id))}
+                    onPress={() => confirmarRemocao('Excluir evento?', ev.nome, () => onDeleteEvento(ev.id))}
                     hitSlop={10}
                     style={{ marginLeft: 6 }}
-                    accessibilityLabel={`Remover ${ev.nome}`}
+                    accessibilityLabel={`Excluir ${ev.nome}`}
                   >
                     <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
@@ -393,6 +395,7 @@ export default function EscalaScreen() {
   const [cruzadas, setCruzadas] = useState<EscalaSecundaria[]>([]);
   const [viewMes, setViewMes] = useState(() => { const d = new Date(); return { ano: d.getFullYear(), mes: d.getMonth() + 1 }; });
   const [selectedDay, setSelectedDay] = useState<DayInfo | null>(null);
+  const [compartilhando, setCompartilhando] = useState(false);
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
@@ -413,6 +416,7 @@ export default function EscalaScreen() {
   const calc = resumo.calc;
   const aeroporto = config?.aeroporto ? getAeroporto(config.aeroporto) : undefined;
   const { proximoEmbarqueISO, proximoDesembarqueISO } = resumo;
+  const casa = faltaPraCasa(resumo);
 
   const navMes = (delta: number) => {
     setViewMes(vm => {
@@ -527,6 +531,8 @@ export default function EscalaScreen() {
           )}
         </View>
 
+        {casa ? <Text style={styles.casaLinha}>{casa.frase}.</Text> : null}
+
         <Text style={styles.auditLine} numberOfLines={2}>
           Base: {ESCALA_TIPOS.find(t => t.value === config.tipo)?.label ?? config.tipo}
           {config.tipo === 'custom' && config.diasEmbarcado && config.diasFolga ? ` (${config.diasEmbarcado}×${config.diasFolga})` : ''}
@@ -566,6 +572,11 @@ export default function EscalaScreen() {
           mes={viewMes.mes}
           onDayPress={setSelectedDay}
         />
+
+        <TouchableOpacity style={styles.shareBtn} onPress={() => setCompartilhando(true)} accessibilityRole="button" accessibilityLabel="Compartilhar escala deste mês como imagem">
+          <Ionicons name="share-social-outline" size={17} color={colors.cyanDim} />
+          <Text style={styles.shareTexto}>Compartilhar minha escala</Text>
+        </TouchableOpacity>
 
         {/* ── Legend ── */}
         <View style={styles.legend}>
@@ -647,7 +658,7 @@ export default function EscalaScreen() {
                   <Text style={styles.listRowDate}>{formatDateBR(e.ini)} → {formatDateBR(e.fim)}</Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => confirmarRemocao(e.tipo === 'dobra' ? 'Remover dobra?' : 'Remover férias?', `${formatDateBR(e.ini)} → ${formatDateBR(e.fim)}`, () => removeExcecao(e.id))}
+                  onPress={() => confirmarRemocao(e.tipo === 'dobra' ? 'Excluir dobra?' : 'Excluir férias?', `${formatDateBR(e.ini)} → ${formatDateBR(e.fim)}`, () => removeExcecao(e.id))}
                   hitSlop={10}
                   accessibilityLabel={e.tipo === 'dobra' ? 'Remover dobra' : 'Remover férias'}
                 >
@@ -686,10 +697,10 @@ export default function EscalaScreen() {
                     <Ionicons name="pencil-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => confirmarRemocao('Remover evento?', ev.nome, () => deleteEvento(ev.id))}
+                    onPress={() => confirmarRemocao('Excluir evento?', ev.nome, () => deleteEvento(ev.id))}
                     hitSlop={10}
                     style={{ marginLeft: 6 }}
-                    accessibilityLabel={`Remover ${ev.nome}`}
+                    accessibilityLabel={`Excluir ${ev.nome}`}
                   >
                     <Ionicons name="trash-outline" size={14} color={colors.mutedDim} />
                   </TouchableOpacity>
@@ -712,6 +723,7 @@ export default function EscalaScreen() {
         onEditEvento={(ev) => router.push({ pathname: '/escala-evento-form', params: { id: ev.id } })}
         onDeleteEvento={deleteEvento}
       />
+      <CompartilharEscala visivel={compartilhando} config={config} ano={viewMes.ano} mes={viewMes.mes} onFechar={() => setCompartilhando(false)} />
     </OWBackground>
   );
 }
@@ -719,7 +731,7 @@ export default function EscalaScreen() {
 function ActionBtn({ icon, label, onPress }: { icon: IoniconsName; label: string; onPress: () => void }) {
   useTema();
   return (
-    <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={20} color={colors.cyanDim} />
       <Text style={styles.actionLabel}>{label}</Text>
     </TouchableOpacity>
@@ -770,6 +782,13 @@ const styles = themed(() => StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: tokens.calendarEmbarcadoText, borderRadius: 3 },
   auditLine: { fontSize: 11, color: colors.mutedDim, marginTop: -spacing.sm, marginBottom: spacing.md, paddingHorizontal: 2 },
 
+  casaLinha: { fontSize: 15, fontWeight: '700', color: colors.white, textAlign: 'center', marginTop: -4, marginBottom: spacing.sm },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46,
+    borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
+    marginTop: spacing.sm, marginBottom: spacing.xs,
+  },
+  shareTexto: { color: colors.cyanDim, fontWeight: '700', fontSize: 14 },
   actionRow: {
     flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md,
     backgroundColor: surface.card, borderRadius: radius.md, padding: spacing.sm,

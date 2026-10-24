@@ -545,3 +545,13 @@ export const screen = {
 export function bottomNavSpace(bottomInset: number): number {
   return maritime.navHeight + maritime.navMarginBottom + Math.max(bottomInset, 8) + spacing.lg;
 }
+
+/**
+ * Paleta FIXA da imagem "Compartilhar minha escala" — a mesma em tema claro/escuro
+ * (quem recebe vê sempre a mesma peça, com a cara do OWBuddy).
+ */
+export const PALETA_COMPARTILHAR = {
+  fundo: '#061420', borda: '#123047', texto: '#eaf3f9', apagado: '#8fa3b3', marca: '#5fc4f5',
+  embBg: '#0e3a24', embTx: '#7fe0a3', folgaBg: '#0d1d2a', folgaTx: '#b7c6d2',
+  embarque: '#4fd389', desembarque: '#f2bf3a',
+} as const;

@@ -21,6 +21,7 @@ import {
   getAeroporto,
   contextoHome,
   sincronizarChecklistComCiclo,
+  cicloAlvoChecklist,
   gerarAcontecimentos,
   acontecimentosParaHome,
   saudacaoTopo,
@@ -35,8 +36,10 @@ import type {
 } from '@owbuddy/domain';
 import {
   getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref,
-  getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome,
+  getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome, getContatos,
 } from '../../src/storage';
+import { ondePrecisoEstar, linhasPreparacao } from '../../src/onde-estar';
+import { OndeEstarCard, PreparacaoCard } from '../../src/components/MomentoEmbarque';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomNavSpace, colors, maritime, spacing, radius, typography, themed } from '../../src/theme';
 import { useTema } from '../../src/tema';
@@ -74,10 +77,11 @@ type HomeState = {
   eventos: EventoPessoal[];
   pagamento: ConfigPagamento | null;
   home: PrefsHome;
+  contatos: number;
 };
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-type Peca = { id: ModuloHome; forma: 'bloco' | 'tile' | 'linha'; render: () => React.ReactNode; grupo: string };
+type Peca = { id: ModuloHome; key?: string; forma: 'bloco' | 'tile' | 'linha'; render: () => React.ReactNode; grupo: string };
 
 export default function TelaHoje() {
   useTema();
@@ -96,11 +100,11 @@ export default function TelaHoje() {
   const load = useCallback(async () => {
     // Tudo LOCAL e de uma vez (inclusive o layout da Home): a primeira pintura já sai na
     // ordem do usuário — sem cards trocando de lugar depois de carregar.
-    const [escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home] = await Promise.all([
+    const [escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos] = await Promise.all([
       getEscala(), getBuddyPrefs(), getViagem(), getChecklist(), getCerts(), getCityPref(),
-      getEventosPessoais(), getPagamento(), getPrefsHome(),
+      getEventosPessoais(), getPagamento(), getPrefsHome(), getContatos(),
     ]);
-    setState({ escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home });
+    setState({ escala, prefs, viagem, checklist, certs, city, eventos, pagamento, home, contatos: contatos.length });
     const visiveis = new Set(modulosVisiveis(home));
     // Rede só para o que está visível (e com cache): Vagas, Notícias e clima.
     if (visiveis.has('vagas')) {
@@ -170,9 +174,10 @@ export default function TelaHoje() {
   const momento = calcularMomento(escala);
   const resumo = resumoEscala(escala);
   const aeroporto = escala?.aeroporto ? getAeroporto(escala.aeroporto) : undefined;
-  // Contagem da lista do PRÓXIMO embarque — mesma regra de ciclo do Meu Embarque
-  // (sincronizarChecklistComCiclo), só para exibir; quem grava é a tela Meu Embarque.
-  const listaCiclo = sincronizarChecklistComCiclo(checklist, resumo.proximoEmbarqueISO).data;
+  // Contagem da mala do embarque-alvo — mesma regra de ciclo do Meu Embarque
+  // (no dia do embarque ainda é a de hoje), só para exibir; quem grava é a tela Meu Embarque.
+  const alvoMala = cicloAlvoChecklist(resumo);
+  const listaCiclo = sincronizarChecklistComCiclo(checklist, alvoMala, resumo.hojeISO).data;
   const checkCount: HomeChecklistContagem = contarPendentes(listaCiclo);
   const contexto = contextoHome(resumo, momento, checkCount);
   // Voz do Buddy (tom escolhido em Meu Buddy) — no tom "discreto" repetiria o hero.
@@ -181,6 +186,12 @@ export default function TelaHoje() {
     .filter(c => !c._deleted && c.validade)
     .filter(c => calcCertStatus(c).critico);
   const totalCerts = certs.filter(c => !c._deleted).length;
+  // Momento operacional: véspera/dia da viagem → "onde preciso estar"; últimos 3 dias
+  // antes do embarque (sem viagem iminente) → viagem e documentos em uma linha cada.
+  const onde = ondePrecisoEstar(viagem, escala, agora, alvoMala);
+  const prep = !onde && contexto.tipo === 'PRE_EMBARQUE' && resumo.proximoEmbarqueISO && (resumo.diasParaEmbarque ?? 99) <= 3
+    ? linhasPreparacao(viagem, certs, resumo.proximoEmbarqueISO, c => calcCertStatus(c as Certificado))
+    : [];
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
   const nome = prefs.apelido?.trim();
   const saudacao = saudacaoTopo(agora, home.estiloSaudacao, nome, prefs.trat);
@@ -244,7 +255,7 @@ export default function TelaHoje() {
         break;
       case 'embarque':
         pecas.push(tileOuLinha({ icon: 'checkbox-outline', label: 'Meu Embarque',
-          sub: checkCount.total === 0 ? 'Montar minha lista' : checkCount.pendentes === 0 ? 'Tudo preparado' : `${checkCount.feitos}/${checkCount.total} preparados`,
+          sub: checkCount.total === 0 ? 'Montar minha mala' : checkCount.pendentes === 0 ? 'Mala pronta' : `Mala: ${checkCount.feitos} de ${checkCount.total}`,
           accent: checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined, onPress: () => router.navigate('/mala') }));
         break;
       case 'viagem':
@@ -254,7 +265,7 @@ export default function TelaHoje() {
         break;
       case 'certs':
         pecas.push(tileOuLinha({ icon: 'document-text-outline', label: 'Certificados',
-          sub: critCerts.length > 0 ? `${critCerts.length} vence(m) em breve` : totalCerts > 0 ? `${totalCerts} em dia` : 'Controle de validades',
+          sub: critCerts.length > 0 ? `${critCerts.length} ${critCerts.length === 1 ? 'precisa' : 'precisam'} de atenção` : totalCerts > 0 ? 'Tudo certo' : 'Validades e avisos',
           accent: critCerts.length > 0 ? colors.amber : undefined, onPress: () => router.navigate('/certs') }));
         break;
       case 'vagas': {
@@ -293,6 +304,18 @@ export default function TelaHoje() {
         pecas.push({ id, grupo, forma: 'bloco', render: () => <Atalhos /> });
         break;
     }
+  }
+
+  // Contexto operacional logo abaixo do card da escala (ou no topo, se ele estiver oculto).
+  const contextoOperacional: Peca | null = onde
+    ? { id: 'momento', key: 'onde-estar', grupo: 'topo', forma: 'bloco', render: () => <OndeEstarCard onde={onde} mala={checkCount.total > 0 && contexto.tipo !== 'PRE_EMBARQUE' ? checkCount : null} contatos={state.contatos} /> }
+    : prep.length > 0
+      ? { id: 'momento', key: 'preparacao', grupo: 'topo', forma: 'bloco', render: () => <PreparacaoCard linhas={prep} /> }
+      : null;
+  if (contextoOperacional) {
+    const i = pecas.findIndex(p => p.id === 'momento');
+    // Viagem HOJE domina: vem antes do card da escala.
+    pecas.splice(i < 0 ? 0 : onde?.quando === 'HOJE' ? i : i + 1, 0, contextoOperacional);
   }
 
   return (
@@ -363,8 +386,8 @@ export default function TelaHoje() {
             <Ionicons name="warning-outline" size={18} color={colors.amber} />
             <Text style={[styles.alertText, { color: colors.amber }]}>
               {critCerts.length === 1
-                ? `${critCerts[0]!.nome} vence em breve`
-                : `${critCerts.length} certificados vencem em breve`}
+                ? `${critCerts[0]!.nome} · ${calcCertStatus(critCerts[0]!).label}`
+                : `${critCerts.length} documentos precisam de atenção`}
             </Text>
             <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
           </TouchableOpacity>
@@ -393,7 +416,7 @@ function Composicao({ pecas }: { pecas: Peca[] }) {
     const rotulo = ROTULO_GRUPO[p.grupo] ?? null;
     if (rotulo && rotulo !== ultimoRotulo) out.push(<Text key={`r-${p.id}`} style={styles.sectionLabel}>{rotulo}</Text>);
     ultimoRotulo = rotulo ?? (p.grupo === 'topo' ? ultimoRotulo : null);
-    if (p.forma === 'bloco') { out.push(<View key={p.id}>{p.render()}</View>); i++; continue; }
+    if (p.forma === 'bloco') { out.push(<View key={p.key ?? p.id}>{p.render()}</View>); i++; continue; }
     const run: Peca[] = [];
     while (i < pecas.length && pecas[i]!.forma === p.forma && pecas[i]!.grupo === p.grupo) run.push(pecas[i++]!);
     if (p.forma === 'tile') {

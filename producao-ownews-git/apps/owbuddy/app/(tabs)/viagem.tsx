@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -13,7 +12,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TIPO_LABELS, TIPO_ICONS, getViagemRota } from '@owbuddy/domain';
+import { TIPO_LABELS, TIPO_ICONS, getViagemRota, hojeISO } from '@owbuddy/domain';
+import { abrirNoMapa } from '../../src/mapa';
+import { ondePrecisoEstar, type LocalMapa } from '../../src/onde-estar';
 import type { Viagem, ViagemTipo } from '@owbuddy/domain';
 import { getViagem, setViagem, deleteViagem } from '../../src/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,9 @@ import { OWDatePicker } from '../../src/components/OWDatePicker';
 import { OWTimePicker, normalizeHora } from '../../src/components/OWTimePicker';
 import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
+import { avisar } from '../../src/feedback';
+import { useAcaoUnica, useVoltarAndroid } from '../../src/acoes';
+import { ContatosEmbarque } from '../../src/components/ContatosEmbarque';
 
 const TIPOS: ViagemTipo[] = ['AVIAO', 'ONIBUS', 'CARRO', 'VAN', 'EMPRESA', 'OUTRO'];
 
@@ -45,6 +49,8 @@ export default function MinhaViagem() {
   const [viagem, setViagemState] = useState<Viagem | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Partial<Viagem>>({ tipo: 'AVIAO' });
+  const [erro, setErro] = useState<string | null>(null);
+  useVoltarAndroid(editing, () => setEditing(false));
 
   const load = useCallback(async () => {
     const v = await getViagem();
@@ -60,39 +66,43 @@ export default function MinhaViagem() {
 
   const startNew = () => {
     setForm({ tipo: 'AVIAO' });
+    setErro(null);
     setEditing(true);
   };
 
   const startEdit = () => {
     if (viagem) {
       setForm({ ...viagem });
+      setErro(null);
       setEditing(true);
     }
   };
 
-  const save = async () => {
-    if (!form.tipo || !form.data) {
-      Alert.alert('Atenção', 'Data e tipo são obrigatórios.');
-      return;
-    }
+  const [save, salvando] = useAcaoUnica(async () => {
+    if (!form.tipo) { setErro('Escolha o tipo de transporte.'); return; }
+    if (!form.data) { setErro('Escolha a data da viagem.'); return; }
     const v: Viagem = {
       ...(form as Viagem),
       tipo: form.tipo as ViagemTipo,
       data: form.data,
       num_voo: form.num_voo ? normalizeVoo(form.num_voo) : undefined,
     };
+    const nova = !viagem;
     await setViagem(v);
     setViagemState(v);
     setEditing(false);
-    analytics.track('trip_created', { tipo: form.tipo });
-  };
+    analytics.track(nova ? 'trip_created' : 'trip_updated', { tipo: form.tipo });
+    avisar(nova ? 'Viagem salva' : 'Viagem atualizada');
+  });
 
   // confirmarRemocao: Alert nativo; no navegador, window.confirm (Alert com botões não existe na web).
   const del = () => {
-    confirmarRemocao('Remover viagem', 'Remover os dados desta viagem?', async () => {
+    confirmarRemocao('Excluir esta viagem?', 'Os dados da viagem saem deste aparelho. Seus contatos continuam salvos.', async () => {
       await deleteViagem();
       setViagemState(null);
       setEditing(false);
+      analytics.track('trip_deleted');
+      avisar('Viagem excluída');
     });
   };
 
@@ -101,7 +111,10 @@ export default function MinhaViagem() {
       <OWBackground>
         <ViagemForm
           form={form}
-          onChange={setForm}
+          erro={erro}
+          salvando={salvando}
+          novo={!viagem}
+          onChange={f => { setForm(f); if (erro) setErro(null); }}
           onSave={save}
           onCancel={() => setEditing(false)}
         />
@@ -112,20 +125,22 @@ export default function MinhaViagem() {
   if (!viagem) {
     return (
       <OWBackground>
-        <View style={styles.root}>
+        <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insetsTela.top + spacing.lg, paddingBottom: bottomNavSpace(insetsTela.bottom) }]}>
           <OWEmptyState
             icon="airplane-outline"
-            title="Sem viagem cadastrada"
-            description="Registre sua viagem de embarque aqui. Fica só neste aparelho."
+            title="Nenhuma viagem cadastrada"
+            description="Voo, ônibus, van ou carro até a base. No dia, eu mostro na Home onde você precisa estar. Fica só neste aparelho."
             actionLabel="+ Adicionar viagem"
             onAction={startNew}
           />
-        </View>
+          <ContatosEmbarque />
+        </ScrollView>
       </OWBackground>
     );
   }
 
   const rota = getViagemRota(viagem);
+  const mapa = localDaViagem(viagem);
   const horaDisplay = viagem.hora ? normalizeHora(viagem.hora) : null;
 
   return (
@@ -157,19 +172,28 @@ export default function MinhaViagem() {
           {viagem.obs ? <DetailRow icon="document-text-outline" label="Obs." value={viagem.obs} private /> : null}
         </OWCard>
 
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.editBtn} onPress={startEdit} accessibilityRole="button">
+            <Ionicons name="create-outline" size={16} color={colors.white} />
+            <Text style={styles.editBtnText}>Editar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.delBtn} onPress={del} accessibilityRole="button">
+            <Ionicons name="trash-outline" size={16} color={colors.red} />
+            <Text style={styles.delBtnText}>Excluir</Text>
+          </TouchableOpacity>
+        </View>
+
+        {mapa ? (
+          <TouchableOpacity style={styles.mapaBtn} onPress={() => abrirNoMapa(mapa)} accessibilityRole="button">
+            <Ionicons name="map-outline" size={16} color={colors.cyanDim} />
+            <Text style={styles.mapaTexto} numberOfLines={1}>Abrir no mapa · {mapa.nome}</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Transporte terrestre — só encaminha para o app oficial (sem corrida, sem pagamento, sem GPS) */}
         <TransporteTerrestre viagem={viagem} />
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.editBtn} onPress={startEdit}>
-            <Ionicons name="pencil-outline" size={16} color={colors.white} />
-            <Text style={styles.editBtnText}>Editar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.delBtn} onPress={del}>
-            <Ionicons name="trash-outline" size={16} color={colors.red} />
-            <Text style={styles.delBtnText}>Remover</Text>
-          </TouchableOpacity>
-        </View>
+        <ContatosEmbarque />
 
         <View style={styles.privRow}>
           <Ionicons name="lock-closed-outline" size={11} color={colors.mutedDim} />
@@ -178,6 +202,11 @@ export default function MinhaViagem() {
       </ScrollView>
     </OWBackground>
   );
+}
+
+/** Lugar do mapa: o mesmo de "Onde preciso estar?" (sem geocodificar). */
+function localDaViagem(v: Viagem): LocalMapa | null {
+  return ondePrecisoEstar({ ...v, data: hojeISO() }, null)?.mapa ?? null;
 }
 
 // ─────────────────────── Transporte terrestre ───────────────────────
@@ -246,11 +275,17 @@ const detailStyles = themed(() => StyleSheet.create({
 // ─────────────────────── Formulário ───────────────────────
 function ViagemForm({
   form,
+  erro,
+  salvando,
+  novo,
   onChange,
   onSave,
   onCancel,
 }: {
   form: Partial<Viagem>;
+  erro: string | null;
+  salvando: boolean;
+  novo: boolean;
   onChange: (v: Partial<Viagem>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -263,7 +298,13 @@ function ViagemForm({
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md, paddingBottom: bottomNavSpace(insets.bottom) }]}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md, paddingBottom: bottomNavSpace(insets.bottom) }]} keyboardShouldPersistTaps="handled">
+        <View style={formStyles.cabecalho}>
+          <TouchableOpacity onPress={onCancel} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar sem salvar" style={formStyles.voltar}>
+            <Ionicons name="chevron-back" size={22} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={formStyles.titulo}>{novo ? 'Nova viagem' : 'Editar viagem'}</Text>
+        </View>
 
         {/* Tipo */}
         <Text style={formStyles.sectionLabel}>Tipo de transporte</Text>
@@ -355,7 +396,7 @@ function ViagemForm({
             <View style={formStyles.rowFields}>
               <View style={{ flex: 1 }}>
                 <Field
-                  label="Origem"
+                  label="Aeroporto de saída"
                   placeholder="GRU"
                   value={form.origem ?? ''}
                   onChange={v => onChange({ ...form, origem: v.toUpperCase().slice(0, 4) })}
@@ -366,7 +407,7 @@ function ViagemForm({
               <View style={{ flex: 1 }}>
                 <Field
                   label="Destino"
-                  placeholder="MAO"
+                  placeholder="MEA"
                   value={form.destino ?? ''}
                   onChange={v => onChange({ ...form, destino: v.toUpperCase().slice(0, 4) })}
                   autoCapitalize="characters"
@@ -422,12 +463,19 @@ function ViagemForm({
           <Text style={styles.privNote}>Localizador e observações ficam apenas neste dispositivo</Text>
         </View>
 
+        {erro ? (
+          <View style={formStyles.erro} accessibilityRole="alert">
+            <Ionicons name="alert-circle-outline" size={16} color={colors.amber} />
+            <Text style={formStyles.erroTexto}>{erro}</Text>
+          </View>
+        ) : null}
+
         <View style={formStyles.btnRow}>
-          <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel}>
+          <TouchableOpacity style={formStyles.cancelBtn} onPress={onCancel} accessibilityRole="button">
             <Text style={formStyles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={formStyles.saveBtn} onPress={onSave}>
-            <Text style={formStyles.saveText}>Salvar viagem</Text>
+          <TouchableOpacity style={[formStyles.saveBtn, salvando && { opacity: 0.6 }]} onPress={onSave} disabled={salvando} accessibilityRole="button">
+            <Text style={formStyles.saveText}>{salvando ? 'Salvando…' : 'Salvar viagem'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -481,6 +529,11 @@ function Field({ label, placeholder, value, onChange, keyboardType, multiline, a
 
 // ─────────────────────── Styles ───────────────────────
 const formStyles = themed(() => StyleSheet.create({
+  cabecalho: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  voltar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.xs },
+  titulo: { ...typography.h2 },
+  erro: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm },
+  erroTexto: { color: colors.amber, fontSize: 13, fontWeight: '600', flex: 1 },
   sectionLabel: { ...typography.micro, color: colors.muted, marginBottom: spacing.sm, marginTop: spacing.md },
   tipoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tipoChip: {
@@ -535,8 +588,8 @@ const styles = themed(() => StyleSheet.create({
 
   heroSection: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xs },
   heroTipo: { ...typography.micro, color: colors.cyanDim, marginBottom: spacing.xs },
-  heroData: { fontSize: 32, fontWeight: '700', color: colors.white, marginBottom: spacing.xs },
-  heroHora: { fontSize: 24, fontWeight: '400', color: colors.cyanDim },
+  heroData: { fontSize: 28, fontWeight: '700', color: colors.white, marginBottom: spacing.xs },
+  heroHora: { fontSize: 22, fontWeight: '400', color: colors.cyanDim },
   heroRota: { fontSize: 17, color: colors.muted, fontWeight: '500' },
 
   detailCard: { marginBottom: spacing.md },
@@ -555,6 +608,12 @@ const styles = themed(() => StyleSheet.create({
   delBtnText: { color: colors.red, fontWeight: '600' },
   privRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: spacing.sm },
   privNote: { ...typography.small, color: colors.mutedDim },
+  mapaBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minHeight: 48,
+    backgroundColor: maritime.glass, borderRadius: radius.md, paddingHorizontal: spacing.md,
+    borderWidth: 1, borderColor: maritime.glassBorder,
+  },
+  mapaTexto: { color: colors.cyanDim, fontWeight: '600', flexShrink: 1 },
   transporte: { marginTop: spacing.md, gap: 6 },
   transporteTitulo: { ...typography.micro, color: colors.cyanDim },
   transporteSub: { fontSize: 13, color: colors.muted, lineHeight: 18 },
