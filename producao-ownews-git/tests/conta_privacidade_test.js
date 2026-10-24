@@ -32,6 +32,13 @@ test("proxy /api/conta/excluir: só POST, repassa SÓ o Authorization ao coletor
   expect(b.includes('request.method !== "POST"') && b.includes('COLETOR_BASE_URL + "/conta/excluir"'));
   expect(b.includes('headers: { Authorization: request.headers.get("Authorization") || "" }') && !b.includes("request.body") && !b.includes("request.text()"));
 });
+test("COLETOR_BASE_URL é código de verdade no topo do módulo (não dentro de string de script)", () => {
+  // As consts SUPABASE_URL/AEROPORTOS_URL ~linha 3337 vivem DENTRO de um template literal
+  // (JS do navegador) — usá-las no worker dava ReferenceError → 502. Parse real com acorn.
+  const ast = require("acorn").parse(W, { ecmaVersion: "latest", sourceType: "module" });
+  const topo = ast.body.filter(n => n.type === "VariableDeclaration").flatMap(n => n.declarations.map(d => d.id.name));
+  expect(topo.includes("COLETOR_BASE_URL"), "não está no escopo do módulo");
+});
 test("nenhuma chave administrativa no site; nenhum e-mail inexistente", () => {
   expect(!/service_role|SERVICE_ROLE/i.test(W), "service role no front");
   expect(!W.includes("suporte@ownews.com.br"), "ownews.com.br não recebe e-mail (MX nulo)");

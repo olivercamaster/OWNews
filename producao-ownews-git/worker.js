@@ -149,6 +149,7 @@ function classificarPaginaParaAds(caminho) {
 const RE_LEAD_INSTITUCIONAL = /[Rr]evista fundada em [0-9]{4}|^[Ii]nforma[çc][ãa]o publicada (pela|por) |^[Nn]ot[ií]cias sobre [Pp]ortos, [Mm]arinha [Mm]ercante|^[a-zà-ú][a-zà-ú ]*(, [a-zà-ú ]+){2,}\.?$/;
 // S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
 const AEROPORTOS_COLLECTOR_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
+const COLETOR_BASE_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
 const AEROPORTOS_LISTA_SERVIDOR = [
   { codigo:'SBJR', nome:'Jacarepaguá',       cidade:'Rio de Janeiro',        uf:'RJ' },
   { codigo:'SBMI', nome:'Maricá',             cidade:'Maricá',                uf:'RJ' },
@@ -3337,7 +3338,6 @@ document.addEventListener('keydown', (e) => {
 const SUPABASE_URL = 'https://awyowuhwkqfyhwgdpepp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt';
 const AEROPORTOS_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos';
-const COLETOR_BASE_URL = 'https://shrill-pond-a915.olivercamaster.workers.dev';
 
 /* ---------- MODO EMBARCADO (Fase A, 2026-09-18) ----------
    Lido de localStorage ANTES do primeiro render (SEED_ARTICLES) pra já
