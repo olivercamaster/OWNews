@@ -1,4 +1,9 @@
-import type { ChecklistData, ChecklistItem } from './types';
+import type { ChecklistData, ChecklistItem, EscalaResumo } from './types';
+
+/** Dia LOCAL "YYYY-MM-DD" (mesma regra de escala.ts/hojeISO; local para manter este módulo sem dependências). */
+function hojeLocal(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 // ─── Vocabulário canônico de categorias ────────────────────────────────────
 // Adotado em S2 (2026-10-05). Web usa E/P; app usa este vocabulário.
@@ -114,6 +119,16 @@ export function deveResetarChecklist(data: ChecklistData, nextEmbarqueISO: strin
 }
 
 /**
+ * Embarque para o qual a mala está sendo preparada. No PRÓPRIO dia do embarque
+ * (embarcado, Dia 1) ainda é o de hoje — a pessoa costuma conferir a mala nessa
+ * manhã; a partir do Dia 2 passa a ser o próximo (após a folga).
+ */
+export function cicloAlvoChecklist(resumo: EscalaResumo): string | null {
+  if (resumo.estado === 'EMBARCADO' && resumo.calc?.diaDoBloco === 1) return resumo.hojeISO;
+  return resumo.proximoEmbarqueISO;
+}
+
+/**
  * Vira o ciclo da lista para um novo embarque — mesma regra do OWNews web:
  * itens com `rec:false` saem; demais permanecem com `ok:false`.
  */
@@ -127,25 +142,33 @@ export function resetarChecklistParaCiclo(data: ChecklistData, cicloISO: string)
 }
 
 /**
- * Garante que a lista existe, pertence ao próximo embarque e usa vocabulário canônico.
- * Sem lista → cria padrão. Ciclo diferente → reset. Cats legadas → migra.
+ * Garante que a lista existe, pertence ao embarque-alvo e usa vocabulário canônico.
+ *
+ * O reset (desmarcar recorrentes, tirar os "só deste embarque") só acontece quando o
+ * embarque da lista JÁ PASSOU — `ciclo` anterior ao alvo e anterior a hoje. Abrir o app,
+ * editar a escala ou um relógio voltado para trás nunca apagam marcações:
+ *   - sem lista            → cria padrão
+ *   - lista sem ciclo      → adota o alvo, marcações intactas
+ *   - alvo mais adiante e o embarque da lista já começou → reset (novo ciclo)
+ *   - alvo mais adiante, embarque da lista ainda por vir (escala editada) → só re-chaveia
+ *   - alvo ANTES do ciclo da lista (relógio/escala para trás) → nada muda
  */
 export function sincronizarChecklistComCiclo(
   data: ChecklistData | null,
-  nextEmbarqueISO: string | null,
+  alvoISO: string | null,
+  hoje: string = hojeLocal(),
 ): { data: ChecklistData; alterado: boolean; resetado: boolean } {
   // Lista vazia é escolha do usuário (ocultou tudo) — não recria; "Restaurar itens padrão" traz de volta.
   if (!data || !Array.isArray(data.items)) {
-    return { data: criarChecklistPadrao(nextEmbarqueISO), alterado: true, resetado: false };
+    return { data: criarChecklistPadrao(alvoISO), alterado: true, resetado: false };
   }
-  if (nextEmbarqueISO && data.ciclo !== nextEmbarqueISO) {
-    const resetada = resetarChecklistParaCiclo(data, nextEmbarqueISO);
-    const { data: migrada } = normalizarChecklistCats(resetada);
-    return { data: migrada, alterado: true, resetado: true };
-  }
-  // Mesmo ciclo: apenas migrar cats se necessário
   const { data: migrada, migrado } = normalizarChecklistCats(data);
-  return { data: migrada, alterado: migrado, resetado: false };
+  if (!alvoISO || migrada.ciclo === alvoISO) return { data: migrada, alterado: migrado, resetado: false };
+  if (migrada.ciclo && migrada.ciclo > alvoISO) return { data: migrada, alterado: migrado, resetado: false };
+  if (migrada.ciclo && migrada.ciclo < hoje) {
+    return { data: resetarChecklistParaCiclo(migrada, alvoISO), alterado: true, resetado: true };
+  }
+  return { data: { ...migrada, ciclo: alvoISO }, alterado: true, resetado: false };
 }
 
 export function contarPendentes(data: ChecklistData): { total: number; feitos: number; pendentes: number } {
@@ -163,13 +186,30 @@ export function toggleItem(data: ChecklistData, id: string): ChecklistData {
   };
 }
 
-/** Adiciona item customizado; cat padrão = personalizados. */
-export function addItem(data: ChecklistData, texto: string, cat = 'personalizados'): ChecklistData {
-  const id = 'custom_' + Date.now();
-  return {
-    ...data,
-    items: [...data.items, { id, t: texto, cat, ok: false }],
-  };
+/** Id único mesmo com dois toques no mesmo milissegundo. */
+function novoIdItem(data: ChecklistData): string {
+  let id: string;
+  do id = 'custom_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  while (data.items.some(i => i.id === id));
+  return id;
+}
+
+/**
+ * Adiciona item personalizado (cat padrão = personalizados). `todoEmbarque` = levar em
+ * todo embarque (recorrente, padrão); false = só neste embarque (sai na virada do ciclo).
+ * Texto vazio ou repetido (mesmo nome, ignorando maiúsculas) não duplica.
+ */
+export function addItem(data: ChecklistData, texto: string, cat = 'personalizados', todoEmbarque = true): ChecklistData {
+  const t = texto.trim();
+  if (!t || data.items.some(i => i.t.trim().toLowerCase() === t.toLowerCase())) return data;
+  const item: ChecklistItem = { id: novoIdItem(data), t, cat, ok: false };
+  if (!todoEmbarque) item.rec = false;
+  return { ...data, items: [...data.items, item] };
+}
+
+/** Item vale para todos os embarques? (ausente = sim, regra do web). */
+export function ehRecorrente(item: ChecklistItem): boolean {
+  return item.rec !== false;
 }
 
 export function removeItem(data: ChecklistData, id: string): ChecklistData {
@@ -179,11 +219,29 @@ export function removeItem(data: ChecklistData, id: string): ChecklistData {
   };
 }
 
-/** Renomeia um item (texto vazio = sem mudança). */
-export function editarItem(data: ChecklistData, id: string, texto: string): ChecklistData {
+/** Renomeia um item (texto vazio = sem mudança) e, se informado, muda "todo embarque". */
+export function editarItem(data: ChecklistData, id: string, texto: string, todoEmbarque?: boolean): ChecklistData {
   const t = texto.trim();
   if (!t) return data;
-  return { ...data, items: data.items.map(item => (item.id === id ? { ...item, t } : item)) };
+  return {
+    ...data,
+    items: data.items.map(item => {
+      if (item.id !== id) return item;
+      const novo: ChecklistItem = { ...item, t };
+      if (todoEmbarque === true) delete novo.rec;
+      else if (todoEmbarque === false) novo.rec = false;
+      return novo;
+    }),
+  };
+}
+
+/** "8 de 11 itens prontos" / "Mala pronta" / "Lista vazia". */
+export function progressoMala(data: ChecklistData): { total: number; feitos: number; pendentes: number; texto: string } {
+  const { total, feitos, pendentes } = contarPendentes(data);
+  const texto = total === 0 ? 'Lista vazia'
+    : pendentes === 0 ? 'Mala pronta'
+    : `${feitos} de ${total} ${total === 1 ? 'item pronto' : 'itens prontos'}`;
+  return { total, feitos, pendentes, texto };
 }
 
 /** Reset controlado: desmarca tudo, mantém os itens e o ciclo. */

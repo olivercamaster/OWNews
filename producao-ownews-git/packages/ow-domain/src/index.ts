@@ -16,3 +16,5 @@ export * from './buddy-agora';
 export * from './presentes';
 export * from './saudacoes';
 export * from './home-prefs';
+export * from './contatos';
+export * from './compartilhar';

@@ -14,7 +14,7 @@
  */
 import type { Certificado, ChecklistData, EscalaConfig, EventoPessoal, EventoTipo, Viagem } from './types';
 import { diasEntreISO, hojeISO as hojeISOde, isoValido, resumoEscala } from './escala';
-import { calcCertStatus } from './certs';
+import { avisoDiasDocumento, calcCertStatus } from './certs';
 import { contarPendentes, sincronizarChecklistComCiclo } from './checklist';
 import { TIPO_LABELS } from './viagem';
 import { escalaNaData, fraseEscalaNaData, proximaOcorrencia, tituloEvento } from './datas-importantes';
@@ -144,12 +144,12 @@ export function gerarAcontecimentos(e: EntradaBuddyAgora): Acontecimento[] {
     }
     // ── Checklist incompleto perto do embarque (mesma regra de ciclo do Meu Embarque) ──
     if (resumo.estado === 'DE_FOLGA' && resumo.proximoEmbarqueISO && resumo.diasParaEmbarque != null && resumo.diasParaEmbarque <= 7) {
-      const lista2 = sincronizarChecklistComCiclo(e.checklist, resumo.proximoEmbarqueISO).data;
+      const lista2 = sincronizarChecklistComCiclo(e.checklist, resumo.proximoEmbarqueISO, hoje).data;
       const { pendentes } = contarPendentes(lista2);
       if (pendentes > 0) {
         lista.push(montar({
           id: `checklist-${resumo.proximoEmbarqueISO}`, tipo: 'CHECKLIST',
-          titulo: pendentes === 1 ? 'Falta 1 item para o embarque' : `Faltam ${pendentes} itens para o embarque`,
+          titulo: pendentes === 1 ? 'Falta 1 item na mala' : `Faltam ${pendentes} itens na mala`,
           dataISO: resumo.proximoEmbarqueISO, dias: resumo.diasParaEmbarque, criticidade: 3,
           recorrencia: 'ciclo', origem: 'checklist', rota: '/mala', notificavel: true,
         }));
@@ -179,13 +179,14 @@ export function gerarAcontecimentos(e: EntradaBuddyAgora): Acontecimento[] {
   for (const c of e.certs) {
     if (c._deleted || !c.validade || !isoValido(c.validade)) continue;
     const calc = calcCertStatus(c, agora);
-    if (calc.dias == null || calc.dias > 30 || calc.dias < -30) continue;
+    // Janela = "Avisar antes" do documento (padrão 30); vencido aparece por 30 dias.
+    if (calc.dias == null || calc.dias > avisoDiasDocumento(c) || calc.dias < -30) continue;
     const titulo = calc.dias < 0 ? `${c.nome} venceu` : calc.dias === 0 ? `${c.nome} vence hoje` : `${c.nome} vence`;
     lista.push({
       id: `cert-${c.id}-${c.validade}`, tipo: 'CERTIFICADO', titulo, dataISO: c.validade,
       dias: calc.dias, faixa: faixaDe(calc.dias), criticidade: calc.dias <= 7 ? 0 : 5,
       recorrencia: 'nenhuma', origem: 'certificado', rota: '/certs', notificavel: true,
-      acao: { tipo: 'rota', label: 'Ver certificado', rota: '/certs' },
+      acao: { tipo: 'rota', label: 'Ver documento', rota: '/certs' },
     });
   }
 

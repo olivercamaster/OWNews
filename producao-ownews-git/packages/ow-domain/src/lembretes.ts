@@ -21,8 +21,9 @@ import type { Certificado, ChecklistData, EscalaConfig, EventoPessoal, Viagem } 
 import { LABEL_EVENTO, diasLembrete, proximaOcorrencia } from './datas-importantes';
 import { proximosPagamentos, type ConfigPagamento } from './pagamento';
 import { hojeISO, isoValido, resumoEscala, somarDiasISO } from './escala';
-import { contarPendentes } from './checklist';
+import { contarPendentes, sincronizarChecklistComCiclo } from './checklist';
 import { TIPO_LABELS } from './viagem';
+import { avisoDiasDocumento } from './certs';
 
 export type LembreteTipo = 'embarque' | 'checklist' | 'certificado' | 'viagem' | 'evento' | 'pagamento';
 
@@ -116,29 +117,43 @@ export function planejarLembretes(e: EntradaLembretes): LembretePlanejado[] {
   const resumo = resumoEscala(e.escala, agora);
   const emb = resumo.proximoEmbarqueISO;
 
+  // Mala do PRÓXIMO embarque (mesma régua de ciclo do Meu Embarque — nunca a lista velha).
+  const pendentesMala = emb && e.checklist && Array.isArray(e.checklist.items)
+    ? contarPendentes(sincronizarChecklistComCiclo(e.checklist, emb, hojeISO(agora)).data).pendentes
+    : 0;
+  const v = e.viagem;
+  const horaViagem = v?.hora && HORA_RE.test(v.hora) ? v.hora : null;
+  // Viagem no dia do embarque: a véspera vira UM aviso só (embarque + viagem + mala).
+  const viagemNoEmbarque = !!(emb && v && isoValido(v.data) && v.data === emb && e.prefs.embarque);
+
   if (emb && e.prefs.embarque) {
     add({
       id: `embarque-3d-${emb}`, tipo: 'embarque', quando: `${somarDiasISO(emb, -3)}T09:00`,
       titulo: 'Embarque em 3 dias', corpo: `Seu próximo embarque é em ${dataBR(emb)}.`, rota: '/escala',
     });
+    const partes = [`Amanhã (${dataBR(emb)}) é dia de embarque.`];
+    if (viagemNoEmbarque && v) {
+      const tipo = v.tipo === 'AVIAO' ? 'Voo' : (TIPO_LABELS[v.tipo] ?? 'Viagem');
+      partes.push(horaViagem ? `${tipo} às ${horaViagem}.` : `${tipo} amanhã.`);
+    }
+    if (e.prefs.checklist && pendentesMala > 0) {
+      partes.push(pendentesMala === 1 ? 'Falta 1 item na mala.' : `Faltam ${pendentesMala} itens na mala.`);
+    }
     add({
       id: `embarque-1d-${emb}`, tipo: 'embarque', quando: `${somarDiasISO(emb, -1)}T18:00`,
-      titulo: 'Embarque amanhã', corpo: `Amanhã (${dataBR(emb)}) é dia de embarque. Bom descanso hoje.`, rota: '/escala',
+      titulo: 'Embarque amanhã', corpo: partes.join(' '), rota: viagemNoEmbarque ? '/viagem' : '/escala',
     });
   }
 
-  if (emb && e.prefs.checklist && e.checklist && Array.isArray(e.checklist.items)) {
-    const { pendentes } = contarPendentes(e.checklist);
-    if (pendentes > 0) {
-      add({
-        id: `checklist-2d-${emb}`, tipo: 'checklist', quando: `${somarDiasISO(emb, -2)}T19:00`,
-        titulo: 'Meu Embarque',
-        corpo: pendentes === 1
-          ? 'Ainda falta 1 item na sua lista. Vai lembrando, eu guardo pra você.'
-          : `Ainda faltam ${pendentes} itens na sua lista. Vai lembrando, eu guardo pra você.`,
-        rota: '/mala',
-      });
-    }
+  if (emb && e.prefs.checklist && pendentesMala > 0) {
+    add({
+      id: `checklist-2d-${emb}`, tipo: 'checklist', quando: `${somarDiasISO(emb, -2)}T19:00`,
+      titulo: 'Mala',
+      corpo: pendentesMala === 1
+        ? 'Embarque em 2 dias. Falta 1 item na mala.'
+        : `Embarque em 2 dias. Faltam ${pendentesMala} itens na mala.`,
+      rota: '/mala',
+    });
   }
 
   if (e.prefs.certificados) {
@@ -147,28 +162,31 @@ export function planejarLembretes(e: EntradaLembretes): LembretePlanejado[] {
       .filter(c => !c._deleted && isoValido(c.validade) && c.validade! >= hoje)
       .sort((a, b) => (a.validade! < b.validade! ? -1 : 1));
     for (const c of ativos) {
-      for (const antes of [30, 7]) {
+      // "Avisar antes" escolhido no cadastro (padrão 30) + reforço 7 dias antes.
+      const aviso = avisoDiasDocumento(c);
+      for (const antes of aviso > 7 ? [aviso, 7] : [aviso]) {
         add({
           id: `cert-${antes}d-${c.id}-${c.validade}`, tipo: 'certificado',
           quando: `${somarDiasISO(c.validade!, -antes)}T09:00`,
-          titulo: 'Certificado perto do vencimento',
-          corpo: `Um dos seus certificados vence em ${antes} dias (${dataBR(c.validade!)}). Confira em Certificados.`,
+          titulo: 'Documento perto do vencimento',
+          corpo: `Um dos seus documentos vence em ${antes} ${antes === 1 ? 'dia' : 'dias'} (${dataBR(c.validade!)}). Confira em Certificados.`,
           rota: '/certs',
         });
       }
     }
   }
 
-  const v = e.viagem;
   if (v && e.prefs.viagem && isoValido(v.data)) {
     const tipo = TIPO_LABELS[v.tipo] ?? 'Viagem';
-    const hora = v.hora && HORA_RE.test(v.hora) ? v.hora : null;
-    add({
-      id: `viagem-1d-${v.data}`, tipo: 'viagem', quando: `${somarDiasISO(v.data, -1)}T20:00`,
-      titulo: 'Viagem amanhã',
-      corpo: hora ? `${tipo} amanhã às ${hora}.` : `${tipo} amanhã.`,
-      rota: '/viagem',
-    });
+    const hora = horaViagem;
+    if (!viagemNoEmbarque) {
+      add({
+        id: `viagem-1d-${v.data}`, tipo: 'viagem', quando: `${somarDiasISO(v.data, -1)}T20:00`,
+        titulo: 'Viagem amanhã',
+        corpo: hora ? `${tipo} amanhã às ${hora}.` : `${tipo} amanhã.`,
+        rota: '/viagem',
+      });
+    }
     const tresHoras = hora ? menosHoras(v.data, hora, 3) : null;
     if (tresHoras) {
       add({

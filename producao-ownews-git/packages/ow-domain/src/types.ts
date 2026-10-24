@@ -187,9 +187,15 @@ export interface Viagem {
 
 export type CertStatus = 'valido' | 'atencao' | 'vence-hoje' | 'vencido' | 'sem-data';
 
+/** Tipo do documento acompanhado na aba Certificados. Ausente = certificado (dados antigos). */
+export type DocumentoTipo = 'CERTIFICADO' | 'PASSAPORTE' | 'CNH' | 'ASO' | 'OUTRO';
+
 export interface Certificado {
   id: string;
   nome: string;
+  tipo?: DocumentoTipo;
+  /** Dias de antecedência do aviso de vencimento. Ausente = 30. */
+  aviso_dias?: number;
   validade?: string;
   emissao?: string;
   instituicao?: string;
