@@ -129,10 +129,18 @@ test("API: URL oficial do arquivo unificado montada a partir da config", async (
   expect(urls[1] === "https://resultados.tse.jus.br/oficial/ele2026/6260/dados/es/es-c0003-e006260-u.json", urls[1]);
 });
 
-test("Home: faixa só enquanto ativa; depois some sozinha", () => {
+test("Home: resultado ao vivo na ordem pedida, JS válido, sem número fixo; some após o prazo", () => {
   const html = '<main class="container" id="conteudo"><p>x</p>';
   const ativo = carregar(null, { t: Date.parse("2026-10-25T22:00:00Z") }).m;
   expect(ativo.eleicoesFaixaHome(html).includes('href="/eleicoes-2026"'), "faixa ausente");
+  const h = ativo.eleicoesFaixaHome(html);
+  // Hierarquia do adendo: ao vivo → Presidente → candidatos → progresso → hora/fonte → CTA.
+  const ordem = ["Eleições 2026 · ao vivo", "Presidente", 'id="eleiHomeCands"', 'id="eleiHomeProg"', 'id="eleiHomeHora"', "Ver apuração completa"].map(x => h.indexOf(x));
+  expect(ordem.every((v, i) => v > 0 && (i === 0 || v > ordem[i - 1])), "ordem " + ordem.join());
+  const js = h.match(/<script>([\s\S]*?)<\/script>/)[1];
+  new Function(js); // JS inline válido (lição worker.js string concat)
+  expect(!/\d{1,3}(\.\d{3})+ votos|\d+,\d+%/.test(h.replace(/<script>[\s\S]*?<\/script>/, "")), "nenhum número fixo no HTML");
+  expect(js.includes("/api/eleicoes-2026/resultado?cargo=presidente&abr=br") && !/tse\.jus\.br/.test(js), "só o snapshot OWNews");
   const depois = carregar(null, { t: Date.parse("2026-10-28T03:00:01Z") }).m;
   expect(depois.eleicoesFaixaHome(html) === html, "faixa deveria sumir");
 });

@@ -22169,19 +22169,44 @@ function renderEleicoes2026() {
     conteudo, '/eleicoes-2026');
 }
 
-// Faixa da Home: estática no HTML (Home tem cache de borda 5 min); o percentual
-// de seções totalizadas vem do mesmo snapshot via fetch no navegador.
+// Módulo da Home: RESULTADO ao vivo na primeira tela (candidatos e percentuais
+// antes do progresso). HTML estático (Home tem cache de borda 5 min); os valores
+// vêm só do snapshot oficial (/api/eleicoes-2026) no navegador, a cada 30 s.
 function eleicoesFaixaHome(html) {
   if (!eleicoesAtivas()) return html;
-  const faixa = '<a class="elei-faixa" href="/eleicoes-2026" id="eleiFaixa"><span class="elei-faixa-k"><span class="elei-faixa-dot"></span>Eleições 2026 · ao vivo</span>' +
-    '<span class="elei-faixa-t">Resultados do 2º turno</span><span class="elei-faixa-p" id="eleiFaixaPct">Dados oficiais do TSE</span>' +
-    '<span class="elei-faixa-cta">Acompanhar apuração →</span></a>' +
-    '<style>.elei-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:14px 0 4px;padding:14px 18px;border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:12px;background:var(--navy-900);color:var(--white);text-decoration:none;font-family:var(--ui)}' +
-    '.elei-faixa:hover{border-color:var(--cyan)}.elei-faixa-k{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim)}' +
-    '.elei-faixa-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 3px rgba(18,168,238,.18)}.elei-faixa-t{font-family:var(--editorial);font-size:19px;font-weight:600}' +
-    '.elei-faixa-p{font-size:14px;color:var(--muted)}.elei-faixa-p b{color:var(--white);font-variant-numeric:tabular-nums}.elei-faixa-cta{margin-left:auto;font-size:13px;font-weight:700;color:var(--cyan)}' +
-    '@media(max-width:600px){.elei-faixa{padding:12px 14px}.elei-faixa-t{font-size:17px;flex-basis:100%}.elei-faixa-cta{margin-left:0}}</style>' +
-    '<script>(function(){try{fetch("/api/eleicoes-2026/resultado?cargo=presidente&abr=br").then(function(r){return r.json()}).then(function(j){var p=j&&j.ok&&j.dados&&j.dados.secoes&&j.dados.secoes.pct;if(p){var e=document.getElementById("eleiFaixaPct");e.textContent="";var b=document.createElement("b");b.textContent=p+"%";e.appendChild(b);e.appendChild(document.createTextNode(" das seções totalizadas"));}}).catch(function(){});}catch(e){}})();</script>';
+  const faixa = '<a class="elei-home" href="/eleicoes-2026" id="eleiFaixa" aria-label="Eleições 2026 ao vivo: ver apuração completa">' +
+    '<span class="elei-h-k"><span class="elei-h-dot"></span>Eleições 2026 · ao vivo</span>' +
+    '<span class="elei-h-cargo">Presidente</span>' +
+    '<span class="elei-h-cands" id="eleiHomeCands"><span class="elei-h-msg">Carregando resultado oficial do TSE…</span></span>' +
+    '<span class="elei-h-prog" id="eleiHomeProg"></span><span class="elei-h-barra"><span id="eleiHomeBarra"></span></span>' +
+    '<span class="elei-h-rod"><span id="eleiHomeHora">Fonte: TSE</span><span class="elei-h-cta">Ver apuração completa →</span></span></a>' +
+    '<style>.elei-home{display:block;margin:12px 0 6px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px solid var(--cyan);border-radius:14px;background:var(--navy-900);color:var(--white);text-decoration:none;font-family:var(--ui)}' +
+    '.elei-home:hover{border-color:var(--cyan)}.elei-h-k{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan-dim)}' +
+    '.elei-h-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 3px rgba(18,168,238,.18)}' +
+    '.elei-h-cargo{display:block;margin-top:6px;font-size:15px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}' +
+    '.elei-h-cands{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px;margin:10px 0;min-height:104px}' +
+    '.elei-h-c{display:block;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--navy-800);min-width:0}' +
+    '.elei-h-nome{display:block;font-size:14px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}' +
+    '.elei-h-sit{display:inline-block;margin-top:4px;padding:1px 8px;border:1px solid var(--cyan);border-radius:99px;color:var(--cyan);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}' +
+    '.elei-h-pct{display:block;margin-top:6px;font-size:clamp(28px,8vw,42px);font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}' +
+    '.elei-h-votos{display:block;margin-top:3px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}' +
+    '.elei-h-msg{grid-column:1/-1;align-self:center;font-size:14px;color:var(--muted)}' +
+    '.elei-h-prog{display:block;font-size:13px;color:var(--muted)}.elei-h-prog b{color:var(--white);font-variant-numeric:tabular-nums}' +
+    '.elei-h-barra{display:block;height:4px;margin-top:6px;border-radius:99px;background:var(--navy-700);overflow:hidden}.elei-h-barra span{display:block;height:100%;width:0;background:var(--cyan)}' +
+    '.elei-h-rod{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;margin-top:8px;font-size:12px;color:var(--muted)}' +
+    '.elei-h-cta{font-size:13px;font-weight:800;color:var(--cyan)}@media(max-width:600px){.elei-home{padding:12px 12px 10px}.elei-h-c{padding:9px 10px}}</style>' +
+    '<script>(function(){var C=document.getElementById("eleiHomeCands");if(!C||!window.fetch)return;var P=document.getElementById("eleiHomeProg"),B=document.getElementById("eleiHomeBarra"),H=document.getElementById("eleiHomeHora"),ok=false;' +
+    'function el(t,c,x){var e=document.createElement(t);e.className=c;if(x!=null)e.textContent=x;return e}' +
+    'function n(s){var v=Number(s);return s!==""&&isFinite(v)?v.toLocaleString("pt-BR"):"—"}' +
+    'function p(s){var v=parseFloat(String(s||"").replace(",","."));return isFinite(v)?Math.max(0,Math.min(100,v)):0}' +
+    'function r(j){var d=j.dados,ini=!!(d.totalizadoEm&&d.andamento!=="n");C.textContent="";' +
+    'd.candidatos.forEach(function(c){var a=el("span","elei-h-c");a.appendChild(el("span","elei-h-nome",c.nome));var st=c.situacao&&c.situacao.trim();if(c.eleito==="s"||st)a.appendChild(el("span","elei-h-sit",st||"Eleito"));' +
+    'a.appendChild(el("strong","elei-h-pct",ini?c.pct+"%":"—"));a.appendChild(el("span","elei-h-votos",ini?n(c.votos)+" votos":"Aguardando totalização"));C.appendChild(a)});' +
+    'P.textContent="";var b=el("b","",(d.secoes.pct||"0,00")+"%");P.appendChild(b);P.appendChild(document.createTextNode(" das seções totalizadas"));B.style.width=p(d.secoes.pct)+"%";' +
+    'var h=d.totalizadoEm?d.totalizadoEm.split(" ")[1]:null;H.textContent=(h?"Atualizado às "+h+" · ":"")+"Fonte: TSE"+(j.falhaEm?" · atualização temporariamente indisponível":"");ok=true}' +
+    'function f(){if(ok)H.textContent=H.textContent.replace(/ · atualização temporariamente indisponível$/,"")+" · atualização temporariamente indisponível";else C.textContent="",C.appendChild(el("span","elei-h-msg","Dados oficiais temporariamente indisponíveis."))}' +
+    'function go(){fetch("/api/eleicoes-2026/resultado?cargo=presidente&abr=br",{cache:"no-store"}).then(function(x){return x.json()}).then(function(j){if(j&&j.ok&&j.dados)r(j);else f()}).catch(f)}' +
+    'go();setInterval(function(){if(!document.hidden)go()},30000)})();</script>';
   return html.replace('<main class="container" id="conteudo">', '<main class="container" id="conteudo">' + faixa);
 }
 /* ==== ELEIÇÕES 2026: FIM ==== */
