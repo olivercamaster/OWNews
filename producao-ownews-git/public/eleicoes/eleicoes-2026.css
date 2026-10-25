@@ -1,0 +1,54 @@
+/* OWNews · Eleições 2026 — identidade OWNews (navy/ciano/branco/cinza).
+   Tratamento visual idêntico para todos os candidatos; sem cores partidárias. */
+.elei{max-width:960px;margin:0 auto;padding:8px 0 32px;font-family:var(--ui);color:var(--white)}
+.elei-hero{padding:18px 0 20px;border-bottom:1px solid var(--line);margin-bottom:22px}
+.elei-kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan-dim)}
+.elei-aovivo{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 4px rgba(18,168,238,.16)}
+.elei-hero h1{font-family:var(--ui);font-size:clamp(34px,7vw,54px);font-weight:800;letter-spacing:-.01em;text-transform:uppercase;margin:10px 0 2px;line-height:1.02}
+.elei-sub{font-size:clamp(16px,3.2vw,20px);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px}
+.elei-fonte{font-size:13px;color:var(--muted);margin:0}
+.elei-msg{color:var(--muted);font-size:15px;padding:18px 0}
+.elei-painel{border:1px solid var(--line);border-radius:16px;background:var(--navy-900);padding:20px;margin:0 0 22px}
+.elei-principal{border-color:var(--line);border-top:3px solid var(--cyan)}
+.elei-painel .elei-painel{background:var(--navy-950);margin:18px 0 0}
+.elei-painel-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:14px}
+.elei-painel-cab h2{font-family:var(--ui);font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin:0}
+.elei-painel-sub{font-size:13px;color:var(--muted)}
+.elei-prog{margin:0 0 18px}
+.elei-prog-topo{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.elei-prog-pct{font-size:clamp(34px,8vw,48px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.elei-prog-rot{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.elei-prog-det{font-size:13px;color:var(--muted);margin:8px 0 0;font-variant-numeric:tabular-nums}
+.elei-barra{height:8px;border-radius:99px;background:var(--navy-700);overflow:hidden;margin-top:10px}
+.elei-barra span{display:block;height:100%;background:var(--cyan);border-radius:99px;transition:width .6s ease}
+.elei-barra-cand{height:6px}
+.elei-barra-cand span{background:var(--cyan-dim)}
+.elei-cands{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+.elei-cand{border:1px solid var(--line-soft);border-radius:14px;background:var(--navy-800);padding:16px;min-width:0}
+.elei-cand-cab{display:flex;gap:12px;align-items:flex-start}
+.elei-cand-n{flex:0 0 auto;min-width:44px;height:44px;padding:0 6px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;color:var(--white)}
+.elei-cand-nomes{min-width:0}
+.elei-cand-nome{font-family:var(--ui);font-size:18px;font-weight:800;margin:0;line-height:1.2;overflow-wrap:anywhere}
+.elei-cand-partido,.elei-cand-vice{font-size:12.5px;color:var(--muted);margin:3px 0 0;overflow-wrap:anywhere}
+.elei-cand-sit{display:inline-block;margin-top:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--cyan);color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.elei-cand-pct{display:block;font-size:clamp(30px,7vw,40px);font-weight:800;font-variant-numeric:tabular-nums;margin-top:12px;line-height:1}
+.elei-cand-votos{font-size:14px;color:var(--muted);margin:8px 0 0;font-variant-numeric:tabular-nums}
+.elei-hora{display:flex;flex-direction:column;gap:3px;margin:16px 0 0}
+.elei-hora-p{font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.elei-hora-s{font-size:12.5px;color:var(--muted)}
+.elei-aviso{margin-top:8px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--navy-950);font-size:13px;color:var(--white)}
+.elei-det{margin-top:16px;border-top:1px solid var(--line-soft);padding-top:12px}
+.elei-det summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--cyan)}
+.elei-det dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:12px 0 0;font-size:14px}
+.elei-det dt{color:var(--muted)}
+.elei-det dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.elei-det-nota,.elei-painel-fonte{font-size:12px;color:var(--muted-dim);margin:10px 0 0}
+.elei-sel{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);max-width:420px}
+.elei-sel select{font:inherit;font-size:16px;color:var(--white);background:var(--navy-800);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.elei-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+.elei-chips-rot{font-size:13px;color:var(--muted);margin-right:2px}
+.elei-chip{font:inherit;font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--white);background:var(--navy-800);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;min-height:34px}
+.elei-chip.ativo,.elei-chip:hover{border-color:var(--cyan);color:var(--cyan)}
+.elei-nota{font-size:12.5px;color:var(--muted-dim);line-height:1.5;margin:8px 0 0}
+@media(max-width:600px){.elei-painel{padding:16px;border-radius:14px}.elei-painel .elei-painel{padding:14px}.elei-cand{padding:14px}}
+@media(prefers-reduced-motion:reduce){.elei-barra span{transition:none}}

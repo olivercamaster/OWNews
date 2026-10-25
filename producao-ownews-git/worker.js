@@ -6397,7 +6397,7 @@ function blocoAgendaHome() {
 
 async function renderHomeServidor() {
   const agendaHome = blocoAgendaHome();
-  const base = agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica();
+  const base = eleicoesFaixaHome(agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica());
   try {
     const noticias = await obterNoticiasHomeServidor();
     return injetarNoticiasHome(base, noticias, new Date());
@@ -22031,6 +22031,161 @@ function nlRenderCancelar(status) {
   return paginaChrome('Cancelar inscrição — OWNews', m.p, conteudo, '/newsletter/cancelar');
 }
 
+/* ==== ELEIÇÕES 2026 (2º turno, 25/10/2026): INÍCIO ====
+   Cobertura temporária da totalização com dados OFICIAIS do TSE (arquivo
+   unificado EA20 "-u" e configuração EA11 ele-c.json). O OWNews não calcula,
+   não projeta e não interpreta: só reorganiza a estrutura dos campos do TSE.
+   Navegador → OWNews (nunca → TSE). Cada arquivo do TSE é consultado no
+   máximo 1x a cada ELEICOES_INTERVALO_S por PoP, com If-None-Match (304 =
+   reaproveita o último snapshot). Sem KV, sem banco: só Cache API.
+   Para desligar: ELEICOES_ATE no passado. Para remover: apagar este bloco,
+   as 2 chamadas (rota e Home) e public/eleicoes/. */
+const ELEICOES_ATE = Date.parse('2026-10-28T03:00:00Z');
+const ELEICOES_TSE = 'https://resultados.tse.jus.br/oficial';
+const ELEICOES_INTERVALO_S = 30; // arquivos do TSE vêm com max-age 36–56 s
+const ELEICOES_UFS = ['ac','al','am','ap','ba','ce','df','es','go','ma','mg','ms','mt','pa','pb','pe','pi','pr','rj','rn','ro','rr','rs','sc','se','sp','to'];
+const ELEICOES_ASSET_V = '1627fa90ac';
+
+function eleicoesAtivas(agora) { return (agora || Date.now()) < ELEICOES_ATE; }
+
+// Snapshot guardado no Cache API do PoP: {dados, etag, lm, consultadoEm}.
+async function eleicoesBuscar(chave, urlTse, transformar, ctx) {
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  const k = new Request('https://ownews-eleicoes.interno/' + chave);
+  let snap = null;
+  if (cache) { try { const r = await cache.match(k); if (r) snap = await r.json(); } catch {} }
+  const agora = Date.now();
+  if (snap && agora - snap.consultadoEm < ELEICOES_INTERVALO_S * 1000) return { snap, fonte: 'cache' };
+  const cab = { 'User-Agent': 'OWNews-Eleicoes/1.0 (+https://ownews.com.br/eleicoes-2026)' };
+  if (snap && snap.etag) cab['If-None-Match'] = snap.etag;
+  else if (snap && snap.lm) cab['If-Modified-Since'] = snap.lm;
+  let novo = null, erro = null;
+  try {
+    const r = await fetch(urlTse, { headers: cab, cf: { cacheTtl: 0 } });
+    if (r.status === 304 && snap) novo = { ...snap, consultadoEm: agora, falhaEm: null };
+    else if (r.ok) novo = { dados: transformar(await r.json()), etag: r.headers.get('etag'), lm: r.headers.get('last-modified'), consultadoEm: agora, falhaEm: null };
+    else erro = 'HTTP ' + r.status;
+  } catch (e) { erro = String(e && e.message || e); }
+  if (!novo) {
+    if (!snap) return { snap: null, erro };
+    // TSE indisponível: mantém o último snapshot válido e só re-tenta após o intervalo.
+    novo = { ...snap, consultadoEm: agora, falhaEm: agora };
+  }
+  if (cache) {
+    const gravar = cache.put(k, new Response(JSON.stringify(novo), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=172800' } }));
+    if (ctx && ctx.waitUntil) ctx.waitUntil(gravar.catch(() => {})); else await gravar.catch(() => {});
+  }
+  return { snap: novo, fonte: novo.falhaEm ? 'snapshot' : 'tse' };
+}
+
+// EA11: eleições do 2º turno de 25/10/2026 lidas da configuração oficial.
+function eleicoesConfig(cfg) {
+  const out = { presidente: null, governador: null, governadorUfs: [] };
+  for (const pl of (cfg && cfg.pl) || []) {
+    if (pl.c !== 'ele2026') continue;
+    for (const e of pl.e || []) {
+      if (e.t !== '2') continue;
+      for (const a of e.abr || []) for (const c of a.cp || []) {
+        if (c.cd === '1') out.presidente = e.cd;
+        if (c.cd === '3') { out.governador = e.cd; if (ELEICOES_UFS.includes(a.cd)) out.governadorUfs.push(a.cd); }
+      }
+    }
+  }
+  out.governadorUfs.sort();
+  return out;
+}
+
+// EA20 → estrutura de exibição. Só renomeia campos; números e percentuais
+// seguem como strings oficiais do TSE (percentual com vírgula).
+function eleicoesResultado(j) {
+  const carg = (j.carg || [])[0] || {};
+  const cands = [];
+  for (const ag of carg.agr || []) for (const p of ag.par || []) for (const c of p.cand || []) {
+    const vice = (c.vs || []).find(v => v.tp === 'v');
+    cands.push({ n: c.n, nome: c.nmu, nomeCompleto: c.nm, partido: p.sg, coligacao: ag.tp === 'c' ? ag.nm : null, composicao: ag.com || null,
+      vice: vice ? vice.nmu : null, viceP: vice ? vice.sgp : null, votos: c.vap, pct: c.pvap, pctn: c.pvapn, seq: c.seq, eleito: c.e, situacao: c.st, destino: c.dvt });
+  }
+  // Ordem objetiva: votos oficiais (vap); empate e pré-totalização → seq do TSE.
+  // (No arquivo da UF o seq não acompanha a votação daquela UF.)
+  cands.sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Number(a.seq) - Number(b.seq));
+  const s = j.s || {}, el = j.e || {}, v = j.v || {};
+  return {
+    cargo: carg.nmn || null, abr: j.cdabr, eleicao: j.ele, turno: j.t, oficial: j.f === 'o',
+    andamento: j.and, totalizacaoFinal: j.tf, matematicamenteDefinido: j.md,
+    geradoEm: j.dg && j.hg ? j.dg + ' ' + j.hg : null, totalizadoEm: j.dt && j.ht ? j.dt + ' ' + j.ht : null,
+    secoes: { total: s.ts, totalizadas: s.st, pct: s.pst, pctn: s.pstn, pendentes: s.snt, pctPendentes: s.psnt },
+    eleitorado: el.te, comparecimento: el.c, pctComparecimento: el.pc, abstencao: el.a, pctAbstencao: el.pa,
+    votos: { total: v.tv, validos: v.vv, pctValidos: v.pvvc, brancos: v.vb, pctBrancos: v.pvb, nulos: v.tvn, pctNulos: v.ptvn },
+    candidatos: cands,
+  };
+}
+
+function eleicoesJson(obj, status, maxAge) {
+  return new Response(JSON.stringify(obj), { status: status || 200, headers: {
+    'Content-Type': 'application/json; charset=UTF-8', 'Cache-Control': 'public, max-age=' + (maxAge == null ? 15 : maxAge),
+    'X-Robots-Tag': 'noindex' } });
+}
+
+async function eleicoesResponder(request, url, ctx) {
+  if (url.pathname === '/eleicoes-2026') {
+    return new Response(renderEleicoes2026(), { headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': 'public, max-age=60' } });
+  }
+  if (request.method !== 'GET') return eleicoesJson({ erro: 'método' }, 405, 0);
+  const cfgR = await eleicoesBuscar('config', ELEICOES_TSE + '/comum/config/ele-c.json', eleicoesConfig, ctx);
+  const cfg = cfgR.snap && cfgR.snap.dados;
+  if (url.pathname === '/api/eleicoes-2026/config') {
+    if (!cfg) return eleicoesJson({ ok: false }, 503, 5);
+    return eleicoesJson({ ok: true, ufs: ELEICOES_UFS, governadorUfs: cfg.governadorUfs });
+  }
+  if (url.pathname !== '/api/eleicoes-2026/resultado') return eleicoesJson({ erro: 'rota' }, 404, 60);
+  const cargo = url.searchParams.get('cargo') === 'governador' ? 'governador' : 'presidente';
+  const abr = String(url.searchParams.get('abr') || 'br').toLowerCase();
+  // Só abrangências que existem na configuração oficial — nunca URL adivinhada.
+  const valida = cargo === 'presidente' ? (abr === 'br' || ELEICOES_UFS.includes(abr)) : !!(cfg && cfg.governadorUfs.includes(abr));
+  if (!cfg || !valida) return eleicoesJson({ ok: false, motivo: cfg ? 'abrangencia' : 'config' }, cfg ? 404 : 503, cfg ? 300 : 5);
+  const ele = cargo === 'presidente' ? cfg.presidente : cfg.governador;
+  const cd = cargo === 'presidente' ? '0001' : '0003';
+  const arq = abr + '-c' + cd + '-e' + String(ele).padStart(6, '0') + '-u.json';
+  const r = await eleicoesBuscar('r/' + arq, ELEICOES_TSE + '/ele2026/' + ele + '/dados/' + abr + '/' + arq, eleicoesResultado, ctx);
+  if (!r.snap) return eleicoesJson({ ok: false, motivo: 'indisponivel' }, 503, 5);
+  return eleicoesJson({ ok: true, cargo, abr, consultadoEm: r.snap.consultadoEm, falhaEm: r.snap.falhaEm || null,
+    atualizadoTse: r.snap.lm || null, dados: r.snap.dados });
+}
+
+function renderEleicoes2026() {
+  const conteudo =
+    '<link rel="stylesheet" href="/eleicoes/eleicoes-2026.css?v=' + ELEICOES_ASSET_V + '">' +
+    '<div class="elei" id="elei" data-estado="carregando">' +
+    '<div class="elei-hero"><span class="elei-kicker"><span class="elei-aovivo"></span>2º turno · 25 de outubro</span>' +
+    '<h1>Eleições 2026</h1><p class="elei-sub">Resultados ao vivo</p>' +
+    '<p class="elei-fonte">Dados oficiais do Tribunal Superior Eleitoral</p></div>' +
+    '<div id="eleiApp"><p class="elei-msg">Carregando dados oficiais do TSE…</p></div>' +
+    '<noscript><p class="elei-msg">Ative o JavaScript para acompanhar a totalização.</p></noscript>' +
+    '<p class="elei-nota">O OWNews exibe os números exatamente como publicados pelo TSE em resultados.tse.jus.br — sem cálculo, projeção ou interpretação própria. Percentuais de candidatos sobre os votos válidos, conforme o TSE.</p>' +
+    '</div>' +
+    '<script src="/eleicoes/eleicoes-2026.js?v=' + ELEICOES_ASSET_V + '" defer></script>';
+  return paginaChrome('Eleições 2026 — Resultados ao vivo do 2º turno',
+    'Totalização ao vivo do 2º turno das Eleições 2026 para Presidente e Governador, com dados oficiais do Tribunal Superior Eleitoral (TSE).',
+    conteudo, '/eleicoes-2026');
+}
+
+// Faixa da Home: estática no HTML (Home tem cache de borda 5 min); o percentual
+// de seções totalizadas vem do mesmo snapshot via fetch no navegador.
+function eleicoesFaixaHome(html) {
+  if (!eleicoesAtivas()) return html;
+  const faixa = '<a class="elei-faixa" href="/eleicoes-2026" id="eleiFaixa"><span class="elei-faixa-k"><span class="elei-faixa-dot"></span>Eleições 2026 · ao vivo</span>' +
+    '<span class="elei-faixa-t">Resultados do 2º turno</span><span class="elei-faixa-p" id="eleiFaixaPct">Dados oficiais do TSE</span>' +
+    '<span class="elei-faixa-cta">Acompanhar apuração →</span></a>' +
+    '<style>.elei-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:14px 0 4px;padding:14px 18px;border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:12px;background:var(--navy-900);color:var(--white);text-decoration:none;font-family:var(--ui)}' +
+    '.elei-faixa:hover{border-color:var(--cyan)}.elei-faixa-k{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan-dim)}' +
+    '.elei-faixa-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 3px rgba(18,168,238,.18)}.elei-faixa-t{font-family:var(--editorial);font-size:19px;font-weight:600}' +
+    '.elei-faixa-p{font-size:14px;color:var(--muted)}.elei-faixa-p b{color:var(--white);font-variant-numeric:tabular-nums}.elei-faixa-cta{margin-left:auto;font-size:13px;font-weight:700;color:var(--cyan)}' +
+    '@media(max-width:600px){.elei-faixa{padding:12px 14px}.elei-faixa-t{font-size:17px;flex-basis:100%}.elei-faixa-cta{margin-left:0}}</style>' +
+    '<script>(function(){try{fetch("/api/eleicoes-2026/resultado?cargo=presidente&abr=br").then(function(r){return r.json()}).then(function(j){var p=j&&j.ok&&j.dados&&j.dados.secoes&&j.dados.secoes.pct;if(p){var e=document.getElementById("eleiFaixaPct");e.textContent="";var b=document.createElement("b");b.textContent=p+"%";e.appendChild(b);e.appendChild(document.createTextNode(" das seções totalizadas"));}}).catch(function(){});}catch(e){}})();</script>';
+  return html.replace('<main class="container" id="conteudo">', '<main class="container" id="conteudo">' + faixa);
+}
+/* ==== ELEIÇÕES 2026: FIM ==== */
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -22244,6 +22399,11 @@ export default {
         }
       } catch (e) { stats.error = String(e); }
       return new Response(JSON.stringify(stats), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    }
+
+    // Eleições 2026 (temporário): página + API do snapshot oficial do TSE.
+    if (url.pathname === "/eleicoes-2026" || url.pathname.startsWith("/api/eleicoes-2026/")) {
+      return eleicoesResponder(request, url, ctx);
     }
 
     if (url.pathname === "/") {
