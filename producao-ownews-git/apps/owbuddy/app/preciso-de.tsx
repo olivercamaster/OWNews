@@ -7,6 +7,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { EscalaConfig, Viagem } from '@owbuddy/domain';
+import { useOwBuddyPlus } from '../src/plus/acesso';
+import { SeloPlus } from '../src/components/PortaoPlus';
 import { getEscala, getViagem } from '../src/storage';
 import { colors, maritime, radius, spacing, themed } from '../src/theme';
 import { useTema } from '../src/tema';
@@ -16,12 +18,13 @@ import { opcoesTransporte } from '../src/transporte';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-const OPCOES: { id: string; label: string; sub: string; icon: IoniconsName; rota?: string }[] = [
+// `plus`: recurso do OWBuddy+ (sem acesso, ganha selo discreto; o toque abre a tela que explica).
+const OPCOES: { id: string; label: string; sub: string; icon: IoniconsName; rota?: string; plus?: boolean }[] = [
   { id: 'transporte', label: 'Transporte', sub: 'Uber ou 99 até o aeroporto ou a base', icon: 'car-outline' },
   { id: 'aeroporto', label: 'Aeroporto', sub: 'Condições nas bases offshore', icon: 'cloudy-outline', rota: '/aeroportos' },
-  { id: 'viagem', label: 'Minha Viagem', sub: 'Voo, ônibus, horário', icon: 'airplane-outline', rota: '/viagem' },
-  { id: 'checklist', label: 'Checklist', sub: 'Meu Embarque', icon: 'checkbox-outline', rota: '/mala' },
-  { id: 'certs', label: 'Certificados', sub: 'Validades', icon: 'document-text-outline', rota: '/certs' },
+  { id: 'viagem', label: 'Minha Viagem', sub: 'Voo, ônibus, horário', icon: 'airplane-outline', rota: '/viagem', plus: true },
+  { id: 'checklist', label: 'Checklist', sub: 'Meu Embarque', icon: 'checkbox-outline', rota: '/mala', plus: true },
+  { id: 'certs', label: 'Certificados', sub: 'Validades', icon: 'document-text-outline', rota: '/certs', plus: true },
   { id: 'vagas', label: 'Vagas', sub: 'Verificadas nos portais oficiais', icon: 'briefcase-outline', rota: '/vagas' },
   { id: 'unidades', label: 'Unidades', sub: 'FPSOs, sondas e navios', icon: 'boat-outline', rota: '/unidades' },
   { id: 'lembrar', label: 'Lembrar de algo', sub: 'Aniversário, curso, consulta…', icon: 'add-circle-outline', rota: '/escala-evento-form' },
@@ -32,10 +35,13 @@ export default function PrecisoDe() {
   useTema();
   const [ctx, setCtx] = useState<{ viagem: Viagem | null; escala: EscalaConfig | null }>({ viagem: null, escala: null });
   const [transporte, setTransporte] = useState(false);
+  const { plus, acesso } = useOwBuddyPlus();
+  const selo = !plus && acesso.estado !== 'carregando';
 
   useEffect(() => {
-    Promise.all([getViagem(), getEscala()]).then(([viagem, escala]) => setCtx({ viagem, escala }));
-  }, []);
+    // Destino do transporte a partir da viagem só com OWBuddy+ (a viagem é Plus).
+    Promise.all([getViagem(), getEscala()]).then(([viagem, escala]) => setCtx({ viagem: plus ? viagem : null, escala }));
+  }, [plus]);
 
   return (
     <OWBackground>
@@ -54,6 +60,7 @@ export default function PrecisoDe() {
                 <Text style={styles.label}>{o.label}</Text>
                 <Text style={styles.sub}>{o.sub}</Text>
               </View>
+              {o.plus && selo ? <SeloPlus compacto /> : null}
               <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
             </TouchableOpacity>
           ))}

@@ -10,6 +10,7 @@ import { instalarNotificacoes, replanejarLembretes } from '../src/notifications'
 import { aoMudarDadosDoLembrete } from '../src/storage';
 import { OWToastHost } from '../src/feedback';
 import { analytics } from '../src/analytics';
+import { aoMudarAcessoPlus, useIniciarPlus } from '../src/plus/acesso';
 
 // Premium Material Pass: foco de campo elegante no web (borda ciano + halo fino).
 // Regra única para todos os TextInput — no Android/iOS vale o foco nativo.
@@ -75,8 +76,12 @@ function AppShell() {
     analytics.track('app_open');
     const app = AppState.addEventListener('change', s => { if (s === 'active') { replanejarLembretes(); analytics.track('app_open'); } });
     const dados = aoMudarDadosDoLembrete(() => { replanejarLembretes(); });
-    return () => { limpar(); app.remove(); dados(); };
+    // OWBuddy+ mudou (confirmado, terminou, voltou): lembretes de mala/viagem/documentos acompanham.
+    const plus = aoMudarAcessoPlus(() => { replanejarLembretes(); });
+    return () => { limpar(); app.remove(); dados(); plus(); };
   }, []);
+  // OWBuddy+: lê a última confirmação e consulta a loja (uma camada só para o app inteiro).
+  useIniciarPlus();
 
   return (
     <View style={styles.webFrame}>
@@ -247,6 +252,14 @@ function AppShell() {
           name="historico-acontecimento"
           options={{
             title: 'Acontecimento',
+            headerStyle: { backgroundColor: colors.navy800 },
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="owbuddy-plus"
+          options={{
+            title: 'OWBuddy+',
             headerStyle: { backgroundColor: colors.navy800 },
             presentation: 'modal',
           }}

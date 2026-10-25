@@ -16,8 +16,9 @@ import { confirmarRemocao } from '../src/confirmar';
 import { avisar } from '../src/feedback';
 import { useAcaoUnica } from '../src/acoes';
 import { analytics } from '../src/analytics';
+import { PortaoPlus } from '../src/components/PortaoPlus';
 
-export default function ContatoForm() {
+function ContatoFormConteudo() {
   useTema();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [nome, setNome] = useState('');
@@ -133,3 +134,9 @@ const styles = themed(() => StyleSheet.create({
   privRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: spacing.md },
   priv: { fontSize: 12, color: colors.mutedDim, flexShrink: 1, textAlign: 'center' },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+export default function ContatoForm() {
+  useTema();
+  return <PortaoPlus recurso="contatos"><ContatoFormConteudo /></PortaoPlus>;
+}

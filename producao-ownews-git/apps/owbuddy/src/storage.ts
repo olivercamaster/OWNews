@@ -5,6 +5,8 @@ import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import { lerHistorico, lerAvisos, HISTORICO_VERSAO } from '@owbuddy/domain';
 import type { HistoricoData, AvisosHistorico } from '@owbuddy/domain';
+import { lerCachePlus } from '@owbuddy/domain';
+import type { CachePlus } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
 
@@ -30,6 +32,10 @@ export const KEYS = {
   HISTORICO:        'owbuddy_historico',
   HISTORICO_AVISOS: 'owbuddy_historico_avisos',
   HISTORICO_BACKUP: 'owbuddy_historico_backup',
+  // OWBuddy+ — só a última confirmação da loja (sim/não + datas). Nunca token, recibo ou preço.
+  PLUS_CACHE:       'owbuddy_plus_cache',
+  // Cenário simulado do OWBuddy+ — lido SÓ quando o modo de teste é permitido (dev/preview).
+  PLUS_TESTE:       'owbuddy_plus_teste_cenario',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -301,6 +307,26 @@ export async function apagarDadosDoAparelho(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+// ─── OWBuddy+ ────────────────────────────────────────────────────────────────
+// Cache da última resposta CONFIRMADA da loja (evita piscar cadeado e cobre falta de internet).
+// Não é trial nem contador: quem decide é sempre a loja. Fora do sync.
+export async function getCachePlus(): Promise<CachePlus | null> {
+  return lerCachePlus(await get<unknown>(KEYS.PLUS_CACHE));
+}
+
+export async function setCachePlus(c: CachePlus | null): Promise<void> {
+  if (c) await set(KEYS.PLUS_CACHE, c);
+  else await remove(KEYS.PLUS_CACHE);
+}
+
+export async function getCenarioTestePlus(): Promise<string | null> {
+  return get<string>(KEYS.PLUS_TESTE);
+}
+
+export async function setCenarioTestePlus(c: string): Promise<void> {
+  await set(KEYS.PLUS_TESTE, c);
 }
 
 // ─── Aparência (Automático / Escuro / Claro) ─────────────────────────────────

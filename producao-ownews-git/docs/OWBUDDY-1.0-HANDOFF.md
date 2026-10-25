@@ -129,6 +129,8 @@ alguma rota não tiver tela.
 | `owbuddy_historico` | Meu Histórico `{v:1, registros[], acontecimentos[], seq}` — SÓ local (fora do sync, analytics, log e notificação) |
 | `owbuddy_historico_avisos` | anti-spam dos avisos do Histórico (sugestões dispensadas, finalização adiada) |
 | `owbuddy_historico_backup` | cópia única do bruto se o histórico vier ilegível ou de versão mais nova (antes de regravar) |
+| `owbuddy_plus_cache` | OWBuddy+: última confirmação da LOJA `{v:1, plus, conferidoEm, fimDoPeriodo, jaTevePlus}` — não é trial, sem token/recibo/preço; fora do sync |
+| `owbuddy_plus_teste_cenario` | cenário simulado do OWBuddy+ — lido SÓ com modo de teste (dev / preview web com flag) |
 | `owbuddy_cache_feed_v3`, `owbuddy_noticias_abertas_v1` | notícias (cache) |
 | `owbuddy_cache_aeroportos_v1`, `owbuddy_cache_vagas`, `owbuddy_cache_unidades_v1` | caches online |
 | `sb-…-auth-token` | sessão Supabase (gerida pelo supabase-js) |
@@ -654,3 +656,18 @@ Checkpoint antes: tag `owbuddy-pre-auditoria-rc`. Nada de APK nesta rodada.
 - **Futuro (estrutura pronta, não implementado)**: exportação PDF/CSV/backup, tempo por função/unidade, relatório pessoal. Não é documento oficial.
 - **Correção junto**: `OWTimePicker` posiciona por offset (como o `OWDatePicker`) e renderiza as 24/60 linhas — no navegador as horas antes da inicial (00–07) não eram desenhadas. `OWDatePicker` ganhou `anosAtras` (Histórico usa 40 anos).
 - Testes: `tests/historico.test.mjs` (31) + `tests/e2e/historico-preview.cjs` (jornada completa, 320–430 px, escuro e claro).
+
+## OWBuddy Free + OWBuddy+ (2026-10-25)
+
+Documento completo: `docs/OWBUDDY-PLUS.md` (arquitetura, Free × Plus, expo-iap, offline, privacidade, termos,
+checklists Play Console / App Store Connect, modo de teste).
+
+- Uma camada só: `useOwBuddyPlus()` (`src/plus/acesso.tsx`) + regras puras `ow-domain/plus.ts`. Telas Plus
+  envolvidas por `<PortaoPlus recurso=…>` (Embarque, Viagem, Certificados, Histórico×4, contato-form).
+- Assinatura e período gratuito SÓ da loja (expo-iap ~6.3.0: Play Billing + StoreKit 2, sem servidor/terceiro).
+  Produto `owbuddy_plus_monthly` (anual `owbuddy_plus_annual` reservado). Nada criado nas lojas ainda.
+- Sem Plus, Início/Buddy Agora/lembretes usam `recorteFree()`; dados Plus nunca apagados.
+- Modo de teste: `__DEV__` ou web exportado com `EXPO_PUBLIC_OWBUDDY_PLUS_TESTE=1` (export com `--clear`).
+  Nunca em build nativo de produção.
+- Não alterar sem auditoria: IDs de produto, `PortaoPlus` (não montar tela Plus sem acesso), carência offline
+  de 7 dias, regra "grátis só se a loja disser que é elegível".

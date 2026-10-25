@@ -17,7 +17,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
-import { planejarLembretes, dataDoInstante, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
+import { planejarLembretes, dataDoInstante, PREFS_LEMBRETES_PADRAO, recorteFree } from '@owbuddy/domain';
+import { acessoPlusAtual } from './plus/acesso';
 import type { PrefsLembretes } from '@owbuddy/domain';
 import { getCerts, getChecklist, getEscala, getEventosPessoais, getPagamento, getViagem } from './storage';
 import { analytics } from './analytics';
@@ -108,6 +109,9 @@ export async function replanejarLembretes(): Promise<number> {
   const n = N();
   if (!n) return 0;
   try {
+    // OWBuddy+ ainda sem resposta (primeira abertura): não mexe no que já está agendado.
+    const acesso = acessoPlusAtual();
+    if (acesso.estado === 'carregando') return 0;
     const prefs = await getPrefsLembretes();
     await n.cancelAllScheduledNotificationsAsync();
     if (!prefs.ativo || (await estadoPermissao()) !== 'concedida') return 0;
@@ -115,7 +119,9 @@ export async function replanejarLembretes(): Promise<number> {
     const [escala, checklist, certs, viagem, eventos, pagamento] = await Promise.all([
       getEscala(), getChecklist(), getCerts(), getViagem(), getEventosPessoais(), getPagamento(),
     ]);
-    const plano = planejarLembretes({ escala, checklist, certs, viagem, eventos, pagamento, prefs });
+    // Sem Plus: só lembretes do que é Free (escala, eventos, pagamento). Os dados Plus ficam intactos.
+    const plus = recorteFree(acesso.plus, { checklist, certs, viagem });
+    const plano = planejarLembretes({ escala, ...plus, eventos, pagamento, prefs });
     for (const l of plano) {
       await n.scheduleNotificationAsync({
         identifier: l.id,

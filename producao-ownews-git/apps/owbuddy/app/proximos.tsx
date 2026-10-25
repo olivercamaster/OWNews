@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { agruparPorFaixa, gerarAcontecimentos, hojeISO, pendenciaFinalizar, type Acontecimento } from '@owbuddy/domain';
+import { agruparPorFaixa, gerarAcontecimentos, hojeISO, pendenciaFinalizar, recorteFree, semAtalhoPlus, type Acontecimento } from '@owbuddy/domain';
 import type { EscalaConfig, PendenciaFinalizar, Viagem } from '@owbuddy/domain';
 import { getCerts, getChecklist, getEscala, getEventosPessoais, getHistorico, getPagamento, getViagem } from '../src/storage';
 import { colors, maritime, radius, spacing, typography, themed, tokens } from '../src/theme';
@@ -18,6 +18,8 @@ import { TransporteSheet } from '../src/components/TransporteSheet';
 import { opcoesTransporte } from '../src/transporte';
 import { analytics } from '../src/analytics';
 import { formatDateBR } from '../src/format';
+import { useOwBuddyPlus } from '../src/plus/acesso';
+import { SeloPlus } from '../src/components/PortaoPlus';
 
 export default function Proximos() {
   useTema();
@@ -28,19 +30,24 @@ export default function Proximos() {
   const [transporte, setTransporte] = useState(false);
   // Meu Histórico: ação contextual só quando o desembarque previsto de um registro em andamento chegou.
   const [pendencia, setPendencia] = useState<PendenciaFinalizar | null>(null);
+  // Buddy Agora completo (mala, viagem, documentos, histórico) é OWBuddy+; o básico (escala,
+  // lembretes pessoais, pagamento) é Free. Os dados Plus não são apagados: só não entram aqui.
+  const { plus, lido, acesso } = useOwBuddyPlus();
 
   useFocusEffect(useCallback(() => {
+    if (!lido) return;
     analytics.track('proximos_opened');
     (async () => {
-      const [escala, checklist, certs, viagem, eventos, pagamento, historico] = await Promise.all([
+      const [escala, checklistT, certsT, viagemT, eventos, pagamento, historico] = await Promise.all([
         getEscala(), getChecklist(), getCerts(), getViagem(), getEventosPessoais(), getPagamento(), getHistorico(),
       ]);
-      setPendencia(pendenciaFinalizar(historico.registros, hojeISO()));
+      const { checklist, certs, viagem } = recorteFree(plus, { checklist: checklistT, certs: certsT, viagem: viagemT });
+      setPendencia(plus ? pendenciaFinalizar(historico.registros, hojeISO()) : null);
       setCtx({ viagem, escala });
       setTemPagamento(!!pagamento);
-      setLista(gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento }));
+      setLista(semAtalhoPlus(plus, gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento })));
     })();
-  }, []));
+  }, [plus, lido]));
 
   const acionar = (a: Acontecimento) => {
     if (!a.acao) return;
@@ -99,6 +106,17 @@ export default function Proximos() {
             <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
           </TouchableOpacity>
         )}
+
+        {lista && !plus && acesso.estado !== 'carregando' ? (
+          <TouchableOpacity style={styles.pagamento} onPress={() => router.push({ pathname: '/owbuddy-plus', params: { origem: 'proximos' } })} accessibilityRole="button">
+            <Ionicons name="sparkles-outline" size={18} color={colors.iconDefault} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pagTitulo}>Buddy Agora completo</Text>
+              <Text style={styles.pagSub}>Mala, viagem e documentos também entram aqui.</Text>
+            </View>
+            <SeloPlus compacto />
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
       <TransporteSheet visivel={transporte} opcoes={opcoesTransporte(ctx.viagem, ctx.escala)} onFechar={() => setTransporte(false)} />
     </OWBackground>

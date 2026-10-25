@@ -43,6 +43,7 @@ import { analytics } from '../../src/analytics';
 import { confirmarRemocao } from '../../src/confirmar';
 import { avisar } from '../../src/feedback';
 import { useAcaoUnica, useVoltarAndroid } from '../../src/acoes';
+import { PortaoPlus } from '../../src/components/PortaoPlus';
 
 const STATUS_COLOR: Record<string, string> = themed(() => ({
   valido:      colors.green,
@@ -63,7 +64,7 @@ function ordenar(certs: Certificado[]): Certificado[] {
   });
 }
 
-export default function MeusCerts() {
+function MeusCertsConteudo() {
   useTema();
   const [certs, setCertsState] = useState<Certificado[]>([]);
   const [form, setForm] = useState<Partial<Certificado> | null>(null);
@@ -401,3 +402,9 @@ const styles = themed(() => StyleSheet.create({
   certValidade: { ...typography.small, color: colors.muted, flex: 1 },
   certAlert: { fontSize: 12, fontWeight: '600', marginTop: spacing.sm },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+export default function MeusCerts() {
+  useTema();
+  return <PortaoPlus recurso="documentos" aba><MeusCertsConteudo /></PortaoPlus>;
+}

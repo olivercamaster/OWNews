@@ -36,10 +36,11 @@ import { useAcaoUnica } from '../src/acoes';
 import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { HIST_VISUAL } from '../src/historico-visual';
+import { PortaoPlus } from '../src/components/PortaoPlus';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
-export default function RegistroHistorico() {
+function RegistroHistoricoConteudo() {
   useTema();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -319,3 +320,9 @@ const styles = themed(() => StyleSheet.create({
   excluirTexto: { fontSize: 14, fontWeight: '600', color: colors.red },
   rodape: { fontSize: 12, color: colors.mutedDim, textAlign: 'center' },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos). */
+export default function RegistroHistorico() {
+  useTema();
+  return <PortaoPlus recurso="historico"><RegistroHistoricoConteudo /></PortaoPlus>;
+}

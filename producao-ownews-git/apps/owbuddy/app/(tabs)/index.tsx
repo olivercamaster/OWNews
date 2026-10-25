@@ -30,6 +30,8 @@ import {
   tamanhoDe,
   DEF_MODULO,
   avisoHistoricoHome,
+  recorteFree,
+  semAtalhoPlus,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem,
@@ -61,6 +63,8 @@ import { AcontecimentoLinha } from '../../src/components/AcontecimentoLinha';
 import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
 import { OWProgresso } from '../../src/components/OWProgresso';
+import { SeloPlus } from '../../src/components/PortaoPlus';
+import { useOwBuddyPlus } from '../../src/plus/acesso';
 
 // Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
 const CONTEXTO_COR: Record<HomeContexto['tipo'], string> = themed(() => ({
@@ -103,6 +107,9 @@ export default function TelaHoje() {
   const [transporte, setTransporte] = useState(false);
   const online = useConnectivity();
   const prevOnline = useRef(online);
+  // OWBuddy+: sem Plus, o Início calcula só com o que é Free. Nada é apagado nem alterado.
+  const { plus, lido: plusLido, acesso } = useOwBuddyPlus();
+  const seloPlus = !plus && acesso.estado !== 'carregando';
 
   const load = useCallback(async () => {
     // Tudo LOCAL e de uma vez (inclusive o layout da Home): a primeira pintura já sai na
@@ -174,9 +181,10 @@ export default function TelaHoje() {
     paddingBottom: bottomNavSpace(insets.bottom),
   }];
 
-  if (!state) return <OWBackground watermark="home"><View style={styles.root} /></OWBackground>;
+  if (!state || !plusLido) return <OWBackground watermark="home"><View style={styles.root} /></OWBackground>;
 
-  const { escala, prefs, viagem, checklist, certs, eventos, pagamento, home } = state;
+  const { escala, prefs, eventos, pagamento, home } = state;
+  const { viagem, checklist, certs } = recorteFree(plus, { viagem: state.viagem, checklist: state.checklist, certs: state.certs });
   const agora = new Date();
   const momento = calcularMomento(escala);
   const resumo = resumoEscala(escala);
@@ -186,7 +194,11 @@ export default function TelaHoje() {
   const alvoMala = cicloAlvoChecklist(resumo);
   const listaCiclo = sincronizarChecklistComCiclo(checklist, alvoMala, resumo.hojeISO).data;
   const checkCount: HomeChecklistContagem = contarPendentes(listaCiclo);
-  const contexto = contextoHome(resumo, momento, checkCount);
+  const contextoBase = contextoHome(resumo, momento, checkCount);
+  // Sem OWBuddy+ o card da escala não empurra para a mala: fala da escala e abre a escala.
+  const contexto: HomeContexto = !plus && contextoBase.tipo === 'PRE_EMBARQUE' && checkCount.total === 0
+    ? { ...contextoBase, detalhe: 'Acompanhe a contagem na sua escala.' }
+    : contextoBase;
   // Voz do Buddy (tom escolhido em Meu Buddy) — no tom "discreto" repetiria o hero.
   const voz = prefs.tom && prefs.tom !== 'discreto' ? gerarMensagemMomento(momento, prefs) : '';
   const critCerts = certs
@@ -196,7 +208,8 @@ export default function TelaHoje() {
   // Momento operacional: véspera/dia da viagem → "onde preciso estar"; últimos 3 dias
   // antes do embarque (sem viagem iminente) → viagem e documentos em uma linha cada.
   const onde = ondePrecisoEstar(viagem, escala, agora, alvoMala);
-  const prep = !onde && contexto.tipo === 'PRE_EMBARQUE' && resumo.proximoEmbarqueISO && (resumo.diasParaEmbarque ?? 99) <= 3
+  // Linhas de viagem/documentos do pré-embarque são OWBuddy+ (sem Plus não há o que mostrar).
+  const prep = plus && !onde && contexto.tipo === 'PRE_EMBARQUE' && resumo.proximoEmbarqueISO && (resumo.diasParaEmbarque ?? 99) <= 3
     ? linhasPreparacao(viagem, certs, resumo.proximoEmbarqueISO, c => calcCertStatus(c as Certificado))
     : [];
   const viagemBreve = viagem ? (viagemEAmanha(viagem) || viagemEHoje(viagem)) : false;
@@ -206,7 +219,7 @@ export default function TelaHoje() {
   const tamMomento = tamanhoDe(home, 'momento');
 
   // Buddy Agora: SEMPRE calculado com todos os dados — ocultar um card não desliga nada.
-  const acontecimentos = gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento, hoje: agora });
+  const acontecimentos = semAtalhoPlus(plus, gerarAcontecimentos({ escala, checklist, certs, viagem, eventos, pagamento, hoje: agora }));
   // O card da escala já mostra a data dele (embarcado: desembarque; folga: embarque)
   // e, no pré-embarque, a lista. Só isso sai daqui — embarcado, o próximo
   // embarque (após a folga) continua em Próximos dias.
@@ -234,14 +247,15 @@ export default function TelaHoje() {
     const t = tamanhoDe(home, id);
     const grupo = DEF_MODULO[id].grupo;
     const tileOuLinha = (props: TileProps): Peca => t === 'COMPACTO'
-      ? { id, grupo, forma: 'linha', render: () => <ActionRow icon={props.icon} label={props.label} sub={props.sub} onPress={props.onPress} accent={props.accent} /> }
+      ? { id, grupo, forma: 'linha', render: () => <ActionRow icon={props.icon} label={props.label} sub={props.sub} onPress={props.onPress} accent={props.accent} plus={props.plus} /> }
       : { id, grupo, forma: 'tile', render: () => <HomeTile {...props} /> };
     switch (id) {
       case 'momento':
         pecas.push({ id, grupo, forma: 'bloco', render: () => t === 'COMPACTO'
-          ? <HeroCompacto contexto={contexto} />
+          ? <HeroCompacto contexto={contexto} mala={plus} />
           : <HomeHero
               contexto={contexto}
+              mala={plus}
               progresso={contexto.tipo === 'PRE_EMBARQUE'
                 ? (checkCount.total > 0 ? checkCount.feitos / checkCount.total : 0)
                 : resumo.progresso}
@@ -261,18 +275,18 @@ export default function TelaHoje() {
           accent: escala ? colors.iconDefault : colors.mutedDim, onPress: () => router.navigate(escala ? '/escala' : '/escala-config') }));
         break;
       case 'embarque':
-        pecas.push(tileOuLinha({ icon: 'checkbox-outline', label: 'Meu Embarque',
-          sub: checkCount.total === 0 ? 'Montar minha mala' : checkCount.pendentes === 0 ? 'Mala pronta' : `Mala: ${checkCount.feitos} de ${checkCount.total}`,
+        pecas.push(tileOuLinha({ icon: 'checkbox-outline', label: 'Meu Embarque', plus: seloPlus,
+          sub: seloPlus ? 'Mala inteligente' : checkCount.total === 0 ? 'Montar minha mala' : checkCount.pendentes === 0 ? 'Mala pronta' : `Mala: ${checkCount.feitos} de ${checkCount.total}`,
           accent: checkCount.total > 0 && checkCount.pendentes === 0 ? colors.green : undefined, onPress: () => router.navigate('/mala') }));
         break;
       case 'viagem':
-        pecas.push(tileOuLinha({ icon: 'airplane-outline', label: 'Minha Viagem',
-          sub: viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem',
+        pecas.push(tileOuLinha({ icon: 'airplane-outline', label: 'Minha Viagem', plus: seloPlus,
+          sub: seloPlus ? 'Voo, transfer e contatos' : viagem ? formatDateBR(viagem.data) + (viagem.hora ? ` · ${viagem.hora}` : '') : 'Registrar viagem',
           accent: viagemBreve ? colors.amber : undefined, onPress: () => router.navigate('/viagem') }));
         break;
       case 'certs':
-        pecas.push(tileOuLinha({ icon: 'document-text-outline', label: 'Certificados',
-          sub: critCerts.length > 0 ? `${critCerts.length} ${critCerts.length === 1 ? 'precisa' : 'precisam'} de atenção` : totalCerts > 0 ? 'Tudo certo' : 'Validades e avisos',
+        pecas.push(tileOuLinha({ icon: 'document-text-outline', label: 'Certificados', plus: seloPlus,
+          sub: seloPlus ? 'Validades e avisos' : critCerts.length > 0 ? `${critCerts.length} ${critCerts.length === 1 ? 'precisa' : 'precisam'} de atenção` : totalCerts > 0 ? 'Tudo certo' : 'Validades e avisos',
           accent: critCerts.length > 0 ? colors.amber : undefined, onPress: () => router.navigate('/certs') }));
         break;
       case 'vagas': {
@@ -315,7 +329,7 @@ export default function TelaHoje() {
 
   // Contexto operacional logo abaixo do card da escala (ou no topo, se ele estiver oculto).
   const contextoOperacional: Peca | null = onde
-    ? { id: 'momento', key: 'onde-estar', grupo: 'topo', forma: 'bloco', render: () => <OndeEstarCard onde={onde} mala={checkCount.total > 0 && contexto.tipo !== 'PRE_EMBARQUE' ? checkCount : null} contatos={state.contatos} /> }
+    ? { id: 'momento', key: 'onde-estar', grupo: 'topo', forma: 'bloco', render: () => <OndeEstarCard onde={onde} mala={checkCount.total > 0 && contexto.tipo !== 'PRE_EMBARQUE' ? checkCount : null} contatos={plus ? state.contatos : 0} /> }
     : prep.length > 0
       ? { id: 'momento', key: 'preparacao', grupo: 'topo', forma: 'bloco', render: () => <PreparacaoCard linhas={prep} /> }
       : null;
@@ -327,7 +341,7 @@ export default function TelaHoje() {
 
   // Meu Histórico: só aparece com uma ação útil (finalizar o embarque cujo desembarque previsto
   // chegou, ou registrar o embarque atual nos primeiros dias) — no máximo um aviso, com "Agora não".
-  const avisoHist = avisoHistoricoHome(escala, state.historico, state.avisosHistorico, agora, resumo.hojeISO);
+  const avisoHist = plus ? avisoHistoricoHome(escala, state.historico, state.avisosHistorico, agora, resumo.hojeISO) : null;
   if (avisoHist) {
     const i = pecas.reduce((ult, p, k) => (p.grupo === 'topo' || p.id === 'momento' ? k : ult), -1);
     pecas.splice(i + 1, 0, { id: 'momento', key: 'historico', grupo: 'topo', forma: 'bloco', render: () => (
@@ -485,7 +499,7 @@ function LinhaClima({ city, weather }: { city: City | null; weather: WeatherData
 }
 
 /** Card da escala em uma linha (tamanho COMPACTO). */
-function HeroCompacto({ contexto }: { contexto: HomeContexto }) {
+function HeroCompacto({ contexto, mala }: { contexto: HomeContexto; mala: boolean }) {
   useTema();
   const cor = CONTEXTO_COR[contexto.tipo];
   if (contexto.tipo === 'SEM_ESCALA') {
@@ -500,7 +514,7 @@ function HeroCompacto({ contexto }: { contexto: HomeContexto }) {
   return (
     <TouchableOpacity
       style={[styles.heroMini, { borderColor: cor + '40' }]}
-      onPress={() => router.navigate(contexto.tipo === 'PRE_EMBARQUE' ? '/mala' : '/escala')}
+      onPress={() => router.navigate(contexto.tipo === 'PRE_EMBARQUE' && mala ? '/mala' : '/escala')}
       accessibilityRole="button"
       accessibilityLabel={`${contexto.titulo}. ${contexto.destaque ?? ''}. ${contexto.detalhe}`}
     >
@@ -595,6 +609,8 @@ type TileProps = {
   onPress: () => void;
   accent?: string;
   destaque?: boolean;
+  /** Recurso OWBuddy+ sem acesso: selo discreto (o toque abre a tela que explica). */
+  plus?: boolean;
 };
 
 /** Reflexo frio no topo da superfície — acabamento "marítimo", nunca cromado. */
@@ -615,9 +631,11 @@ function Sheen() {
  * que só lê resumoEscala()/calcularMomento() — nenhuma aritmética de datas aqui.
  */
 function HomeHero({
-  contexto, progresso, dataISO, aeroporto, voz,
+  contexto, mala, progresso, dataISO, aeroporto, voz,
 }: {
   contexto: HomeContexto;
+  /** Pré-embarque abre a mala (OWBuddy+); sem Plus abre a escala. */
+  mala: boolean;
   progresso: number;
   dataISO: string | null;
   aeroporto: string | null;
@@ -640,7 +658,7 @@ function HomeHero({
     );
   }
 
-  const destino = contexto.tipo === 'PRE_EMBARQUE' ? '/mala' : '/escala';
+  const destino = contexto.tipo === 'PRE_EMBARQUE' && mala ? '/mala' : '/escala';
   return (
     <TouchableOpacity
       style={[styles.hero, { borderColor: cor + '2e' }]}
@@ -705,7 +723,7 @@ function DestaqueInstrumento({ texto, cor }: { texto: string; cor: string }) {
 
 /** Bloco compacto da grade 2 × 2 (núcleo pessoal e Offshore agora). */
 function HomeTile({
-  icon, label, sub, onPress, accent, badge, badgeColor, destaque,
+  icon, label, sub, onPress, accent, badge, badgeColor, destaque, plus,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
@@ -715,6 +733,7 @@ function HomeTile({
   badge?: string;
   badgeColor?: string;
   destaque?: boolean;
+  plus?: boolean;
 }) {
   useTema();
   const cor = accent ?? colors.iconDefault;
@@ -726,7 +745,7 @@ function HomeTile({
       onPress={onPress}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel={`${label}. ${sub}`}
+      accessibilityLabel={`${label}. ${sub}${plus ? '. OWBuddy+' : ''}`}
     >
       <Sheen />
       <View style={styles.tileTop}>
@@ -737,7 +756,7 @@ function HomeTile({
           <View style={[styles.actionBadge, { backgroundColor: badgeColor ?? colors.cyan }]}>
             <Text style={styles.actionBadgeText}>{badge}</Text>
           </View>
-        ) : null}
+        ) : plus ? <SeloPlus compacto /> : null}
       </View>
       <Text style={[styles.tileLabel, estreita && styles.tileLabelEstreita]} numberOfLines={1}>{label}</Text>
       <Text style={[styles.tileSub, estreita && styles.tileSubEstreita]} numberOfLines={2}>{sub}</Text>
@@ -747,7 +766,7 @@ function HomeTile({
 
 /** Linha de lista compacta (Notícias, Aeroportos). */
 function ActionRow({
-  icon, label, sub, subLines = 1, onPress, last = true, accent,
+  icon, label, sub, subLines = 1, onPress, last = true, accent, plus,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
@@ -756,6 +775,7 @@ function ActionRow({
   onPress: () => void;
   last?: boolean;
   accent?: string;
+  plus?: boolean;
 }) {
   useTema();
   return (
@@ -771,6 +791,7 @@ function ActionRow({
         <Text style={styles.actionLabel}>{label}</Text>
         {sub ? <Text style={styles.actionSub} numberOfLines={subLines}>{sub}</Text> : null}
       </View>
+      {plus ? <SeloPlus compacto /> : null}
       <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
     </TouchableOpacity>
   );

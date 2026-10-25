@@ -31,10 +31,11 @@ import { OWBackground } from '../src/components/OWBackground';
 import { AvisoFinalizar, AvisoSugestao } from '../src/components/HistoricoAvisos';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
+import { PortaoPlus } from '../src/components/PortaoPlus';
 
 type Dados = { hist: HistoricoData; escala: EscalaConfig | null; avisos: AvisosHistorico };
 
-export default function MeuHistorico() {
+function MeuHistoricoConteudo() {
   useTema();
   const insets = useSafeAreaInsets();
   const [dados, setDados] = useState<Dados | null>(null);
@@ -314,3 +315,9 @@ const styles = themed(() => StyleSheet.create({
 
   rodape: { fontSize: 12, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.md },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+export default function MeuHistorico() {
+  useTema();
+  return <PortaoPlus recurso="historico"><MeuHistoricoConteudo /></PortaoPlus>;
+}

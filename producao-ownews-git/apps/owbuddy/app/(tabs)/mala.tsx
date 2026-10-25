@@ -44,6 +44,7 @@ import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 import { avisar } from '../../src/feedback';
 import { useAcaoUnica } from '../../src/acoes';
+import { PortaoPlus } from '../../src/components/PortaoPlus';
 
 /** "Embarque hoje" / "Embarque amanhã" / "Faltam N dias" — mesma régua do OWNews /meu-embarque. */
 function labelEmbarque(dias: number): string {
@@ -96,7 +97,7 @@ function buildSections(data: ChecklistData, ocultarConcluidos: boolean): Section
     .filter(s => s.data.length > 0);
 }
 
-export default function MeuEmbarque() {
+function MeuEmbarqueConteudo() {
   useTema();
   const [data, setData] = useState<ChecklistData | null>(null);
   const [resumo, setResumo] = useState<EscalaResumo | null>(null);
@@ -633,3 +634,9 @@ const styles = themed(() => StyleSheet.create({
     ...maritime.botaoPrimario,
   },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+export default function MeuEmbarque() {
+  useTema();
+  return <PortaoPlus recurso="mala" aba><MeuEmbarqueConteudo /></PortaoPlus>;
+}

@@ -68,7 +68,8 @@
           "color": "#12a8ee"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,11 +1,11 @@
 // Configuração de Escala 2.0 (Playwright, fora do npm test). Relógio fixo em 24/10/2026 (America/Sao_Paulo).
 // Uso: PLAYWRIGHT=<pacote playwright> U=http://127.0.0.1:8791 OUT=/tmp/x node tests/e2e/escala-config-preview.cjs
-const {chromium}=require(process.env.PLAYWRIGHT);
+const {chromium}=require(process.env.PLAYWRIGHT); const PLUS=require('./_plus.cjs');
 const U=process.env.U||'http://127.0.0.1:8791', OUT=process.env.OUT;
 let falhas=0; const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m); if(!c) falhas++;};
 const txt=p=>p.evaluate(()=>document.body.innerText.replace(/\s+/g,' '));
 (async()=>{const b=await chromium.launch({args:['--no-sandbox']}); const errs=[];
-async function nova(W,seed){const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:'dark',timezoneId:'America/Sao_Paulo'});
+async function nova(W,seed){const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:'dark',timezoneId:'America/Sao_Paulo'}); await PLUS(ctx);
  await ctx.addInitScript(d=>{try{if(!sessionStorage.getItem('s')){localStorage.clear();for(const[k,v]of Object.entries(d))localStorage.setItem(k,JSON.stringify(v));sessionStorage.setItem('s','1');}}catch(e){}},seed||{});
  const p=await ctx.newPage(); await p.clock.setFixedTime(new Date('2026-10-24T12:00:00-03:00'));
  p.on('pageerror',e=>errs.push(e.message)); return {ctx,p};}

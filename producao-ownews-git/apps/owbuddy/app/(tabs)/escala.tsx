@@ -54,6 +54,8 @@ import { confirmarRemocao } from '../../src/confirmar';
 import { EVENTO_VISUAL } from '../../src/evento-visual';
 import { ioniconRelacao } from '../../src/relacao-icones';
 import { CompartilharEscala } from '../../src/components/CompartilharEscala';
+import { SeloPlus } from '../../src/components/PortaoPlus';
+import { useOwBuddyPlus } from '../../src/plus/acesso';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -400,6 +402,9 @@ export default function EscalaScreen() {
   const [compartilhando, setCompartilhando] = useState(false);
   // Meu Histórico (realizado): só a contagem para o atalho — a escala nunca lê nem grava o histórico.
   const [registrados, setRegistrados] = useState(0);
+  // OWBuddy+: Meu Histórico é Plus — o atalho continua aqui, com um selo discreto quando sem acesso.
+  const { plus, acesso } = useOwBuddyPlus();
+  const seloHistorico = !plus && acesso.estado !== 'carregando';
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
@@ -471,6 +476,7 @@ export default function EscalaScreen() {
         <TouchableOpacity style={styles.setupHistorico} onPress={() => router.push('/historico')} accessibilityRole="button">
           <Ionicons name="time-outline" size={16} color={colors.cyanDim} />
           <Text style={styles.setupHistoricoTexto}>Meu Histórico</Text>
+          {seloHistorico ? <SeloPlus compacto /> : null}
         </TouchableOpacity>
       </View>
     );
@@ -565,6 +571,7 @@ export default function EscalaScreen() {
               {registrados > 0 ? `${registrados} ${registrados === 1 ? 'embarque registrado' : 'embarques registrados'}` : 'O que realmente aconteceu em cada embarque'}
             </Text>
           </View>
+          {seloHistorico ? <SeloPlus compacto /> : null}
           <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
         </TouchableOpacity>
 

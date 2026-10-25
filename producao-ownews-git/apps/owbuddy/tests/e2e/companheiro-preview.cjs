@@ -1,7 +1,7 @@
 // OWBuddy 1.0 — jornada completa do "companheiro offshore" (Playwright, fora do npm test).
 // Relógio fixo em 24/10/2026 12:00 (America/Sao_Paulo). Contexto novo e vazio (nunca toca dados reais).
 // Uso: PLAYWRIGHT=<pacote playwright> U=http://127.0.0.1:8791 OUT=/tmp/x node tests/e2e/companheiro-preview.cjs
-const {chromium}=require(process.env.PLAYWRIGHT);
+const {chromium}=require(process.env.PLAYWRIGHT); const PLUS=require('./_plus.cjs');
 const fs=require('fs');
 const U=process.env.U||'http://127.0.0.1:8791', OUT=process.env.OUT||'/tmp';
 let falhas=0; const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m); if(!c) falhas++;};
@@ -10,7 +10,7 @@ const ls=(p,k)=>p.evaluate(k=>localStorage.getItem(k),k);
 const espera=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
 const b=await chromium.launch({args:['--no-sandbox']}); const errs=[];
-const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,colorScheme:'dark',timezoneId:'America/Sao_Paulo',acceptDownloads:true});
+const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,colorScheme:'dark',timezoneId:'America/Sao_Paulo',acceptDownloads:true}); await PLUS(ctx);
 async function pagina(){const p=await ctx.newPage(); await p.clock.setFixedTime(new Date('2026-10-24T12:00:00-03:00'));
   p.on('pageerror',e=>errs.push(e.message)); p.on('dialog',d=>d.accept()); return p;}
 let p=await pagina();

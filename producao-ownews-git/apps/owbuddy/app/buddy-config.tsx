@@ -40,6 +40,7 @@ import {
 
 const VERSAO_APP = Constants.expoConfig?.version ?? '';
 import type { Session } from '@supabase/supabase-js';
+import { useOwBuddyPlus } from '../src/plus/acesso';
 
 // UI labels — mapped from internal domain values, backwards-compatible
 const ESTILOS: { value: BuddyTom; label: string; desc: string }[] = [
@@ -187,7 +188,7 @@ export default function BuddyConfig() {
   const apagarAparelho = () => {
     confirmar(
       'Apagar dados deste aparelho?',
-      'Escala, mala, documentos, viagem, contatos, datas, Meu Histórico e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada.',
+      'Escala, mala, documentos, viagem, contatos, datas, Meu Histórico e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada, e a assinatura do OWBuddy+ (se você tiver) continua na loja.',
       'Apagar tudo',
       async () => {
         await apagarDadosDoAparelho();
@@ -411,6 +412,10 @@ export default function BuddyConfig() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* ── OWBuddy+ (situação + tela informativa) ── */}
+        <Text style={styles.sectionTitle}>OWBuddy+</Text>
+        <LinhaPlus />
 
         {/* ── Conta OW (opcional) ── */}
         <Text style={styles.sectionTitle}>Conta OW <Text style={styles.opcional}>· opcional</Text></Text>
@@ -705,3 +710,26 @@ const styles = themed(() => StyleSheet.create({
   atalho: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48 },
   atalhoTexto: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '600' },
 }));
+
+/** Situação do OWBuddy+ em uma linha; o toque abre a tela que explica tudo (nunca a compra). */
+function LinhaPlus() {
+  useTema();
+  const { plus, lido, acesso } = useOwBuddyPlus();
+  const sub = !lido || acesso.estado === 'carregando' ? 'Verificando…'
+    : plus ? (acesso.cancelado ? 'Ativo · renovação desligada' : 'Ativo')
+    : acesso.estado === 'erro' ? 'Não foi possível consultar agora'
+    : acesso.expirou ? 'Acesso terminou · seus dados continuam guardados'
+    : 'Você está no Free · conhecer os recursos Plus';
+  return (
+    <View style={styles.contaCard}>
+      <TouchableOpacity style={styles.atalho} onPress={() => router.push({ pathname: '/owbuddy-plus', params: { origem: 'buddy-config' } })} accessibilityRole="button" accessibilityLabel={`OWBuddy+. ${sub}`}>
+        <Ionicons name={plus ? 'checkmark-circle' : 'sparkles-outline'} size={18} color={plus ? colors.green : colors.cyanDim} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.atalhoTexto}>{plus ? 'OWBuddy+ ativo' : 'OWBuddy+'}</Text>
+          <Text style={styles.contaDesc} numberOfLines={2}>{sub}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+      </TouchableOpacity>
+    </View>
+  );
+}

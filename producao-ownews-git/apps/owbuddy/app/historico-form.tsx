@@ -41,10 +41,11 @@ import { useAcaoUnica } from '../src/acoes';
 import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { novoIdHistorico } from '../src/historico-acoes';
+import { PortaoPlus } from '../src/components/PortaoPlus';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
-export default function FormEmbarque() {
+function FormEmbarqueConteudo() {
   useTema();
   const params = useLocalSearchParams<{ id?: string; sugestao?: string; finalizar?: string }>();
   const edicao = !!params.id;
@@ -441,3 +442,9 @@ const styles = themed(() => StyleSheet.create({
   salvoTitulo: { ...typography.h2, textAlign: 'center', marginTop: spacing.sm },
   salvoSub: { ...typography.small, textAlign: 'center', fontVariant: ['tabular-nums'] },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos). */
+export default function FormEmbarque() {
+  useTema();
+  return <PortaoPlus recurso="historico"><FormEmbarqueConteudo /></PortaoPlus>;
+}

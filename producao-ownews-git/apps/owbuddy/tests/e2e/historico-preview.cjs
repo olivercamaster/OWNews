@@ -1,6 +1,6 @@
 // Meu Histórico (Playwright, fora do npm test). Relógio fixo em 24/10/2026 12:00 (America/Sao_Paulo).
 // Uso: PLAYWRIGHT=<pacote playwright> U=http://127.0.0.1:8791 OUT=/tmp/x node tests/e2e/historico-preview.cjs
-const {chromium}=require(process.env.PLAYWRIGHT);
+const {chromium}=require(process.env.PLAYWRIGHT); const PLUS=require('./_plus.cjs');
 const U=process.env.U||'http://127.0.0.1:8791', OUT=process.env.OUT;
 let falhas=0; const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m); if(!c) falhas++;};
 const txt=p=>p.evaluate(()=>document.body.innerText.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' '));
@@ -10,7 +10,7 @@ const SEED={ownews_minha_escala:ESCALA,ownews_minha_viagem:VIAGEM,owbuddy_home_p
 const ANO0=2026-40; // OWDatePicker com anosAtras=40
 (async()=>{const b=await chromium.launch({args:['--no-sandbox']}); const errs=[];
 let respostaDialogo=true;
-async function nova(W,seed,esquema='dark',relogio='2026-10-24T12:00:00-03:00',storageState){const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:esquema,timezoneId:'America/Sao_Paulo',storageState});
+async function nova(W,seed,esquema='dark',relogio='2026-10-24T12:00:00-03:00',storageState){const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:esquema,timezoneId:'America/Sao_Paulo',storageState}); await PLUS(ctx);
  if(seed) await ctx.addInitScript(d=>{try{if(!sessionStorage.getItem('s')){localStorage.clear();for(const[k,v]of Object.entries(d))localStorage.setItem(k,JSON.stringify(v));sessionStorage.setItem('s','1');}}catch(e){}},seed||{});
  const p=await ctx.newPage(); await p.clock.setFixedTime(new Date(relogio));
  p.on('pageerror',e=>errs.push(e.message)); p.on('dialog',d=>{dialogos.push(d.message()); respostaDialogo?d.accept():d.dismiss();}); return {ctx,p};}

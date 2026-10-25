@@ -85,7 +85,16 @@ type EventName =
   | 'embarque_excluido'
   | 'acontecimento_registrado'
   | 'acontecimento_editado'
-  | 'acontecimento_excluido';
+  | 'acontecimento_excluido'
+  // OWBuddy+ — só a AÇÃO e valores fixos (origem/recurso/resultado). NUNCA preço, moeda,
+  // token, recibo, ID de pedido, conta da loja ou qualquer dado de pagamento.
+  | 'plus_tela_aberta'
+  | 'plus_bloqueio_visto'
+  | 'plus_agora_nao'
+  | 'plus_cta_tocado'
+  | 'plus_compra_resultado'
+  | 'plus_restaurar_resultado'
+  | 'plus_gerenciar_aberto';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

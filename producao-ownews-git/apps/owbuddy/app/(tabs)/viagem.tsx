@@ -32,6 +32,7 @@ import { analytics } from '../../src/analytics';
 import { avisar } from '../../src/feedback';
 import { useAcaoUnica, useVoltarAndroid } from '../../src/acoes';
 import { ContatosEmbarque } from '../../src/components/ContatosEmbarque';
+import { PortaoPlus } from '../../src/components/PortaoPlus';
 
 const TIPOS: ViagemTipo[] = ['AVIAO', 'ONIBUS', 'CARRO', 'VAN', 'EMPRESA', 'OUTRO'];
 
@@ -43,7 +44,7 @@ function normalizeVoo(v: string): string {
   return v.toUpperCase().replace(/\s+/g, '');
 }
 
-export default function MinhaViagem() {
+function MinhaViagemConteudo() {
   useTema();
   const insetsTela = useSafeAreaInsets();
   const [viagem, setViagemState] = useState<Viagem | null>(null);
@@ -629,3 +630,9 @@ const styles = themed(() => StyleSheet.create({
   noventaTexto: { fontSize: 16, fontWeight: '800', color: colors.white },
   transporteNota: { fontSize: 11, color: colors.mutedDim, lineHeight: 15 },
 }));
+
+/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+export default function MinhaViagem() {
+  useTema();
+  return <PortaoPlus recurso="viagem" aba><MinhaViagemConteudo /></PortaoPlus>;
+}

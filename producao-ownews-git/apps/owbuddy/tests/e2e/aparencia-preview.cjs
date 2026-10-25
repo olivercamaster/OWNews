@@ -1,6 +1,6 @@
 // Aparência Automático/Escuro/Claro no preview web (Playwright). Não roda no `npm test`.
 // Uso: PLAYWRIGHT=<caminho do pacote playwright> U=http://127.0.0.1:8791 node tests/e2e/aparencia-preview.cjs
-const {chromium}=require(process.env.PLAYWRIGHT||'playwright');
+const {chromium}=require(process.env.PLAYWRIGHT||'playwright'); const PLUS=require('./_plus.cjs');
 const U=process.env.U||'http://127.0.0.1:8791', OUT=process.env.OUT;
 let falhas=0; const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m); if(!c) falhas++;};
 const hoje=new Date(); const iso=d=>new Date(hoje.getTime()+d*864e5).toISOString().slice(0,10);
@@ -14,11 +14,11 @@ const DADOS={ownews_minha_escala:{tipo:'14x14',dataRef:iso(-3),tipoRef:'embarque
  const fundo=p=>p.evaluate(()=>{const el=[...document.querySelectorAll('div')].find(d=>{const r=d.getBoundingClientRect();return r.width>300&&r.height>500&&getComputedStyle(d).backgroundColor!=='rgba(0, 0, 0, 0)';}); return el?getComputedStyle(el).backgroundColor:'?';});
  const claroBg=c=>{const m=c.match(/\d+/g); return m&&+m[0]>200;};
  for(const sis of ['dark','light']){
-  const ctx=await b.newContext({viewport:{width:390,height:844},colorScheme:sis}); const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(e.message));
+  const ctx=await b.newContext({viewport:{width:390,height:844},colorScheme:sis}); await PLUS(ctx); const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(e.message));
   await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(1500);
   ok(await tema(p)===(sis==='dark'?'escuro':'claro'),`Usuário novo + sistema ${sis} → ${await tema(p)} (padrão Automático)`);
   ok(await p.evaluate(()=>localStorage.getItem('owbuddy_aparencia'))===null,'Nada é gravado até o usuário escolher'); await ctx.close(); }
- const ctx=await b.newContext({viewport:{width:390,height:844},colorScheme:'dark'});
+ const ctx=await b.newContext({viewport:{width:390,height:844},colorScheme:'dark'}); await PLUS(ctx);
  await ctx.addInitScript(d=>{ if(!sessionStorage.getItem('s')){localStorage.clear(); for(const [k,v] of Object.entries(d)) localStorage.setItem(k,JSON.stringify(v)); sessionStorage.setItem('s','1');}},DADOS);
  const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(e.message));
  const antes=await (async()=>{await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(1200); return p.evaluate(k=>Object.fromEntries(k.map(x=>[x,localStorage.getItem(x)])),Object.keys(DADOS));})();
@@ -50,7 +50,7 @@ const DADOS={ownews_minha_escala:{tipo:'14x14',dataRef:iso(-3),tipoRef:'embarque
  await ctx.close();
  // LARGURAS
  for(const t of ['escuro','claro']) for(const W of [320,360,375,390,412,430]){
-  const c=await b.newContext({viewport:{width:W,height:800},colorScheme:t==='claro'?'light':'dark'});
+  const c=await b.newContext({viewport:{width:W,height:800},colorScheme:t==='claro'?'light':'dark'}); await PLUS(c);
   await c.addInitScript(d=>{ if(!sessionStorage.getItem('s')){localStorage.clear(); for(const [k,v] of Object.entries(d)) localStorage.setItem(k,JSON.stringify(v)); sessionStorage.setItem('s','1');}},{...DADOS,owbuddy_aparencia:t});
   const q=await c.newPage(); q.on('pageerror',e=>errs.push(e.message)); const ruins=[];
   for(const r of ['/','/escala','/escala-cruzar','/buddy-config','/mala','/viagem','/certs']){ await q.goto(U+r,{waitUntil:'networkidle'}); await q.waitForTimeout(900);

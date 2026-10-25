@@ -1,7 +1,7 @@
 // Suíte RC do preview web (Playwright). Não roda no `npm test`.
 // Uso: PLAYWRIGHT=<caminho do pacote playwright> U=http://127.0.0.1:8791 OUT=/tmp/rc node tests/e2e/rc-preview.cjs
 // Datas RELATIVAS a hoje (a versão anterior fixava 19/10/2026 e envelheceu).
-const {chromium}=require(process.env.PLAYWRIGHT||'playwright');
+const {chromium}=require(process.env.PLAYWRIGHT||'playwright'); const PLUS=require('./_plus.cjs');
 const U=process.env.U||'http://127.0.0.1:8791', OUT=process.env.OUT;
 const txt=async p=>(await p.evaluate(()=>document.body.innerText.replace(/\s+/g,' ')));
 let falhas=0; const ok=(c,m)=>{console.log((c?'OK   ':'FALHA ')+m); if(!c) falhas++;};
@@ -11,7 +11,7 @@ const dia=n=>{const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+n)
 const br=iso=>iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4);
 const HOJE=dia(0);
 (async()=>{const b=await chromium.launch({args:['--no-sandbox']}); const errs=[];
-async function nova(W,seed,bloquear){ const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:'dark'});
+async function nova(W,seed,bloquear){ const ctx=await b.newContext({viewport:{width:W,height:844},deviceScaleFactor:2,colorScheme:'dark'}); await PLUS(ctx);
   // try: na página de erro do modo offline o storage é negado (erro do seed, não do app)
   await ctx.addInitScript(d=>{ try{ if(!sessionStorage.getItem('s')){localStorage.clear(); for(const [k,v] of Object.entries(d)) localStorage.setItem(k,JSON.stringify(v)); sessionStorage.setItem('s','1');}}catch(e){} },seed||{});
   if(bloquear) await ctx.route(bloquear,r=>r.abort());
