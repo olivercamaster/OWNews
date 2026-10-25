@@ -136,3 +136,14 @@ export function contextoHome(
     detalhe: calc.diaDoBloco === 1 ? `${calc.dEm} dias embarcado concluídos. ${fraseCasa}` : fraseCasa,
   };
 }
+
+/**
+ * Local de embarque (aeroporto/base) no card principal — regra de ESTADO.
+ * Antes do embarque (pré-embarque, folga, inclusive o dia do embarque antes de
+ * virar EMBARCADO) é logística útil. Embarcado, o deslocamento já aconteceu:
+ * nenhum local aparece e nada o substitui. O dado cadastrado não é tocado.
+ */
+export function localNoCardPrincipal(tipo: HomeContextoTipo, local: string | null | undefined): string | null {
+  if (tipo === 'EMBARCADO' || tipo === 'SEM_ESCALA') return null;
+  return local?.trim() ? local : null;
+}

@@ -20,6 +20,8 @@ async function nova(W,seed,bloquear){ const ctx=await b.newContext({viewport:{wi
 let {ctx,p}=await nova(390,esc(HOJE));
 await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500); let t=await txt(p);
 ok(t.includes('Hoje é dia de embarque')&&t.includes('Dia 1 de 14')&&t.includes('Faltam 14 dias pra casa.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · Faltam 14 dias pra casa · '+br(dia(14)));
+const heroLocal=async pg=>pg.evaluate(()=>{const h=[...document.querySelectorAll('[role="button"]')].find(e=>/^EMBARCADO|^PRÉ-EMBARQUE|^DE FOLGA/i.test(e.innerText.trim())); return h?h.innerText:'';});
+let hero=await heroLocal(p); ok(hero&&!/SBJR|Jacarepagu/i.test(hero),'Card embarcado (Dia 1) sem aeroporto/base');
 ok(/Meu Embarque Mala: 0 de 11/.test(t)&&!/\b11 Meu Embarque/.test(t),'Meu Embarque sem badge redundante');
 ok(/Vagas \d+ vagas verificadas/.test(t),'Vagas com dado real e fresco → contador');
 const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,240}?) Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com manchete recente: '+(man?man[1].slice(0,60):''));
@@ -29,7 +31,13 @@ ok(tabs.slice(-5).join('|')==='Início|Escala|Embarque|Viagem|Certificados','Bot
 await p.screenshot({path:OUT+'/rc-home-390.png'}); await ctx.close();
 for(const [nome,d,esperado] of [['sem',null,'Vamos começar pela sua escala'],['pre',dia(2),'Embarque em 2 dias'],['folga',dia(9),'Mais 9 dias em casa.']]){
  ({ctx,p}=await nova(390,d?esc(d):{})); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
- ok((await txt(p)).includes(esperado),`Home ${nome}: "${esperado}"`); await ctx.close(); }
+ ok((await txt(p)).includes(esperado),`Home ${nome}: "${esperado}"`);
+ if(nome!=='sem') ok(/SBJR · Jacarepagu/.test(await heroLocal(p)),`Card ${nome}: aeroporto continua (logística)`);
+ await ctx.close(); }
+// embarcado no meio do bloco: Dia 5 de 14, sem local
+({ctx,p}=await nova(390,esc(dia(-4)))); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
+hero=await heroLocal(p); ok(/Dia 5 de 14/.test(hero)&&/Faltam 10 dias pra casa/.test(hero)&&!/SBJR|Jacarepagu/i.test(hero),'Card embarcado Dia 5 sem aeroporto/base');
+await p.screenshot({path:OUT+'/rc-home-embarcado-dia5.png'}); await ctx.close();
 // vagas/notícias indisponíveis (endpoint falha, sem cache)
 ({ctx,p}=await nova(390,esc(HOJE),/api\/buddy\/(vagas|feed)/)); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(3000); t=await txt(p);
 ok(/Vagas Vagas verificadas/.test(t),'Vagas sem dado → só "Vagas verificadas" (sem número)');

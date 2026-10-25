@@ -20,6 +20,7 @@ import {
   calcCertStatus,
   getAeroporto,
   contextoHome,
+  localNoCardPrincipal,
   sincronizarChecklistComCiclo,
   cicloAlvoChecklist,
   gerarAcontecimentos,
@@ -643,6 +644,8 @@ function HomeHero({
 }) {
   useTema();
   const cor = CONTEXTO_COR[contexto.tipo];
+  // Aeroporto/base só enquanto ainda é logística: embarcado, o card fica limpo.
+  const local = localNoCardPrincipal(contexto.tipo, aeroporto);
 
   if (contexto.tipo === 'SEM_ESCALA') {
     return (
@@ -693,10 +696,10 @@ function HomeHero({
         <Text style={styles.heroDetalhe}>{contexto.detalhe}</Text>
         <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
       </View>
-      {aeroporto ? (
+      {local ? (
         <View style={styles.heroAero}>
           <Ionicons name="location-outline" size={12} color={colors.cyanDim} />
-          <Text style={styles.heroAeroText}>{aeroporto}</Text>
+          <Text style={styles.heroAeroText}>{local}</Text>
         </View>
       ) : null}
       {voz ? <Text style={styles.heroVoz}>“{voz}”</Text> : null}
