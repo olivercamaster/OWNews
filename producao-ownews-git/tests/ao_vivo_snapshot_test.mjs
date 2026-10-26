@@ -34,15 +34,24 @@ const casos = [
     const r = await buscarSnapshot(opts);
     expect(r.fonte === 'snapshot' && r.snap.dados.placar === '1x0' && r.snap.falhaEm === t);
   }],
-  ['sem snapshot e fonte fora do ar: snap nulo com erro', async () => {
+  ['sem snapshot e fonte fora do ar: dados nulos com erro', async () => {
     proxima = () => new Response('x', { status: 503 });
     const r = await buscarSnapshot({ ...opts, chave: 'novo' });
-    expect(r.snap === null && r.erro === 'HTTP 503');
+    expect(r.snap.dados === null && r.erro === 'HTTP 503');
   }],
-  ['não é importado pelo worker.js nem usa KV', async () => {
-    const w = fs.readFileSync(new URL('../worker.js', import.meta.url), 'utf8');
+  ['fonte fora do ar sem snapshot: grava falha e não reconsulta a cada visitante', async () => {
+    const antes = chamadas.length; t += 1000;
+    const r = await buscarSnapshot({ ...opts, chave: 'novo' });
+    expect(chamadas.length === antes && r.snap.dados === null && r.fonte === 'cache');
+  }],
+  ['timeout e payload inválido contam como falha', async () => {
+    t += 10 * 60_000; proxima = () => new Response(JSON.stringify({ outra: 1 }));
+    const r = await buscarSnapshot({ ...opts, transformar: (j) => (j.p ? j : null) });
+    expect(r.fonte === 'snapshot' && r.erro === 'payload inválido' && r.snap.dados.placar === '1x0');
+  }],
+  ['infra genérica: sem esporte/eleição e sem KV', async () => {
     const s = fs.readFileSync(new URL('../ao-vivo/snapshot.js', import.meta.url), 'utf8');
-    expect(!w.includes('ao-vivo/snapshot'), 'worker importa');
+    expect(!/futebol|placar|tse|eleic/i.test(s.replace(/\/\*[\s\S]*?\*\//g, '')), 'código específico na infra');
     expect(!/\.put\(/.test(s.replace('cache.put(', '')), 'put fora do Cache API');
   }],
 ];

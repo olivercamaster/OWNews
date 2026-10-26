@@ -1,3 +1,6 @@
+// Placares de futebol (serviço AO VIVO): módulo separado, ver ao-vivo/futebol.js.
+import { futebolConfigurar, futebolResponder, futebolModuloHome } from './ao-vivo/futebol.js';
+
 /* Script único, reaproveitado na Home e em paginaChrome. Consulta o DOM
    só dentro do callback assíncrono do fetch — evita depender da ordem
    entre a tag <script> e o <footer> no HTML. */
@@ -6397,7 +6400,7 @@ function blocoAgendaHome() {
 
 async function renderHomeServidor() {
   const agendaHome = blocoAgendaHome();
-  const base = agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica();
+  const base = await futebolModuloHome(agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica());
   try {
     const noticias = await obterNoticiasHomeServidor();
     return injetarNoticiasHome(base, noticias, new Date());
@@ -22034,6 +22037,7 @@ function nlRenderCancelar(status) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    futebolConfigurar(env);
 
     // Missão AdSense 2.1 (SEO): http:// respondia 200 (cópia duplicada de
     // todo o site) e "/rota/" dava 404. 301 para a URL canônica — só GET/HEAD
@@ -22249,6 +22253,11 @@ export default {
     // Eleições 2026 encerradas (26/10/2026): links antigos vão para a Home; abas abertas param de receber dados.
     if (url.pathname === "/eleicoes-2026") return Response.redirect(url.origin + "/", 301);
     if (url.pathname.startsWith("/api/eleicoes-2026/")) return new Response('{"ok":false,"encerrado":true}', { status: 410, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
+
+    // Placares de futebol: página /jogos + JSON mínimo (snapshot do provedor no Cache API).
+    if (url.pathname === "/jogos" || url.pathname === "/api/live/featured" || url.pathname === "/api/live/today" || url.pathname.startsWith("/api/live/escudo/")) {
+      return futebolResponder(request, url, ctx, { paginaChrome });
+    }
 
     if (url.pathname === "/") {
       // Home com notícias já no HTML (SSR) + cache de borda de 5 min. Em
