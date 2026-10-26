@@ -291,6 +291,13 @@ test('R$ 0: aviso de atraso por padrão, nenhum intervalo abaixo de 60 s, sem co
   const src = fs.readFileSync(new URL('../ao-vivo/futebol.js', import.meta.url), 'utf8');
   expect(!/FUTEBOL_PLACAR_ATRASADO/.test(src) && !/provedor'/.test(R.atualizado.toString()), 'texto de plano/API na interface');
 });
+test('Home: jogo irrelevante ao vivo não faz o navegador consultar (módulo oculto)', () => {
+  const irrelevante = { dados: { jogos: [F.normalizarJogo(jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 70, comp: 'FL1', c: NOT, f: BMG }))] }, atualizadoEm: agora };
+  const p = F.payloadDestaque(irrelevante, br);
+  expect(p.jogos.length === 0 && p.proxima === 0, 'polling inútil: proxima=' + p.proxima);
+  const relevante = { dados: { jogos: [F.normalizarJogo(jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 70 }))] }, atualizadoEm: agora };
+  expect(F.payloadDestaque(relevante, br).proxima === 60, 'jogo da Home ao vivo deveria atualizar a cada 60 s');
+});
 test('sem token: nada consultado, Home intacta, /jogos noindex e sem placar', async () => {
   limpar(); F.futebolConfigurar({});
   const home = '<main class="container" id="conteudo"><section class="ops" id="aeroportos"></section>';
@@ -322,13 +329,16 @@ test('payload da Home mínimo (≤ 3 jogos, sem campos extras) e /api/live/today
   expect(bad.status === 400, 'dia inválido');
   logOriginal('     payload featured=' + txt.length + ' B; today(30 jogos)=' + JSON.stringify(d).length + ' B');
 });
-test('Home: módulo com até 3 jogos, posição normal (antes de Aeroportos) e topo para Seleção ao vivo', async () => {
+test('Home: módulo com até 3 jogos, depois de Aconteceu no Offshore (antes de Vagas) e topo para Seleção ao vivo', async () => {
   limpar();
-  const home = '<main class="container" id="conteudo"><section class="ticker-wrap" id="giro24h"></section><section class="ops" id="aeroportos"></section>';
+  const home = '<main class="container" id="conteudo"><section class="ticker-wrap" id="giro24h"></section><section class="ops" id="aeroportos"></section>' +
+    '<section class="masthead" id="destaque"></section><section class="ed-section vagas-home-section" id="vagas-agora"></section><section class="ed-section mo-section" id="mercadoOffshore"></section>';
   resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 67, gc: 2, gf: 1 })]);
   await dia('hoje');
   let h = await F.futebolModuloHome(home);
-  expect(h.indexOf('id="futebolAoVivo"') > h.indexOf('giro24h') && h.indexOf('id="futebolAoVivo"') < h.indexOf('id="aeroportos"'), 'posição normal');
+  expect(h.indexOf('id="futebolAoVivo"') > h.indexOf('id="destaque"') && h.indexOf('id="futebolAoVivo"') < h.indexOf('id="vagas-agora"'), 'posição normal: depois das notícias');
+  const semVagas = await F.futebolModuloHome(home.replace(/<section class="ed-section vagas-home-section"[^]*?<\/section>/, ''));
+  expect(semVagas.indexOf('id="futebolAoVivo"') > semVagas.indexOf('id="destaque"') && semVagas.indexOf('id="futebolAoVivo"') < semVagas.indexOf('id="mercadoOffshore"'), 'sem Vagas: antes do Mercado');
   expect(/Ao vivo/.test(h) && /67&#39;|67'/.test(h) && /Todos os jogos de hoje/.test(h), 'conteúdo');
   limpar(); resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 10, comp: 'QCBL', c: BRA, f: ARG })]);
   await dia('hoje');

@@ -314,8 +314,11 @@ function base(snap, jogos) {
 export function payloadDestaque(snap, clubesBr) {
   const jogos = (snap && snap.dados && snap.dados.jogos) || [];
   const sel = selecionarHome(jogos, clubesBr, Date.now());
+  // Navegador só reconsulta por jogo que pode aparecer na Home (auditoria
+  // 26/10: jogo irrelevante ao vivo fazia polling de 60 s com o módulo oculto).
+  const candidatos = jogos.filter((j) => relevancia(j, clubesBr) >= C.relevanciaMinimaHome);
   return {
-    ...base(snap, jogos),
+    ...base(snap, candidatos),
     topo: sel.some((x) => VIVO[x.j.st] && (x.j.c.sel || x.j.f.sel || C.topoFases.includes(x.j.fase))),
     jogos: sel.map((x) => { const { cod, fase, ...min } = x.j; return min; }),
   };
@@ -410,6 +413,8 @@ function scriptCliente(alvoId, modo, url, dados, ls) {
 // ─── CSS (tokens do OWNews; vermelho só no selo/ponto ao vivo) ───────────
 const CSS = '<style>' +
   '.fx{margin:14px 0;padding:14px 16px;border:1px solid var(--line-soft,var(--line));border-radius:12px;background:var(--navy-900)}' +
+  // Depois de "Aconteceu no Offshore": respiro de seção, para não parecer parte do bloco editorial.
+  '#destaque~.fx{margin-top:28px}' +
   '.fx-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}' +
   '.fx-tit{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--white)}' +
   '.fx-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--white)}' +
@@ -455,6 +460,7 @@ const CSS_PAGINA = '<style>' +
 // ─── Home ────────────────────────────────────────────────────────────────
 // Lê só o cache do PoP (a Home nunca espera o provedor). Sem jogo relevante:
 // nada é injetado além de um contêiner oculto que o script preenche se surgir.
+const ANCORAS_HOME = ['<section class="ed-section vagas-home-section" id="vagas-agora"', '<section class="ed-section mo-section" id="mercadoOffshore"', '<section class="ops" id="aeroportos"'];
 export async function futebolModuloHome(html) {
   if (!token) return html;
   let dados = null, topo = false;
@@ -470,9 +476,12 @@ export async function futebolModuloHome(html) {
   const modulo = CSS + '<section class="fx" id="futebolAoVivo" aria-label="Futebol: jogos de hoje"' + (tem ? '' : ' hidden') + '>' +
     (tem ? R.home(dados, { escudos: C.escudos }) : '') + '</section>' +
     scriptCliente('futebolAoVivo', 'home', '/api/live/featured', tem ? dados : null, 'ow-futebol-home');
-  const ancora = topo ? '<main class="container" id="conteudo">' : '<section class="ops" id="aeroportos"';
-  if (!html.includes(ancora)) return html;
-  return topo ? html.replace(ancora, ancora + modulo) : html.replace(ancora, modulo + ancora);
+  // Serviço depois do conteúdo: logo após "Aconteceu no Offshore" (antes de
+  // Vagas/Mercado), nunca empurrando as notícias. Exceção aprovada: Seleção
+  // ou final ao vivo sobe para o topo.
+  if (topo) { const a = '<main class="container" id="conteudo">'; return html.includes(a) ? html.replace(a, a + modulo) : html; }
+  const ancora = ANCORAS_HOME.find((a) => html.includes(a));
+  return ancora ? html.replace(ancora, modulo + ancora) : html;
 }
 
 // ─── Rotas ───────────────────────────────────────────────────────────────
