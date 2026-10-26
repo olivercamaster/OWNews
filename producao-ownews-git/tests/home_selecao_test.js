@@ -16,13 +16,14 @@ function trecho(ini, fim) {
 const editoriaSrc = trecho("const FONTES_INTERNACIONAIS_SERVIDOR", "/* ==== CAMADA EDITORIAL: INICIO ====");
 const camadaSrc = trecho("/* ==== CAMADA EDITORIAL: INICIO ====", "/* ==== CAMADA EDITORIAL: FIM ==== */");
 const qSrc = trecho("/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====", "/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */");
+const qtdSrc = trecho("/* ACONTECEU NO OFFSHORE — quantidade fixa", "// Home 3.0: resumo institucional");
 const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe)");
 const canonSrc = trecho("function selecaoCanonicaHome(selecao)", "async function responderHomeSelecao");
 const tempoSrc = trecho("function tempoRelativoOuData(data, agora)", "const PALAVRAS_IRRELEVANTES_RELACIONADAS");
 
 const esc = (s) => String(s == null ? "" : s);
 const H = new Function("escaparHTML", "decodificarEntidadesHTMLServidor",
-  editoriaSrc + "\n" + camadaSrc + "\n" + qSrc + "\n" + selSrc + "\n" + canonSrc + "\n" + tempoSrc +
+  qtdSrc + "\n" + editoriaSrc + "\n" + camadaSrc + "\n" + qSrc + "\n" + selSrc + "\n" + canonSrc + "\n" + tempoSrc +
   "\nreturn { selecionarHomeServidor, homeScoreServidor, fatorFrescorHome, diagnosticoHome, selecaoCanonicaHome, HOME_SCORE_FORTE, editoriaDeServidor, materiaInternacional, tempoRelativoOuData, injetarNoticiasHome: typeof injetarNoticiasHome === 'function' ? injetarNoticiasHome : null };"
 )(esc, esc);
 
@@ -55,6 +56,7 @@ function art(horas, score, extra) {
     editorial_score: score
   }, extra || {});
 }
+const idade = (n) => (AGORA - Date.parse(n.published_at)) / 3600000;
 const ordenar = (l) => l.slice().sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
 
 console.log("\nSeleção da Home — freshness + relevância");
@@ -95,13 +97,13 @@ test("CASO 2d: palavra de urgência no resumo não segura matéria velha (só t�
   expect(s.hero.id === nova.id, "hero=" + s.hero.title);
 });
 
-test("CASO 3: nada forte em 24h → a melhor válida de 24h; >24h não completa laterais", () => {
+test("CASO 3: nada forte em 24h → a melhor válida de 24h; 24–48h só completa secundárias", () => {
   const nova = art(20, 45);
   const l = ordenar([art(30, 85), art(40, 70), nova]);
   const s = H.selecionarHomeServidor(l, AGORA);
   expect(s.hero.id === nova.id, "hero=" + s.hero.title);
-  expect(s.laterais.length === 0, "laterais=" + s.laterais.length);
-  expect(s.ultimas.length === 2, "últimas=" + s.ultimas.length);
+  expect(s.laterais.map(idade).join() === "30,40", "laterais=" + s.laterais.map(idade).join());
+  expect(s.ultimas.length === 0, "últimas repetem o bloco: " + s.ultimas.length);
 });
 
 test("CASO 3b: nada em 48h → null (Home mostra estado vazio honesto)", () => {
@@ -136,7 +138,7 @@ test("CASO 5b: >24h nunca volta a ser manchete (sem exceção por score)", () =>
   const velha = art(26, 100), fraca = art(3, 35);
   const s = H.selecionarHomeServidor(ordenar([velha, fraca, art(30, 90)]), AGORA);
   expect(s.hero.id === fraca.id, "hero=" + s.hero.title);
-  expect(s.laterais.length === 0, "lateral velha: " + s.laterais.map((n) => n.title).join(" / "));
+  expect(s.laterais.map(idade).join() === "26,30", "secundárias 24–48h por recência: " + s.laterais.map(idade).join());
 });
 
 test("CASO 6: seleção muda sozinha quando o relógio anda / chega matéria nova", () => {
@@ -202,7 +204,6 @@ test("decaimento é monotônico (0–24h) e zera depois de 24h (hard cap)", () =
 
 console.log("\nTopo Fresco — hard caps de 24h");
 
-const idade = (n) => (AGORA - Date.parse(n.published_at)) / 3600000;
 test("Hero 2h vs 22h → 2h (mesmo com score menor)", () => {
   const a = art(2, 60), b = art(22, 95);
   expect(H.selecionarHomeServidor(ordenar([a, b]), AGORA).hero.id === a.id);
@@ -215,11 +216,12 @@ test("Hero >24h proibido mesmo com score 100 e nada mais forte", () => {
   const s = H.selecionarHomeServidor(ordenar([art(24.5, 100), art(10, 30)]), AGORA);
   expect(idade(s.hero) <= 24, "hero com " + idade(s.hero) + "h");
 });
-test("lateral >24h proibida (reprodução de 20/10: P-82 e PPSA com 25h nas laterais)", () => {
+test("lateral >24h só completa vaga: as de 24h vêm antes, a de 24–48h é a mais recente (20/10: P-82/PPSA 25h)", () => {
   const l = ordenar([art(5.5, 85), art(6, 63), art(6.6, 100), art(25.4, 75), art(25.7, 61), art(26.5, 75)]);
   const s = H.selecionarHomeServidor(l, AGORA);
-  expect(s.laterais.every((n) => idade(n) <= 24), s.laterais.map(idade).join(","));
-  expect(s.laterais.length === 2, "laterais=" + s.laterais.length);
+  expect(s.laterais.map(idade).join(",") === "5.5,6,25.4", s.laterais.map(idade).join(","));
+  const cheio = ordenar([...l, art(9, 40)]);
+  expect(H.selecionarHomeServidor(cheio, AGORA).laterais.every((n) => idade(n) <= 24), "24h disponível, mas entrou >24h");
 });
 test("matéria de hoje boa (65, 3h) vence velha forte (85, 20h)", () => {
   const hoje = art(3, 65), ontem = art(20, 85);
@@ -235,13 +237,13 @@ test("nenhuma matéria ≤24h → sem manchete, sem laterais; Últimas cronológ
   const d = H.diagnosticoHome(l, AGORA);
   expect(d.hero === null && d.noticias_24h === 0 && /mais de 24h/.test(d.candidatos[0].motivo), JSON.stringify(d).slice(0, 300));
 });
-test("apenas 1 matéria ≤24h → só manchete, 0 laterais", () => {
-  const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(30, 95), art(36, 90)]), AGORA);
-  expect(idade(s.hero) === 4 && s.laterais.length === 0);
+test("apenas 1 matéria ≤24h → manchete + secundárias de 24–48h (sem inventar a 3ª)", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(30, 95), art(36, 90), art(50, 99)]), AGORA);
+  expect(idade(s.hero) === 4 && s.laterais.map(idade).join() === "30,36", s.laterais.map(idade).join());
 });
-test("apenas 2 matérias ≤24h → manchete + 1 lateral", () => {
+test("apenas 2 matérias ≤24h → manchete + 24h + 24–48h por recência (4 válidas = 4 visíveis)", () => {
   const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(18, 55), art(30, 95), art(36, 90)]), AGORA);
-  expect(s.laterais.length === 1 && idade(s.laterais[0]) === 18, s.laterais.map(idade).join(","));
+  expect(s.laterais.map(idade).join(",") === "18,30,36", s.laterais.map(idade).join(","));
 });
 test("laterais: até 12h vêm antes de 12–24h, mesmo com score menor", () => {
   const s = H.selecionarHomeServidor(ordenar([art(1, 90), art(14, 100), art(5, 52), art(9, 51)]), AGORA);
@@ -287,14 +289,15 @@ test("Giro 24h literal: sem janela de 48h nem rótulo alternativo", () => {
   const giro = FRONT.slice(FRONT.indexOf("function renderTicker(lista){"), FRONT.indexOf("function atualizarVelocidadeTicker"));
   expect(giro.includes("JANELA_GIRO_24H_MS") && !/48 \* 3600000/.test(giro) && !giro.includes("rotulo = 'GIRO'"), "fallback 48h no Giro");
 });
-test("cliente: topo nunca cai para 48h e respeita seleção canônica sem manchete", () => {
+test("cliente: manchete nunca cai para 48h; secundárias 24h → 48h; respeita canônica sem manchete", () => {
   expect(FRONT.includes("selCanon && selCanon.hero === null"), "canônica sem manchete");
-  expect(FRONT.includes("const elegiveisLaterais = (hero ? laterais24h : [])"), "laterais 48h");
+  expect(FRONT.includes("const poolTopo24h = noticias24h.filter(n => (agoraRender - new Date(n.published_at).getTime()) / 3600000 <= 24);"), "manchete 24h");
+  expect(FRONT.includes("const elegiveisLaterais = (hero ? laterais48h : [])") && FRONT.includes("const faixaLateral = n => idadeLateral(n) <= 24 ? 0 : 1;"), "secundárias");
   expect(!FRONT.includes("Nenhuma notícia publicada nas últimas 48 horas"), "aviso dramático");
 });
 test("SSR sem manchete: bloco de destaque oculto, Últimas renderizadas", () => {
   const html = '<section class="masthead" id="destaque" aria-label="Destaque"><article class="lead" id="heroCard"></article><aside class="highlights" id="highlightsList"></aside></section><div class="latest-body" id="ultimasBody"></div>';
-  expect(FRONT.includes("'<section class=\"masthead sem-laterais\" id=\"destaque\" aria-label=\"Destaque\" hidden>'"), "SSR esconde destaque sem manchete");
+  expect(FRONT.includes("'<section class=\"masthead sem-laterais\" hidden id=\"destaque\"'") && FRONT.includes(".replace('<section class=\"masthead\" id=\"destaque\"', abertura)"), "SSR esconde destaque sem manchete");
   expect(H.selecaoCanonicaHome({ hero: null, laterais: [], ultimas: [] }).hero === null);
   void html;
 });
@@ -316,7 +319,7 @@ test("future timestamp: nunca 'em X min' e fora do topo se >15 min no futuro", (
 });
 test("diagnóstico expõe idade do hero/laterais e faixa", () => {
   const d = H.diagnosticoHome(ordenar([art(2, 70), art(14, 60), art(30, 90)]), AGORA);
-  expect(d.idade_hero_h === 2 && d.faixa_hero === "A" && d.idade_laterais_h.join() === "14" && d.noticias_24h === 2, JSON.stringify({ a: d.idade_hero_h, f: d.faixa_hero, l: d.idade_laterais_h, n: d.noticias_24h }));
+  expect(d.idade_hero_h === 2 && d.faixa_hero === "A" && d.idade_laterais_h.join() === "14,30" && d.noticias_24h === 2, JSON.stringify({ a: d.idade_hero_h, f: d.faixa_hero, l: d.idade_laterais_h, n: d.noticias_24h }));
 });
 
 console.log("\nEditoria — fonte ≠ país da matéria");

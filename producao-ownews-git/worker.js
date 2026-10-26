@@ -148,6 +148,13 @@ function classificarPaginaParaAds(caminho) {
    disciplina de fonte oficial → verificação → publicação. Nunca vaga
    inventada, nunca contador inflado.
    ========================================================================= */
+/* ACONTECEU NO OFFSHORE — quantidade fixa (2026-10-26). Bloco editorial:
+   1 manchete + 3 secundárias = 4 notícias. Única fonte deste número (SSR,
+   /api/home-selecao e cliente). Serviços da Home (placares, Vagas,
+   Aeroportos, Minha Escala, Agenda, Radar, AO VIVO…) não entram nesta
+   seleção nem nesta contagem — tests/aconteceu_offshore_test.mjs. */
+const ACONTECEU_NOTICIAS_VISIVEIS = 4;
+const ACONTECEU_SECUNDARIAS = ACONTECEU_NOTICIAS_VISIVEIS - 1;
 // Home 3.0: resumo institucional da fonte nunca vira deck (Home, /noticia).
 const RE_LEAD_INSTITUCIONAL = /[Rr]evista fundada em [0-9]{4}|^[Ii]nforma[çc][ãa]o publicada (pela|por) |^[Nn]ot[ií]cias sobre [Pp]ortos, [Mm]arinha [Mm]ercante|^[a-zà-ú][a-zà-ú ]*(, [a-zà-ú ]+){2,}\.?$/;
 // S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
@@ -4275,14 +4282,14 @@ function renderTudo(noticias){
      fracos de publicação) — fallback progressivo honesto, sem fingir
      recência. Hero continua sempre <=24h. */
   const agoraDestaques = Date.now();
-  const laterais24h = restantesPosHero.filter(n => {
-    const horas = (agoraDestaques - new Date(n.published_at).getTime()) / 3600000;
-    return Number.isFinite(horas) && horas <= 24;
-  });
-  // Topo Fresco: laterais só de 24h — com menos matéria, o topo mostra menos.
-  const elegiveisLaterais = (hero ? laterais24h : [])
+  const idadeLateral = n => (agoraDestaques - new Date(n.published_at).getTime()) / 3600000;
+  const laterais48h = restantesPosHero.filter(n => { const h = idadeLateral(n); return Number.isFinite(h) && h <= 48; });
+  // Aconteceu no Offshore: 24h primeiro; 24–48h (mais recente primeiro) só
+  // completa as secundárias. Mesma regra de selecionarHomeServidor.
+  const faixaLateral = n => idadeLateral(n) <= 24 ? 0 : 1;
+  const elegiveisLaterais = (hero ? laterais48h : [])
     // Reserva local; com seleção canônica, as laterais vêm do servidor.
-    .sort((a, b) => pontuarDestaque(b, agoraDestaques) - pontuarDestaque(a, agoraDestaques));
+    .sort((a, b) => faixaLateral(a) - faixaLateral(b) || (faixaLateral(a) ? idadeLateral(a) - idadeLateral(b) : pontuarDestaque(b, agoraDestaques) - pontuarDestaque(a, agoraDestaques)));
   /* Corrigido em 2026-09-19 (P1 crítico — imagens repetidas, confirmado ao
      vivo: manchete + 3 laterais do PetroNotícias com a MESMA foto). Antes
      este bloco pegava as 3 primeiras elegíveis sem checar imagem — o
@@ -4299,7 +4306,7 @@ function renderTudo(noticias){
   const destaques = [];
   const reservaMesmaFonte = [];
   for (const candidata of elegiveisLaterais) {
-    if (destaques.length >= 3) break;
+    if (destaques.length >= ${ACONTECEU_SECUNDARIAS}) break;
     if (candidata.image_url && imagensDestaques.has(candidata.image_url)) continue;
     if (candidata.image_credit && fontesDestaques.has(candidata.image_credit)) {
       reservaMesmaFonte.push(candidata);
@@ -4310,16 +4317,22 @@ function renderTudo(noticias){
     if (candidata.image_credit) fontesDestaques.add(candidata.image_credit);
   }
   for (const candidata of reservaMesmaFonte) {
-    if (destaques.length >= 3) break;
+    if (destaques.length >= ${ACONTECEU_SECUNDARIAS}) break;
     if (candidata.image_url && imagensDestaques.has(candidata.image_url)) continue;
     destaques.push(candidata);
     if (candidata.image_url) imagensDestaques.add(candidata.image_url);
   }
-  // Seleção canônica vale também quando traz MENOS laterais (0–2): o cliente
-  // não completa a grade com regra própria.
+  // Seleção canônica manda (inclusive quando traz menos de 3). Se alguma
+  // secundária canônica não estiver na lista do cliente, a vaga é
+  // completada pela reserva local — o bloco não perde notícia por isso.
   if (heroCanon && Array.isArray(selCanon.laterais)) {
-    const lateraisCanon = selCanon.laterais.map(id => noticias.find(n => n.id === id)).filter(Boolean);
-    if (lateraisCanon.length === selCanon.laterais.length) destaques.splice(0, destaques.length, ...lateraisCanon);
+    const semImagem = new Set(selCanon.semImagem || []);
+    const lateraisCanon = selCanon.laterais.map(id => noticias.find(n => n.id === id)).filter(Boolean)
+      .map(n => semImagem.has(n.id) ? Object.assign({}, n, { image_url: null }) : n);
+    const faltam = selCanon.laterais.length - lateraisCanon.length;
+    const idsCanon = new Set(lateraisCanon.map(n => n.id));
+    const extras = faltam > 0 ? destaques.filter(n => !idsCanon.has(n.id)).slice(0, faltam) : [];
+    destaques.splice(0, destaques.length, ...lateraisCanon, ...extras);
   }
   const usados = new Set([hero, ...destaques].filter(Boolean).flatMap(chavesHome));
   /* Esgotamento sequencial do pool: cada seção só pode usar matérias que
@@ -6133,11 +6146,15 @@ async function obterNoticiasHomeServidor() {
    laterais, sem exceção por editorial_score. Faixas da manchete:
    A até 6h e B 6–12h (normal) → C 12–18h só sem matéria forte mais nova →
    D 18–24h fallback → nenhuma forte em 24h: a melhor válida de 24h.
-   Laterais: só 24h, com as de até 12h sempre na frente. Faltou matéria
-   nova: o topo mostra MENOS (0–3 laterais; sem nada em 24h, sem bloco de
-   destaque) — nunca puxa 30h/40h/48h para completar grade. Diversidade
-   (fonte/editoria) é preferência; não pode trazer matéria velha. Pauta
-   repetida e imagem repetida nunca entram. Últimas = cronológica (48h). */
+   Secundárias (2026-10-26, Aconteceu no Offshore = ACONTECEU_NOTICIAS_VISIVEIS):
+   até 12h → 12–24h → só para completar as 3 vagas, 24–48h (janela segura
+   das Últimas, a mais recente primeiro, com a idade real no card). Com 4+
+   matérias válidas em 48h o bloco mostra sempre 1 + 3; com menos, mostra
+   o que existe (nada inventado, nada repetido). Manchete continua ≤24h:
+   sem matéria em 24h, sem bloco de destaque. Diversidade (fonte/editoria)
+   é preferência dentro de cada faixa. Pauta repetida nunca entra; foto
+   repetida só como último recurso e então com a capa editorial OWNews.
+   Últimas = cronológica (48h), sem o que já está no bloco. */
 const HOME_SCORE_FORTE = 50;
 const HOME_BONUS_URGENCIA = 10;
 const HOME_TOLERANCIA_FUTURO_H = 0.25; // relógio da fonte adiantado até 15 min
@@ -6187,28 +6204,38 @@ function selecionarHomeServidor(noticias, agoraMs) {
   if (!hero && topo.length) hero = melhorHome(topo, agoraMs);
   const laterais = [];
   if (hero) {
-    const pref = (n) => horasHome(n, agoraMs) <= HOME_LATERAL_PREFERENCIA_H ? 0 : 1;
-    const ordemLateral = (a, b) => pref(a) - pref(b) || homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs);
-    const candidatas = topo.filter((n) => n.id !== hero.id).sort(ordemLateral);
+    const pref = (n) => { const h = horasHome(n, agoraMs); return h <= HOME_LATERAL_PREFERENCIA_H ? 0 : h <= HOME_TOPO_MAX_H ? 1 : 2; };
+    // Faixa 2 (24–48h, só completa o bloco): a mais recente primeiro.
+    const ordemLateral = (a, b) => pref(a) - pref(b) || (pref(a) === 2 ? horasHome(a, agoraMs) - horasHome(b, agoraMs) : homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
+    const candidatas = recentes.filter((n) => n.id !== hero.id).sort(ordemLateral);
     const imagens = new Set([hero.image_url].filter(Boolean));
     const fontes = new Set([hero.image_credit].filter(Boolean));
     const porEditoria = { [editoriaDeServidor(hero)]: 1 };
-    const bloqueada = (c) => (c.image_url && imagens.has(c.image_url)) || [hero, ...laterais].some((x) => mesmaPautaHome(x, c));
+    const cheio = () => laterais.length >= ACONTECEU_SECUNDARIAS;
+    const mesmaPauta = (c) => [hero, ...laterais].some((x) => mesmaPautaHome(x, c));
+    const bloqueada = (c) => (c.image_url && imagens.has(c.image_url)) || mesmaPauta(c);
     const entrar = (c) => { laterais.push(c); const ed = editoriaDeServidor(c); porEditoria[ed] = (porEditoria[ed] || 0) + 1; if (c.image_url) imagens.add(c.image_url); if (c.image_credit) fontes.add(c.image_credit); };
     // Diversidade (fonte/editoria) só escolhe DENTRO da faixa de frescor:
     // uma de até 12h da mesma editoria vem antes de qualquer uma de 12–24h.
-    for (const faixa of [0, 1]) {
+    for (const faixa of [0, 1, 2]) {
       const reserva = [];
       for (const c of candidatas) {
-        if (laterais.length >= 3) break;
+        if (cheio()) break;
         if (pref(c) !== faixa || bloqueada(c)) continue;
-        if ((c.image_credit && fontes.has(c.image_credit)) || (porEditoria[editoriaDeServidor(c)] || 0) >= 2) { reserva.push(c); continue; }
+        if (faixa < 2 && ((c.image_credit && fontes.has(c.image_credit)) || (porEditoria[editoriaDeServidor(c)] || 0) >= 2)) { reserva.push(c); continue; }
         entrar(c);
       }
       for (const c of reserva) {
-        if (laterais.length >= 3) break;
+        if (cheio()) break;
         if (!bloqueada(c)) entrar(c);
       }
+    }
+    // Último recurso: matéria distinta barrada só pela foto repetida entra
+    // com a capa editorial (image_url nula) — nunca some por causa da foto.
+    for (const c of candidatas) {
+      if (cheio()) break;
+      if (laterais.some((x) => x.id === c.id) || mesmaPauta(c)) continue;
+      laterais.push(Object.assign({}, c, { image_url: null, semImagemPropria: true }));
     }
     laterais.sort(ordemLateral);
   }
@@ -6357,11 +6384,13 @@ function injetarNoticiasHome(html, noticias, agora) {
   const m = homeSsrMarkup(selecao, agora);
   // Sem matéria de até 24h: não há bloco de destaque (nada velho no topo);
   // a página começa nas Últimas, cronológicas, com a idade real de cada uma.
+  // Home 3.0 trocou aria-label por aria-labelledby e este replace deixou de
+  // casar (classe/hidden só chegavam com o JS): casa só o prefixo estável.
   const abertura = selecao.hero
-    ? '<section class="masthead ' + m.classeMasthead + '" id="destaque" aria-label="Destaque">'
-    : '<section class="masthead sem-laterais" id="destaque" aria-label="Destaque" hidden>';
+    ? '<section class="masthead ' + m.classeMasthead + '" id="destaque"'
+    : '<section class="masthead sem-laterais" hidden id="destaque"';
   return html
-    .replace('<section class="masthead" id="destaque" aria-label="Destaque">', abertura)
+    .replace('<section class="masthead" id="destaque"', abertura)
     .replace('<article class="lead" id="heroCard"></article>', '<article class="lead" id="heroCard">' + m.hero + '</article>')
     .replace('<aside class="highlights" id="highlightsList"></aside>', '<aside class="highlights" id="highlightsList">' + m.laterais + '</aside><script>window.__HOME_SEL__=' + JSON.stringify(selecaoCanonicaHome(selecao)) + ';</script>')
     .replace('<div class="latest-body" id="ultimasBody"></div>', '<div class="latest-body latest-count-' + m.ultimasCount + '" id="ultimasBody">' + m.ultimas + '</div>');
@@ -6372,7 +6401,11 @@ function injetarNoticiasHome(html, noticias, agora) {
    e com outro score) — usa a escolha do servidor embutida no HTML e, nos
    refreshes, /api/home-selecao, que roda esta MESMA função. */
 function selecaoCanonicaHome(selecao) {
-  return selecao ? { hero: selecao.hero ? selecao.hero.id : null, laterais: selecao.laterais.map((n) => n.id) } : null;
+  if (!selecao) return null;
+  const canon = { hero: selecao.hero ? selecao.hero.id : null, laterais: selecao.laterais.map((n) => n.id) };
+  const semImagem = selecao.laterais.filter((n) => n.semImagemPropria).map((n) => n.id);
+  if (semImagem.length) canon.semImagem = semImagem;
+  return canon;
 }
 async function responderHomeSelecao(request) {
   let sel = null;

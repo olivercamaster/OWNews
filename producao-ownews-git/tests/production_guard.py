@@ -295,6 +295,7 @@ def run_static():
     test("home SSR select inclui content (thin check real no hero)", lambda: expect_in("'id,title,summary,content,image_url", worker(), "NOTICIAS_HOME_SELECT_SERVIDOR"))
     test("selecionarHomeServidor filtra thin antes de selecionar hero", lambda: _check_home_thin_filter())
     test("home_selecao_test.js passa (Topo Fresco: hard cap 24h, faixas, laterais, Últimas, Giro, geografia)", lambda: _run_node_test("home_selecao_test.js"))
+    test("aconteceu_offshore_test.mjs passa (Aconteceu no Offshore = 1+3; serviços não consomem vagas)", lambda: _run_node_test("aconteceu_offshore_test.mjs"))
     test("worker_size_test.js passa (Topo Fresco: margem do worker, CSS como Static Asset)", lambda: _run_node_test("worker_size_test.js"))
     test("newsroom_test.mjs passa (Live Newsroom: redator, gate, 2ª tentativa, memória, dedup, saúde, KV)", lambda: _run_node_test("newsroom_test.mjs"))
     test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
