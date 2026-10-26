@@ -5,6 +5,11 @@
  * → JSON mínimo (/api/live/featured, /api/live/today) e HTML pronto (Home, /jogos).
  * O navegador nunca fala com o provedor; o token é secret do Worker
  * (FOOTBALL_DATA_TOKEN). Sem token, nada aparece e nada é consultado.
+ *
+ * Operação R$ 0 (decisão do proprietário, 26/10/2026): plano FREE do
+ * football-data.org — 12 competições, placar com alguns minutos de atraso,
+ * 10 requisições/min por chave, sem cartão. Nada de plano pago. O cadenciamento
+ * abaixo cabe na cota mesmo com vários PoPs; cota baixa/429 → ver snapshot.js.
  */
 import { buscarSnapshot, lerSnapshot } from './snapshot.js';
 
@@ -18,7 +23,9 @@ export const FUTEBOL_CONFIG = {
   escudoMaxBytes: 24 * 1024,
   homeMax: 3,
   // competitionsEnabled + competitionWeight. Códigos do football-data.org
-  // (validados em /v4/competitions). Só aparece o que o plano contratado cobre.
+  // (validados em /v4/competitions). Só aparece o que o plano cobre — no FREE:
+  // BSA, CL, PL, PD, SA, BL1, FL1, WC, EC (e ELC, DED, PPL, fora desta lista).
+  // As demais ficam configuradas, sem custo, para o dia em que houver fonte gratuita.
   // soComBrasil: a competição só entra quando a Seleção joga.
   competicoes: {
     WC: { nome: 'Copa do Mundo', peso: 90 },
@@ -67,7 +74,8 @@ export const FUTEBOL_CONFIG = {
   topoFases: ['FINAL'],     // ao vivo com Seleção ou nestas fases sobe para o topo da Home
   selecao: ['Brazil'],
   // Competições de onde vem a lista de clubes brasileiros (regra uniforme).
-  competicoesClubesBr: ['BSA', 'BSB'],
+  // (BSB não está no plano FREE: consultá-la gastaria cota com 403.)
+  competicoesClubesBr: ['BSA'],
   // displayName: só aliases seguros (abreviações do provedor e seleções).
   nomes: {
     'Man United': 'Manchester United', 'Man City': 'Manchester City', 'Barça': 'Barcelona',
@@ -79,8 +87,14 @@ export const FUTEBOL_CONFIG = {
     'Croatia': 'Croácia', 'Mexico': 'México', 'United States': 'Estados Unidos', 'Japan': 'Japão',
     'Morocco': 'Marrocos', 'Switzerland': 'Suíça', 'Denmark': 'Dinamarca', 'Senegal': 'Senegal',
   },
-  // Intervalos (s) entre consultas ao provedor, por PoP.
-  intervalos: { aoVivo: 30, perto: 60, hojeFuturo: 300, semJogo: 1800, outroDia: 3600 },
+  // Intervalos (s) entre consultas ao provedor, por PoP. Orçamento: FREE = 10
+  // req/min por chave; o placar do FREE já vem com minutos de atraso, então
+  // consultar mais rápido que 1 min não melhora nada. Futuro/encerrado: cache longo.
+  intervalos: { aoVivo: 60, perto: 120, hojeFuturo: 900, semJogo: 3600, ontem: 43200, amanha: 21600 },
+  // Cota (headers do provedor): com ≤ cotaBaixa requisições no minuto, o que
+  // não é jogo ao vivo relevante espera fatorCotaBaixa× mais.
+  cotaBaixa: 3,
+  fatorCotaBaixa: 4,
   pertoMin: 20,             // a partir de N min do início, modo "perto"
   encerradoNaHomeH: 4,      // jogo encerrado sai do destaque N h após o início
 };
@@ -93,10 +107,12 @@ const STATUS = {
   AWARDED: 'decidido', SUSPENDED: 'suspenso', POSTPONED: 'adiado', CANCELLED: 'cancelado',
 };
 
-let token = '', atraso = false, apiBase = C.api;
+let token = '', atraso = true, apiBase = C.api;
 export function futebolConfigurar(env) {
   token = (env && env.FOOTBALL_DATA_TOKEN) || '';
-  atraso = !!(env && env.FUTEBOL_PLACAR_ATRASADO === '1');
+  // Plano FREE = placar com atraso (aviso discreto). Só um plano em tempo real
+  // desligaria o aviso — e o OWNews não paga plano.
+  atraso = !(env && env.FUTEBOL_PLACAR_TEMPO_REAL === '1');
   const dev = env && env.FUTEBOL_API_BASE_DEV; // só wrangler dev local: nunca manda o token para fora de 127.0.0.1
   apiBase = typeof dev === 'string' && /^http:\/\/127\.0\.0\.1:\d+$/.test(dev) ? dev : C.api;
 }
@@ -238,17 +254,23 @@ function intervaloDia(diaChave) {
     if (js.some((j) => VIVO[j.st])) return I.aoVivo;
     const ag = js.filter((j) => j.st === 'agendado').map((j) => (Date.parse(j.ini) - agora) / 60000);
     if (ag.some((m) => m <= C.pertoMin && m > -180)) return I.perto;
-    if (diaChave !== 'hoje') return I.outroDia;
+    if (diaChave === 'ontem') return I.ontem;
+    if (diaChave === 'amanha') return I.amanha;
     return ag.some((m) => m > 0) ? I.hojeFuturo : I.semJogo;
   };
 }
+// Jogo ao vivo que iria para a Home: este snapshot fura a economia de cota baixa.
+const vivoRelevante = (dados) => ((dados && dados.jogos) || []).some((j) => VIVO[j.st] && relevancia(j, null) >= C.relevanciaMinimaHome);
+// football-data.org: X-Requests-Available-Minute / X-RequestCounter-Reset (s).
+const lerCota = (h) => ({ restantes: h.get('x-requests-available-minute'), resetS: h.get('x-requestcounter-reset') });
+const COTA = { lerCota, cotaBaixa: C.cotaBaixa, fatorCotaBaixa: C.fatorCotaBaixa };
 
 async function clubesBrasileiros(ctx) {
   const ids = new Set();
   await Promise.all(C.competicoesClubesBr.map(async (cod) => {
     const { snap } = await buscarSnapshot({
       chave: 'futebol-clubes-' + cod, url: apiBase + '/competitions/' + cod + '/teams', ctx,
-      headers: { 'X-Auth-Token': token }, intervaloS: 86400, retencaoS: 604800,
+      headers: { 'X-Auth-Token': token }, intervaloS: 86400, retencaoS: 604800, ...COTA,
       transformar: (j) => (j && Array.isArray(j.teams) ? j.teams.map((t) => idOk(t && t.id)).filter(Boolean) : null),
     });
     if (snap && snap.dados) for (const id of snap.dados) ids.add(id);
@@ -264,7 +286,7 @@ export async function futebolDia(diaChave, ctx, soCache) {
   const [{ snap }, clubesBr] = await Promise.all([
     buscarSnapshot({
       chave, url: apiBase + '/matches?dateFrom=' + dia + '&dateTo=' + somarDias(dia, 1), ctx,
-      headers: { 'X-Auth-Token': token }, intervaloS: intervaloDia(diaChave), timeoutMs: 4000,
+      headers: { 'X-Auth-Token': token }, intervaloS: intervaloDia(diaChave), timeoutMs: 4000, ...COTA, prioritario: vivoRelevante,
       transformar: transformarDia(dia),
     }),
     clubesBrasileiros(ctx),
@@ -283,7 +305,8 @@ function proximaCliente(jogos, agora) {
 
 function base(snap, jogos) {
   return {
-    ok: true, ativo: !!token, atraso, atualizadoEm: (snap && snap.atualizadoEm) || null,
+    // Hora da última consulta bem-sucedida (304 conta: o placar foi conferido).
+    ok: true, ativo: !!token, atraso, atualizadoEm: (snap && (snap.okEm || snap.atualizadoEm)) || null,
     falha: !!(snap && snap.falhaEm), proxima: proximaCliente(jogos, Date.now()),
   };
 }
@@ -341,7 +364,7 @@ export function futebolRender() {
   function atualizado(d, seg) {
     if (!d.atualizadoEm) return '';
     var velho = Date.now() - d.atualizadoEm > Math.max(180, (d.proxima || 0) * 4) * 1000;
-    return (d.falha || velho ? 'Última atualização ' : 'Atualizado ') + hora(d.atualizadoEm, seg) + (velho ? ' · Dados podem estar desatualizados.' : '') + (d.atraso ? ' · placar com atraso do provedor' : '');
+    return (d.falha || velho ? 'Última atualização ' : 'Atualizado ') + hora(d.atualizadoEm, seg) + (velho ? ' · Dados podem estar desatualizados.' : '') + (d.atraso ? ' · placar pode ter alguns minutos de atraso' : '');
   }
   function home(d, o) {
     var vivo = d.jogos.some(function (j) { return VIVO[j.st]; });
@@ -495,13 +518,13 @@ export async function futebolResponder(request, url, ctx, deps) {
   // /jogos
   const dataTxt = FMT_LONGO.format(new Date(dia + 'T12:00:00Z'));
   const nav = Object.keys(DIAS).map((k) => '<a href="/jogos' + (k === 'hoje' ? '' : '?dia=' + k) + '"' + (k === diaChave ? ' aria-current="page"' : '') + '>' + { ontem: 'Ontem', hoje: 'Hoje', amanha: 'Amanhã' }[k] + '</a>').join('');
-  const conteudo = CSS + CSS_PAGINA + '<div class="fj" id="fj"><h1>' + TITULOS[diaChave] + '</h1><p class="fj-sub">Placares e resultados em tempo real.</p>' +
+  const conteudo = CSS + CSS_PAGINA + '<div class="fj" id="fj"><h1>' + TITULOS[diaChave] + '</h1><p class="fj-sub">Placares e resultados do dia.</p>' +
     '<p class="fj-data">' + R.esc(dataTxt.charAt(0).toUpperCase() + dataTxt.slice(1)) + '</p><nav class="fj-dias" aria-label="Dia">' + nav + '</nav>' +
     '<div id="fjCorpo">' + R.pagina(dados, { escudos: C.escudos }) + '</div>' +
     '<p class="fj-rodape"><span id="fjAtu">' + R.esc(R.atualizado(dados, 1)) + '</span><br>Horários de Brasília. ' + C.atribuicao + '.</p></div>' +
     (token ? scriptCliente('fj', 'pagina', '/api/live/today?dia=' + diaChave, dados, 'ow-futebol-' + diaChave) : '');
   const html = deps.paginaChrome('Jogos de hoje e placares ao vivo | OWNews',
-    'Acompanhe jogos de hoje, placares e resultados em tempo real de forma rápida no OWNews.', conteudo,
+    'Acompanhe jogos de hoje, placares e resultados de forma rápida no OWNews.', conteudo,
     '/jogos' + (diaChave === 'hoje' ? '' : '?dia=' + diaChave),
     { robots: !token || diaChave !== 'hoje' ? 'noindex, follow' : undefined });
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=15' } });

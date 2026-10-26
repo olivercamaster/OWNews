@@ -201,35 +201,43 @@ test('/jogos: AO VIVO por relevância, A SEGUIR por horário, ENCERRADOS mais re
 });
 
 // ── cache, frequência, falhas ──
-test('cache: 2º visitante não consulta o provedor; ao vivo reconsulta em 30 s', async () => {
+test('cache: 2º visitante não consulta o provedor; ao vivo reconsulta em 60 s (plano FREE)', async () => {
   limpar();
   resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 60, gc: 1, gf: 0 })]);
   await dia('hoje');
   const n = chamadas.filter((c) => c.u.includes('/matches')).length;
   await dia('hoje');
   expect(chamadas.filter((c) => c.u.includes('/matches')).length === n && n === 1, 'cache não usado');
-  agora += 31000; await dia('hoje'); agora -= 31000;
+  agora += 31000; await dia('hoje');
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'consultou antes de 60 s');
+  agora += 30000; await dia('hoje'); agora -= 61000;
   expect(chamadas.filter((c) => c.u.includes('/matches')).length === 2, 'não reconsultou ao vivo');
   expect(chamadas[0].u.includes('dateFrom=2026-10-26&dateTo=2026-10-27'), chamadas[0].u);
   expect(chamadas.every((c) => c.h['X-Auth-Token'] === TOKEN), 'token só no header server-side');
 });
-test('frequência adaptativa: sem jogo ao vivo e início distante = 5 min; nada no dia = 30 min', async () => {
+test('frequência adaptativa: início distante = 15 min; nada no dia = 1 h; ontem 12 h; amanhã 6 h', async () => {
   limpar(); resposta = ok([jogo({ utc: '2026-10-27T00:30:00Z' })]);
   await dia('hoje');
-  agora += 120000; await dia('hoje');
+  agora += 600000; await dia('hoje');
   expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'consultou cedo demais');
-  agora += 200000; await dia('hoje'); agora -= 320000;
-  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 2, 'não reconsultou após 5 min');
+  agora += 301000; await dia('hoje'); agora -= 901000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 2, 'não reconsultou após 15 min');
   limpar(); resposta = ok([]);
-  await dia('hoje'); agora += 600000; await dia('hoje'); agora -= 600000;
-  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'sem jogo deveria esperar 30 min');
+  await dia('hoje'); agora += 3000000; await dia('hoje'); agora -= 3000000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'sem jogo deveria esperar 1 h');
+  limpar(); resposta = ok([jogo({ utc: '2026-10-25T20:00:00Z', st: 'FINISHED', gc: 1, gf: 1 })]);
+  await dia('ontem'); agora += 5 * 3600000; await dia('ontem'); agora -= 5 * 3600000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'ontem encerrado deveria esperar 12 h');
+  limpar(); resposta = ok([jogo({ utc: '2026-10-27T22:00:00Z' })]);
+  await dia('amanha'); agora += 5 * 3600000; await dia('amanha'); agora -= 5 * 3600000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'amanhã deveria esperar 6 h');
   const p = F.payloadDestaque({ dados: { jogos: [] }, atualizadoEm: agora }, br);
   expect(p.proxima === 0, 'navegador não deveria fazer polling sem jogo');
 });
 test('API indisponível / timeout: mantém snapshot anterior e sinaliza falha', async () => {
   limpar(); resposta = ok([jogo({ id: 77, utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 60, gc: 1, gf: 0 })]);
   await dia('hoje');
-  agora += 31000; resposta = () => { throw new Error('rede caiu'); };
+  agora += 61000; resposta = () => { throw new Error('rede caiu'); };
   let { snap } = await dia('hoje');
   expect(snap.dados.jogos[0].id === 77 && snap.falhaEm, 'snapshot perdido');
   const p = F.payloadDestaque(snap, br);
@@ -237,10 +245,51 @@ test('API indisponível / timeout: mantém snapshot anterior e sinaliza falha', 
   agora += 120000; resposta = (u, o) => { expect(o.signal, 'consulta sem timeout'); throw Object.assign(new Error('t'), { name: 'TimeoutError' }); }; // AbortSignal.timeout dispara assim
   ({ snap } = await dia('hoje'));
   expect(snap.dados.jogos[0].id === 77, 'timeout perdeu snapshot');
-  agora -= 151000;
+  agora -= 181000;
   const R = F.futebolRender();
   const txt = R.atualizado({ atualizadoEm: agora - 600000, falha: true, proxima: 30 });
   expect(/^Última atualização \d\d:\d\d · Dados podem estar desatualizados\.$/.test(txt), txt);
+});
+// ── Operação R$ 0: cota do plano FREE ──
+const comCota = (matches, restantes, reset, status) => () => new Response(status === 429 ? '{"message":"limit"}' : JSON.stringify({ matches }),
+  { status: status || 200, headers: { 'x-requests-available-minute': String(restantes), 'x-requestcounter-reset': String(reset) } });
+test('cota baixa: jogo sem relevância ao vivo espera 4×; jogo ao vivo relevante mantém 60 s', async () => {
+  limpar(); resposta = comCota([jogo({ utc: '2026-10-27T00:30:00Z' })], 2, 40);
+  await dia('hoje'); agora += 901000; await dia('hoje'); agora -= 901000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'cota baixa não alongou o intervalo');
+  limpar(); resposta = comCota([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 50, gc: 0, gf: 0 })], 2, 40);
+  await dia('hoje'); agora += 61000; await dia('hoje'); agora -= 61000;
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 2, 'ao vivo relevante perdeu prioridade');
+});
+test('cota esgotada (429): mantém snapshot, avisa falha e não tenta de novo até o reset', async () => {
+  limpar(); resposta = ok([jogo({ id: 91, utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 10, gc: 0, gf: 0 })]);
+  await dia('hoje');
+  agora += 61000; resposta = comCota([], 0, 50, 429);
+  let { snap } = await dia('hoje');
+  expect(snap.dados.jogos[0].id === 91 && snap.falhaEm && snap.pausaAte, 'snapshot perdido no 429');
+  const n = chamadas.length;
+  for (const passo of [10000, 20000, 25000]) { agora += passo; await dia('hoje'); }
+  expect(chamadas.length === n, 'insistiu antes do reset');
+  agora += 10000; resposta = ok([jogo({ id: 91, utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 13, gc: 1, gf: 0 })]);
+  ({ snap } = await dia('hoje'));
+  expect(chamadas.length === n + 1 && snap.dados.jogos[0].gc === 1 && !snap.pausaAte, 'não voltou depois do reset');
+  agora -= 126000;
+  expect(F.payloadDestaque({ ...snap, falhaEm: agora }, br).falha === true);
+});
+test('visitantes simultâneos no mesmo isolate: 1 consulta ao provedor', async () => {
+  limpar(); resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 5 })]);
+  await Promise.all(Array.from({ length: 25 }, () => F.futebolDia('hoje', ctx))); await flush();
+  expect(chamadas.filter((c) => c.u.includes('/matches')).length === 1, 'herd: ' + chamadas.length);
+});
+test('R$ 0: aviso de atraso por padrão, nenhum intervalo abaixo de 60 s, sem competição paga consultada', async () => {
+  const I = F.FUTEBOL_CONFIG.intervalos;
+  expect(Object.values(I).every((v) => v >= 60), JSON.stringify(I));
+  expect(F.FUTEBOL_CONFIG.competicoesClubesBr.join() === 'BSA', 'BSB fora do FREE gastaria cota');
+  const R = F.futebolRender();
+  expect(/alguns minutos de atraso/.test(R.atualizado({ atualizadoEm: agora, proxima: 60, atraso: true })));
+  expect(F.payloadDestaque({ dados: { jogos: [] }, atualizadoEm: agora }, br).atraso === true, 'atraso deveria ser padrão');
+  const src = fs.readFileSync(new URL('../ao-vivo/futebol.js', import.meta.url), 'utf8');
+  expect(!/FUTEBOL_PLACAR_ATRASADO/.test(src) && !/provedor'/.test(R.atualizado.toString()), 'texto de plano/API na interface');
 });
 test('sem token: nada consultado, Home intacta, /jogos noindex e sem placar', async () => {
   limpar(); F.futebolConfigurar({});
