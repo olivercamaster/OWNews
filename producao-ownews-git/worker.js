@@ -1445,8 +1445,10 @@ header{
 .mo-nome{font-family:var(--ui);font-size:12.5px;font-weight:700;color:var(--white)}
 .mo-ticker{font-family:var(--mono);font-size:10.5px;color:var(--cyan-dim)}
 .mo-ticker.mo-privada{color:var(--muted-dim);font-family:var(--ui);letter-spacing:.04em}
-.mo-preco-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mo-preco-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 8px}
 .mo-preco{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--white);font-variant-numeric:tabular-nums}
+/* Card estreito (7 por linha no desktop): "R$" não se separa do valor; a variação desce inteira. */
+.mo-preco,.mo-preco-row>span{white-space:nowrap}
 .mo-sem-cotacao{font-family:var(--ui);font-size:11px;color:var(--muted-dim);font-style:italic}
 .mo-cotacao-meta{display:block;margin-top:6px;font:10px var(--ui);color:var(--muted-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mo-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px}
@@ -1560,6 +1562,8 @@ header{
   background:linear-gradient(180deg,rgba(4,12,18,0) 0%,rgba(4,12,18,.16) 22%,rgba(4,12,18,.42) 42%,rgba(3,10,15,.74) 64%,rgba(3,10,15,.95) 100%);
 }
 .lead-copy{position:relative;z-index:2;padding:22px 20px 20px;display:flex;flex-direction:column;min-height:clamp(260px, 62vw, 340px);pointer-events:none}
+/* No celular o rótulo cai sobre a parte clara da foto: mesma sombra do h1. */
+.lead .eyebrow{text-shadow:0 1px 2px rgba(0,0,0,.6),0 0 10px rgba(0,0,0,.45)}
 .eyebrow{
   font-family:var(--ui);font-size:11.5px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;color:var(--cyan-dim);margin-bottom:12px;
@@ -3117,7 +3121,7 @@ ${CSS_TEMA_CLARO}
 ${FOOTER_HTML}
 
 <nav class="tabbar" aria-label="Navegação principal">
-  <a href="#inicio" class="active"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</a>
+  <a href="#top" class="active"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</a>
   <a href="#destaque"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V5h16v14zM6 7h8v2H6zm0 4h8v2H6zm0 4h4v2H6zm10-4h2v6h-2z"/></svg>Notícias</a>
   <a href="https://t.me/ownewsradar" onclick="if(window.ownewsEvento)window.ownewsEvento('telegram_bottom_nav_click')"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 3.5 2.7 10.8c-.9.4-.9 1.6.1 1.9l4.6 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.5-2.9 4.7 3.5c.8.6 1.9.1 2.1-.8l3.2-15c.2-1-.8-1.8-1.7-1.5zM8.8 13.6l9.4-6.9c.3-.2.6.2.3.4l-7.9 7.7c-.3.3-.5.7-.6 1.1l-.3 2.1-1-3.1c-.1-.5 0-1 .1-1.3z"/></svg>Telegram</a>
   <a href="https://www.offshoreworks.com.br"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 6h-2c0-2.2-1.8-4-4-4S8 3.8 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm6 16H6V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h4v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/></svg>Loja</a>
@@ -3768,7 +3772,8 @@ function imagemInvalida(url){
 function imagemDe(noticia){
   if (noticia.image_url && !imagemInvalida(noticia.image_url)) {
     // "&amp;" gravado na URL (atributo HTML não decodificado na coleta) quebra a foto.
-    return { src: String(noticia.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'"), ilustracao: false, variant: '', credito: null };
+    // ' " ( ) e espaço fecham o url('…') do background (ex.: "Eidesvik's"): vão codificados.
+    return { src: String(noticia.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'").replace(/['"() ]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()), ilustracao: false, variant: '', credito: null };
   }
   // Sem foto utilizável da fonte: capa editorial OWNews da editoria
   // (nunca foto de outra unidade/navio).
@@ -3790,12 +3795,23 @@ function coverStyle(img){
 // Modo Embarcado (Fase A): no modo normal, mesma style= de sempre. No modo
 // embarcado, NUNCA emite background-image (zero request de imagem) — só
 // grava os dados em data-* pro clique em "Carregar imagem" aplicar depois.
-function capaAtributos(img){
+function capaAtributos(img, adiar){
   if (MODO_EMBARCADO) {
     const variant = img.ilustracao ? img.variant : '';
     return \`data-cover-url="\${escaparHTML(img.src)}" data-cover-variant="\${escaparHTML(variant)}"\`;
   }
+  // Abaixo da dobra (Últimas): a foto só baixa perto da tela — fontes mandam
+  // PNG de 2 MB para miniatura de 96 px (auditoria 26/10/2026).
+  if (adiar && 'IntersectionObserver' in window) return \`data-bg="\${escaparHTML(coverStyle(img))}"\`;
   return \`style="\${coverStyle(img)}"\`;
+}
+let observadorCapas = null;
+function observarCapas(raiz){
+  if (!raiz) return;
+  const aplicar = (el) => { el.setAttribute('style', el.dataset.bg); el.removeAttribute('data-bg'); };
+  if (!('IntersectionObserver' in window)) { raiz.querySelectorAll('[data-bg]').forEach(aplicar); return; }
+  observadorCapas = observadorCapas || new IntersectionObserver((itens) => itens.forEach((i) => { if (i.isIntersecting) { observadorCapas.unobserve(i.target); aplicar(i.target); } }), { rootMargin: '600px 0px' });
+  raiz.querySelectorAll('[data-bg]').forEach((el) => observadorCapas.observe(el));
 }
 function botaoCarregarImagem(){
   return MODO_EMBARCADO
@@ -3937,7 +3953,7 @@ function renderRowItem(n){
   const img = imagemDe(n); // computado uma única vez — não pode ser chamado 2x (a rotação avança a cada chamada)
   return \`
     <article class="row" onclick="\${irPara(n.id)}">
-      <div class="row-thumb" \${capaAtributos(img)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, true)}</div>
+      <div class="row-thumb" \${capaAtributos(img, true)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, true)}</div>
       <div class="row-main">
         <h3>\${escaparHTML(n.title)}</h3>
         <span class="byline">\${cartaoFonte(n)} · \${tempoRelativo(n.published_at)}</span>
@@ -4002,6 +4018,7 @@ function renderMercado(lista, fallbackEditorial){
     <div class="row-list">
       \${resto.map(renderRowItem).join('')}
     </div>\`;
+  observarCapas(el);
 }
 
 function renderOperacoes(lista, fallbackEditorial){
@@ -4250,6 +4267,7 @@ function renderTudo(noticias){
     if (ult) ult.hidden = false;
     ULTIMAS_NOTICIAS_RADAR = noticias;
     renderUltimas(noticias.slice(0, 5));
+    observarCapas(document.getElementById('ultimasBody'));
     return;
   }
   jornalismo.forEach(id => { const el = id === '__giro__' ? giroWrap : document.getElementById(id); if (el) el.hidden = false; });
@@ -4432,6 +4450,7 @@ function renderTudo(noticias){
   if (hero) { renderHero(hero); renderHighlights(destaques); }
   if (blocoDestaque) blocoDestaque.hidden = !hero;
   renderUltimas(ultimas);
+  observarCapas(document.getElementById('ultimasBody'));
   renderMercado(mercado, !mercadoHoje.length);
   renderOperacoes(operacoes, !operacoesHoje.length);
 
@@ -4448,6 +4467,7 @@ function renderTudo(noticias){
    está presente, sobrescrever com o snapshot (hoje ~4 dias velho) causaria
    flash de conteúdo antigo antes da busca ao vivo chegar. */
 renderAirports(SEED_AEROPORTOS);
+observarCapas(document.getElementById('ultimasBody'));
 if (!document.querySelector('#heroCard .lead-ssr-link')) {
   renderTudo(ULTIMAS_NOTICIAS_RADAR);
 }
@@ -4534,6 +4554,9 @@ function renderMercadoAgora(macro){
   if (!macro || !macro.length) { strip.innerHTML = '<span class="ma-indisponivel">Mercado agora indisponível no momento.</span>'; return; }
   strip.innerHTML = macro.map((m) => {
     if (m.ok !== true) return '';
+    // Câmbio/commodity não anda 15% num dia: é cotação errada da fonte
+    // (26/10/2026: TIO=F veio 161,91 com série em ~90,8). Não exibe.
+    if (typeof m.variacao_percent === 'number' && Math.abs(m.variacao_percent) >= 15) return '';
     return '<div class="ma-item"><span class="ma-nome">' + escaparHTML(m.nome) + '</span>' +
       '<span class="ma-preco">' + formatarPreco(m.preco, m.moeda) + '</span>' +
       variacaoHtml(m) + '</div>';
@@ -6282,9 +6305,11 @@ function diagnosticoHome(noticias, agoraMs) {
   };
 }
 
-function homeSsrCapa(n, classe) {
+function homeSsrCapa(n, classe, adiar) {
   const img = imagemComFallbackServidor(n);
-  return '<div class="' + classe + '" style="background-image:url(\'' + escaparHTML(img.src) + '\')"></div>';
+  const estilo = escaparHTML("background-image:url('" + img.src + "')");
+  // Últimas (abaixo da dobra): data-bg, aplicado pelo cliente perto da tela.
+  return '<div class="' + classe + '" ' + (adiar ? 'data-bg' : 'style') + '="' + estilo + '"></div>';
 }
 
 function homeSsrMarkup(selecao, agora) {
@@ -6321,7 +6346,7 @@ function homeSsrMarkup(selecao, agora) {
       '<div class="row-list">' +
       resto.map((n) =>
         '<article class="row"><a class="highlight-ssr-link" href="' + link(n) + '">' +
-        homeSsrCapa(n, 'row-thumb') +
+        homeSsrCapa(n, 'row-thumb', true) +
         '<div class="row-main"><h3>' + escaparHTML(n.title) + '</h3>' +
         '<span class="byline">' + escaparHTML(editoriaDeServidor(n)) + ' · ' + tempo(n) + '</span></div></a></article>'
       ).join('') +
@@ -6460,7 +6485,8 @@ function imagemComFallbackServidor(artigo) {
   if (imagemValidaServidor(artigo.image_url)) {
     // URL gravada com entidade HTML ("&amp;amp;w=3840", offshore-energy.biz)
     // vira HTTP 400: normaliza na exibição — auditoria de 2026-10-18.
-    return { src: String(artigo.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'"), credito: artigo.image_credit || null, ilustrativa: false };
+    // ' " ( ) e espaço quebram o url('…') do background (ex.: "Eidesvik's"): codifica.
+    return { src: String(artigo.image_url).replace(/&amp;/gi, '&').replace(/&amp;/gi, '&').replace(/&#x0*27;|&#0*39;/gi, "'").replace(/['"() ]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase()), credito: artigo.image_credit || null, ilustrativa: false };
   }
   return imagemFallbackServidor(artigo);
 }

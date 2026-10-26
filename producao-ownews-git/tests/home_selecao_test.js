@@ -17,7 +17,7 @@ const editoriaSrc = trecho("const FONTES_INTERNACIONAIS_SERVIDOR", "/* ==== CAMA
 const camadaSrc = trecho("/* ==== CAMADA EDITORIAL: INICIO ====", "/* ==== CAMADA EDITORIAL: FIM ==== */");
 const qSrc = trecho("/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====", "/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */");
 const qtdSrc = trecho("/* ACONTECEU NO OFFSHORE — quantidade fixa", "// Home 3.0: resumo institucional");
-const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe)");
+const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe");
 const canonSrc = trecho("function selecaoCanonicaHome(selecao)", "async function responderHomeSelecao");
 const tempoSrc = trecho("function tempoRelativoOuData(data, agora)", "const PALAVRAS_IRRELEVANTES_RELACIONADAS");
 

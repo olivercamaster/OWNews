@@ -16,7 +16,7 @@ function trecho(ini, fim) {
 const editoriaSrc = trecho("const FONTES_INTERNACIONAIS_SERVIDOR", "/* ==== CAMADA EDITORIAL: INICIO ====");
 const camadaSrc = trecho("/* ==== CAMADA EDITORIAL: INICIO ====", "/* ==== CAMADA EDITORIAL: FIM ==== */");
 const qSrc = trecho("/* ==== QUALIDADE EDITORIAL 2.1: INICIO ====", "/* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */");
-const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe)");
+const selSrc = trecho("const PALAVRAS_BREAKING_SERVIDOR", "function homeSsrCapa(n, classe");
 const mlSrc = trecho("const MAIS_LIDAS_ITENS", "async function responderMaisLidas");
 
 const esc = (s) => String(s == null ? "" : s);
