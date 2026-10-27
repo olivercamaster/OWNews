@@ -6616,7 +6616,8 @@ function blocoAgendaHome() {
    calculado no carregamento do módulo, quando o relógio dos Workers marca 1970
    — nenhuma vaga vencida saía). Até 3; mais novas primeiro, uma por empresa. */
 function escolherVagasHome(lista, n) {
-  const ordem = lista.slice().sort((a, b) => (b.first_seen_at ? Date.parse(b.first_seen_at) : 0) - (a.first_seen_at ? Date.parse(a.first_seen_at) : 0));
+  const off = (v) => v.offshore_onshore === 'OFFSHORE' ? 1 : 0; // bloco "Oportunidades offshore": embarcadas primeiro
+  const ordem = lista.slice().sort((a, b) => off(b) - off(a) || (b.first_seen_at ? Date.parse(b.first_seen_at) : 0) - (a.first_seen_at ? Date.parse(a.first_seen_at) : 0));
   const escolhidas = [], empresas = new Set();
   for (const v of ordem) if (escolhidas.length < n && !empresas.has(v.empresa)) { escolhidas.push(v); empresas.add(v.empresa); }
   for (const v of ordem) if (escolhidas.length < n && !escolhidas.includes(v)) escolhidas.push(v);

@@ -242,6 +242,8 @@ await test('G) first_seen fica, last_seen avança a cada coleta', async () => {
 await test('H) Home segue com no máximo 3; I) worker abaixo do guard', () => {
   const muitas = Array.from({ length: 40 }, (_, i) => vaga(String(1380000000 + i), { empresa: ['PRIO', 'Brava Energia', 'Ocyan', 'Foresea', 'Subsea7'][i % 5] }));
   expect((T.blocoVagasHome(muitas).match(/class="vaga-card-home"/g) || []).length === 3);
+  const mix = [vaga('1390000001', { empresa: 'PRIO', titulo: 'Analista de Planejamento', offshore_onshore: 'NAO_INFORMADO' }), vaga('1390000002', { empresa: 'Brava Energia', titulo: 'Supervisor de Marinha Offshore', offshore_onshore: 'OFFSHORE' })];
+  expect(T.blocoVagasHome(mix).indexOf('Supervisor de Marinha') < T.blocoVagasHome(mix).indexOf('Analista de Planejamento'), 'Home: offshore primeiro');
   expect(Buffer.byteLength(SRC) < 1760000, 'worker.js ' + Buffer.byteLength(SRC));
 });
 
