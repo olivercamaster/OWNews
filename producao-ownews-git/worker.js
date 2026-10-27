@@ -427,7 +427,7 @@ function parseSFJobHtml(html, fullUrl) {
       titulo,
       empresa: 'Subsea7',
       local,
-      pais: !pais_codigo || pais_codigo === 'BR' ? 'Brasil' : pais_codigo,
+      pais: pais_codigo === 'BR' ? 'Brasil' : null,
       pais_codigo,
       offshore_onshore: local.toLowerCase().includes('offshore') ? 'OFFSHORE' : 'NAO_INFORMADO',
       escala: null,
@@ -481,7 +481,7 @@ function classificarPaginaSF(status, html, url) {
 /* Descoberta (28/10/2026): listagens oficiais primeiro, detalhe só quando
    preciso (vaga nova, sem país conhecido ou que sumiu da listagem); depois a
    relevância do OWNews. Teto de páginas de detalhe por coleta (subrequests). */
-const VAGAS_DETALHES_SF = 20, VAGAS_DETALHES_GUPY = 10;
+const VAGAS_DETALHES_SF = 24, VAGAS_DETALHES_GUPY = 10;
 const VAGA_SETOR_RE = /offshore|onshore|plataforma|sonda|perfura|drill|subsea|submarin|\brov\b|conv[eé]s|m[aá]quinas|marinh|mar[ií]tim|naval|embarca|navio|fpso|plsv|po[cç]os?\b|reservat|reservas|geolog|geof|petr[oó]leo|\bg[aá]s\b|energia|produ[cç][aã]o|processos|facilidades|manuten|mec[aâ]nic|el[eé]tric|eletr[oô]nic|instrument|automa[cç]|caldeir|solda|pintor|jatista|escalador|inspe[cç]|integridade|operador|opera[cç][oõ]es|operations|t[eé]cnic|engenh|engineer|qsms|\bsms\b|\bhse\b|seguran[cç]a|suprimentos|supply|log[ií]stic|almoxarif|planejamento|medi[cç][aã]o|sondador|bombeador|superintend|supervisor|install|survey|vessel|deck|projetos?\b|project/i;
 const VAGA_FORA_RE = /comunica[cç]|imprensa|eventos|auditor|contab|\bfiscal\b|tribut|seguros|financeir|jur[ií]dic|advogad|marketing|recrutamento|recursos humanos|\brh\b|\bhr\b|pessoas|performance|\bdados\b|tecnologia da informa|\bti\b|applications support|software|desenvolvedor|assistente executiv|secret[aá]ri/i;
 function vagaRelevanteOWNews(titulo, departamento, bancoTalentos) {
@@ -494,11 +494,42 @@ function vagaRelevanteOWNews(titulo, departamento, bancoTalentos) {
   return VAGA_SETOR_RE.test(t) || !VAGA_FORA_RE.test(String(departamento || ''));
 }
 
-// Subsea7: "Cidade, BR" no campo Location; "Offshore" sem país só com texto em português.
-function subsea7NoBrasil(vaga, html) {
-  if (vaga.pais_codigo) return vaga.pais_codigo === 'BR';
-  return /Miss[aã]o do cargo|Requisitos|Atividades|Inscri[cç][oõ]es|\(o\)|\(a\)/.test(html);
+/* Radar de Vagas 2.0 (28/10/2026): só oportunidades NO BRASIL. Decide pelo
+   local de trabalho, nunca pela empresa: código de país oficial primeiro,
+   depois país/UF/cidade no texto. Sem evidência (ex.: "Offshore" sem país,
+   "Remote" sem país) → ambígua, não publica. */
+const VAGA_BR_RE = /\b(brasil|brazil|brazilian|rio de janeiro|sao paulo|espirito santo|bahia|sergipe|alagoas|pernambuco|paraiba|ceara|maranhao|piaui|amapa|amazonas|roraima|rondonia|tocantins|goias|mato grosso|minas gerais|parana|santa catarina|rio grande do (sul|norte)|distrito federal|macae|niteroi|rio das ostras|campos dos goytacazes|sao joao da barra|porto do acu|vitoria|vila velha|santos|itajai|angra dos reis|aracaju|mossoro|candeias|marica|cabo frio|itaguai|duque de caxias|alto do rodrigues)\b|[,–-]\s*(ac|al|ap|am|ba|ce|df|es|go|ma|mt|ms|mg|pa|pb|pr|pe|pi|rj|rn|rs|ro|rr|sc|sp|se|to)\s*$/;
+const VAGA_EXTERIOR_RE = /\b(united kingdom|uk|england|scotland|aberdeen|london|norway|norge|stavanger|houston|usa|united states|tx|angola|luanda|guyana|georgetown|nigeria|ghana|mexico|merida|portugal|lisboa?|lisbon|france|paris|singapore|malaysia|kuala lumpur|dubai|uae|netherlands|zoetermeer|eemshaven|denmark|vejle|canada|st\.? john|australia|perth|egypt|qatar|saudi|india|chennai|el salvador|suriname|trinidad|argentina|chile|colombia|uruguay|mocambique|mozambique|namibia|senegal)\b/;
+const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function localizacaoVaga(v) {
+  const cod = String(v.pais_codigo || '').toUpperCase();
+  if (cod) return cod === 'BR' ? { br: true } : { br: false, motivo: 'fora do Brasil (' + [v.local, cod].filter(Boolean).join(', ') + ')', exterior: true };
+  const texto = [v.local, v.pais].filter(Boolean).join(', '), t = semAcento(texto);
+  const br = VAGA_BR_RE.test(t), fora = VAGA_EXTERIOR_RE.test(t);
+  if (br && !fora) return { br: true };
+  if (fora && !br) return { br: false, motivo: 'fora do Brasil (' + texto + ')', exterior: true };
+  return { br: false, motivo: 'localização ambígua: ' + (texto ? '"' + texto + '"' : 'sem local') + ' sem país comprovado' };
 }
+
+/* Categorias (navegação, nunca filtro editorial): regras explícitas sobre
+   título + área, na ordem abaixo; sem correspondência → Outras. */
+const CATEGORIAS_VAGA = [
+  ['banco', 'Banco de talentos', 'Banco de talentos', /banco de talentos|talent pool/],
+  ['subsea', 'Subsea & ROV', 'ROV/Subsea', /\brov\b|subsea|submarin|survey|plsv|mergulh|pre-?comission/],
+  ['perfuracao', 'Perfuração', 'Perfuração', /sondador|driller|perfura|drilling|plataformista|torrista|toolpusher|tool pusher|deck pusher|\bpocos?\b|\bwell/],
+  ['conves', 'Convés & Marítimo', 'Convés', /conves|\bdeck\b|marinh|maritim|embarca|vessel|navio|posicionamento dinamico|dynamic positioning|radio operador|imediato|comandante|guindast|crane|\bmarine\b/],
+  ['sms', 'SMS / HSE', 'SMS/HSE', /\bsms\b|qsms|\bhse\b|seguranca|safety|saude|meio ambiente|\bsgi\b|qualidade|quality/],
+  ['corporativo', 'Administrativo / Corporativo', 'Corporativo', /\brh\b|\bhr\b|recursos humanos|pessoas|financ|contab|juridic|comercial|commercial|tender|complianc|auditor|treinamento|assistente executiv|informacoes gerenciais|applications|tecnologia|\bti\b/],
+  ['engenharia', 'Engenharia & Projetos', 'Engenharia', /engenh|engineer|projet|project|geolog|geofis|reservat|reservas|medicao/],
+  ['manutencao', 'Manutenção & Máquinas', 'Manutenção', /manuten|mecanic|eletric|eletronic|electronic|instrument|caldeir|solda|pintor|jatista|inspe[cç]|integridade|automac|maquinas|maintenance|mechanic|electric/],
+  ['operacoes', 'Operações & Logística', 'Operações', /operac|operations|operador|logistic|suprimentos|supply|almoxarif|materiais|motorista|facilidades|producao|bombeador|planejamento/],
+  ['outras', 'Outras', 'Outras', /$^/]
+];
+function categoriaVaga(v) {
+  const t = (String(v.titulo || '') + ' ' + (v.job_type || '') + ' ' + (v.departamento || '')).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return (CATEGORIAS_VAGA.find((c) => c[3].test(t)) || CATEGORIAS_VAGA[CATEGORIAS_VAGA.length - 1])[0];
+}
+
 const SF_LOCAL_BR_RE = /^\/(?:[^/]+\/)?job\/(Offshore|Offline|Rio|Maca|Niter|S%C3%A3o|Sao|Esp[ií%]|Vit|Santos|Salvador|Natal|Aracaju|Itaja|Angra|Campos|Ubu|A%C3%A7u|Bra[sz]il)/i;
 
 async function adapterSuccessFactors(env, conhecidas, descartadasAnt) {
@@ -513,16 +544,17 @@ async function adapterSuccessFactors(env, conhecidas, descartadasAnt) {
     for (const p of paths) { const id = (p.match(/\/(\d{7,12})\/?$/) || [])[1]; if (id && (i === 1 || SF_LOCAL_BR_RE.test(p))) { cand.set(id, SF_SUBSEA7_BASE + p); if (i) fresca.add(id); } }
   });
   const conh = new Map(conhecidas.map(v => [v.external_job_id, v]));
+  const faceta = new Set(listas[1].status === 'fulfilled' ? [...listas[1].value.matchAll(/data-url="[^"]*\/(\d{7,12})\/"/g)].map(m => m[1]) : []);
   if (!cand.size && conh.size >= 2) throw new Error('listagens Subsea7 vazias (resposta anormal)');
   const verificacoes = [], descartes = [], detalhar = [];
   const ausentes = conhecidas.filter(v => !cand.has(v.external_job_id) && v.application_url);
   for (const v of ausentes) detalhar.push({ id: v.external_job_id, url: v.application_url, conhecida: true });
   for (const [id, url] of cand) {
     const k = conh.get(id), chave = 'successfactors:' + id;
-    if (k && k.pais_codigo && fresca.has(id)) {
+    if (k && k.pais_evidencia && fresca.has(id)) {
       if (!vagaRelevanteOWNews(k.titulo)) verificacoes.push({ chave, resultado: 'fora', motivo: 'fora do foco do OWNews' });
       else verificacoes.push({ chave, resultado: 'ativa', vaga: Object.assign({}, k, { status: 'OPEN' }) });
-    } else if (!k && descartadasAnt[chave]) descartes.push(Object.assign({ chave }, descartadasAnt[chave]));
+    } else if (!k && descartadasAnt[chave] && !/amb[ií]gua/.test(descartadasAnt[chave].motivo)) descartes.push(Object.assign({ chave }, descartadasAnt[chave])); // ambígua: reavalia sempre
     else detalhar.push({ id, url, conhecida: !!k });
   }
   const res = await emLotes(detalhar.slice(0, VAGAS_DETALHES_SF), VAGAS_REFRESH_PARALELO, async (d) => {
@@ -532,9 +564,11 @@ async function adapterSuccessFactors(env, conhecidas, descartadasAnt) {
       const html = r.status === 200 ? await r.text() : '';
       const c = Object.assign({ chave }, classificarPaginaSF(r.status, html, d.url));
       if (c.resultado !== 'ativa') return d.conhecida ? c : null;
-      const noBrasil = subsea7NoBrasil(c.vaga, html);
-      if (noBrasil && !c.vaga.pais_codigo) c.vaga.pais_codigo = 'BR'; // "Offshore" + texto em português
-      const motivo = !noBrasil ? 'fora do Brasil (' + c.vaga.local + ', ' + c.vaga.pais_codigo + ')' : !vagaRelevanteOWNews(c.vaga.titulo) ? 'fora do foco do OWNews' : null;
+      // País: código oficial da vaga > filtro país=BR da própria Subsea7 > verificação manual registrada.
+      const manual = VAGAS_RADAR.find(v => v.external_job_id === d.id && v.pais === 'Brasil');
+      c.vaga.pais_evidencia = c.vaga.pais_codigo ? 'codigo' : faceta.has(d.id) ? 'faceta_br' : manual ? 'verificacao_manual' : 'nenhuma';
+      if (!c.vaga.pais_codigo && c.vaga.pais_evidencia !== 'nenhuma') Object.assign(c.vaga, { pais_codigo: 'BR', pais: 'Brasil' });
+      const motivo = !vagaRelevanteOWNews(c.vaga.titulo) ? 'fora do foco do OWNews' : null;
       if (!motivo) return c;
       if (d.conhecida) return { chave, resultado: 'fora', motivo };
       descartes.push({ chave, titulo: c.vaga.titulo, motivo }); return null;
@@ -584,7 +618,8 @@ async function adapterGupy(env, conhecidas) {
       const end = (j.workplace && j.workplace.address) || {}, texto = titulo + ' ' + (j.department || '');
       const vaga = Object.assign({ resumo: 'Vaga publicada no ATS oficial da ' + empresa + (j.department ? ' (área: ' + String(j.department).trim() + ')' : '') + '.',
         offshore_onshore: /offshore/i.test(texto) ? 'OFFSHORE' : /onshore/i.test(texto) ? 'ONSHORE' : 'NAO_INFORMADO', escala: null, closing_date: null }, k || {}, {
-        titulo, empresa, local: end.city || (k && k.local) || '', pais: 'Brasil', fonte_nome: empresa + ' Careers (Gupy)', fonte_oficial: true,
+        titulo, empresa, local: end.city || (k && k.local) || '', pais: end.country || null, pais_codigo: /^bra[sz]il$/i.test(end.country || '') ? 'BR' : null, pais_evidencia: 'gupy',
+        uf: end.stateShortName || null, departamento: j.department ? String(j.department).trim() : null, fonte_nome: empresa + ' Careers (Gupy)', fonte_oficial: true,
         application_url: 'https://' + sd + '.gupy.io/jobs/' + id, plataforma: 'gupy', external_job_id: id, status: 'OPEN' });
       if (banco) vaga.job_type = 'banco de talentos';
       verificacoes.push({ chave, resultado: 'ativa', vaga });
@@ -596,7 +631,7 @@ async function adapterGupy(env, conhecidas) {
     const chave = chaveVaga(v);
     try {
       const c = await get(v.application_url);
-      if (c.resultado === 'ativa') { if (enriquecer) { v.closing_date = c.job.expiresAt || null; return null; } return { chave, resultado: 'ativa', vaga: Object.assign({}, v, { closing_date: c.job.expiresAt || v.closing_date || null, status: 'OPEN' }) }; }
+      if (c.resultado === 'ativa') { if (enriquecer) { v.closing_date = c.job.expiresAt || null; return null; } return { chave, resultado: 'ativa', vaga: Object.assign({}, v, { closing_date: c.job.expiresAt || v.closing_date || null, pais: c.job.addressCountry || v.pais || null, pais_codigo: c.job.addressCountryShortName || v.pais_codigo || null, pais_evidencia: 'gupy', status: 'OPEN' }) }; }
       if (enriquecer) return c.resultado === 'encerrada' ? Object.assign({ chave }, c) : null;
       return Object.assign({ chave }, c.resultado === 'lista' ? { resultado: 'ausente' } : c);
     } catch (e) { return enriquecer ? null : { chave, resultado: 'erro', motivo: String(e && e.message || e) }; }
@@ -651,7 +686,7 @@ function reconciliarVagas(registroAnterior, fontes, estaticas, agoraIso) {
   }
   const resumo = {};
   for (const [nome, f] of Object.entries(fontes)) {
-    const r = resumo[nome] = { ok: !!f.ok, anomalia: false, vistas: 0, novas: 0, atualizadas: 0, encerradas: 0, ausentes: 0, erros: 0, reabertas: 0, fora: 0, descartadas: (f.descartes || []).length, erro: f.erro || null };
+    const r = resumo[nome] = { ok: !!f.ok, anomalia: false, vistas: 0, novas: 0, atualizadas: 0, encerradas: 0, ausentes: 0, erros: 0, reabertas: 0, fora: 0, internacionais: 0, ambiguas: 0, bloqueadas: [], descartadas: (f.descartes || []).length, erro: f.erro || null };
     if (!f.ok) continue;
     const vs = f.verificacoes || [];
     const ausentes = vs.filter(x => x.resultado === 'ausente').length;
@@ -659,6 +694,15 @@ function reconciliarVagas(registroAnterior, fontes, estaticas, agoraIso) {
     r.anomalia = ausentes >= 2 && ausentes === vs.length;
     for (const x of vs) {
       const ant = reg[x.chave];
+      if (x.resultado === 'ativa') {
+        const geo = localizacaoVaga(x.vaga);
+        if (!geo.br) {
+          r[geo.exterior ? 'internacionais' : 'ambiguas']++;
+          r.bloqueadas.push({ chave: x.chave, titulo: x.vaga.titulo, motivo: geo.motivo });
+          if (ant && ant.status !== 'removida') Object.assign(ant, { status: 'removida', removed_at: agoraIso, motivo_saida: geo.motivo });
+          continue;
+        }
+      }
       if (x.resultado === 'ativa') {
         r.vistas++;
         const dados = Object.assign({}, x.vaga, { verificado_em: agoraIso });
@@ -712,6 +756,7 @@ async function refreshVagasRadar(env) {
     const descartadas = {};
     for (const f of Object.values(fontes)) for (const d of f.descartes || []) descartadas[d.chave] = { titulo: d.titulo, motivo: d.motivo };
     const { registro, jobs, resumo } = reconciliarVagas(registroAnt, fontes, VAGAS_RADAR, agoraIso);
+    for (const r of Object.values(resumo)) { for (const b of r.bloqueadas) descartadas[b.chave] = { titulo: b.titulo, motivo: b.motivo }; r.exemplos_bloqueadas = r.bloqueadas.slice(0, 5).map(b => b.titulo + ' — ' + b.motivo); delete r.bloqueadas; }
     const sources = {};
     for (const n of nomes) {
       const r = resumo[n], ant = anterior && anterior.sources && anterior.sources[n];
@@ -797,20 +842,39 @@ function badgeOffshoreOnshore(v) {
   return '';
 }
 
-function cardVaga(v) {
-  const slug = slugVaga(v);
+// ordem: posição definida pelo servidor (intercalação em /vagas); os data-*
+// alimentam busca/filtros/ordenação no navegador (public/js/vagas.js).
+function cardVaga(v, ordem) {
+  const slug = slugVaga(v), cat = categoriaVaga(v), rotulo = CATEGORIAS_VAGA.find((c) => c[0] === cat)[1];
   const novo = vagaEhNova(v) ? '<span class="vaga-badge vaga-badge-novo">NOVO</span>' : '';
-  return '<div class="area-group" data-vaga-empresa="' + escaparHTML(v.empresa || '') + '" data-vaga-titulo="' + escaparHTML((v.titulo || '').toLowerCase()) + '" data-vaga-modalidade="' + escaparHTML(v.offshore_onshore || 'NAO_INFORMADO') + '" data-vaga-slug="' + escaparHTML(slug) + '">' +
-    '<div class="chip-list-flex" style="margin-bottom:8px">' + novo + '<span class="vaga-badge vaga-badge-tipo">' + rotuloTipoVaga(v) + '</span>' + badgeOffshoreOnshore(v.offshore_onshore) + (v.fonte_oficial ? '<span class="campo-pill">✓ Fonte oficial</span>' : '') + (v.local ? '<span class="campo-pill">' + escaparHTML(v.local) + '</span>' : '') +
-    (v.escala ? '<span class="campo-pill">Escala: ' + escaparHTML(v.escala) + '</span>' : '') +
+  const local = [v.local, v.uf].filter(Boolean).join(', ');
+  return '<article class="area-group vaga-card" data-cat="' + cat + '" data-vaga-empresa="' + escaparHTML(v.empresa || '') + '" data-vaga-slug="' + escaparHTML(slug) + '"' +
+    ' data-busca="' + escaparHTML(semAcento([v.titulo, v.empresa, local, rotulo, v.departamento].filter(Boolean).join(' '))) + '"' +
+    ' data-recente="' + (Date.parse(v.first_seen_at || v.verificado_em || VAGAS_RADAR_VERIFICADO_EM) || 0) + '" data-prazo="' + escaparHTML(v.closing_date || '9999') + '" data-ordem="' + (Number(ordem) || 0) + '">' +
+    '<div class="chip-list-flex vaga-card-topo">' + novo + '<span class="vaga-badge vaga-badge-tipo">' + rotuloTipoVaga(v) + '</span>' + badgeOffshoreOnshore(v.offshore_onshore) +
+    '<span class="vaga-cat">' + escaparHTML(rotulo) + '</span>' + (v.escala ? '<span class="campo-pill">Escala: ' + escaparHTML(v.escala) + '</span>' : '') +
     '<button type="button" class="vaga-fav-btn" data-slug="' + escaparHTML(slug) + '" aria-label="Favoritar ' + escaparHTML(v.titulo) + '" aria-pressed="false">&#9734;</button>' +
     '</div>' +
     '<h3>' + escaparHTML(v.titulo) + '</h3>' +
-    '<p class="area-desc"><strong>' + escaparHTML(v.empresa) + '</strong> · ' + escaparHTML(v.resumo) + '</p>' +
-    '<p class="dado-contexto sem-margem">Fonte: ' + escaparHTML(v.fonte_nome) + ' · Verificada em ' + vagaVerificadaTexto(v) + (v.closing_date ? ' · Inscrições até ' + vagaEncerramentoTexto(v) : '') + '</p>' +
+    '<p class="vaga-meta"><strong>' + escaparHTML(v.empresa) + '</strong>' + (local ? ' · ' + escaparHTML(local) : '') + '</p>' +
+    '<p class="dado-contexto sem-margem">' + (v.closing_date ? '<strong>Inscrições até ' + vagaEncerramentoTexto(v) + '</strong> · ' : '') + 'Fonte: ' + escaparHTML(v.fonte_nome) + ' · Verificada em ' + vagaVerificadaTexto(v) + '</p>' +
     '<a class="jornada-cta" href="/vagas/' + escaparHTML(slug) + '">Ver detalhes</a>' +
     (v.application_url ? ' <a class="jornada-cta" href="' + escaparHTML(v.application_url) + '" target="_blank" rel="noopener nofollow">' + (vagaEhBancoTalentos(v) ? 'Cadastrar na fonte oficial ↗' : 'Ver vaga na fonte oficial ↗') + '</a>' : '') +
-    '</div>';
+    '</article>';
+}
+
+// "Todas" em /vagas: uma vaga de cada empresa por vez (round-robin), sem
+// esconder nem mexer em data. Dentro da empresa: nova, prazo mais próximo, título.
+function intercalarVagasPorEmpresa(lista) {
+  const chave = (v) => (vagaEhNova(v) ? '0' : '1') + (v.closing_date || '9999') + (v.titulo || '');
+  const grupos = new Map();
+  for (const v of lista.slice().sort((a, b) => chave(a).localeCompare(chave(b), 'pt-BR'))) {
+    if (!grupos.has(v.empresa)) grupos.set(v.empresa, []);
+    grupos.get(v.empresa).push(v);
+  }
+  const filas = [...grupos.values()], saida = [];
+  while (saida.length < lista.length) for (const f of filas) if (f.length) saida.push(f.shift());
+  return saida;
 }
 
 // Script mínimo pra ligar botões .vaga-fav-btn renderizados por cardVaga()
@@ -1056,7 +1120,8 @@ const OG_IMAGEM_PADRAO = 'https://ownews.com.br/icons/icon-512.png';
    public/css/paginas.css (Topo Fresco, 2026-10-20 — eram ~118 KB de string
    dentro do worker, perto do guard de 2 MB). A versão é o sha256 (10 hex) do
    arquivo; tests/worker_size_test.js confere. Mudou o CSS -> atualizar aqui. */
-const CSS_PAGINAS_VERSAO = '99331f59a8';
+const CSS_PAGINAS_VERSAO = '5be1e9ac45';
+const VAGAS_JS_VERSAO = '0c88897059';
 const CSS_TEMA_CLARO = `
 /* ==== TEMA CLARO + MARCAS D'ÁGUA: INICIO ====
    Dark continua padrão. O tema claro NÃO é inversão automática: paleta
@@ -9701,107 +9766,47 @@ async function renderVagasIndex(env, ctx){
     '<span class="campo-pill">' + escaparHTML(nome) + '</span>'
   ).join('');
 
-  // Ordenação por recência (Etapa 9, 2026-09-25): usa a data efetiva de cada
-  // vaga (verificado_em individual quando existir, senão a global) — hoje a
-  // maioria empata na mesma data (sort estável preserva a ordem atual), mas
-  // já funciona corretamente assim que vagas tiverem datas divergentes.
-  // Missão AdSense 2.1: banco de talentos (cadastro permanente) NÃO é vaga —
-  // sai do grid e do total e ganha seção própria.
+  // Radar 2.0: "Todas" intercala empresas; bancos de talentos não são vaga —
+  // ficam fora de "Todas" e do total, acessíveis pela categoria própria.
   const naoExpiradas = todasVagas.filter((v) => !vagaPodeEstarExpirada(v));
   const bancosTalentos = naoExpiradas.filter(vagaEhBancoTalentos);
-  const vagasAtivas = naoExpiradas.filter((v) => !vagaEhBancoTalentos(v))
-    .sort((a, b) => vagaDataVerificacao(b) - vagaDataVerificacao(a));
+  const vagasAtivas = intercalarVagasPorEmpresa(naoExpiradas.filter((v) => !vagaEhBancoTalentos(v)));
   const total = vagasAtivas.length;
   const totalOffshore = vagasAtivas.filter((v) => v.offshore_onshore === 'OFFSHORE').length;
-  const cards = vagasAtivas.map(cardVaga).join('');
-
-  // Filtros (Etapa 3.2, 2026-09-24 + Etapa 9, 2026-09-25): empresa, busca
-  // livre por cargo e modalidade offshore/onshore (dado real em todas as
-  // vagas, mesmo quando o valor é "não informado") — "local" continua fora
-  // de propósito: a maioria das vagas não informa local real na fonte
-  // oficial, filtrar por um campo majoritariamente vazio não ajuda ninguém.
-  // Reaproveita as mesmas classes CSS já usadas no filtro de empresas de
-  // /carreiras/cadastre-seu-curriculo (busca-empresas-input,
-  // filtro-segmento-row/filtro-btn) — sem CSS novo pros filtros em si.
-  const empresasComVagaAtiva = Array.from(new Set(vagasAtivas.map((v) => v.empresa))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  const filtrosEmpresaHtml = '<div class="filtro-segmento-row" id="vagasGridFiltros">' +
-    '<button type="button" class="filtro-btn ativo" data-empresa="todas">Todas as empresas</button>' +
-    empresasComVagaAtiva.map((nome) => '<button type="button" class="filtro-btn" data-empresa="' + escaparHTML(nome) + '">' + escaparHTML(nome) + '</button>').join('') +
+  const cards = vagasAtivas.concat(bancosTalentos).map(cardVaga).join('');
+  const porCat = {};
+  for (const v of naoExpiradas) { const c = categoriaVaga(v); porCat[c] = (porCat[c] || 0) + 1; }
+  // Visíveis no celular: as categorias de função embarcada mais procuradas; o resto em "Mais".
+  const PRINCIPAIS = ['conves', 'subsea', 'perfuracao', 'manutencao', 'engenharia', 'operacoes'];
+  const cats = CATEGORIAS_VAGA.filter((c) => porCat[c[0]]).sort((a, b) => (PRINCIPAIS.indexOf(a[0]) + 1 || 99) - (PRINCIPAIS.indexOf(b[0]) + 1 || 99));
+  const chip = (id, nome, n, extra) => '<button type="button" class="vf-chip' + (id === 'todas' ? ' ativo' : '') + '" data-cat="' + id + '"' + (extra ? ' data-extra' : '') + ' aria-pressed="' + (id === 'todas') + '">' + nome + (n == null ? '' : ' <span>' + n + '</span>') + '</button>';
+  const empresas = Array.from(new Set(naoExpiradas.map((v) => v.empresa))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const filtros =
+    '<div class="vf" role="search">' +
+    '<input type="search" id="vagasBusca" class="busca-empresas-input" placeholder="Buscar cargo ou empresa" aria-label="Buscar cargo ou empresa" autocomplete="off">' +
+    '<div class="vf-chips" id="vagasCats">' + chip('todas', 'Todas', total) +
+    cats.map((c) => chip(c[0], c[2], porCat[c[0]], !PRINCIPAIS.includes(c[0]))).join('') + chip('fav', '&#9733; Favoritas', null, true) +
+    '<button type="button" class="vf-chip vf-mais" id="vagasMais" aria-expanded="false">Mais</button></div>' +
+    '<div class="vf-linha"><select id="vagasEmpresa" aria-label="Filtrar por empresa"><option value="">Todas as empresas</option>' +
+    empresas.map((e) => '<option>' + escaparHTML(e) + '</option>').join('') + '</select>' +
+    '<select id="vagasOrdem" aria-label="Ordenar vagas"><option value="relevancia">Relevância</option><option value="recentes">Mais recentes</option><option value="prazo">Prazo próximo</option></select></div>' +
+    '<p class="vf-status" aria-live="polite"><span id="vagasContagem">' + total + ' resultados</span><button type="button" class="vf-limpar" id="vagasLimpar" hidden>Limpar filtros</button></p>' +
     '</div>';
-  const MODALIDADE_LABEL = { OFFSHORE: 'Offshore', ONSHORE: 'Onshore', BASE_MAIS_OFFSHORE: 'Base + Offshore', NAO_INFORMADO: 'Não informado' };
-  const modalidadesComVagaAtiva = Array.from(new Set(vagasAtivas.map((v) => v.offshore_onshore || 'NAO_INFORMADO')));
-  const filtrosModalidadeHtml = modalidadesComVagaAtiva.length > 1
-    ? '<div class="filtro-segmento-row" id="vagasGridFiltrosModalidade">' +
-      '<button type="button" class="filtro-btn ativo" data-modalidade="todas">Todas as modalidades</button>' +
-      modalidadesComVagaAtiva.map((m) => '<button type="button" class="filtro-btn" data-modalidade="' + escaparHTML(m) + '">' + escaparHTML(MODALIDADE_LABEL[m] || m) + '</button>').join('') +
-      '<button type="button" class="filtro-btn" id="vagasGridFavToggle" data-favoritas="0">&#9733; Só favoritas</button>' +
-      '</div>'
-    : '<div class="filtro-segmento-row" id="vagasGridFiltrosModalidade"><button type="button" class="filtro-btn" id="vagasGridFavToggle" data-favoritas="0">&#9733; Só favoritas</button></div>';
-  const scriptFiltroVagas =
-    '<script>(function(){' +
-    'var FAV_KEY="ownews_vagas_favoritas";' +
-    'function getFavoritos(){try{return JSON.parse(localStorage.getItem(FAV_KEY)||"[]");}catch(e){return [];}}' +
-    'function isFavorito(slug){return getFavoritos().indexOf(slug)!==-1;}' +
-    'function toggleFavorito(slug){var favs=getFavoritos();var i=favs.indexOf(slug);if(i===-1)favs.push(slug);else favs.splice(i,1);try{localStorage.setItem(FAV_KEY,JSON.stringify(favs));}catch(e){}return favs;}' +
-    'var grid=document.getElementById("vagasGrid");var filtros=document.getElementById("vagasGridFiltros");if(!grid)return;' +
-    'var botoesEmpresa=filtros?Array.prototype.slice.call(filtros.querySelectorAll(".filtro-btn")):[];' +
-    'var filtrosModalidade=document.getElementById("vagasGridFiltrosModalidade");' +
-    'var botoesModalidade=filtrosModalidade?Array.prototype.slice.call(filtrosModalidade.querySelectorAll("[data-modalidade]")):[];' +
-    'var favToggle=document.getElementById("vagasGridFavToggle");' +
-    'var cards=Array.prototype.slice.call(grid.querySelectorAll("[data-vaga-empresa]"));' +
-    'var busca=document.getElementById("vagasGridBusca");var vazio=document.getElementById("vagasGridVazio");' +
-    'var empresaAtiva="todas";var modalidadeAtiva="todas";var soFavoritas=false;' +
-    'function normalizar(s){return (s||"").toString().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();}' +
-    'cards.forEach(function(c){var btn=c.querySelector(".vaga-fav-btn");if(!btn)return;var slug=btn.getAttribute("data-slug");var fav=isFavorito(slug);btn.classList.toggle("ativo",fav);btn.setAttribute("aria-pressed",fav?"true":"false");btn.innerHTML=fav?"&#9733;":"&#9734;";' +
-    'btn.addEventListener("click",function(){var favs=toggleFavorito(slug);var ativo=favs.indexOf(slug)!==-1;btn.classList.toggle("ativo",ativo);btn.setAttribute("aria-pressed",ativo?"true":"false");btn.innerHTML=ativo?"&#9733;":"&#9734;";if(soFavoritas)aplicar();});' +
-    '});' +
-    'function aplicar(){' +
-    'var termo=normalizar(busca?busca.value:"");var visiveis=0;' +
-    'cards.forEach(function(c){' +
-    'var passaEmpresa=empresaAtiva==="todas"||c.getAttribute("data-vaga-empresa")===empresaAtiva;' +
-    'var passaModalidade=modalidadeAtiva==="todas"||c.getAttribute("data-vaga-modalidade")===modalidadeAtiva;' +
-    'var passaBusca=!termo||normalizar(c.getAttribute("data-vaga-titulo")).indexOf(termo)!==-1;' +
-    'var passaFav=!soFavoritas||isFavorito(c.getAttribute("data-vaga-slug"));' +
-    'var mostra=passaEmpresa&&passaModalidade&&passaBusca&&passaFav;c.hidden=!mostra;if(mostra)visiveis++;' +
-    '});' +
-    'if(vazio)vazio.hidden=visiveis>0;' +
-    '}' +
-    'botoesEmpresa.forEach(function(b){b.addEventListener("click",function(){' +
-    'empresaAtiva=b.getAttribute("data-empresa");' +
-    'botoesEmpresa.forEach(function(x){x.classList.toggle("ativo",x===b);});' +
-    'aplicar();' +
-    '});});' +
-    'botoesModalidade.forEach(function(b){b.addEventListener("click",function(){' +
-    'modalidadeAtiva=b.getAttribute("data-modalidade");' +
-    'botoesModalidade.forEach(function(x){x.classList.toggle("ativo",x===b);});' +
-    'aplicar();' +
-    '});});' +
-    'if(favToggle)favToggle.addEventListener("click",function(){soFavoritas=!soFavoritas;favToggle.classList.toggle("ativo",soFavoritas);aplicar();});' +
-    'if(busca)busca.addEventListener("input",aplicar);' +
-    '})();</script>';
 
   const conteudo =
     breadcrumb([{ nome: "Home", href: "/" }, { nome: "Vagas Verificadas OWNews" }]) +
     '<div class="hub-hero">' +
-    '<span class="eyebrow">Radar de Vagas OWNews</span>' +
-    '<h1>Vagas Verificadas OWNews</h1>' +
-    '<p class="hub-lead">Não somos um agregador de vagas copiadas da internet. Uma vaga só entra aqui quando é encontrada diretamente no portal oficial de carreiras ou no ATS oficial usado pela empresa. Hoje: <strong>' + total + ' vaga' + (total === 1 ? '' : 's') + ' verificada' + (total === 1 ? '' : 's') + '</strong>, sendo ' + totalOffshore + ' offshore.</p>' +
-    '<div class="aviso-atualizacao">' +
+    '<span class="eyebrow">Radar de Vagas OWNews · Brasil</span>' +
+    '<h1>Vagas offshore e de óleo &amp; gás no Brasil</h1>' +
+    '<p class="hub-lead">Só vagas no Brasil, direto do portal oficial de cada empresa. Hoje: <strong>' + total + ' vaga' + (total === 1 ? '' : 's') + ' verificada' + (total === 1 ? '' : 's') + '</strong>, sendo ' + totalOffshore + ' offshore.</p>' +
+    '</div>' +
+    filtros +
+    '<div class="campo-grid" id="vagasGrid">' + cards + '</div>' +
+    '<p id="vagasVazio" class="empresa-pendente" hidden>Nenhuma vaga com esses filtros. Tente outra palavra ou toque em “Limpar filtros”.</p>' +
+    '<script src="/js/vagas.js?v=' + VAGAS_JS_VERSAO + '" defer></script>' +
+    '<div class="aviso-atualizacao" style="margin-top:24px">' +
     '<strong>O OWNews não cobra para acessar vagas.</strong> A candidatura é sempre feita no canal oficial indicado pela empresa. Confira sempre o domínio antes de enviar dados pessoais — o OWNews nunca pede pagamento, PIX ou dados bancários para "garantir" uma vaga.' +
     '</div>' +
-    '</div>' +
-
-    '<div class="busca-empresas-row"><input type="search" id="vagasGridBusca" class="busca-empresas-input" placeholder="Buscar por cargo (ex.: engenheiro, operador, analista)" aria-label="Buscar vaga por cargo"></div>' +
-    (empresasComVagaAtiva.length > 1 ? filtrosEmpresaHtml : '') +
-    filtrosModalidadeHtml +
-    '<div class="campo-grid" id="vagasGrid">' + cards + '</div>' +
-    '<p id="vagasGridVazio" class="empresa-pendente" hidden>Nenhuma vaga encontrada com esses filtros — tente outra combinação.</p>' +
-    (bancosTalentos.length
-      ? '<section class="area-group" id="bancos-de-talentos" style="margin-top:28px"><h2>Bancos de talentos</h2>' +
-        '<p class="area-desc">Cadastros permanentes nos portais oficiais das empresas. Não são vagas abertas: o currículo fica disponível para processos futuros.</p>' +
-        '<div class="campo-grid">' + bancosTalentos.map(cardVaga).join('') + '</div></section>'
-      : '') +
-    scriptFiltroVagas +
 
     '<div class="area-group">' +
     '<h3>Como funciona a verificação</h3>' +
@@ -9832,8 +9837,8 @@ async function renderVagasIndex(env, ctx){
     '</div>';
 
   return paginaChrome(
-    "Vagas Offshore Verificadas",
-    "Vagas offshore verificadas diretamente na fonte oficial da empresa — sem agregação de posts ou reposts de terceiros. Candidatura sempre no canal oficial.",
+    "Vagas Offshore no Brasil Verificadas",
+    "Vagas offshore e de óleo & gás no Brasil, verificadas na fonte oficial de cada empresa — sem agregadores. Busca por cargo, categoria e empresa. Candidatura sempre no canal oficial.",
     conteudo,
     "/vagas",
     { eventoAbertura: "vagas_index_aberta" }
@@ -22393,7 +22398,7 @@ export default {
           if (cached.sources) {
             radarStatus.meta = { fontes: {} };
             for (const [k, v] of Object.entries(cached.sources)) {
-              radarStatus.meta.fontes[k] = { ok: v.ok && !v.anomalia, detalhe: v.ok ? ((v.listadas != null ? v.listadas + ' na listagem · ' : '') + v.count + ' vistas · ' + (v.novas || 0) + ' novas · ' + (v.atualizadas || 0) + ' atualizadas · ' + (v.encerradas || 0) + ' encerradas · ' + (v.ausentes || 0) + ' ausentes · ' + ((v.fora || 0) + (v.descartadas || 0)) + ' fora do foco · ' + (v.erros || 0) + ' erros' + (v.por_empresa ? ' · ' + Object.entries(v.por_empresa).map(([e, x]) => e + ' ' + (x.ok ? x.relevantes + '/' + x.listadas : 'FALHOU')).join(', ') : '') + (v.anomalia ? ' · RESPOSTA ANORMAL (nada removido)' : '') + ' — ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.erro || v.error || 'erro') };
+              radarStatus.meta.fontes[k] = { ok: v.ok && !v.anomalia, detalhe: v.ok ? ((v.listadas != null ? v.listadas + ' na listagem · ' : '') + v.count + ' vistas · ' + (v.novas || 0) + ' novas · ' + (v.atualizadas || 0) + ' atualizadas · ' + (v.encerradas || 0) + ' encerradas · ' + (v.ausentes || 0) + ' ausentes · ' + ((v.fora || 0) + (v.descartadas || 0)) + ' fora do foco · ' + (v.internacionais || 0) + ' fora do Brasil · ' + (v.ambiguas || 0) + ' local ambíguo · ' + (v.erros || 0) + ' erros' + (v.por_empresa ? ' · ' + Object.entries(v.por_empresa).map(([e, x]) => e + ' ' + (x.ok ? x.relevantes + '/' + x.listadas : 'FALHOU')).join(', ') : '') + (v.anomalia ? ' · RESPOSTA ANORMAL (nada removido)' : '') + ' — ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.erro || v.error || 'erro') };
             }
           }
           radarStatus.alertas = alertasRadarVagas(cached, Date.now());
@@ -23651,7 +23656,9 @@ export default {
         verificado_em: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM,
         // Campos extras (additive — apps antigos ignoram; futuros podem usar)
         escala: v.escala || null,
-        closing_date: v.closing_date || null
+        closing_date: v.closing_date || null,
+        categoria: categoriaVaga(v),
+        first_seen_at: v.first_seen_at || null
       }));
       return new Response(JSON.stringify({ vagas, updated_at: updatedAt }), {
         headers: {

@@ -12,7 +12,7 @@ const SRC = fs.readFileSync(path.join(DIR, '..', 'worker.js'), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ownews-vagas-'));
 const arq = path.join(tmp, 'w.mjs');
 fs.writeFileSync(arq, SRC.replace("from './ao-vivo/futebol.js'", 'from ' + JSON.stringify(pathToFileURL(path.join(DIR, '..', 'ao-vivo', 'futebol.js')).href)) +
-  '\nexport const __t = { reconciliarVagas, classificarPaginaSF, classificarPaginaGupy, blocoVagasHome, alertasRadarVagas, chaveVaga, VAGAS_RADAR, vagasAbertasEspecificas, getVagasRadar, refreshVagasRadar, renderVagasIndex, renderVagaDetalhe, slugVaga };\n');
+  '\nexport const __t = { zerarEstado: () => { vagasEstado = null; }, localizacaoVaga, categoriaVaga, intercalarVagasPorEmpresa, cardVaga, reconciliarVagas, classificarPaginaSF, classificarPaginaGupy, blocoVagasHome, alertasRadarVagas, chaveVaga, VAGAS_RADAR, vagasAbertasEspecificas, getVagasRadar, refreshVagasRadar, renderVagasIndex, renderVagaDetalhe, slugVaga };\n');
 const T = (await import(pathToFileURL(arq).href)).__t;
 fs.rmSync(tmp, { recursive: true, force: true });
 
@@ -20,7 +20,7 @@ let pass = 0, fail = 0;
 const test = async (nome, fn) => { try { await fn(); pass++; console.log('  ✓ ' + nome); } catch (e) { fail++; console.log('  ✗ ' + nome + '\n      ' + e.message); } };
 const expect = (c, m) => { if (!c) throw new Error(m || 'falhou'); };
 
-const vaga = (id, extra) => Object.assign({ titulo: 'Técnico ' + id, empresa: 'Subsea7', local: 'Offshore', plataforma: 'successfactors', external_job_id: id,
+const vaga = (id, extra) => Object.assign({ titulo: 'Técnico ' + id, empresa: 'Subsea7', local: 'Offshore', pais_codigo: 'BR', plataforma: 'successfactors', external_job_id: id,
   application_url: 'https://careers.subsea7.com/job/Offshore-Tecnico/' + id + '/', fonte_oficial: true, status: 'OPEN', closing_date: '2099-12-31' }, extra || {});
 const fonte = (...verificacoes) => ({ ok: true, verificacoes });
 const ativa = (v) => ({ chave: T.chaveVaga(v), resultado: 'ativa', vaga: v });
@@ -245,6 +245,76 @@ await test('H) Home segue com no máximo 3; I) worker abaixo do guard', () => {
   const mix = [vaga('1390000001', { empresa: 'PRIO', titulo: 'Analista de Planejamento', offshore_onshore: 'NAO_INFORMADO' }), vaga('1390000002', { empresa: 'Brava Energia', titulo: 'Supervisor de Marinha Offshore', offshore_onshore: 'OFFSHORE' })];
   expect(T.blocoVagasHome(mix).indexOf('Supervisor de Marinha') < T.blocoVagasHome(mix).indexOf('Analista de Planejamento'), 'Home: offshore primeiro');
   expect(Buffer.byteLength(SRC) < 1760000, 'worker.js ' + Buffer.byteLength(SRC));
+});
+
+console.log('\nVagas — somente Brasil');
+await test('regra Brasil: local de trabalho decide, não a empresa; ambíguo e remoto sem país não publicam', () => {
+  const casos = [
+    ['Rio de Janeiro, Brazil', { local: 'Rio de Janeiro', pais: 'Brazil' }, true], ['Macaé, RJ', { local: 'Macaé, RJ' }, true], ['Brazil Offshore', { local: 'Brazil Offshore' }, true],
+    ['Aberdeen, UK', { local: 'Aberdeen (Westhill), UK' }, false], ['Houston, USA', { local: 'Houston, TX, USA' }, false], ['Luanda, Angola', { local: 'Luanda, Angola' }, false],
+    ['Georgetown, Guyana', { local: 'Georgetown, Guyana' }, false], ['desconhecida', {}, false], ['Remote + Brasil', { local: 'Remote', pais: 'Brasil' }, true],
+    ['Remote sem país', { local: 'Remote' }, false], ['estrangeira no Brasil', { empresa: 'Shell', local: 'Macaé', pais_codigo: 'BR' }, true],
+    ['brasileira no exterior', { empresa: 'PRIO', local: 'Houston', pais_codigo: 'US' }, false], ['Mossoró (acento no fim)', { local: 'Mossoró' }, true], ['Offshore sem país', { local: 'Offshore' }, false],
+  ];
+  for (const [nome, v, br] of casos) expect(T.localizacaoVaga(v).br === br, nome);
+  expect(/amb[ií]gua/.test(T.localizacaoVaga({ local: 'Remote' }).motivo) && T.localizacaoVaga({ local: 'Luanda, Angola' }).exterior, 'motivos');
+});
+await test('estoque: vaga ativa que a coleta mostra fora do Brasil ou ambígua sai da área ativa (histórico preservado)', () => {
+  const x = rodar(base, { sf: fonte(ativa(A), ativa(vaga('222', { pais_codigo: 'NO', local: 'Offshore' })), ativa(vaga('333', { pais_codigo: null, local: 'Offshore' }))) });
+  const e2 = x.registro['successfactors:222'], e3 = x.registro['successfactors:333'];
+  expect(e2.status === 'removida' && /fora do Brasil/.test(e2.motivo_saida) && e2.first_seen_at && e3.status === 'removida' && /ambígua/.test(e3.motivo_saida));
+  expect(x.resumo.sf.internacionais === 1 && x.resumo.sf.ambiguas === 1 && x.jobs.length === 1);
+});
+await test('Subsea7 "Offshore" sem país: bloqueada; entra com filtro país=BR da Subsea7 ou verificação manual', async () => {
+  const cfg = (faceta) => cfgBase([
+    [/subsea7\.com\/sitemap\.xml/, () => '<loc>https://careers.subsea7.com/job/Offshore-Marinheira-de-Conves/1366277955/</loc><loc>https://careers.subsea7.com/job/Offshore-Operadora-de-Conves/1370000009/</loc>'],
+    [/optionsFacetsDD_country=BR/, () => faceta ? '<a data-url="/job/Offshore-Operadora-de-Conves/1370000009/"></a>' : ''],
+    [/search\/results\?q=offshore/, () => ''],
+    [/\/(1366277955|1370000009)\/$/, (m) => '<span itemprop="title">Vaga ' + m[1] + '</span><span class="jobGeoLocation">Offshore </span> Missão do cargo'],
+  ]);
+  const sem = await coletar(cfg(false));
+  expect(!sem.registro['successfactors:1370000009'] || sem.registro['successfactors:1370000009'].status !== 'ativa', 'ambígua publicada');
+  expect(/amb[ií]gua/.test((sem.descartadas['successfactors:1370000009'] || {}).motivo || ''), 'motivo registrado');
+  expect(sem.registro['successfactors:1366277955'].status === 'ativa' && sem.registro['successfactors:1366277955'].dados.pais_evidencia === 'verificacao_manual', 'manual');
+  const com = await coletar(cfg(true));
+  expect(com.registro['successfactors:1370000009'].status === 'ativa' && com.registro['successfactors:1370000009'].dados.pais_evidencia === 'faceta_br', 'filtro BR');
+});
+
+console.log('\nVagas — categorias, busca e ordem');
+await test('categorias determinísticas (sem diferença de maiúscula/acento); sem regra → Outras', () => {
+  const c = (t) => T.categoriaVaga({ titulo: t });
+  const casos = [['Piloto ROV', 'subsea'], ['PILOTA(O) DE ROV', 'subsea'], ['Supervisor de ROV', 'subsea'], ['marinheiro', 'conves'], ['Marinheira(o) de Convés', 'conves'], ['Deck Crew', 'conves'],
+    ['Deck Pusher', 'perfuracao'], ['DRILLER', 'perfuracao'], ['Assistant Driller', 'perfuracao'], ['Sondador', 'perfuracao'], ['Técnico Mecânico', 'manutencao'], ['MECANICO', 'manutencao'],
+    ['Eletricista', 'manutencao'], ['Engenheiro de Projetos', 'engenharia'], ['Técnico de Segurança', 'sms'], ['HSE Advisor', 'sms'], ['Analista de Logística', 'operacoes'],
+    ['Analista de RH', 'corporativo'], ['Banco de Talentos Offshore', 'banco'], ['Cozinheiro', 'outras']];
+  for (const [titulo, cat] of casos) expect(c(titulo) === cat, titulo + ' → ' + c(titulo));
+});
+await test('"Todas": empresas intercaladas sem esconder vaga; dentro da empresa nova/prazo primeiro', () => {
+  const l = [1, 2, 3, 4, 5].map((i) => vaga('70' + i, { empresa: 'Subsea7', closing_date: '2099-0' + i + '-01' })).concat([vaga('801', { empresa: 'PRIO' }), vaga('802', { empresa: 'Ocyan' }), vaga('803', { empresa: 'PRIO' })]);
+  const o = T.intercalarVagasPorEmpresa(l);
+  expect(o.length === l.length && new Set(o).size === l.length, 'escondeu/duplicou');
+  const seq = o.map((v) => v.empresa);
+  expect(seq.slice(0, 3).join() === 'Subsea7,PRIO,Ocyan' && seq[3] === 'Subsea7' && seq[4] === 'PRIO', seq.join());
+  const s7 = o.filter((v) => v.empresa === 'Subsea7').map((v) => v.closing_date);
+  expect(s7.join() === s7.slice().sort().join(), 'prazo dentro da empresa');
+});
+await test('/vagas: busca, categorias com contagem real, empresa, ordem; banco fora de "Todas"; card com cargo/empresa/local/prazo', async () => {
+  const lista = [vaga('901', { titulo: 'Pilota(o) de ROV' }), vaga('902', { titulo: 'Marinheiro de Convés', empresa: 'Foresea' }), vaga('903', { titulo: 'Banco de Talentos Offshore', empresa: 'Brava Energia', job_type: 'banco de talentos' })];
+  const env = kvCom({ versao: 2, jobs: lista, registro: {}, updated_at: new Date().toISOString(), sources: {} });
+  T.zerarEstado();
+  const h = await T.renderVagasIndex(env, { waitUntil() {} });
+  const txt = typeof h === 'string' ? h : await h.text();
+  expect(txt.includes('id="vagasBusca"') && /placeholder="Buscar cargo ou empresa"/.test(txt) && txt.includes('id="vagasEmpresa"') && txt.includes('<option value="prazo">Prazo próximo</option>'), 'controles');
+  expect(/data-cat="todas"[^>]*>Todas <span>2<\/span>/.test(txt) && /data-cat="subsea"[^>]*>ROV\/Subsea <span>1<\/span>/.test(txt) && /data-cat="banco"[^>]*data-extra/.test(txt), 'chips');
+  expect(/<option>Brava Energia<\/option><option>Foresea<\/option><option>Subsea7<\/option>/.test(txt), 'empresas das vagas ativas');
+  expect(/no Brasil/.test(txt) && /src="\/js\/vagas\.js\?v=[0-9a-f]{10}"/.test(txt), 'contexto Brasil + script');
+  expect(/<h3>Pilota\(o\) de ROV<\/h3><p class="vaga-meta"><strong>Subsea7<\/strong> · Offshore<\/p>/.test(txt) && /Inscrições até/.test(txt), 'card');
+});
+await test('script estático de /vagas versionado pelo sha256; app recebe categoria (campo novo, formato antigo intacto)', async () => {
+  const js = fs.readFileSync(path.join(DIR, '..', 'public', 'js', 'vagas.js'));
+  const h = (await import('node:crypto')).createHash('sha256').update(js).digest('hex').slice(0, 10);
+  expect(SRC.includes("const VAGAS_JS_VERSAO = '" + h + "';"), 'VAGAS_JS_VERSAO desatualizada (' + h + ')');
+  expect(/categoria: categoriaVaga\(v\),/.test(SRC) && /verificado_em: v\.verificado_em \|\| VAGAS_RADAR_VERIFICADO_EM,/.test(SRC), 'API do app');
 });
 
 console.log('\n' + pass + ' passaram, ' + fail + ' falharam');
