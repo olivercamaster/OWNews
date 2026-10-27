@@ -413,8 +413,8 @@ function scriptCliente(alvoId, modo, url, dados, ls) {
 // ─── CSS (tokens do OWNews; vermelho só no selo/ponto ao vivo) ───────────
 const CSS = '<style>' +
   '.fx{margin:14px 0;padding:14px 16px;border:1px solid var(--line-soft,var(--line));border-radius:12px;background:var(--navy-900)}' +
-  // Depois de "Aconteceu no Offshore": respiro de seção, para não parecer parte do bloco editorial.
-  '#destaque~.fx{margin-top:28px}' +
+  // Entre Operações e Últimas: respiro de seção, para não parecer parte de um bloco editorial.
+  '#destaque~.fx{margin-top:40px}' +
   '.fx-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}' +
   '.fx-tit{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--white)}' +
   '.fx-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--white)}' +
@@ -460,7 +460,7 @@ const CSS_PAGINA = '<style>' +
 // ─── Home ────────────────────────────────────────────────────────────────
 // Lê só o cache do PoP (a Home nunca espera o provedor). Sem jogo relevante:
 // nada é injetado além de um contêiner oculto que o script preenche se surgir.
-const ANCORAS_HOME = ['<section class="ed-section vagas-home-section" id="vagas-agora"', '<section class="ed-section mo-section" id="mercadoOffshore"', '<section class="ops" id="aeroportos"'];
+const ANCORAS_HOME = ['<section class="ed-section" id="ultimas"', '<section class="ed-section explica-home" id="explica"', '<section class="ed-section" id="carreiras"'];
 export async function futebolModuloHome(html) {
   if (!token) return html;
   let dados = null, topo = false;
@@ -476,9 +476,9 @@ export async function futebolModuloHome(html) {
   const modulo = CSS + '<section class="fx" id="futebolAoVivo" aria-label="Futebol: jogos de hoje"' + (tem ? '' : ' hidden') + '>' +
     (tem ? R.home(dados, { escudos: C.escudos }) : '') + '</section>' +
     scriptCliente('futebolAoVivo', 'home', '/api/live/featured', tem ? dados : null, 'ow-futebol-home');
-  // Serviço depois do conteúdo: logo após "Aconteceu no Offshore" (antes de
-  // Vagas/Mercado), nunca empurrando as notícias. Exceção aprovada: Seleção
-  // ou final ao vivo sobe para o topo.
+  // Serviço no meio do jornalismo: depois de Mercado & Energia e Operações,
+  // antes de Últimas Notícias (nunca empurra Aconteceu nem tira notícia).
+  // Exceção aprovada: Seleção ou final ao vivo sobe para o topo.
   if (topo) { const a = '<main class="container" id="conteudo">'; return html.includes(a) ? html.replace(a, a + modulo) : html; }
   const ancora = ANCORAS_HOME.find((a) => html.includes(a));
   return ancora ? html.replace(ancora, modulo + ancora) : html;

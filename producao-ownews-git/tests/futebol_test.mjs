@@ -329,16 +329,17 @@ test('payload da Home mínimo (≤ 3 jogos, sem campos extras) e /api/live/today
   expect(bad.status === 400, 'dia inválido');
   logOriginal('     payload featured=' + txt.length + ' B; today(30 jogos)=' + JSON.stringify(d).length + ' B');
 });
-test('Home: módulo com até 3 jogos, depois de Aconteceu no Offshore (antes de Vagas) e topo para Seleção ao vivo', async () => {
+test('Home: módulo com até 3 jogos, depois de Operações e antes de Últimas Notícias; topo para Seleção ao vivo', async () => {
   limpar();
   const home = '<main class="container" id="conteudo"><section class="ticker-wrap" id="giro24h"></section><section class="ops" id="aeroportos"></section>' +
-    '<section class="masthead" id="destaque"></section><section class="ed-section vagas-home-section" id="vagas-agora"></section><section class="ed-section mo-section" id="mercadoOffshore"></section>';
+    '<section class="masthead" id="destaque"></section><section class="ed-section vagas-home-section" id="vagas-agora"></section><section class="ed-section mo-section" id="mercadoOffshore"></section>' +
+    '<section class="ed-section" id="mercado"></section><section class="ed-section" id="operacoes"></section><section class="ed-section" id="ultimas"></section><section class="ed-section explica-home" id="explica"></section>';
   resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 67, gc: 2, gf: 1 })]);
   await dia('hoje');
   let h = await F.futebolModuloHome(home);
-  expect(h.indexOf('id="futebolAoVivo"') > h.indexOf('id="destaque"') && h.indexOf('id="futebolAoVivo"') < h.indexOf('id="vagas-agora"'), 'posição normal: depois das notícias');
-  const semVagas = await F.futebolModuloHome(home.replace(/<section class="ed-section vagas-home-section"[^]*?<\/section>/, ''));
-  expect(semVagas.indexOf('id="futebolAoVivo"') > semVagas.indexOf('id="destaque"') && semVagas.indexOf('id="futebolAoVivo"') < semVagas.indexOf('id="mercadoOffshore"'), 'sem Vagas: antes do Mercado');
+  expect(h.indexOf('id="futebolAoVivo"') > h.indexOf('id="operacoes"') && h.indexOf('id="futebolAoVivo"') < h.indexOf('id="ultimas"'), 'posição normal: entre Operações e Últimas');
+  const semUltimas = await F.futebolModuloHome(home.replace('<section class="ed-section" id="ultimas"></section>', ''));
+  expect(semUltimas.indexOf('id="futebolAoVivo"') > semUltimas.indexOf('id="operacoes"') && semUltimas.indexOf('id="futebolAoVivo"') < semUltimas.indexOf('id="explica"'), 'sem Últimas: antes do Explica');
   expect(/Ao vivo/.test(h) && /67&#39;|67'/.test(h) && /Todos os jogos de hoje/.test(h), 'conteúdo');
   limpar(); resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 10, comp: 'QCBL', c: BRA, f: ARG })]);
   await dia('hoje');
@@ -355,7 +356,7 @@ test('Home: módulo com até 3 jogos, depois de Aconteceu no Offshore (antes de 
 test('scripts inline válidos, render idêntico no navegador e sem token no HTML', async () => {
   limpar(); resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 67, gc: 2, gf: 1 })]);
   await dia('hoje');
-  const h = await F.futebolModuloHome('<main class="container" id="conteudo"><section class="ops" id="aeroportos"></section>');
+  const h = await F.futebolModuloHome('<main class="container" id="conteudo"><section class="ops" id="aeroportos"></section><section class="ed-section" id="ultimas"></section>');
   const pg = await (await responder('https://x/jogos')).text();
   for (const html of [h, pg]) {
     const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
@@ -408,7 +409,7 @@ test('topo da Home só com Seleção ou final ao vivo (semifinal fica na posiç�
 test('script do navegador tolera o __name injetado pelo bundler', async () => {
   limpar(); resposta = ok([jogo({ utc: '2026-10-26T20:00:00Z', st: 'IN_PLAY', min: 67, gc: 2, gf: 1 })]);
   await dia('hoje');
-  const h = await F.futebolModuloHome('<main class="container" id="conteudo"><section class="ops" id="aeroportos"></section>');
+  const h = await F.futebolModuloHome('<main class="container" id="conteudo"><section class="ops" id="aeroportos"></section><section class="ed-section" id="ultimas"></section>');
   const sc = h.match(/<script>([\s\S]*?)<\/script>/)[1];
   // simula o bundle: função com __name(...) dentro, executada sem __name global
   const comName = sc.replace('function esc(s) {', 'function esc(s) {');

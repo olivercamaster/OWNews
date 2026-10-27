@@ -37,7 +37,7 @@ const ini = FRONT.indexOf('<div class="aconteceu-head"');
 const BLOCO = FRONT.slice(ini, FRONT.indexOf('</section>', ini) + '</section>'.length);
 const AEROPORTOS = '<section class="ops" id="aeroportos" aria-label="Aeroportos"><div class="ops-card">SBME</div></section>';
 const VAGAS = '<section class="ed-section vagas-home-section" id="vagas-agora"><article class="vaga-card-home">Vaga 1</article><article class="vaga-card-home">Vaga 2</article><article class="vaga-card-home">Vaga 3</article></section>';
-const ULTIMAS = '<div class="latest-body" id="ultimasBody"></div>';
+const ULTIMAS = FRONT.slice(FRONT.indexOf('<section class="ed-section" id="ultimas">'), FRONT.indexOf('</section>', FRONT.indexOf('<section class="ed-section" id="ultimas">')) + '</section>'.length);
 const pagina = (extra) => '<main class="container" id="conteudo">' + (extra || '') + '<div class="ticker-wrap">Giro</div>' + AEROPORTOS + BLOCO + VAGAS + ULTIMAS + '</main>';
 
 // Notícias elegíveis (texto próprio OWNews, pautas e fotos distintas).
