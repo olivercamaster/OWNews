@@ -911,6 +911,9 @@ html[data-theme="light"] .theme-btn .ico-lua{display:none}
 .cof-links{display:flex;flex-direction:column}
 .cof-links a{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line-hair);font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--white)}
 .cof-links a:hover{color:var(--cyan-dim)}
+/* Home, celular (2026-10-27): links da Central em 2 colunas — 1.075 → 872 px
+   e alvo de toque 33 → 44 px. Abaixo de 360 px os nomes quebrariam: fica 1 coluna. */
+@media(min-width:360px) and (max-width:699px){#carreiras .cof-grid{gap:10px}#carreiras .cof-card{padding:14px 14px 8px}#carreiras .cof-desc{margin-bottom:6px}#carreiras .cof-links{display:grid;grid-template-columns:1fr 1fr;column-gap:14px}#carreiras .cof-links a{align-items:center;min-height:44px;padding:6px 0;line-height:1.3}}
 /* ==== MERCADO 3.0 ==== */
 .mk-atualizado{margin:6px 0 0;font-family:var(--ui);font-size:12px;color:var(--muted)}
 .mk-ancoras{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:8px;scrollbar-width:none}
@@ -2230,15 +2233,6 @@ a.eco-row:hover .eco-row-mark{color:var(--cyan-dim)}
   .ticker-viewport{overflow-x:auto}
 }
 
-/* ---------- newsletter ---------- */
-.newsletter{margin-top:52px;padding-top:26px;padding-bottom:32px;border-top:1px solid var(--line-hair)}
-.newsletter h3{font-family:var(--ui);font-size:13px;color:var(--muted);font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
-.newsletter-desc{font-size:14px;color:var(--muted);margin:0 0 12px;max-width:440px;line-height:1.5}
-.nl-home-form{display:flex;max-width:440px}
-.nl-home-input{min-width:0;flex:1;padding:11px 13px;border:1px solid var(--line-soft);border-right:0;border-radius:6px 0 0 6px;background:var(--navy-900);color:var(--white);font-family:inherit;font-size:14px;outline:none}
-.nl-home-input:focus{border-color:var(--cyan)}
-.nl-home-btn{border:0;background:var(--cyan);color:var(--navy-950);font-weight:800;padding:0 16px;border-radius:0 6px 6px 0;font-family:var(--ui);font-size:13px;cursor:pointer;white-space:nowrap;line-height:46px}
-.nl-home-msg{font-size:12px;margin:6px 0 0}
 /* /newsletter landing */
 .nl-hero{padding:32px 0 8px}
 .nl-tagline{font-size:17px;color:var(--muted);margin:8px 0 0;line-height:1.5}
@@ -2985,6 +2979,20 @@ ${CSS_TEMA_CLARO}
     <div class="mo-links"><a class="mo-ver-todos" href="/mercado">Ver Mercado Offshore completo →</a></div>
   </section>
 
+  <section class="ed-section" id="mercado">
+    <div class="ed-head"><h2>Mercado &amp; Energia</h2><span class="ed-sub">Royalties, leilões e regulação</span></div>
+    <div class="market-body" id="mercadoBody"></div>
+  </section>
+
+  <section class="ed-section" id="operacoes">
+    <div class="ed-head"><h2>Operações Offshore</h2><span class="ed-sub">Plataformas, poços e campo</span></div>
+    <div class="ops-rail" id="operacoesBody"></div>
+  </section>
+
+  <!-- Hierarquia editorial (2026-10-27): Últimas Notícias depois de
+       Mercado & Energia e Operações, para o jornalismo voltar no meio dos
+       serviços. Só a posição mudou: a seleção (sequencial, sem repetir
+       Aconteceu/M&E/Operações) e o markup de renderUltimas são os mesmos. -->
   <section class="ed-section" id="ultimas">
     <div class="ed-head"><h2>Últimas Notícias</h2><span class="ed-sub">Direto das fontes oficiais</span></div>
     <div class="latest-body" id="ultimasBody"></div>
@@ -3008,16 +3016,6 @@ ${CSS_TEMA_CLARO}
       </div>
     </div>
   </div>
-
-  <section class="ed-section" id="mercado">
-    <div class="ed-head"><h2>Mercado &amp; Energia</h2><span class="ed-sub">Royalties, leilões e regulação</span></div>
-    <div class="market-body" id="mercadoBody"></div>
-  </section>
-
-  <section class="ed-section" id="operacoes">
-    <div class="ed-head"><h2>Operações Offshore</h2><span class="ed-sub">Plataformas, poços e campo</span></div>
-    <div class="ops-rail" id="operacoesBody"></div>
-  </section>
 
   <section class="ed-section" id="carreiras">
     <div class="ed-head"><h2>Central Offshore</h2><span class="ed-sub">Os recursos do OWNews organizados pelo que você precisa</span></div>
@@ -3087,34 +3085,6 @@ ${CSS_TEMA_CLARO}
     </div>
   </section>
 
-  <section class="newsletter">
-    <h3>Radar da Semana</h3>
-    <p class="newsletter-desc">O que movimentou o offshore, todo domingo. Gratuito.</p>
-    <form id="nlHomeForm" class="nl-home-form" novalidate>
-      <input type="email" id="nlHomeEmail" class="nl-home-input" placeholder="Seu e-mail" autocomplete="email" required>
-      <button type="submit" id="nlHomeBtn" class="nl-home-btn">Assinar</button>
-    </form>
-    <p id="nlHomeMsg" class="nl-home-msg" hidden></p>
-  </section>
-  <script>(function(){
-    var f=document.getElementById("nlHomeForm");
-    var inp=document.getElementById("nlHomeEmail");
-    var btn=document.getElementById("nlHomeBtn");
-    var msg=document.getElementById("nlHomeMsg");
-    if(!f)return;
-    f.addEventListener("submit",function(e){e.preventDefault();
-      var em=inp.value.trim();
-      if(!em||em.indexOf("@")<1){msg.textContent="E-mail inválido.";msg.hidden=false;return;}
-      btn.disabled=true;btn.textContent="Aguarde…";
-      fetch("/api/newsletter/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em})})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if(d.ok){msg.textContent="✓ Inscrito! Você receberá o próximo Radar da Semana.";f.style.display="none";}
-        else{msg.textContent=d.erro||"Tente novamente.";}
-        msg.hidden=false;btn.disabled=false;btn.textContent="Assinar";
-      }).catch(function(){msg.textContent="Tente novamente.";msg.hidden=false;btn.disabled=false;btn.textContent="Assinar";});
-    });
-  })();</script>
 
 </main>
 
@@ -4007,7 +3977,7 @@ function renderMercado(lista, fallbackEditorial){
   const img = imagemDe(destaque);
   el.innerHTML = \`
     <article class="market-feature" onclick="\${irPara(destaque.id)}">
-      <div class="thumb" \${capaAtributos(img)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, false)}</div>
+      <div class="thumb" \${capaAtributos(img, true)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, false)}</div>
       <div class="market-feature-copy">
       <span class="eyebrow">\${cartaoFonte(destaque)}</span>
       <h3>\${escaparHTML(destaque.title)}</h3>
@@ -4032,7 +4002,7 @@ function renderOperacoes(lista, fallbackEditorial){
     const img = imagemDe(n);
     el.innerHTML = \`
     <article class="ops-card ops-feature" onclick="\${irPara(n.id)}">
-      <div class="cover" \${capaAtributos(img)}>\${botaoCarregarImagem()}</div>
+      <div class="cover" \${capaAtributos(img, true)}>\${botaoCarregarImagem()}</div>
       \${notaIlustrativa(img, false)}
       <div class="ops-card-copy"><div class="card-copy-inner">
         <span class="eyebrow">\${cartaoFonte(n)}</span>
@@ -4040,14 +4010,17 @@ function renderOperacoes(lista, fallbackEditorial){
         <span class="byline">\${fallbackEditorial ? 'Publicado em ' + dataPublicacaoReal(n.published_at) : tempoRelativo(n.published_at)}</span>
       </div></div>
     </article>\`;
+    observarCapas(el);
     return;
   }
   const [destaque, ...laterais] = lista.slice(0, 6);
   const card = (n, classe) => {
     const img = imagemDe(n);
-    return \`<article class="ops-card \${classe}" onclick="\${irPara(n.id)}"><div class="cover" \${capaAtributos(img)}>\${botaoCarregarImagem()}</div>\${notaIlustrativa(img, classe === 'ops-feature' ? false : true)}<div class="ops-card-copy"><div class="card-copy-inner"><span class="eyebrow">\${cartaoFonte(n)}</span><h3>\${escaparHTML(n.title)}</h3><span class="byline">\${fallbackEditorial ? 'Publicado em ' + dataPublicacaoReal(n.published_at) : tempoRelativo(n.published_at)}</span></div></div></article>\`;
+    return \`<article class="ops-card \${classe}" onclick="\${irPara(n.id)}"><div class="cover" \${capaAtributos(img, true)}>\${botaoCarregarImagem()}</div>\${notaIlustrativa(img, classe === 'ops-feature' ? false : true)}<div class="ops-card-copy"><div class="card-copy-inner"><span class="eyebrow">\${cartaoFonte(n)}</span><h3>\${escaparHTML(n.title)}</h3><span class="byline">\${fallbackEditorial ? 'Publicado em ' + dataPublicacaoReal(n.published_at) : tempoRelativo(n.published_at)}</span></div></div></article>\`;
   };
   el.innerHTML = [destaque, ...laterais].map((n, i) => card(n, i === 0 ? 'ops-feature' : '')).join('');
+  // Abaixo da dobra em qualquer largura: capas só baixam perto da tela.
+  observarCapas(el);
 }
 
 /* ---------------------------------------------------------------
@@ -4688,17 +4661,6 @@ setInterval(carregarNoticiasAoVivo, 3 * 60 * 1000);
 setInterval(carregarAeroportosAoVivo, DEZ_MINUTOS);
 setInterval(carregarMercadoAoVivo, 5 * 60 * 1000);
 setInterval(carregarMaisLidas, DEZ_MINUTOS);
-
-/* Newsletter: STAND-BY nesta fase (sem backend, sem provedor de e-mail —
-   ver decisão explícita de não construir isso agora). Botão só mostra o
-   aviso honesto — nunca finge que o cadastro funcionou. */
-(function () {
-  const btn = document.getElementById('newsletterBtn');
-  const aviso = document.getElementById('newsletterAviso');
-  if (btn && aviso) {
-    btn.addEventListener('click', () => { aviso.hidden = false; });
-  }
-})();
 
 /* Modo Embarcado (Fase A) — alternar re-renderiza tudo com o pool de
    notícias já carregado (não refaz fetch), pra imagem sumir/aparecer na

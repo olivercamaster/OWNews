@@ -43,5 +43,33 @@ test('aba Home da barra inferior leva ao topo (âncora existe)', () => {
   expect(FRONT.includes('<a href="#top" class="active">') && !FRONT.includes('href="#inicio"'));
 });
 
+console.log('\nHome — hierarquia editorial (27/10/2026)');
+const MAIN = FRONT.slice(FRONT.indexOf('<main class="container" id="conteudo">'), FRONT.indexOf('</main>', FRONT.indexOf('<main class="container" id="conteudo">')));
+test('segunda metade: M&E → Operações → Últimas → Explica → Central → OffshoreWorks → Eventos → OWBuddy', () => {
+  const pos = ['id="destaque"', 'id="vagas-agora"', 'id="mercadoOffshore"', 'id="mercado"', 'id="operacoes"', 'id="ultimas"', 'id="baiaSocial"', 'id="carreiras"', 'id="loja"', 'id="homeAgenda"', 'id="ecossistema"'].map((m) => [m, MAIN.indexOf(m)]);
+  for (const [m, i] of pos) expect(i > 0, m + ' ausente');
+  for (let i = 1; i < pos.length; i++) expect(pos[i][1] > pos[i - 1][1], pos[i][0] + ' fora de ordem');
+  // Explica é injetado no SSR logo antes da Central
+  expect(FRONT.includes("html.replace('<section class=\"ed-section\" id=\"carreiras\">', blocoExplicaHome() + '<section class=\"ed-section\" id=\"carreiras\">')"), 'Explica antes da Central');
+});
+test('seleção das Últimas continua sequencial (Aconteceu → Últimas → M&E → Operações), sem segunda regra', () => {
+  const i = FRONT.indexOf('const ultimasHoje = proximosUltimas(poolElegivelHoje, 6);');
+  expect(i > 0 && i < FRONT.indexOf("selecionarEditorial(poolElegivelHoje, 'mercado', 4)") && FRONT.indexOf("selecionarEditorial(poolElegivelHoje, 'mercado', 4)") < FRONT.indexOf("selecionarEditorial(poolElegivelHoje, 'operacoes', 5)"));
+  expect((FRONT.match(/function proximosUltimas\(/g) || []).length === 1, 'uma seleção só');
+});
+test('newsletter fora da Home (envio nunca ativado), /newsletter e API preservados', () => {
+  expect(!MAIN.includes('nlHomeForm') && !MAIN.includes('class="newsletter"') && !FRONT.includes('.nl-home-form{') && !FRONT.includes("getElementById('newsletterBtn')"));
+  expect(FRONT.includes('url.pathname === "/newsletter"') && FRONT.includes('url.pathname === "/api/newsletter/subscribe"'), 'rotas');
+});
+test('Central Offshore no celular: 2 colunas de links, toque ≥ 44 px, nada escondido', () => {
+  expect(FRONT.includes('@media(min-width:360px) and (max-width:699px){#carreiras .cof-grid{gap:10px}') && FRONT.includes('#carreiras .cof-links a{align-items:center;min-height:44px;'));
+  const m = FRONT.match(/@media\(min-width:360px\) and \(max-width:699px\)\{#carreiras[^\n]*/)[0];
+  expect(!/display:none|font-size/.test(m), 'não esconde nem reduz fonte');
+});
+test('Mercado & Energia e Operações (abaixo da dobra): capas só baixam perto da tela', () => {
+  const f = FRONT.slice(FRONT.indexOf('function renderMercado(lista, fallbackEditorial){'), FRONT.indexOf('Radar Offshore + Giro 24h'));
+  expect((f.match(/capaAtributos\(img, true\)/g) || []).length === 3 && (f.match(/observarCapas\(el\);/g) || []).length === 3 && !f.includes('capaAtributos(img)}'));
+});
+
 console.log('\n' + pass + ' passaram, ' + fail + ' falharam');
 process.exit(fail ? 1 : 0);
