@@ -206,7 +206,7 @@ const VAGAS_RADAR = [
     resumo: "A Shell busca profissional para atuar na gestão logística/comercial de embarcações com Posicionamento Dinâmico (DP) na operação brasileira.",
     fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
     application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/DP-Vessel-Commercial-Operator-Senior_R209155-1",
-    plataforma: "workday", external_job_id: "R209155", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "workday", external_job_id: "R209155", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Shell/Workday: vaga fora do ar (API da vaga 404; busca pelo código 0) — conferido em 27/10/2026', verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Facilities Engineer",
@@ -214,7 +214,7 @@ const VAGAS_RADAR = [
     resumo: "A Shell busca engenheiro(a) de facilities para a operação no Rio de Janeiro. A vaga oficial não especifica se a atuação é embarcada.",
     fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
     application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Facilities-Engineer_R206179-1",
-    plataforma: "workday", external_job_id: "R206179", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "workday", external_job_id: "R206179", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Shell/Workday: vaga fora do ar (API da vaga 404; busca pelo código 0) — conferido em 27/10/2026', verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Business Analyst",
@@ -222,7 +222,7 @@ const VAGAS_RADAR = [
     resumo: "A Shell busca analista de negócios para a operação no Rio de Janeiro — função administrativa, sem embarque.",
     fonte_nome: "Shell Careers (Workday)", fonte_oficial: true,
     application_url: "https://shell.wd3.myworkdayjobs.com/ShellCareers/job/Rio-De-Janeiro---Ventura-Office/Business-Analyst_R209644-1",
-    plataforma: "workday", external_job_id: "R209644", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "workday", external_job_id: "R209644", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Shell/Workday: vaga fora do ar (API da vaga 404; busca pelo código 0) — conferido em 27/10/2026', verificado_em: "2026-10-04T09:00:00-03:00"
   },
   // === Subsea7 (SuccessFactors) — Radar 2.0, descobertas automaticamente 2026-10-04 ===
   {
@@ -231,7 +231,7 @@ const VAGAS_RADAR = [
     resumo: "Técnico(a) de Survey para apoiar projetos de construção submarina offshore da Subsea7, incluindo instalação de dutos/cabos e inspeção de ativos submarinos.",
     fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
     application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-Survey-Offshore/1361734955/",
-    plataforma: "successfactors", external_job_id: "1361734955", closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "successfactors", external_job_id: "1361734955", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Subsea7: "position has been filled" — conferido em 27/10/2026', closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Surveyor Offshore",
@@ -239,7 +239,7 @@ const VAGAS_RADAR = [
     resumo: "Profissional de levantamento (survey) para atuação embarcada nas operações de construção submarina offshore da Subsea7.",
     fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
     application_url: "https://careers.subsea7.com/job/Offshore-Surveyor-Offshore/1361733755/",
-    plataforma: "successfactors", external_job_id: "1361733755", closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "successfactors", external_job_id: "1361733755", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Subsea7: "position has been filled" — conferido em 27/10/2026', closing_date: "2026-10-22", verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Coordenadora(o) de Operações Offshore",
@@ -263,7 +263,7 @@ const VAGAS_RADAR = [
     resumo: "Técnico(a) de Mecânica para atuação embarcada nas embarcações offshore da Subsea7 no Brasil.",
     fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
     application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-de-Mec%C3%A2nica-Offshore/1361968355/",
-    plataforma: "successfactors", external_job_id: "1361968355", closing_date: "2026-10-14", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "successfactors", external_job_id: "1361968355", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Subsea7: "position has been filled" — conferido em 27/10/2026', closing_date: "2026-10-14", verificado_em: "2026-10-04T09:00:00-03:00"
   },
   {
     titulo: "Marinheira(o) de Convés",
@@ -287,7 +287,7 @@ const VAGAS_RADAR = [
     resumo: "Técnico(a) de Pré-Comissionamento para atuação embarcada nas operações offshore da Subsea7.",
     fonte_nome: "Subsea7 Careers (SuccessFactors)", fonte_oficial: true,
     application_url: "https://careers.subsea7.com/job/Offshore-T%C3%A9cnica%28o%29-de-Pr%C3%A9-Comissionamento/1359683955/",
-    plataforma: "successfactors", external_job_id: "1359683955", closing_date: "2026-10-17", verificado_em: "2026-10-04T09:00:00-03:00"
+    plataforma: "successfactors", external_job_id: "1359683955", status: 'CLOSED', encerrada_em: '2026-10-27T19:30:00Z', motivo_encerramento: 'Subsea7: "position has been filled" — conferido em 27/10/2026', closing_date: "2026-10-17", verificado_em: "2026-10-04T09:00:00-03:00"
   }
 ];
 
@@ -341,6 +341,8 @@ function vagaEncerramentoTexto(v) {
 // verificado_em individual quando existir, com fallback pro global —
 // chamada sem argumento continua funcionando como antes.
 function vagaEhNova(v) {
+  // Coletadas automaticamente: conta da primeira vez vista (verificado_em muda a cada coleta).
+  if (v && 'first_seen_at' in v) return !!v.first_seen_at && (Date.now() - new Date(v.first_seen_at).getTime()) / 3600000 <= 72;
   return (Date.now() - vagaDataVerificacao(v).getTime()) / 3600000 <= 72;
 }
 
@@ -359,7 +361,6 @@ function rotuloTipoVaga(v) {
   if (vagaEhBancoTalentos(v)) return 'BANCO DE TALENTOS';
   return vagaAbertaComEvidencia(v) ? 'VAGA ABERTA' : 'PUBLICADA NA FONTE';
 }
-const VAGAS_ABERTAS_ESPECIFICAS = VAGAS_RADAR.filter(v => !vagaEhBancoTalentos(v) && !vagaPodeEstarExpirada(v));
 
 function slugVaga(v) {
   if (v.empresa === 'Foresea') return 'foresea-auxiliar-plataforma-plataformista';
@@ -373,14 +374,14 @@ function slugVaga(v) {
 
 /* ─── RADAR 2.0: Adapters + KV Cache ─────────────────────────────────────────
    Radar de Vagas 2.0 (2026-10-04): descoberta automática de vagas offshore via
-   adapters por plataforma (SuccessFactors/Gupy). O KV armazena o resultado por
-   até 12h; a página /vagas lê do KV e aciona refresh assíncrono via waitUntil
-   quando os dados têm mais de 6h. O array VAGAS_RADAR estático continua como
-   fallback e como fonte para empresas sem adapter (Shell/Workday).
+   adapters por plataforma (SuccessFactors/Gupy/Workday). O KV guarda a lista
+   viva e o registro de cada vaga, sem expiração; qualquer página lê de lá e,
+   quando a coleta tem mais de 6h, dispara outra via waitUntil (com trava). O array VAGAS_RADAR (conferido à mão) é a
+   semente do registro e o fallback sem KV; status CLOSED = encerrada com evidência.
    NÃO usa cron trigger (sem alteração no wrangler.jsonc).
    NÃO cria KV namespace novo — usa PERGUNTE_IA_KV com prefixo "vagas:".     */
 
-const VAGAS_KV_TTL = 6 * 3600 * 1000; // 6h — age trigger para refresh
+const VAGAS_KV_TTL = 6 * 3600 * 1000; // 6h — idade que dispara nova coleta (chave sem expiração: guarda o histórico)
 const VAGAS_KV_KEY_CACHE = 'vagas:cache';
 const VAGAS_KV_KEY_META = 'vagas:meta';
 const VAGAS_KV_JOB_PREFIX = 'vagas:job:'; // vagas:job:{plataforma}:{id} → JSON
@@ -437,151 +438,267 @@ function parseSFJobHtml(html, fullUrl) {
   } catch { return null; }
 }
 
-// Adapter SuccessFactors: descobre vagas offshore brasileiras da Subsea7
-async function adapterSuccessFactors(env) {
-  const searchUrl = SF_SUBSEA7_BASE + '/search/results?q=offshore&locale=pt_BR';
-  const searchResp = await fetch(searchUrl, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
+/* Ciclo de vida das vagas (auditoria 27/10/2026). Cada coleta classifica cada
+   vaga conhecida em: 'ativa' (a fonte mostra a vaga), 'encerrada' (a fonte diz
+   explicitamente: "position has been filled", status Gupy ≠ published,
+   canApply=false), 'ausente' (a fonte respondeu bem, mas a vaga não está lá)
+   ou 'erro' (timeout, 5xx, 429, layout desconhecido — nada muda).
+   Saída: explícita → na hora; ausente → só depois de VAGAS_MAX_AUSENCIAS
+   coletas bem-sucedidas seguidas. Fonte que falha ou devolve tudo ausente de
+   uma vez (resposta anormal) não tira nenhuma vaga. Nada é apagado: o registro
+   guarda first_seen/last_seen/removed_at de cada vaga, na mesma chave KV. */
+const VAGAS_MAX_AUSENCIAS = 2;
+const VAGAS_EXECUCOES_GUARDADAS = 60;
+const VAGAS_REFRESH_PARALELO = 4;
+
+function chaveVaga(v) {
+  return (v.plataforma || 'manual') + ':' + (v.external_job_id || slugVaga(v));
+}
+
+async function emLotes(itens, n, fn) {
+  const saida = new Array(itens.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, itens.length) }, async () => {
+    while (i < itens.length) { const k = i++; saida[k] = await fn(itens[k]); }
+  }));
+  return saida;
+}
+
+function classificarPaginaSF(status, html, url) {
+  if (status === 404 || status === 410) return { resultado: 'ausente' };
+  if (status !== 200) return { resultado: 'erro', motivo: 'HTTP ' + status };
+  if (/this position has been filled/i.test(html)) return { resultado: 'encerrada', motivo: 'Subsea7: "position has been filled"' };
+  const vaga = parseSFJobHtml(html, url);
+  return vaga ? { resultado: 'ativa', vaga } : { resultado: 'ausente' };
+}
+
+// Adapter SuccessFactors (Subsea7): busca oficial + página de cada vaga. Vagas
+// já conhecidas que saíram da busca são conferidas na própria página.
+async function adapterSuccessFactors(env, conhecidas) {
+  const searchResp = await fetch(SF_SUBSEA7_BASE + '/search/results?q=offshore&locale=pt_BR', { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
   if (!searchResp.ok) throw new Error('SF search HTTP ' + searchResp.status);
   const html = await searchResp.text();
-
-  // Extrai URLs de vagas do HTML (data-url attributes)
-  const jobPaths = [...html.matchAll(/data-url="(\/job\/[^"]+)"/g)].map(m => m[1]);
-
-  // Filtra vagas brasileiras offshore: URL contém palavras em português ou "Offshore"
-  const brPaths = jobPaths.filter(p =>
-    /Offshore|Niter[oó]|Rio-de-Janeiro/i.test(p)
-  ).slice(0, 20);
-
-  const jobs = [];
-  const now = new Date().toISOString();
-
-  for (const jobPath of brPaths) {
-    const idMatch = jobPath.match(/\/(\d{7,12})\//);
-    const jobId = idMatch ? idMatch[1] : null;
-    if (!jobId) continue;
-
-    // KV Budget 2.1: sem cache por vaga em KV (eram até 11 PUTs por
-    // refresh). A página da vaga já vem do cache de borda (cf.cacheTtl) e o
-    // resultado consolidado fica numa única chave (vagas:cache).
-    let jobData = null;
+  const brPaths = [...html.matchAll(/data-url="(\/job\/[^"]+)"/g)].map(m => m[1])
+    .filter(p => /Offshore|Niter[oó]|Rio-de-Janeiro/i.test(p)).slice(0, 20);
+  const naBusca = new Set(brPaths.map(p => (p.match(/\/(\d{7,12})\//) || [])[1]).filter(Boolean));
+  const alvos = brPaths.map(p => SF_SUBSEA7_BASE + p)
+    .concat(conhecidas.filter(v => !naBusca.has(v.external_job_id) && v.application_url).map(v => v.application_url).slice(0, 10));
+  const verificacoes = await emLotes(alvos, VAGAS_REFRESH_PARALELO, async (url) => {
+    const id = (url.match(/\/(\d{7,12})\/?$/) || [])[1];
+    if (!id) return null;
     try {
-      const jobResp = await fetch(SF_SUBSEA7_BASE + jobPath, {
-        headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 }
-      });
-      if (jobResp.ok) jobData = parseSFJobHtml(await jobResp.text(), SF_SUBSEA7_BASE + jobPath);
-    } catch {}
-
-    if (jobData && jobData.titulo) jobs.push(jobData);
-  }
-
-  return { jobs, ok: true, source: 'successfactors_subsea7', count: jobs.length, fetched_at: now };
+      const r = await fetch(url, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
+      return Object.assign({ chave: 'successfactors:' + id }, classificarPaginaSF(r.status, r.status === 200 ? await r.text() : '', url));
+    } catch (e) { return { chave: 'successfactors:' + id, resultado: 'erro', motivo: String(e && e.message || e) }; }
+  });
+  return { verificacoes: verificacoes.filter(Boolean), listadas: brPaths.length };
 }
 
-// Adapter Gupy: verifica status das vagas conhecidas nas empresas Gupy
-async function adapterGupy(env) {
-  const gupyVagas = [
-    { subdomain: 'prio', empresa: 'PRIO', jobId: '12081138', offshore_onshore: 'NAO_INFORMADO' },
-    { subdomain: 'bravaenergia', empresa: 'Brava Energia', jobId: '12401067', offshore_onshore: 'OFFSHORE' },
-    { subdomain: 'ocyan', empresa: 'Ocyan', jobId: '12394579', offshore_onshore: 'OFFSHORE' },
-    { subdomain: 'foresea', empresa: 'Foresea', jobId: '10992150', offshore_onshore: 'NAO_INFORMADO' },
-  ];
-
-  const jobs = [];
-  const now = new Date().toISOString();
-
-  for (const v of gupyVagas) {
-    try {
-      const resp = await fetch(`https://${v.subdomain}.gupy.io/jobs/${v.jobId}`, {
-        headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 }
-      });
-      if (!resp.ok) continue;
-      const html = await resp.text();
-      const ndMatch = html.match(/id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-      if (!ndMatch) continue;
-      const nd = JSON.parse(ndMatch[1]);
-      const job = nd.props?.pageProps?.job;
-      if (!job || job.status === 'closed') continue;
-
-      jobs.push({
-        titulo: job.name,
-        empresa: v.empresa,
-        local: job.addressCity || '',
-        pais: 'Brasil',
-        offshore_onshore: v.offshore_onshore,
-        escala: null,
-        resumo: `Vaga publicada no ATS oficial da ${v.empresa}.`,
-        fonte_nome: `${v.empresa} Careers (Gupy)`,
-        fonte_oficial: true,
-        application_url: `https://${v.subdomain}.gupy.io/jobs/${v.jobId}`,
-        plataforma: 'gupy',
-        external_job_id: v.jobId,
-        closing_date: job.expiresAt || null,
-        verificado_em: now,
-        status: 'OPEN'
-      });
-    } catch {}
-  }
-
-  return { jobs, ok: true, source: 'gupy', count: jobs.length, fetched_at: now };
+function classificarPaginaGupy(status, html) {
+  if (status === 404 || status === 410) return { resultado: 'ausente' };
+  if (status !== 200) return { resultado: 'erro', motivo: 'HTTP ' + status };
+  const nd = html.match(/id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!nd) return { resultado: 'erro', motivo: 'página sem __NEXT_DATA__' };
+  let job;
+  try { job = JSON.parse(nd[1]).props?.pageProps?.job; } catch { return { resultado: 'erro', motivo: '__NEXT_DATA__ inválido' }; }
+  if (!job) return { resultado: 'ausente' };
+  if (job.status === 'published') return { resultado: 'ativa', job };
+  if (job.status) return { resultado: 'encerrada', motivo: 'Gupy: status "' + job.status + '"' };
+  return { resultado: 'erro', motivo: 'Gupy sem status' };
 }
 
-// Atualiza o cache KV de vagas (chamado via ctx.waitUntil)
+// Adapter Gupy: confere as vagas Gupy conhecidas (não descobre novas).
+async function adapterGupy(env, conhecidas) {
+  const verificacoes = await emLotes(conhecidas, VAGAS_REFRESH_PARALELO, async (v) => {
+    const chave = chaveVaga(v);
+    try {
+      const r = await fetch(v.application_url, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
+      const c = classificarPaginaGupy(r.status, r.status === 200 ? await r.text() : '');
+      if (c.resultado !== 'ativa') return Object.assign({ chave }, c);
+      const job = c.job;
+      return { chave, resultado: 'ativa', vaga: Object.assign({}, v, {
+        titulo: String(job.name || v.titulo).trim(), local: job.addressCity || v.local || '',
+        closing_date: job.expiresAt || null, verificado_em: new Date().toISOString(), status: 'OPEN'
+      }) };
+    } catch (e) { return { chave, resultado: 'erro', motivo: String(e && e.message || e) }; }
+  });
+  return { verificacoes };
+}
+
+// Adapter Workday (Shell): API pública da própria página de carreiras. Antes,
+// confere se a API responde (busca com total > 0) — sem isso, nada muda.
+async function adapterWorkday(env, conhecidas) {
+  if (!conhecidas.length) return { verificacoes: [] };
+  const base = (u) => { const m = String(u).match(/^https:\/\/([^.]+)\.(wd\d+)\.myworkdayjobs\.com\/([^/]+)(\/job\/.+)$/); return m ? { api: 'https://' + m[1] + '.' + m[2] + '.myworkdayjobs.com/wday/cxs/' + m[1] + '/' + m[3], path: m[4] } : null; };
+  const b0 = base(conhecidas[0].application_url);
+  if (!b0) throw new Error('URL Workday desconhecida');
+  const saude = await fetch(b0.api + '/jobs', { method: 'POST', headers: { 'User-Agent': SF_UA, 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit: 1, offset: 0, searchText: '' }) });
+  const total = saude.ok ? ((await saude.json().catch(() => ({}))).total || 0) : 0;
+  if (!total) throw new Error('Workday sem resposta válida (HTTP ' + saude.status + ')');
+  const verificacoes = await emLotes(conhecidas, VAGAS_REFRESH_PARALELO, async (v) => {
+    const chave = chaveVaga(v); const b = base(v.application_url);
+    if (!b) return { chave, resultado: 'erro', motivo: 'URL Workday desconhecida' };
+    try {
+      const r = await fetch(b.api + b.path, { headers: { 'User-Agent': SF_UA, 'Accept': 'application/json' } });
+      if (r.status === 404 || r.status === 410) return { chave, resultado: 'ausente' };
+      if (!r.ok) return { chave, resultado: 'erro', motivo: 'HTTP ' + r.status };
+      const info = ((await r.json().catch(() => ({}))).jobPostingInfo) || null;
+      if (!info || !info.title) return { chave, resultado: 'erro', motivo: 'resposta sem jobPostingInfo' };
+      if (info.canApply === false) return { chave, resultado: 'encerrada', motivo: 'Workday: canApply=false' };
+      return { chave, resultado: 'ativa', vaga: Object.assign({}, v, { verificado_em: new Date().toISOString(), status: 'OPEN' }) };
+    } catch (e) { return { chave, resultado: 'erro', motivo: String(e && e.message || e) }; }
+  });
+  return { verificacoes };
+}
+
+const VAGAS_CAMPOS_ACOMPANHADOS = ['titulo', 'local', 'closing_date', 'application_url', 'empresa'];
+
+// Função pura: aplica as verificações de uma coleta ao registro anterior.
+// fontes: { nome: { ok, verificacoes:[{chave,resultado,vaga?,motivo?}], erro? } }
+function reconciliarVagas(registroAnterior, fontes, estaticas, agoraIso) {
+  const primeira = !registroAnterior || !Object.keys(registroAnterior).length;
+  const reg = JSON.parse(JSON.stringify(registroAnterior || {}));
+  // Semente: vagas conferidas à mão (VAGAS_RADAR). Status CLOSED = encerrada com evidência.
+  for (const v of estaticas) {
+    const k = chaveVaga(v);
+    if (reg[k]) continue;
+    const fechada = v.status === 'CLOSED';
+    reg[k] = { chave: k, plataforma: v.plataforma || 'manual', empresa: v.empresa, titulo: v.titulo, status: fechada ? 'removida' : 'ativa',
+      first_seen_at: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM, last_seen_at: v.verificado_em || VAGAS_RADAR_VERIFICADO_EM, missing_count: 0,
+      removed_at: fechada ? (v.encerrada_em || agoraIso) : null, motivo_saida: fechada ? (v.motivo_encerramento || 'encerrada na fonte (verificação manual)') : null,
+      antes_do_registro: true, dados: v };
+  }
+  const resumo = {};
+  for (const [nome, f] of Object.entries(fontes)) {
+    const r = resumo[nome] = { ok: !!f.ok, anomalia: false, vistas: 0, novas: 0, atualizadas: 0, encerradas: 0, ausentes: 0, erros: 0, reabertas: 0, erro: f.erro || null };
+    if (!f.ok) continue;
+    const vs = f.verificacoes || [];
+    const ausentes = vs.filter(x => x.resultado === 'ausente').length;
+    // Resposta anormal: tudo "ausente" de uma vez (≥ 2) não é evidência de encerramento.
+    r.anomalia = ausentes >= 2 && ausentes === vs.length;
+    for (const x of vs) {
+      const ant = reg[x.chave];
+      if (x.resultado === 'ativa') {
+        r.vistas++;
+        const dados = Object.assign({}, x.vaga, { verificado_em: agoraIso });
+        if (!ant) {
+          r.novas++;
+          reg[x.chave] = { chave: x.chave, plataforma: dados.plataforma, empresa: dados.empresa, titulo: dados.titulo, status: 'ativa',
+            first_seen_at: agoraIso, last_seen_at: agoraIso, missing_count: 0, removed_at: null, motivo_saida: null, antes_do_registro: primeira, dados };
+          continue;
+        }
+        if (VAGAS_CAMPOS_ACOMPANHADOS.some(c => (ant.dados && ant.dados[c] || null) !== (dados[c] || null))) { r.atualizadas++; ant.atualizado_em = agoraIso; }
+        if (ant.status === 'removida') { r.reabertas++; ant.reaberta_em = agoraIso; ant.removed_at = null; ant.motivo_saida = null; }
+        Object.assign(ant, { status: 'ativa', empresa: dados.empresa, titulo: dados.titulo, last_seen_at: agoraIso, missing_count: 0, dados });
+      } else if (x.resultado === 'encerrada') {
+        r.encerradas++;
+        if (ant && ant.status !== 'removida') Object.assign(ant, { status: 'removida', removed_at: agoraIso, motivo_saida: x.motivo || 'encerrada na fonte' });
+        if (ant) ant.ultima_checagem_at = agoraIso;
+      } else if (x.resultado === 'ausente') {
+        r.ausentes++;
+        if (!ant || ant.status === 'removida' || r.anomalia) continue;
+        ant.missing_count = (ant.missing_count || 0) + 1;
+        ant.ultima_checagem_at = agoraIso;
+        if (ant.missing_count >= VAGAS_MAX_AUSENCIAS) Object.assign(ant, { status: 'removida', removed_at: agoraIso, motivo_saida: 'ausente da fonte em ' + ant.missing_count + ' coletas seguidas' });
+      } else r.erros++;
+    }
+  }
+  const jobs = Object.values(reg).filter(e => e.status === 'ativa' && e.dados)
+    .map(e => Object.assign({}, e.dados, { first_seen_at: e.antes_do_registro ? null : e.first_seen_at, last_seen_at: e.last_seen_at }));
+  return { registro: reg, jobs, resumo };
+}
+
 async function refreshVagasRadar(env) {
   if (!env || !env.PERGUNTE_IA_KV) return;
   try {
-    const [sfResult, gupyResult] = await Promise.allSettled([
-      adapterSuccessFactors(env),
-      adapterGupy(env),
+    const inicio = Date.now();
+    const agoraIso = new Date().toISOString();
+    const anterior = await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, 'json').catch(() => null);
+    const registroAnt = (anterior && anterior.registro) || {};
+    // Conhecidas = registro ativo + array conferido à mão ainda não encerrado.
+    const conhecidas = new Map();
+    for (const v of VAGAS_RADAR) if (v.status !== 'CLOSED' && !(registroAnt[chaveVaga(v)] && registroAnt[chaveVaga(v)].status === 'removida')) conhecidas.set(chaveVaga(v), v);
+    for (const e of Object.values(registroAnt)) if (e.status === 'ativa' && e.dados) conhecidas.set(e.chave, e.dados);
+    const daPlataforma = (p) => [...conhecidas.values()].filter(v => v.plataforma === p);
+    const nomes = ['successfactors_subsea7', 'gupy', 'workday_shell'];
+    const execs = await Promise.allSettled([
+      adapterSuccessFactors(env, daPlataforma('successfactors')),
+      adapterGupy(env, daPlataforma('gupy')),
+      adapterWorkday(env, daPlataforma('workday')),
     ]);
-
-    const sfOk = sfResult.status === 'fulfilled';
-    const gupyOk = gupyResult.status === 'fulfilled';
-    const sfJobs = sfOk ? sfResult.value.jobs : [];
-    const gupyJobs = gupyOk ? gupyResult.value.jobs : [];
-
-    // Merge: adapters first, then static VAGAS_RADAR para tudo que não foi descoberto
-    const discovered = [...sfJobs, ...gupyJobs];
-    const knownKeys = new Set(discovered.map(j => (j.plataforma || '') + ':' + (j.external_job_id || slugVaga(j))));
-
-    for (const staticJob of VAGAS_RADAR) {
-      const key = (staticJob.plataforma || 'manual') + ':' + (staticJob.external_job_id || slugVaga(staticJob));
-      if (!knownKeys.has(key)) {
-        discovered.push(staticJob);
-        knownKeys.add(key);
-      }
+    const fontes = {};
+    execs.forEach((x, i) => { fontes[nomes[i]] = x.status === 'fulfilled' ? { ok: true, verificacoes: x.value.verificacoes, listadas: x.value.listadas } : { ok: false, erro: String(x.reason && x.reason.message || x.reason) }; });
+    const { registro, jobs, resumo } = reconciliarVagas(registroAnt, fontes, VAGAS_RADAR, agoraIso);
+    const sources = {};
+    for (const n of nomes) {
+      const r = resumo[n], ant = anterior && anterior.sources && anterior.sources[n];
+      sources[n] = Object.assign({}, r, { listadas: fontes[n].listadas, fetched_at: agoraIso, count: r.vistas,
+        last_ok_at: r.ok && !r.anomalia ? agoraIso : (ant && (ant.last_ok_at || (ant.ok ? ant.fetched_at : null))) || null });
     }
-
-    const cache = {
-      jobs: discovered,
-      updated_at: new Date().toISOString(),
-      sources: {
-        successfactors_subsea7: sfOk
-          ? { ok: true, count: sfResult.value.count, fetched_at: sfResult.value.fetched_at }
-          : { ok: false, error: String(sfResult.reason), fetched_at: new Date().toISOString() },
-        gupy: gupyOk
-          ? { ok: true, count: gupyResult.value.count, fetched_at: gupyResult.value.fetched_at }
-          : { ok: false, error: String(gupyResult.reason), fetched_at: new Date().toISOString() },
-      }
-    };
-
-    await env.PERGUNTE_IA_KV.put(VAGAS_KV_KEY_CACHE, JSON.stringify(cache), { expirationTtl: 86400 });
-  } catch {}
+    const execucoes = [{ em: agoraIso, duracao_ms: Date.now() - inicio, fontes: resumo }].concat((anterior && anterior.execucoes) || []).slice(0, VAGAS_EXECUCOES_GUARDADAS);
+    await env.PERGUNTE_IA_KV.put(VAGAS_KV_KEY_CACHE, JSON.stringify({ versao: 2, jobs, registro, execucoes, sources, updated_at: agoraIso }));
+    vagasEstado = { jobs, removidas: removidasDoRegistro(registro), lidoEm: Date.now(), updated_at: agoraIso, versao: 2 };
+  } catch (e) { console.error('[vagas] refresh falhou:', e && e.message); }
 }
 
-// Lê vagas do KV (com fallback pro array estático).
-// Se dados tiverem mais de VAGAS_KV_TTL, dispara refresh assíncrono.
-async function getVagasRadar(env, ctx) {
-  if (!env || !env.PERGUNTE_IA_KV) return VAGAS_RADAR;
-  try {
-    const cached = await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, 'json');
-    const age = cached ? Date.now() - new Date(cached.updated_at).getTime() : Infinity;
-    if (age > VAGAS_KV_TTL && ctx) {
-      ctx.waitUntil(refreshVagasRadar(env));
-    }
-    return (cached && Array.isArray(cached.jobs) && cached.jobs.length > 0) ? cached.jobs : VAGAS_RADAR;
-  } catch {
-    return VAGAS_RADAR;
+// Alertas do Command Center: coleta parada, fonte falhando, zero anormal.
+function alertasRadarVagas(cache, agoraMs) {
+  const alertas = [];
+  if (!cache || !cache.updated_at) return ['Radar sem nenhuma coleta registrada.'];
+  const horas = (agoraMs - Date.parse(cache.updated_at)) / 3600000;
+  if (horas > 24) alertas.push('Última coleta há ' + Math.round(horas) + ' h (esperado: a cada ~6 h).');
+  for (const [nome, f] of Object.entries(cache.sources || {})) {
+    if (!f.ok) alertas.push(nome + ': falhou na última coleta (' + (f.erro || f.error || 'erro') + ').');
+    else if (f.anomalia) alertas.push(nome + ': resposta anormal (todas as vagas ausentes) — nada foi removido.');
+    else if (f.listadas === 0) alertas.push(nome + ': a busca da fonte voltou com zero vagas.');
+    if (f.last_ok_at && (agoraMs - Date.parse(f.last_ok_at)) / 3600000 > 48) alertas.push(nome + ': sem coleta bem-sucedida há mais de 48 h.');
   }
+  const falhasSeguidas = (cache.execucoes || []).slice(0, 3);
+  for (const nome of Object.keys(cache.sources || {})) {
+    if (falhasSeguidas.length === 3 && falhasSeguidas.every(e => e.fontes && e.fontes[nome] && !e.fontes[nome].ok)) alertas.push(nome + ': 3 falhas seguidas.');
+  }
+  return alertas;
+}
+
+// Estado por isolate: lista viva de vagas lida do KV (no máximo a cada 5 min).
+// Páginas síncronas usam vagasRadarAtual(); o fetch carrega antes de renderizar.
+let vagasEstado = null;
+let vagasRefreshEmCurso = null;
+const VAGAS_ESTADO_TTL_MS = 5 * 60 * 1000;
+function vagasFallbackEstatico() { return VAGAS_RADAR.filter(v => v.status !== 'CLOSED'); }
+function vagasRemovidas() { return (vagasEstado && vagasEstado.removidas) || []; }
+function removidasDoRegistro(reg) {
+  return Object.values(reg || {}).filter(e => e.status === 'removida' && e.dados).map(e => Object.assign({}, e.dados, { status: 'CLOSED', removed_at: e.removed_at }));
+}
+function vagasRadarAtual() { return (vagasEstado && vagasEstado.jobs && vagasEstado.jobs.length) ? vagasEstado.jobs : vagasFallbackEstatico(); }
+function vagasAbertasEspecificas() { return vagasRadarAtual().filter(v => !vagaEhBancoTalentos(v) && !vagaPodeEstarExpirada(v)); }
+
+async function travaRefreshVagas() {
+  try {
+    const k = new Request('https://ownews-vagas.interno/refresh-lock');
+    if (await caches.default.match(k)) return false;
+    await caches.default.put(k, new Response('1', { headers: { 'Cache-Control': 'max-age=600' } }));
+  } catch {}
+  return true;
+}
+
+async function getVagasRadar(env, ctx) {
+  if (!env || !env.PERGUNTE_IA_KV) return vagasRadarAtual();
+  try {
+    if (!vagasEstado || Date.now() - vagasEstado.lidoEm > VAGAS_ESTADO_TTL_MS) {
+      const cached = await env.PERGUNTE_IA_KV.get(VAGAS_KV_KEY_CACHE, 'json');
+      // Cache v1 (sem registro): só vale filtrado pelas encerradas conhecidas.
+      const fechadas = new Set(VAGAS_RADAR.filter(v => v.status === 'CLOSED').map(chaveVaga));
+      const jobs = cached && Array.isArray(cached.jobs) ? cached.jobs.filter(v => cached.registro || !fechadas.has(chaveVaga(v))) : null;
+      vagasEstado = { jobs: jobs && jobs.length ? jobs : null, removidas: removidasDoRegistro(cached && cached.registro), lidoEm: Date.now(), updated_at: cached ? cached.updated_at : null, versao: cached ? cached.versao : null };
+    }
+    const idade = vagasEstado.updated_at ? Date.now() - new Date(vagasEstado.updated_at).getTime() : Infinity;
+    if (ctx && (idade > VAGAS_KV_TTL || vagasEstado.versao !== 2) && !vagasRefreshEmCurso && await travaRefreshVagas()) {
+      vagasRefreshEmCurso = refreshVagasRadar(env).finally(() => { vagasRefreshEmCurso = null; });
+      ctx.waitUntil(vagasRefreshEmCurso);
+    }
+  } catch {}
+  return vagasRadarAtual();
 }
 
 /* ─── fim Radar 2.0 ─────────────────────────────────────────────────────── */
@@ -2964,13 +3081,7 @@ ${CSS_TEMA_CLARO}
        (informação de alta utilidade/recorrência, por pedido explícito
        do operador). "Mais Lidas" desceu pra perto do rodapé, onde passa
        a funcionar como recirculação de conteúdo (ver mais abaixo). -->
-  ${VAGAS_ABERTAS_ESPECIFICAS.length ? `
-  <section class="ed-section vagas-home-section" id="vagas-agora">
-    <div class="vagas-home-head"><span class="vagas-home-eyebrow">OPORTUNIDADES OFFSHORE</span><h2>Vagas nas fontes oficiais</h2><span class="vagas-home-contador">${VAGAS_ABERTAS_ESPECIFICAS.length} vaga${VAGAS_ABERTAS_ESPECIFICAS.length === 1 ? "" : "s"} publicada${VAGAS_ABERTAS_ESPECIFICAS.length === 1 ? "" : "s"} nos canais oficiais das empresas.</span></div>
-    <div class="vagas-home-grid">${VAGAS_ABERTAS_ESPECIFICAS.slice(0, 3).map(cardVagaHome).join('')}</div>
-    <a class="mo-ver-todos" href="/vagas">Ver todas as vagas →</a>
-  </section>
-  ` : ''}
+  <section class="ed-section vagas-home-section" id="vagas-agora" hidden></section>
 
   <section class="ed-section mo-section" id="mercadoOffshore" aria-label="Mercado Offshore">
     <div class="ed-head"><h2>Mercado Offshore</h2><span class="ed-sub">Ações das empresas do ecossistema</span></div>
@@ -6418,9 +6529,32 @@ function blocoAgendaHome() {
     }).join('') + '</ul><a class="ha-cta" href="/agenda">Ver agenda completa →</a></aside>';
 }
 
+/* Radar Vagas da Home: montado a cada requisição com a lista viva (antes era
+   calculado no carregamento do módulo, quando o relógio dos Workers marca 1970
+   — nenhuma vaga vencida saía). Até 3; mais novas primeiro, uma por empresa. */
+function escolherVagasHome(lista, n) {
+  const ordem = lista.slice().sort((a, b) => (b.first_seen_at ? Date.parse(b.first_seen_at) : 0) - (a.first_seen_at ? Date.parse(a.first_seen_at) : 0));
+  const escolhidas = [], empresas = new Set();
+  for (const v of ordem) if (escolhidas.length < n && !empresas.has(v.empresa)) { escolhidas.push(v); empresas.add(v.empresa); }
+  for (const v of ordem) if (escolhidas.length < n && !escolhidas.includes(v)) escolhidas.push(v);
+  return escolhidas;
+}
+function blocoVagasHome(lista) {
+  if (!lista.length) return null;
+  const n = lista.length;
+  return '<section class="ed-section vagas-home-section" id="vagas-agora">' +
+    '<div class="vagas-home-head"><span class="vagas-home-eyebrow">OPORTUNIDADES OFFSHORE</span><h2>Vagas nas fontes oficiais</h2><span class="vagas-home-contador">' + n + ' vaga' + (n === 1 ? '' : 's') + ' publicada' + (n === 1 ? '' : 's') + ' nos canais oficiais das empresas.</span></div>' +
+    '<div class="vagas-home-grid">' + escolherVagasHome(lista, 3).map(cardVagaHome).join('') + '</div>' +
+    '<a class="mo-ver-todos" href="/vagas">Ver todas as vagas →</a></section>';
+}
+
 async function renderHomeServidor() {
   const agendaHome = blocoAgendaHome();
-  const base = await futebolModuloHome(agendaHome ? homeEstatica().replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome) : homeEstatica());
+  const vagasHome = blocoVagasHome(vagasAbertasEspecificas());
+  let estatica = homeEstatica();
+  if (agendaHome) estatica = estatica.replace('<aside class="ed-section home-agenda" id="homeAgenda" hidden></aside>', agendaHome);
+  if (vagasHome) estatica = estatica.replace('<section class="ed-section vagas-home-section" id="vagas-agora" hidden></section>', vagasHome);
+  const base = await futebolModuloHome(estatica);
   try {
     const noticias = await obterNoticiasHomeServidor();
     return injetarNoticiasHome(base, noticias, new Date());
@@ -7473,7 +7607,7 @@ function funcaoRelacionadaVaga(v) {
 // — reaproveita a função existente como fonte única de verdade do match,
 // só filtra o Radar inteiro por ela. Nunca inclui vaga expirada/encerrada.
 function vagasRelacionadasFuncao(f) {
-  return VAGAS_RADAR.filter((v) => !vagaPodeEstarExpirada(v) && funcaoRelacionadaVaga(v) === f);
+  return vagasRadarAtual().filter((v) => !vagaPodeEstarExpirada(v) && funcaoRelacionadaVaga(v) === f);
 }
 
 // Etapa 3.9 (2026-09-24): quando a notícia menciona (borda de palavra real,
@@ -7483,14 +7617,14 @@ function vagasRelacionadasFuncao(f) {
 function vagasDaEmpresaMencionadaServidor(artigo) {
   const texto = ((artigo.title || '') + ' ' + (artigo.summary || '') + ' ' + (artigo.content || ''));
   if (!texto.trim()) return null;
-  const empresasAtivas = Array.from(new Set(VAGAS_RADAR.filter((v) => !vagaPodeEstarExpirada(v)).map((v) => v.empresa)));
+  const empresasAtivas = Array.from(new Set(vagasRadarAtual().filter((v) => !vagaPodeEstarExpirada(v)).map((v) => v.empresa)));
   const empresa = empresasAtivas.find((nome) => {
     if (!nome || nome.length < 4) return false;
     const escapado = nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp('\\b' + escapado + '\\b', 'i').test(texto);
   });
   if (!empresa) return null;
-  const vagas = VAGAS_RADAR.filter((v) => v.empresa === empresa && !vagaPodeEstarExpirada(v));
+  const vagas = vagasRadarAtual().filter((v) => v.empresa === empresa && !vagaPodeEstarExpirada(v));
   return vagas.length ? { empresa, vagas } : null;
 }
 
@@ -7560,7 +7694,7 @@ function perguntaContemAlguma(perguntaNorm, palavras) {
 // específica — continuam válidos pra outros matches (função/glossário).
 const PALAVRAS_GENERICAS_DEMAIS_PARA_VAGA = new Set(['offshore', 'vaga', 'vagas', 'plataforma', 'ni', 'mso', 'dp']);
 function vagasParaPerguntaIA(perguntaNorm) {
-  const ativas = VAGAS_RADAR.filter((v) => !vagaPodeEstarExpirada(v));
+  const ativas = vagasRadarAtual().filter((v) => !vagaPodeEstarExpirada(v));
   return ativas.filter((v) => {
     const titulo = normalizarPerguntaIA(v.titulo);
     const empresa = normalizarPerguntaIA(v.empresa);
@@ -8973,7 +9107,7 @@ function renderCarreirasIndex() {
   }).filter(Boolean).join('');
 
   // ---- vagas preview (up to 3 offshore)
-  const vagasOffshore = VAGAS_RADAR.filter(function(v) { return v.offshore_onshore === 'OFFSHORE'; }).slice(0, 3);
+  const vagasOffshore = vagasAbertasEspecificas().filter(function(v) { return v.offshore_onshore === 'OFFSHORE'; }).slice(0, 3);
   const vagasHtml = vagasOffshore.map(function(v) {
     return '<a class="c3-vaga-card" href="/vagas" onclick="if(window.ownewsEvento)window.ownewsEvento(\'careers_jobs_click\')">' +
       '<div class="c3-vaga-tag">OFFSHORE</div>' +
@@ -9343,7 +9477,7 @@ const EMPRESAS_EM_AVALIACAO = [
 
 async function renderVagaDetalhe(slug, env, ctx) {
   const todasVagas = await getVagasRadar(env, ctx);
-  const vaga = todasVagas.find(v => slugVaga(v) === slug);
+  const vaga = todasVagas.find(v => slugVaga(v) === slug) || vagasRemovidas().find(v => slugVaga(v) === slug) || VAGAS_RADAR.find(v => slugVaga(v) === slug);
   if (!vaga) return null;
   const url = '/vagas/' + slugVaga(vaga);
   const nomeTipo = rotuloTipoVaga(vaga);
@@ -10518,7 +10652,7 @@ function renderMeuOwnews(){
    Funciona sem login; sincroniza com conta quando disponível.
    ============================================================ */
 function renderCentralTrabalhador() {
-  const nVagas = VAGAS_RADAR.filter(v => !vagaPodeEstarExpirada(v)).length;
+  const nVagas = vagasRadarAtual().filter(v => !vagaPodeEstarExpirada(v)).length;
   const conteudo =
     '<style>' +
     '.owb-teaser{display:block;text-decoration:none;color:inherit;background:linear-gradient(135deg,rgba(18,168,238,.07) 0%,rgba(18,168,238,.03) 100%);border:1px solid rgba(18,168,238,.18);border-radius:8px;padding:13px 16px;margin:16px 0;transition:border-color .15s,background .15s;-webkit-tap-highlight-color:transparent}' +
@@ -11750,7 +11884,7 @@ function renderOffshoreAgora(){
   // vagaPodeEstarExpirada já usados em /vagas). Unidades: as 3 primeiras
   // do cadastro real, só com campo que já existe (nunca status/posição
   // inventados).
-  const vagasRecentesLista = VAGAS_RADAR
+  const vagasRecentesLista = vagasRadarAtual()
     .filter((v) => !vagaPodeEstarExpirada(v))
     .slice()
     .sort((a, b) => vagaDataVerificacao(b) - vagaDataVerificacao(a))
@@ -12315,7 +12449,7 @@ function empresaPorSlug(slug) {
 // associadas a uma empresa do diretório — comparação direta de nome (mesmo
 // campo `empresa` já usado em VAGAS_RADAR/cardVaga, sem substring solta).
 function vagasDaEmpresaDiretorio(e) {
-  return VAGAS_RADAR.filter((v) => !vagaPodeEstarExpirada(v) && v.empresa === e.nome);
+  return vagasRadarAtual().filter((v) => !vagaPodeEstarExpirada(v) && v.empresa === e.nome);
 }
 
 /* ---------- /empresas/:slug ----------
@@ -17648,7 +17782,7 @@ function renderMinhaEscala() {
 
     '<div class="escala-vagas-section">' +
     '<div class="secao-label" style="margin-top:28px">Vagas verificadas</div>' +
-    VAGAS_ABERTAS_ESPECIFICAS.slice(0, 6).map((v, idx) => {
+    vagasAbertasEspecificas().slice(0, 6).map((v, idx) => {
       const slug = slugVaga(v);
       const cls = 'escala-vaga-item' + (idx >= 3 ? ' escala-vaga-extra' : '');
       const badge = v.offshore_onshore === 'OFFSHORE' ? '<span class="escala-vaga-badge">OFFSHORE</span>' : v.offshore_onshore === 'ONSHORE' ? '<span class="escala-vaga-badge escala-vaga-badge-on">ONSHORE</span>' : '';
@@ -20647,7 +20781,7 @@ async function ccColetarDados(periodo, env) {
     artigos.total = t;
   } catch {}
 
-  const vagasAtivas = typeof VAGAS_ABERTAS_ESPECIFICAS !== "undefined" ? VAGAS_ABERTAS_ESPECIFICAS.length : null;
+  const vagasAtivas = vagasAbertasEspecificas().length;
   const vagasCliques = ((resumo.eventos || []).find(e => e.name === "vaga_aberta") || {}).c || 0;
   const vagasIndexAberturas = ((resumo.eventos || []).find(e => e.name === "vagas_index_aberta") || {}).c || 0;
   const carreirasAberturas = ((resumo.eventos || []).find(e => e.name === "carreiras_aberta") || {}).c || 0;
@@ -21435,6 +21569,9 @@ function renderCCDashboard() {
     'html+=\'<p style="font-size:13px;color:var(--muted)">Cache KV ativo: <strong>\'+d.cache.count+\' vagas</strong> · salvo \'+new Date(d.cache.saved_at).toLocaleString("pt-BR")+\' (há \'+ageMin+\' min)</p>\';' +
     '}else{html+=\'<p style="font-size:13px;color:var(--muted-dim)">Cache KV vazio — primeiro request a /vagas dispara o refresh automático.</p>\';}' +
     'html+=\'<p style="font-size:12px;color:var(--muted-dim)">Estáticos no array: \'+d.static_count+\' vagas</p>\';' +
+    'if(d.alertas&&d.alertas.length){html+=\'<div style="margin:10px 0;padding:10px 12px;border:1px solid #e86060;border-radius:8px;font-size:13px">\'+d.alertas.map(function(a){return "⚠ "+esc(a);}).join("<br>")+\'</div>\';}else if(d.alertas){html+=\'<p style="font-size:13px;color:var(--muted)">✓ Sem alertas.</p>\';}' +
+    'if(d.registro){html+=\'<p style="font-size:13px;color:var(--muted)">Registro: <strong>\'+d.registro.ativas+\' ativas</strong> · \'+d.registro.removidas+\' encerradas (histórico preservado)</p>\';}' +
+    'if(d.execucoes&&d.execucoes.length){html+=\'<p style="font-size:12px;color:var(--muted-dim)">Últimas coletas: \'+d.execucoes.map(function(e){return new Date(e.em).toLocaleString("pt-BR")+(e.falhas.length?" (falha: "+esc(e.falhas.join(", "))+")":"");}).join(" · ")+\'</p>\';}' +
     'if(d.meta&&d.meta.fontes){' +
     'html+=\'<h2 style="margin-top:18px">Saúde das fontes</h2>\';' +
     'Object.keys(d.meta.fontes).forEach(function(k){var f=d.meta.fontes[k];var ok=f.ok===true;html+=\'<div class="cc-fonte-linha"><span><span class="cc-fonte-dot \'+( ok?"ok":"erro")+\'"></span><span class="cc-fonte-nome">\'+esc(k)+\'</span></span></div>\';html+=\'<div style="padding:0 0 8px 16px;font-size:12px;color:var(--muted-dim)">\'+esc(f.detalhe||"")+\'</div>\';});' +
@@ -22059,6 +22196,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     futebolConfigurar(env);
+    // Vagas: páginas leem a lista viva (KV, memória de 5 min por isolate) antes
+    // de renderizar — Home, /vagas, Carreiras, Offshore Agora, Minha Escala etc.
+    if (request.method === "GET" && (!url.pathname.startsWith("/api/") || url.pathname === "/api/buddy/vagas") && !/\.[a-z0-9]{2,5}$/i.test(url.pathname)) await getVagasRadar(env, ctx);
 
     // Missão AdSense 2.1 (SEO): http:// respondia 200 (cópia duplicada de
     // todo o site) e "/rota/" dava 404. 301 para a URL canônica — só GET/HEAD
@@ -22169,9 +22309,13 @@ export default {
           if (cached.sources) {
             radarStatus.meta = { fontes: {} };
             for (const [k, v] of Object.entries(cached.sources)) {
-              radarStatus.meta.fontes[k] = { ok: v.ok, detalhe: v.ok ? (v.count + ' vagas, ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.error || 'erro') };
+              radarStatus.meta.fontes[k] = { ok: v.ok && !v.anomalia, detalhe: v.ok ? (v.count + ' vistas · ' + (v.novas || 0) + ' novas · ' + (v.atualizadas || 0) + ' atualizadas · ' + (v.encerradas || 0) + ' encerradas · ' + (v.ausentes || 0) + ' ausentes · ' + (v.erros || 0) + ' erros' + (v.anomalia ? ' · RESPOSTA ANORMAL (nada removido)' : '') + ' — ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.erro || v.error || 'erro') };
             }
           }
+          radarStatus.alertas = alertasRadarVagas(cached, Date.now());
+          const reg = Object.values(cached.registro || {});
+          radarStatus.registro = { ativas: reg.filter(e => e.status === 'ativa').length, removidas: reg.filter(e => e.status === 'removida').length };
+          radarStatus.execucoes = (cached.execucoes || []).slice(0, 10).map(e => ({ em: e.em, duracao_ms: e.duracao_ms, falhas: Object.entries(e.fontes || {}).filter(([, f]) => !f.ok || f.anomalia).map(([n]) => n) }));
         }
       } catch {}
       return new Response(JSON.stringify(radarStatus), { headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });

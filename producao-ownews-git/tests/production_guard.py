@@ -297,6 +297,7 @@ def run_static():
     test("home_selecao_test.js passa (Topo Fresco: hard cap 24h, faixas, laterais, Últimas, Giro, geografia)", lambda: _run_node_test("home_selecao_test.js"))
     test("aconteceu_offshore_test.mjs passa (Aconteceu no Offshore = 1+3; serviços não consomem vagas)", lambda: _run_node_test("aconteceu_offshore_test.mjs"))
     test("home_qualidade_test.mjs passa (auditoria final: foto com apóstrofo, Últimas sob demanda, Mercado, aba Home)", lambda: _run_node_test("home_qualidade_test.mjs"))
+    test("vagas_ciclo_test.mjs passa (vaga entra, atualiza, não duplica, sai só com evidência, falha da fonte não apaga)", lambda: _run_node_test("vagas_ciclo_test.mjs"))
     test("worker_size_test.js passa (Topo Fresco: margem do worker, CSS como Static Asset)", lambda: _run_node_test("worker_size_test.js"))
     test("newsroom_test.mjs passa (Live Newsroom: redator, gate, 2ª tentativa, memória, dedup, saúde, KV)", lambda: _run_node_test("newsroom_test.mjs"))
     test("gate 2.1: detector de erros de texto definido", lambda: expect_in("function detectarErrosTexto(texto)", worker(), "detectarErrosTexto"))
