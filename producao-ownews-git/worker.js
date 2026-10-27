@@ -342,7 +342,8 @@ function vagaEncerramentoTexto(v) {
 // chamada sem argumento continua funcionando como antes.
 function vagaEhNova(v) {
   // Coletadas automaticamente: conta da primeira vez vista (verificado_em muda a cada coleta).
-  if (v && 'first_seen_at' in v) return !!v.first_seen_at && (Date.now() - new Date(v.first_seen_at).getTime()) / 3600000 <= 72;
+  // Estoque achado quando a descoberta entrou no ar (27–28/10/2026) não é "novo".
+  if (v && 'first_seen_at' in v) return !!v.first_seen_at && Date.parse(v.first_seen_at) > Date.parse('2026-10-28T12:00:00Z') && (Date.now() - Date.parse(v.first_seen_at)) / 3600000 <= 72;
   return (Date.now() - vagaDataVerificacao(v).getTime()) / 3600000 <= 72;
 }
 
@@ -362,11 +363,12 @@ function rotuloTipoVaga(v) {
   return vagaAbertaComEvidencia(v) ? 'VAGA ABERTA' : 'PUBLICADA NA FONTE';
 }
 
+const SLUGS_VAGA_FIXOS = { '10992150': 'foresea-auxiliar-plataforma-plataformista', '12401067': 'brava-bombeador-offshore', '12081138': 'prio-engenheiro-projetos-topside-senior', '12394579': 'ocyan-caldeireiro-escalador-offshore' };
 function slugVaga(v) {
-  if (v.empresa === 'Foresea') return 'foresea-auxiliar-plataforma-plataformista';
-  if (v.empresa === 'Brava Energia') return 'brava-bombeador-offshore';
-  if (v.empresa === 'PRIO') return 'prio-engenheiro-projetos-topside-senior';
-  if (v.empresa === 'Ocyan') return 'ocyan-caldeireiro-escalador-offshore';
+  // URLs antigas preservadas por ID (eram fixas por empresa — com a descoberta,
+  // toda vaga da Brava cairia em /vagas/brava-bombeador-offshore).
+  const fixo = SLUGS_VAGA_FIXOS[v.external_job_id];
+  if (fixo) return fixo;
   return ((v.empresa || '') + '-' + (v.titulo || ''))
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -407,23 +409,27 @@ function parseSFJobHtml(html, fullUrl) {
     const extTitle = (html.match(/itemprop="title"[^>]*>\s*([^<]+?)\s*</) || html.match(/Title:[^\n]*\n\s*([^\n<]+)/) || [])[1];
     const titulo = extTitle ? extTitle.trim().replace(/^\xA0+/, '') : '';
     if (!titulo) return null;
-    const closingMatch = html.match(/Job Closing Date:[\s\S]{0,200}?(\d{1,2} \w{3,9} \d{4})/);
-    const closing_raw = closingMatch ? closingMatch[1] : null;
+    // Prazo: "Inscrições até dd/mm/aaaa" (Brasil) > "7 Nov 2026" > "dd/mm/aaaa".
     let closing_date = null;
-    if (closing_raw) {
-      const d = new Date(closing_raw + ' UTC');
-      if (!isNaN(d)) closing_date = d.toISOString().slice(0, 10);
-    }
+    const insc = html.match(/Inscri[çc][õo]es at[ée]\s*(\d{2})\/(\d{2})\/(\d{4})/);
+    const closingMatch = html.match(/Job Closing Date:[\s\S]{0,200}?(\d{1,2} \w{3,9} \d{4})/);
+    const br = html.match(/Job Closing Date:[\s\S]{0,200}?(\d{2})\/(\d{2})\/(\d{4})/);
+    if (insc) closing_date = insc[3] + '-' + insc[2] + '-' + insc[1];
+    else if (closingMatch) { const d = new Date(closingMatch[1] + ' UTC'); if (!isNaN(d)) closing_date = d.toISOString().slice(0, 10); }
+    else if (br) closing_date = br[3] + '-' + br[2] + '-' + br[1];
     const idMatch = fullUrl.match(/\/(\d{7,12})\//);
     const external_job_id = idMatch ? idMatch[1] : null;
-    const locationMatch = html.match(/Location:\s*[\s\S]{0,300}?>\s*([^<\n]+?)\s*</);
-    const local = locationMatch ? locationMatch[1].trim() : 'Offshore';
+    // "Rio Das Ostras, BR" / "Offshore, NO" / "Offshore" (sem país).
+    const geo = ((html.match(/class="jobGeoLocation">\s*([^<]+?)\s*</) || html.match(/Location:\s*[\s\S]{0,300}?>\s*([^<\n]+?)\s*</) || [])[1] || 'Offshore').trim();
+    const mGeo = geo.match(/^(.*?),\s*([A-Z]{2})$/);
+    const local = mGeo ? mGeo[1] : geo, pais_codigo = mGeo ? mGeo[2] : null;
     return {
       titulo,
       empresa: 'Subsea7',
       local,
-      pais: 'Brasil',
-      offshore_onshore: local.toLowerCase().includes('offshore') || local === 'Offshore' ? 'OFFSHORE' : 'NAO_INFORMADO',
+      pais: !pais_codigo || pais_codigo === 'BR' ? 'Brasil' : pais_codigo,
+      pais_codigo,
+      offshore_onshore: local.toLowerCase().includes('offshore') ? 'OFFSHORE' : 'NAO_INFORMADO',
       escala: null,
       resumo: titulo + ' — vaga verificada diretamente no portal oficial da Subsea7.',
       fonte_nome: 'Subsea7 Careers (SuccessFactors)',
@@ -472,26 +478,69 @@ function classificarPaginaSF(status, html, url) {
   return vaga ? { resultado: 'ativa', vaga } : { resultado: 'ausente' };
 }
 
-// Adapter SuccessFactors (Subsea7): busca oficial + página de cada vaga. Vagas
-// já conhecidas que saíram da busca são conferidas na própria página.
-async function adapterSuccessFactors(env, conhecidas) {
-  const searchResp = await fetch(SF_SUBSEA7_BASE + '/search/results?q=offshore&locale=pt_BR', { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
-  if (!searchResp.ok) throw new Error('SF search HTTP ' + searchResp.status);
-  const html = await searchResp.text();
-  const brPaths = [...html.matchAll(/data-url="(\/job\/[^"]+)"/g)].map(m => m[1])
-    .filter(p => /Offshore|Niter[oó]|Rio-de-Janeiro/i.test(p)).slice(0, 20);
-  const naBusca = new Set(brPaths.map(p => (p.match(/\/(\d{7,12})\//) || [])[1]).filter(Boolean));
-  const alvos = brPaths.map(p => SF_SUBSEA7_BASE + p)
-    .concat(conhecidas.filter(v => !naBusca.has(v.external_job_id) && v.application_url).map(v => v.application_url).slice(0, 10));
-  const verificacoes = await emLotes(alvos, VAGAS_REFRESH_PARALELO, async (url) => {
-    const id = (url.match(/\/(\d{7,12})\/?$/) || [])[1];
-    if (!id) return null;
-    try {
-      const r = await fetch(url, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
-      return Object.assign({ chave: 'successfactors:' + id }, classificarPaginaSF(r.status, r.status === 200 ? await r.text() : '', url));
-    } catch (e) { return { chave: 'successfactors:' + id, resultado: 'erro', motivo: String(e && e.message || e) }; }
+/* Descoberta (28/10/2026): listagens oficiais primeiro, detalhe só quando
+   preciso (vaga nova, sem país conhecido ou que sumiu da listagem); depois a
+   relevância do OWNews. Teto de páginas de detalhe por coleta (subrequests). */
+const VAGAS_DETALHES_SF = 20, VAGAS_DETALHES_GUPY = 10;
+const VAGA_SETOR_RE = /offshore|onshore|plataforma|sonda|perfura|drill|subsea|submarin|\brov\b|conv[eé]s|m[aá]quinas|marinh|mar[ií]tim|naval|embarca|navio|fpso|plsv|po[cç]os?\b|reservat|reservas|geolog|geof|petr[oó]leo|\bg[aá]s\b|energia|produ[cç][aã]o|processos|facilidades|manuten|mec[aâ]nic|el[eé]tric|eletr[oô]nic|instrument|automa[cç]|caldeir|solda|pintor|jatista|escalador|inspe[cç]|integridade|operador|opera[cç][oõ]es|operations|t[eé]cnic|engenh|engineer|qsms|\bsms\b|\bhse\b|seguran[cç]a|suprimentos|supply|log[ií]stic|almoxarif|planejamento|medi[cç][aã]o|sondador|bombeador|superintend|supervisor|install|survey|vessel|deck|projetos?\b|project/i;
+const VAGA_FORA_RE = /comunica[cç]|imprensa|eventos|auditor|contab|\bfiscal\b|tribut|seguros|financeir|jur[ií]dic|advogad|marketing|recrutamento|recursos humanos|\brh\b|\bhr\b|pessoas|performance|\bdados\b|tecnologia da informa|\bti\b|applications support|software|desenvolvedor|assistente executiv|secret[aá]ri/i;
+function vagaRelevanteOWNews(titulo, departamento, bancoTalentos) {
+  const t = String(titulo || '').replace(/subsea ?7/gi, ''), tudo = t + ' ' + (departamento || ''); // nome da empresa não conta como área
+  if (/medi[cç][aã]o fiscal/i.test(t)) return true;
+  // Banco de talentos genérico não é vaga do setor: só entra o da área técnica/offshore.
+  if (bancoTalentos || /banco de talentos|talent pool/i.test(t)) return VAGA_SETOR_RE.test(tudo) && !VAGA_FORA_RE.test(t);
+  if (VAGA_FORA_RE.test(t) && !/offshore/i.test(t)) return false;
+  // Título neutro: o departamento decide (Contabilidade, Pessoas…); sem sinal, entra.
+  return VAGA_SETOR_RE.test(t) || !VAGA_FORA_RE.test(String(departamento || ''));
+}
+
+// Subsea7: "Cidade, BR" no campo Location; "Offshore" sem país só com texto em português.
+function subsea7NoBrasil(vaga, html) {
+  if (vaga.pais_codigo) return vaga.pais_codigo === 'BR';
+  return /Miss[aã]o do cargo|Requisitos|Atividades|Inscri[cç][oõ]es|\(o\)|\(a\)/.test(html);
+}
+const SF_LOCAL_BR_RE = /^\/(?:[^/]+\/)?job\/(Offshore|Offline|Rio|Maca|Niter|S%C3%A3o|Sao|Esp[ií%]|Vit|Santos|Salvador|Natal|Aracaju|Itaja|Angra|Campos|Ubu|A%C3%A7u|Bra[sz]il)/i;
+
+async function adapterSuccessFactors(env, conhecidas, descartadasAnt) {
+  const get = (u) => fetch(SF_SUBSEA7_BASE + u, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } }).then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)));
+  const listas = await Promise.allSettled([get('/sitemap.xml'), get('/search/?q=&optionsFacetsDD_country=BR'), get('/search/results?q=offshore&locale=pt_BR')]);
+  if (listas.every(l => l.status === 'rejected')) throw new Error('listagens Subsea7 indisponíveis (' + listas[0].reason.message + ')');
+  const cand = new Map(), fresca = new Set(); // id → url; fresca = está numa busca (o sitemap pode atrasar dias)
+  listas.forEach((l, i) => {
+    if (l.status !== 'fulfilled') return;
+    const paths = i === 0 ? [...l.value.matchAll(/<loc>https:\/\/careers\.subsea7\.com(\/[^<]+)<\/loc>/g)].map(m => m[1].replace(/&amp;/g, '&'))
+      : [...l.value.matchAll(/data-url="(\/job\/[^"]+)"/g)].map(m => m[1]);
+    for (const p of paths) { const id = (p.match(/\/(\d{7,12})\/?$/) || [])[1]; if (id && (i === 1 || SF_LOCAL_BR_RE.test(p))) { cand.set(id, SF_SUBSEA7_BASE + p); if (i) fresca.add(id); } }
   });
-  return { verificacoes: verificacoes.filter(Boolean), listadas: brPaths.length };
+  const conh = new Map(conhecidas.map(v => [v.external_job_id, v]));
+  if (!cand.size && conh.size >= 2) throw new Error('listagens Subsea7 vazias (resposta anormal)');
+  const verificacoes = [], descartes = [], detalhar = [];
+  const ausentes = conhecidas.filter(v => !cand.has(v.external_job_id) && v.application_url);
+  for (const v of ausentes) detalhar.push({ id: v.external_job_id, url: v.application_url, conhecida: true });
+  for (const [id, url] of cand) {
+    const k = conh.get(id), chave = 'successfactors:' + id;
+    if (k && k.pais_codigo && fresca.has(id)) {
+      if (!vagaRelevanteOWNews(k.titulo)) verificacoes.push({ chave, resultado: 'fora', motivo: 'fora do foco do OWNews' });
+      else verificacoes.push({ chave, resultado: 'ativa', vaga: Object.assign({}, k, { status: 'OPEN' }) });
+    } else if (!k && descartadasAnt[chave]) descartes.push(Object.assign({ chave }, descartadasAnt[chave]));
+    else detalhar.push({ id, url, conhecida: !!k });
+  }
+  const res = await emLotes(detalhar.slice(0, VAGAS_DETALHES_SF), VAGAS_REFRESH_PARALELO, async (d) => {
+    const chave = 'successfactors:' + d.id;
+    try {
+      const r = await fetch(d.url, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
+      const html = r.status === 200 ? await r.text() : '';
+      const c = Object.assign({ chave }, classificarPaginaSF(r.status, html, d.url));
+      if (c.resultado !== 'ativa') return d.conhecida ? c : null;
+      const noBrasil = subsea7NoBrasil(c.vaga, html);
+      if (noBrasil && !c.vaga.pais_codigo) c.vaga.pais_codigo = 'BR'; // "Offshore" + texto em português
+      const motivo = !noBrasil ? 'fora do Brasil (' + c.vaga.local + ', ' + c.vaga.pais_codigo + ')' : !vagaRelevanteOWNews(c.vaga.titulo) ? 'fora do foco do OWNews' : null;
+      if (!motivo) return c;
+      if (d.conhecida) return { chave, resultado: 'fora', motivo };
+      descartes.push({ chave, titulo: c.vaga.titulo, motivo }); return null;
+    } catch (e) { return d.conhecida ? { chave, resultado: 'erro', motivo: String(e && e.message || e) } : null; }
+  });
+  return { verificacoes: verificacoes.concat(res.filter(Boolean)), listadas: cand.size, descartes };
 }
 
 function classificarPaginaGupy(status, html) {
@@ -499,30 +548,62 @@ function classificarPaginaGupy(status, html) {
   if (status !== 200) return { resultado: 'erro', motivo: 'HTTP ' + status };
   const nd = html.match(/id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
   if (!nd) return { resultado: 'erro', motivo: 'página sem __NEXT_DATA__' };
-  let job;
-  try { job = JSON.parse(nd[1]).props?.pageProps?.job; } catch { return { resultado: 'erro', motivo: '__NEXT_DATA__ inválido' }; }
+  let pp;
+  try { pp = JSON.parse(nd[1]).props?.pageProps || {}; } catch { return { resultado: 'erro', motivo: '__NEXT_DATA__ inválido' }; }
+  if (Array.isArray(pp.jobs)) return { resultado: 'lista', jobs: pp.jobs };
+  const job = pp.job;
   if (!job) return { resultado: 'ausente' };
   if (job.status === 'published') return { resultado: 'ativa', job };
   if (job.status) return { resultado: 'encerrada', motivo: 'Gupy: status "' + job.status + '"' };
   return { resultado: 'erro', motivo: 'Gupy sem status' };
 }
 
-// Adapter Gupy: confere as vagas Gupy conhecidas (não descobre novas).
+// Gupy: a página de carreiras de cada empresa lista todas as vagas públicas.
+const GUPY_EMPRESAS = [['prio', 'PRIO'], ['bravaenergia', 'Brava Energia'], ['ocyan', 'Ocyan'], ['foresea', 'Foresea']];
 async function adapterGupy(env, conhecidas) {
-  const verificacoes = await emLotes(conhecidas, VAGAS_REFRESH_PARALELO, async (v) => {
+  const get = (u) => fetch(u, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } }).then(async r => classificarPaginaGupy(r.status, r.status === 200 ? await r.text() : ''));
+  const listas = await Promise.allSettled(GUPY_EMPRESAS.map(([sd]) => get('https://' + sd + '.gupy.io/')));
+  if (listas.every(l => l.status === 'rejected' || l.value.resultado !== 'lista')) throw new Error('listagens Gupy indisponíveis');
+  const verificacoes = [], descartes = [], detalhar = [], porEmpresa = {};
+  let listadas = 0;
+  GUPY_EMPRESAS.forEach(([sd, empresa], i) => {
+    const l = listas[i], conh = conhecidas.filter(v => v.empresa === empresa);
+    const pe = porEmpresa[empresa] = { ok: false, listadas: 0, relevantes: 0 };
+    if (l.status !== 'fulfilled' || l.value.resultado !== 'lista' || (!l.value.jobs.length && conh.length >= 2)) return; // falha/anomalia: nada muda
+    pe.ok = true; pe.listadas = l.value.jobs.length; listadas += pe.listadas;
+    const vistos = new Set();
+    for (const j of l.value.jobs) {
+      const id = String(j.id), chave = 'gupy:' + id, k = conh.find(v => v.external_job_id === id);
+      vistos.add(id);
+      const banco = j.type === 'vacancy_type_talent_pool', titulo = String(j.title || '').trim();
+      if (!vagaRelevanteOWNews(titulo, j.department, banco)) {
+        if (k) verificacoes.push({ chave, resultado: 'fora', motivo: 'fora do foco do OWNews' }); else descartes.push({ chave, titulo, motivo: 'fora do foco do OWNews' });
+        continue;
+      }
+      pe.relevantes++;
+      const end = (j.workplace && j.workplace.address) || {}, texto = titulo + ' ' + (j.department || '');
+      const vaga = Object.assign({ resumo: 'Vaga publicada no ATS oficial da ' + empresa + (j.department ? ' (área: ' + String(j.department).trim() + ')' : '') + '.',
+        offshore_onshore: /offshore/i.test(texto) ? 'OFFSHORE' : /onshore/i.test(texto) ? 'ONSHORE' : 'NAO_INFORMADO', escala: null, closing_date: null }, k || {}, {
+        titulo, empresa, local: end.city || (k && k.local) || '', pais: 'Brasil', fonte_nome: empresa + ' Careers (Gupy)', fonte_oficial: true,
+        application_url: 'https://' + sd + '.gupy.io/jobs/' + id, plataforma: 'gupy', external_job_id: id, status: 'OPEN' });
+      if (banco) vaga.job_type = 'banco de talentos';
+      verificacoes.push({ chave, resultado: 'ativa', vaga });
+      if (!vaga.closing_date) detalhar.push({ v: vaga, enriquecer: true });
+    }
+    for (const v of conh) if (!vistos.has(v.external_job_id)) detalhar.unshift({ v }); // sumiu da lista: confere a página da vaga
+  });
+  const res = await emLotes(detalhar.slice(0, VAGAS_DETALHES_GUPY), VAGAS_REFRESH_PARALELO, async ({ v, enriquecer }) => {
     const chave = chaveVaga(v);
     try {
-      const r = await fetch(v.application_url, { headers: { 'User-Agent': SF_UA }, cf: { cacheTtl: 3600 } });
-      const c = classificarPaginaGupy(r.status, r.status === 200 ? await r.text() : '');
-      if (c.resultado !== 'ativa') return Object.assign({ chave }, c);
-      const job = c.job;
-      return { chave, resultado: 'ativa', vaga: Object.assign({}, v, {
-        titulo: String(job.name || v.titulo).trim(), local: job.addressCity || v.local || '',
-        closing_date: job.expiresAt || null, verificado_em: new Date().toISOString(), status: 'OPEN'
-      }) };
-    } catch (e) { return { chave, resultado: 'erro', motivo: String(e && e.message || e) }; }
+      const c = await get(v.application_url);
+      if (c.resultado === 'ativa') { if (enriquecer) { v.closing_date = c.job.expiresAt || null; return null; } return { chave, resultado: 'ativa', vaga: Object.assign({}, v, { closing_date: c.job.expiresAt || v.closing_date || null, status: 'OPEN' }) }; }
+      if (enriquecer) return c.resultado === 'encerrada' ? Object.assign({ chave }, c) : null;
+      return Object.assign({ chave }, c.resultado === 'lista' ? { resultado: 'ausente' } : c);
+    } catch (e) { return enriquecer ? null : { chave, resultado: 'erro', motivo: String(e && e.message || e) }; }
   });
-  return { verificacoes };
+  // Enriquecida com "encerrada": a página da vaga vale mais que a listagem.
+  const enc = new Set(res.filter(x => x && x.resultado === 'encerrada').map(x => x.chave));
+  return { verificacoes: verificacoes.filter(x => !(enc.has(x.chave) && x.resultado === 'ativa')).concat(res.filter(Boolean)), listadas, descartes, porEmpresa };
 }
 
 // Adapter Workday (Shell): API pública da própria página de carreiras. Antes,
@@ -570,7 +651,7 @@ function reconciliarVagas(registroAnterior, fontes, estaticas, agoraIso) {
   }
   const resumo = {};
   for (const [nome, f] of Object.entries(fontes)) {
-    const r = resumo[nome] = { ok: !!f.ok, anomalia: false, vistas: 0, novas: 0, atualizadas: 0, encerradas: 0, ausentes: 0, erros: 0, reabertas: 0, erro: f.erro || null };
+    const r = resumo[nome] = { ok: !!f.ok, anomalia: false, vistas: 0, novas: 0, atualizadas: 0, encerradas: 0, ausentes: 0, erros: 0, reabertas: 0, fora: 0, descartadas: (f.descartes || []).length, erro: f.erro || null };
     if (!f.ok) continue;
     const vs = f.verificacoes || [];
     const ausentes = vs.filter(x => x.resultado === 'ausente').length;
@@ -590,8 +671,8 @@ function reconciliarVagas(registroAnterior, fontes, estaticas, agoraIso) {
         if (VAGAS_CAMPOS_ACOMPANHADOS.some(c => (ant.dados && ant.dados[c] || null) !== (dados[c] || null))) { r.atualizadas++; ant.atualizado_em = agoraIso; }
         if (ant.status === 'removida') { r.reabertas++; ant.reaberta_em = agoraIso; ant.removed_at = null; ant.motivo_saida = null; }
         Object.assign(ant, { status: 'ativa', empresa: dados.empresa, titulo: dados.titulo, last_seen_at: agoraIso, missing_count: 0, dados });
-      } else if (x.resultado === 'encerrada') {
-        r.encerradas++;
+      } else if (x.resultado === 'encerrada' || x.resultado === 'fora') {
+        r[x.resultado === 'fora' ? 'fora' : 'encerradas']++;
         if (ant && ant.status !== 'removida') Object.assign(ant, { status: 'removida', removed_at: agoraIso, motivo_saida: x.motivo || 'encerrada na fonte' });
         if (ant) ant.ultima_checagem_at = agoraIso;
       } else if (x.resultado === 'ausente') {
@@ -622,21 +703,23 @@ async function refreshVagasRadar(env) {
     const daPlataforma = (p) => [...conhecidas.values()].filter(v => v.plataforma === p);
     const nomes = ['successfactors_subsea7', 'gupy', 'workday_shell'];
     const execs = await Promise.allSettled([
-      adapterSuccessFactors(env, daPlataforma('successfactors')),
+      adapterSuccessFactors(env, daPlataforma('successfactors'), (anterior && anterior.descartadas) || {}),
       adapterGupy(env, daPlataforma('gupy')),
       adapterWorkday(env, daPlataforma('workday')),
     ]);
     const fontes = {};
-    execs.forEach((x, i) => { fontes[nomes[i]] = x.status === 'fulfilled' ? { ok: true, verificacoes: x.value.verificacoes, listadas: x.value.listadas } : { ok: false, erro: String(x.reason && x.reason.message || x.reason) }; });
+    execs.forEach((x, i) => { fontes[nomes[i]] = x.status === 'fulfilled' ? Object.assign({ ok: true }, x.value) : { ok: false, erro: String(x.reason && x.reason.message || x.reason) }; });
+    const descartadas = {};
+    for (const f of Object.values(fontes)) for (const d of f.descartes || []) descartadas[d.chave] = { titulo: d.titulo, motivo: d.motivo };
     const { registro, jobs, resumo } = reconciliarVagas(registroAnt, fontes, VAGAS_RADAR, agoraIso);
     const sources = {};
     for (const n of nomes) {
       const r = resumo[n], ant = anterior && anterior.sources && anterior.sources[n];
-      sources[n] = Object.assign({}, r, { listadas: fontes[n].listadas, fetched_at: agoraIso, count: r.vistas,
+      sources[n] = Object.assign({}, r, { listadas: fontes[n].listadas, por_empresa: fontes[n].porEmpresa, fetched_at: agoraIso, count: r.vistas,
         last_ok_at: r.ok && !r.anomalia ? agoraIso : (ant && (ant.last_ok_at || (ant.ok ? ant.fetched_at : null))) || null });
     }
     const execucoes = [{ em: agoraIso, duracao_ms: Date.now() - inicio, fontes: resumo }].concat((anterior && anterior.execucoes) || []).slice(0, VAGAS_EXECUCOES_GUARDADAS);
-    await env.PERGUNTE_IA_KV.put(VAGAS_KV_KEY_CACHE, JSON.stringify({ versao: 2, jobs, registro, execucoes, sources, updated_at: agoraIso }));
+    await env.PERGUNTE_IA_KV.put(VAGAS_KV_KEY_CACHE, JSON.stringify({ versao: 2, jobs, registro, execucoes, sources, descartadas, updated_at: agoraIso }));
     vagasEstado = { jobs, removidas: removidasDoRegistro(registro), lidoEm: Date.now(), updated_at: agoraIso, versao: 2 };
   } catch (e) { console.error('[vagas] refresh falhou:', e && e.message); }
 }
@@ -22309,7 +22392,7 @@ export default {
           if (cached.sources) {
             radarStatus.meta = { fontes: {} };
             for (const [k, v] of Object.entries(cached.sources)) {
-              radarStatus.meta.fontes[k] = { ok: v.ok && !v.anomalia, detalhe: v.ok ? (v.count + ' vistas · ' + (v.novas || 0) + ' novas · ' + (v.atualizadas || 0) + ' atualizadas · ' + (v.encerradas || 0) + ' encerradas · ' + (v.ausentes || 0) + ' ausentes · ' + (v.erros || 0) + ' erros' + (v.anomalia ? ' · RESPOSTA ANORMAL (nada removido)' : '') + ' — ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.erro || v.error || 'erro') };
+              radarStatus.meta.fontes[k] = { ok: v.ok && !v.anomalia, detalhe: v.ok ? ((v.listadas != null ? v.listadas + ' na listagem · ' : '') + v.count + ' vistas · ' + (v.novas || 0) + ' novas · ' + (v.atualizadas || 0) + ' atualizadas · ' + (v.encerradas || 0) + ' encerradas · ' + (v.ausentes || 0) + ' ausentes · ' + ((v.fora || 0) + (v.descartadas || 0)) + ' fora do foco · ' + (v.erros || 0) + ' erros' + (v.por_empresa ? ' · ' + Object.entries(v.por_empresa).map(([e, x]) => e + ' ' + (x.ok ? x.relevantes + '/' + x.listadas : 'FALHOU')).join(', ') : '') + (v.anomalia ? ' · RESPOSTA ANORMAL (nada removido)' : '') + ' — ' + new Date(v.fetched_at).toLocaleString('pt-BR')) : String(v.erro || v.error || 'erro') };
             }
           }
           radarStatus.alertas = alertasRadarVagas(cached, Date.now());

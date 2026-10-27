@@ -125,10 +125,10 @@ await test('coleta completa: falha da fonte não apaga; "filled" tira; KV sem ex
   globalThis.fetch = async (u) => {
     u = String(u);
     const resp = (status, body) => ({ ok: status === 200, status, redirected: false, text: async () => body, json: async () => JSON.parse(body) });
-    if (u.includes('/search/results')) return modo === 'fora' ? resp(503, '') : resp(200, busca);
+    if (u.includes('/search/results')) return modo === 'fora' ? resp(503, '') : resp(200, modo === 'preenchida' ? busca.split('</a>')[0] + '</a>' : busca);
     const id = (u.match(/\/(\d+)\/$/) || [])[1];
     if (id === '2220002' && modo === 'preenchida') return resp(200, '<p>Sorry, this position has been filled.</p>');
-    if (id) return resp(200, '<span itemprop="title">Técnico ' + id + '</span> Job Closing Date: <span>7 Nov 2099</span>');
+    if (id) return resp(200, '<span itemprop="title">Técnico ' + id + '</span><span class="jobGeoLocation">Macaé, BR </span> Job Closing Date: <span>7 Nov 2099</span>');
     if (u.includes('gupy.io')) return resp(200, '<script id="__NEXT_DATA__">' + JSON.stringify({ props: { pageProps: { job: { name: 'Vaga Gupy', status: 'published', expiresAt: '2099-12-31' } } } }) + '</script>');
     return resp(404, '{}');
   };
@@ -145,6 +145,104 @@ await test('coleta completa: falha da fonte não apaga; "filled" tira; KV sem ex
     expect(e.status === 'removida' && /filled/.test(e.motivo_saida) && !cache.jobs.some((j) => j.external_job_id === '2220002'), 'preenchida continua');
     expect(cache.registro['workday:R209155'].status === 'removida', 'Shell encerrada no registro');
   } finally { globalThis.fetch = realFetch; }
+});
+
+console.log('\nVagas — descoberta automática (Gupy e Subsea7)');
+const gupyLista = (jobs) => '<script id="__NEXT_DATA__" type="application/json">' + JSON.stringify({ props: { pageProps: { jobs } } }) + '</script>';
+const gupyVaga = (job) => '<script id="__NEXT_DATA__" type="application/json">' + JSON.stringify({ props: { pageProps: { job } } }) + '</script>';
+const end = { address: { country: 'Brasil', city: 'Macaé', stateShortName: 'RJ' } };
+function fontesFalsas(cfg) {
+  return async (u) => {
+    u = String(u);
+    const resp = (status, body) => ({ ok: status === 200, status, redirected: false, text: async () => body, json: async () => JSON.parse(body) });
+    for (const [re, f] of cfg) { const m = u.match(re); if (m) { const x = f(m, u); return typeof x === 'number' ? resp(x, '') : resp(200, x); } }
+    return resp(404, '');
+  };
+}
+async function coletar(cfg, cacheInicial) {
+  const realFetch = globalThis.fetch; globalThis.fetch = fontesFalsas(cfg);
+  let cache = cacheInicial ? JSON.parse(JSON.stringify(cacheInicial)) : null;
+  const env = { PERGUNTE_IA_KV: { get: async () => cache && JSON.parse(JSON.stringify(cache)), put: async (k, v) => { cache = JSON.parse(v); } } };
+  try { await T.refreshVagasRadar(env); } finally { globalThis.fetch = realFetch; }
+  return cache;
+}
+// Brava lista: 1 vaga conhecida (Bombeador), 1 nova offshore, 1 corporativa fora do foco.
+const BRAVA = [{ id: 12401067, title: 'Bombeador Offshore', type: 'vacancy_type_effective', department: 'Operações', workplace: end },
+  { id: 99000001, title: 'Supervisor (a) de Marinha Offshore', type: 'vacancy_type_effective', department: 'Gerência de Operações', workplace: end },
+  { id: 99000002, title: 'Analista de Comunicação com Imprensa', type: 'vacancy_type_effective', department: 'Comunicação', workplace: end }];
+const cfgBase = (extra) => (extra || []).concat([
+  [/bravaenergia\.gupy\.io\/$/, () => gupyLista(BRAVA)],
+  [/(prio|ocyan|foresea)\.gupy\.io\/$/, () => gupyLista([])],
+  [/gupy\.io\/jobs\/(\d+)/, (m) => gupyVaga({ name: 'X', status: 'published', expiresAt: '2099-12-31' })],
+  [/subsea7\.com\/sitemap\.xml/, () => '<loc>https://careers.subsea7.com/job/Rio-de-Janeiro-Analista-de-Suprimentos/1370000001/</loc><loc>https://careers.subsea7.com/job/Offshore-Trainee-3rd-Engineer-Deck/1370000002/</loc><loc>https://careers.subsea7.com/job/Houston-Senior-Engineer/1370000003/</loc>'],
+  [/optionsFacetsDD_country=BR/, () => '<a data-url="/job/Rio-de-Janeiro-Analista-de-Suprimentos/1370000001/"></a>'],
+  [/search\/results\?q=offshore/, () => '<a data-url="/job/Offshore-Trainee-3rd-Engineer-Deck/1370000002/"></a>'],
+  [/\/1370000001\/$/, () => '<span itemprop="title">Analista de Suprimentos Sr</span><span class="jobGeoLocation">Rio de Janeiro, BR </span> Job Closing Date: 02/01/2027 | Inscrições até 06/11/2026'],
+  [/\/1370000002\/$/, () => '<span itemprop="title">Trainee 3rd Engineer - Deck</span><span class="jobGeoLocation">Offshore, SG </span> Job Closing Date: 16 Nov 2026'],
+  [/\/1370000003\/$/, () => '<span itemprop="title">Senior Engineer</span><span class="jobGeoLocation">Houston, US </span>'],
+]);
+await test('A) Gupy descobre vaga nova que não está no array manual; B) a conhecida não duplica', async () => {
+  const c = await coletar(cfgBase());
+  const nova = c.registro['gupy:99000001'];
+  expect(nova && nova.status === 'ativa' && nova.dados.application_url === 'https://bravaenergia.gupy.io/jobs/99000001' && nova.dados.local === 'Macaé', 'nova Gupy');
+  expect(c.jobs.filter((j) => j.external_job_id === '12401067').length === 1 && Object.keys(c.registro).filter((k) => k === 'gupy:12401067').length === 1, 'duplicou');
+  expect(!c.registro['gupy:99000002'] && c.descartadas['gupy:99000002'] && /foco/.test(c.descartadas['gupy:99000002'].motivo), 'corporativa fora do foco entrou');
+  expect(c.sources.gupy.por_empresa['Brava Energia'].listadas === 3 && c.sources.gupy.por_empresa['Brava Energia'].relevantes === 2, 'contagem por empresa');
+  expect(T.slugVaga(nova.dados) !== 'brava-bombeador-offshore' && T.slugVaga(c.registro['gupy:12401067'].dados) === 'brava-bombeador-offshore', 'slug por empresa colide');
+});
+await test('C) vaga encerrada não ressuscita pelo array antigo nem pela listagem atrasada', async () => {
+  const c1 = await coletar(cfgBase());
+  c1.registro['gupy:12401067'].status = 'removida'; c1.registro['gupy:12401067'].removed_at = '2026-10-27T00:00:00Z';
+  const c2 = await coletar(cfgBase([[/bravaenergia\.gupy\.io\/$/, () => gupyLista(BRAVA.slice(1))], [/gupy\.io\/jobs\/12401067/, () => gupyVaga({ name: 'Bombeador', status: 'closed' })]]), c1);
+  expect(c2.registro['gupy:12401067'].status === 'removida' && !c2.jobs.some((j) => j.external_job_id === '12401067'), 'ressuscitou');
+  expect(c2.registro['workday:R209155'].status === 'removida' && c2.registro['successfactors:1361734955'].status === 'removida', 'array manual reabriu encerradas');
+});
+await test('D) falha da Gupy (5xx, timeout, lista vazia anormal) não remove vagas', async () => {
+  const c1 = await coletar(cfgBase());
+  const c2 = await coletar(cfgBase([[/\.gupy\.io\/$/, () => 503], [/gupy\.io\/jobs/, () => 503]]), c1);
+  expect(c2.sources.gupy.ok === false && c2.registro['gupy:99000001'].status === 'ativa' && !c2.registro['gupy:99000001'].missing_count, '5xx');
+  const c3 = await coletar(cfgBase([[/bravaenergia\.gupy\.io\/$/, () => gupyLista([])]]), c1);
+  expect(c3.registro['gupy:99000001'].status === 'ativa' && !c3.registro['gupy:99000001'].missing_count && c3.sources.gupy.por_empresa['Brava Energia'].ok === false, 'lista vazia anormal');
+  const realFetch = globalThis.fetch; globalThis.fetch = async () => { throw new Error('timeout'); };
+  let cache = JSON.parse(JSON.stringify(c1));
+  try { await T.refreshVagasRadar({ PERGUNTE_IA_KV: { get: async () => cache, put: async (k, v) => { cache = JSON.parse(v); } } }); } finally { globalThis.fetch = realFetch; }
+  expect(Object.values(cache.registro).filter((e) => e.status === 'ativa').length === Object.values(c1.registro).filter((e) => e.status === 'ativa').length, 'timeout removeu');
+});
+await test('vaga Gupy que sai da listagem é conferida na página: publicada fica, 2 ausências tiram', async () => {
+  const c1 = await coletar(cfgBase());
+  const semNova = cfgBase([[/bravaenergia\.gupy\.io\/$/, () => gupyLista([BRAVA[0], BRAVA[2]])]]);
+  const c2 = await coletar(semNova, c1);
+  expect(c2.registro['gupy:99000001'].status === 'ativa', 'publicada na página saiu');
+  const some = cfgBase([[/bravaenergia\.gupy\.io\/$/, () => gupyLista([BRAVA[0], BRAVA[2]])], [/jobs\/99000001/, () => 404]]);
+  const c3 = await coletar(some, c2), c4 = await coletar(some, c3);
+  expect(c3.registro['gupy:99000001'].status === 'ativa' && c4.registro['gupy:99000001'].status === 'removida', '2 ausências');
+});
+await test('E) Subsea7: vaga brasileira sem "offshore" é encontrada (país BR); prazo "Inscrições até"', async () => {
+  const c = await coletar(cfgBase());
+  const e = c.registro['successfactors:1370000001'];
+  expect(e && e.status === 'ativa' && e.dados.pais_codigo === 'BR' && e.dados.local === 'Rio de Janeiro' && e.dados.closing_date === '2026-11-06');
+});
+await test('F) Subsea7: vaga estrangeira não entra (Offshore, SG; Houston, US); a já publicada sai como "fora do Brasil"', async () => {
+  const c = await coletar(cfgBase());
+  expect(!c.registro['successfactors:1370000002'] && /Brasil/.test(c.descartadas['successfactors:1370000002'].motivo) && !c.registro['successfactors:1370000003'], 'estrangeira entrou');
+  const antigo = JSON.parse(JSON.stringify(c));
+  antigo.registro['successfactors:1370000002'] = { chave: 'successfactors:1370000002', status: 'ativa', empresa: 'Subsea7', titulo: 'Trainee 3rd Engineer - Deck', first_seen_at: '2026-10-27T00:00:00Z', last_seen_at: '2026-10-27T00:00:00Z', missing_count: 0,
+    dados: { titulo: 'Trainee 3rd Engineer - Deck', empresa: 'Subsea7', plataforma: 'successfactors', external_job_id: '1370000002', application_url: 'https://careers.subsea7.com/job/Offshore-Trainee-3rd-Engineer-Deck/1370000002/' } };
+  delete antigo.descartadas['successfactors:1370000002'];
+  const d = await coletar(cfgBase(), antigo);
+  expect(d.registro['successfactors:1370000002'].status === 'removida' && /fora do Brasil/.test(d.registro['successfactors:1370000002'].motivo_saida), 'publicada estrangeira ficou');
+});
+await test('G) first_seen fica, last_seen avança a cada coleta', async () => {
+  const c1 = await coletar(cfgBase());
+  const f1 = c1.registro['gupy:99000001'].first_seen_at;
+  c1.registro['gupy:99000001'].last_seen_at = '2026-01-01T00:00:00Z';
+  const c2 = await coletar(cfgBase(), c1);
+  expect(c2.registro['gupy:99000001'].first_seen_at === f1 && c2.registro['gupy:99000001'].last_seen_at > '2026-01-01T00:00:00Z');
+});
+await test('H) Home segue com no máximo 3; I) worker abaixo do guard', () => {
+  const muitas = Array.from({ length: 40 }, (_, i) => vaga(String(1380000000 + i), { empresa: ['PRIO', 'Brava Energia', 'Ocyan', 'Foresea', 'Subsea7'][i % 5] }));
+  expect((T.blocoVagasHome(muitas).match(/class="vaga-card-home"/g) || []).length === 3);
+  expect(Buffer.byteLength(SRC) < 1760000, 'worker.js ' + Buffer.byteLength(SRC));
 });
 
 console.log('\n' + pass + ' passaram, ' + fail + ' falharam');
