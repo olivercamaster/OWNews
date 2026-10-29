@@ -56,19 +56,18 @@
     { "binding": "SAUDE_KV", "id": "89bbf2698c1a483eb48e1e88aa000343" }
   ],
 
-  // Horários oficiais (America/Sao_Paulo, UTC-3 fixo — Brasil não tem mais
-  // horário de verão desde 2019):
-  // - "0 15 * * MON-SAT" = 12:00 BRT segunda-sábado -> 1 post jornalístico/dia
-  //   (MISSÃO INSTAGRAM 2.0, 2026-10-02: reduzido de 2 posts/dia para 1,
-  //   qualidade acima de quantidade — horário de pico de leitura no Brasil)
-  //   NÃO dispara no domingo para não bloquear o institucional de 13:00.
-  // - "0 16 * * SUN"     = 13:00 BRT aos domingos -> institucional semanal
-  //   Único post do domingo (nenhum jornalístico aos domingos).
-  //   Nomes de dia (MON-SAT, SUN) evitam ambiguidade numérica do cron.
-  // REMOVIDOS (2026-10-02): "50 7 * * *" (04:50 BRT) e "15 23 * * *" (20:15 BRT).
-  // CORRIGIDO (2026-10-02 auditoria 3.0): "0 15 * * *" → "0 15 * * MON-SAT"
-  //   para não bloquear o institucional de domingo via rate limit diário.
+  // Horários (2026-10-29, "Instagram não é espelho do portal"):
+  // - "0 17,18 * * MON,WED,FRI" -> slot normal SEG/QUA/SEX 15:00 Brasília.
+  //   Cron da Cloudflare é UTC; o worker só segue quando o relógio de
+  //   America/Sao_Paulo marca 15h (hoje 18h UTC; 17h UTC se houver horário
+  //   de verão). 3 posts normais por semana.
+  // - "30 * * * *" -> checagem de breaking (07:30–21:30 Brasília pelo código).
+  //   Só publica fato extraordinário com ligação ao Brasil, máx. 1 a cada 7
+  //   dias, nunca a menos de 3h de outro post; não grava KV quando não age.
+  // REMOVIDOS (2026-10-29): "0 15 * * MON-SAT" (12:00 diário seg-sáb) e
+  //   "0 16 * * SUN" (institucional de domingo — fora do calendário de 3).
+  //   O institucional segue disponível só manualmente (/run-institucional).
   "triggers": {
-    "crons": ["0 15 * * MON-SAT", "0 16 * * SUN"]
+    "crons": ["0 17,18 * * MON,WED,FRI", "30 * * * *"]
   }
 }

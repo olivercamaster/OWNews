@@ -102,9 +102,81 @@ function calcularScoreCandidato(artigo, agora) {
   // com mais frequência do que o necessário. Instagram é uma plataforma
   // visual — foto real vale bem mais aqui do que no ranking do site.
   if (artigo.image_url) score += 25;
+  // Feed com 3 slots/semana (2026-10-29): o que acontece no Brasil pesa mais
+  // para quem trabalha no offshore brasileiro — sem excluir o resto.
+  if (BREAKING_BRASIL.test(texto)) score += 20;
   return score;
 }
 const LIMIAR_MINIMO_SCORE = 30;
+
+/* =========================================================================
+   FREQUÊNCIA DO FEED (2026-10-29) — o portal segue 24h; o feed é vitrine.
+   Calendário normal: SEG, QUA e SEX às 15:00 em America/Sao_Paulo (3/semana).
+   O cron (sempre UTC na Cloudflare) dispara às 17h e 18h UTC desses dias e
+   o código só segue quando o relógio de Brasília marca 15h — continua certo
+   se o Brasil voltar a ter horário de verão.
+   Breaking: exceção rara, regras determinísticas abaixo (motivoBreaking).
+   ========================================================================= */
+const TZ_EDITORIAL = 'America/Sao_Paulo';
+const SLOT_DIAS = new Set(['Mon', 'Wed', 'Fri']);
+const SLOT_HORA = 15;
+// Com 3 slots por semana a régua sobe: assunto prioritário + foto + frescor.
+const LIMIAR_SLOT_SCORE = 70;
+// Post (breaking) nas 12h anteriores ao slot → o slot é suprimido.
+const SUPRESSAO_SLOT_H = 12;
+const BREAKING_IDADE_MAX_H = 6;
+const BREAKING_INTERVALO_MIN_H = 3; // nunca colado em outro post
+const BREAKING_MAX_7D = 1;
+const BREAKING_HORA_INICIO = 7, BREAKING_HORA_FIM = 21; // Brasília
+const CRON_SLOT = '0 17,18 * * MON,WED,FRI';
+const CRON_BREAKING = '30 * * * *';
+
+const FMT_BRASILIA = new Intl.DateTimeFormat('en-US', { timeZone: TZ_EDITORIAL, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+function relogioBrasilia(d) {
+  const p = {};
+  for (const x of FMT_BRASILIA.formatToParts(d)) p[x.type] = x.value;
+  return { diaSemana: p.weekday, data: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour), minuto: Number(p.minute) };
+}
+function ehSlotNormal(d) {
+  const r = relogioBrasilia(d);
+  return SLOT_DIAS.has(r.diaSemana) && r.hora === SLOT_HORA;
+}
+function ultimoSlot(agora) {
+  const d = new Date(agora); d.setUTCMinutes(0, 0, 0);
+  for (let i = 0; i <= 8 * 24; i++, d.setUTCHours(d.getUTCHours() - 1)) {
+    if (d.getTime() <= agora.getTime() && ehSlotNormal(d)) return d.toISOString();
+  }
+  return null;
+}
+function proximoSlot(agora) {
+  const d = new Date(agora); d.setUTCMinutes(0, 0, 0);
+  for (let i = 0; i <= 8 * 24; i++, d.setUTCHours(d.getUTCHours() + 1)) {
+    if (d.getTime() > agora.getTime() && ehSlotNormal(d)) return d.toISOString();
+  }
+  return null;
+}
+
+// Breaking = fato extraordinário com ligação ao Brasil. Notícia comum espera o
+// slot. Todos os padrões olham texto sem acento e em minúsculas.
+const BREAKING_BRASIL = /\b(brasil|brasileir[ao]s?|petrobras|anp|ppsa|mme|ibama|pre-sal|presal|bacia de (santos|campos)|bacia potiguar|margem equatorial|buzios|mero|tupi|macae|rio de janeiro|espirito santo|porto de santos)\b/;
+const BREAKING_OPERADORAS = /\b(petrobras|shell|equinor|totalenergies|exxonmobil|exxon|chevron|bp|petronas|cnooc|repsol|galp|prio|brava|3r|ocyan|foresea|seadrill|transocean|sbm|modec|yinson|bw offshore|constellation|subsea7|technipfmc|saipem)\b/;
+const BREAKING_EVENTOS = [
+  { motivo: 'grande descoberta', titulo: /\b(descobre|descobriu|descoberta|descobrimento)\b/, contexto: /\b(petroleo|oleo|gas|hidrocarbonetos?|reservatorio|pre-sal)\b/ },
+  { motivo: 'novo FPSO/sonda em operação', titulo: /\b(fpso|navio-plataforma|plataforma|sonda)\b/, contexto: /\b(primeiro oleo|inicia(ou)? (a )?produca|entra(ou)? em operacao|chega(da)? ao brasil|inicia(ou)? operac)/ },
+  { motivo: 'aquisição/fusão relevante', titulo: /\b(adquire|adquiriu|aquisicao|compra|comprou|fusao|incorpora|incorporacao)\b/, contexto: BREAKING_OPERADORAS },
+  { motivo: 'contrato offshore bilionário', titulo: /\bcontrat/, contexto: /\b(bilh(ao|oes)|bi|billion)\b/ },
+  { motivo: 'incidente de grande repercussão', titulo: /\b(incendio|explosao|vazamento|naufragio|evacuacao|evacuada|derramamento)\b/, contexto: /\b(plataforma|fpso|sonda|offshore|navio)\b/ },
+  // Só ato consumado ("publica decreto"), nunca intenção ("enviará decreto").
+  // Leilão fica fora: os da PPSA/ANP são rotina (ex.: "10º Leilão Spot").
+  { motivo: 'decisão de governo com impacto offshore', titulo: /^(?=.*\b(decreto|medida provisoria|lei|cnpe)\b)(?=.*\b(publica|publicou|assina|assinou|sanciona|sancionou|edita|editou|aprova|aprovou)\b)/, contexto: /\b(offshore|pre-sal|margem equatorial|exploracao de petroleo)\b/ },
+];
+function motivoBreaking(artigo) {
+  const titulo = normalizeParaScore(artigo.title || '');
+  const tudo = normalizeParaScore(`${artigo.title || ''} ${artigo.summary || ''}`);
+  if (!BREAKING_BRASIL.test(tudo)) return null;
+  const e = BREAKING_EVENTOS.find((x) => x.titulo.test(titulo) && x.contexto.test(tudo));
+  return e ? e.motivo : null;
+}
 
 function falhaFiltroDuro(artigo) {
   const texto = normalizeParaScore(`${artigo.title} ${artigo.summary || ''}`);
@@ -281,9 +353,9 @@ function editoriaDeInstagram(artigo) {
   return 'BRASIL';
 }
 
-async function buscarCandidatosNoticia(env) {
-  const desde = new Date(Date.now() - JANELA_FRESCOR_MS).toISOString();
-  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=30`;
+async function buscarCandidatosNoticia(env, agora = Date.now()) {
+  const desde = new Date(agora - JANELA_FRESCOR_MS).toISOString();
+  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=60`;
   const resp = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
   if (!resp.ok) throw new Error(`Supabase (articles) HTTP ${resp.status}`);
   return resp.json();
@@ -296,24 +368,40 @@ async function buscarHistoricoInstagram(env, limite = 30) {
   return { ok: true, historico: await resp.json() };
 }
 
-async function jaPublicouHoje(env) {
-  const inicioDoDia = new Date(); inicioDoDia.setUTCHours(0, 0, 0, 0);
-  const url = `${env.SUPABASE_URL}/rest/v1/instagram_posts?select=id&status=eq.published&post_type=eq.noticia&published_at=gte.${encodeURIComponent(inicioDoDia.toISOString())}&limit=1`;
+// Posts publicados de verdade (qualquer tipo) desde `desdeMs` — base das travas
+// de espaçamento entre slot, breaking e recuperação manual.
+async function publicacoesDesde(env, desdeMs) {
+  const url = `${env.SUPABASE_URL}/rest/v1/instagram_posts?select=janela,post_type,published_at,headline&status=eq.published&published_at=gte.${encodeURIComponent(new Date(desdeMs).toISOString())}&order=published_at.desc&limit=50`;
   const resp = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
-  if (!resp.ok) return false;
-  const linhas = await resp.json();
-  return linhas.length > 0;
+  if (!resp.ok) return { ok: false, motivo: `Supabase (instagram_posts) HTTP ${resp.status}`, posts: [] };
+  return { ok: true, posts: await resp.json() };
 }
 
-async function selecionarCandidatoNoticia(env) {
-  const [candidatos, historicoResp] = await Promise.all([buscarCandidatosNoticia(env), buscarHistoricoInstagram(env, 40)]);
+// Regra de espaçamento, pura (testável). Falha ao ler o histórico = não publica.
+function avaliarEspacamento(modo, hist, agora) {
+  if (!hist.ok) return { ok: false, motivo: `não foi possível checar posts recentes: ${hist.motivo}` };
+  const idadeH = (p) => (agora - new Date(p.published_at).getTime()) / 3600000;
+  const ultimo = hist.posts.map(idadeH).filter((h) => h >= 0).sort((a, b) => a - b)[0];
+  if (modo === 'slot') {
+    if (ultimo !== undefined && ultimo < SUPRESSAO_SLOT_H) return { ok: false, motivo: `slot suprimido: houve post há ${ultimo.toFixed(1)}h (mínimo ${SUPRESSAO_SLOT_H}h antes do slot normal)` };
+    return { ok: true };
+  }
+  if (ultimo !== undefined && ultimo < BREAKING_INTERVALO_MIN_H) return { ok: false, motivo: `breaking aguardando: houve post há ${ultimo.toFixed(1)}h (mínimo ${BREAKING_INTERVALO_MIN_H}h)` };
+  const breakings7d = hist.posts.filter((p) => p.janela === 'breaking' && idadeH(p) < 7 * 24).length;
+  if (breakings7d >= BREAKING_MAX_7D) return { ok: false, motivo: `limite de ${BREAKING_MAX_7D} breaking a cada 7 dias atingido` };
+  return { ok: true };
+}
+
+async function selecionarCandidatoNoticia(env, { modo = 'slot', agora = Date.now() } = {}) {
+  const [candidatos, historicoResp] = await Promise.all([buscarCandidatosNoticia(env, agora), buscarHistoricoInstagram(env, 40)]);
+  if (!historicoResp.ok) return { escolhido: null, motivo: `histórico indisponível, sem dedupe seguro: ${historicoResp.motivo}`, descartados: [], avaliados: candidatos.length };
   const historico = historicoResp.historico;
   const idsJaUsados = new Set(historico.filter((h) => h.article_id && h.status !== 'failed').map((h) => h.article_id));
   const headlinesRecentes = historico.filter((h) => h.status === 'published').map((h) => h.headline).filter(Boolean);
 
-  const agora = Date.now();
   const elegiveis = [];
   const descartados = [];
+  const limiar = LIMIAR_SLOT_SCORE;
 
   for (const artigo of candidatos) {
     if (idsJaUsados.has(artigo.id)) { descartados.push({ id: artigo.id, motivo: 'já publicado/testado antes (dedupe por article_id)' }); continue; }
@@ -323,13 +411,20 @@ async function selecionarCandidatoNoticia(env) {
     if (motivoDuro) { descartados.push({ id: artigo.id, motivo: `filtro duro: ${motivoDuro}` }); continue; }
     const parecido = headlinesRecentes.find((h) => similaridadeTitulos(h, artigo.title) >= LIMIAR_SIMILARIDADE);
     if (parecido) { descartados.push({ id: artigo.id, motivo: `assunto muito parecido com post recente: "${parecido}"` }); continue; }
-    elegiveis.push({ artigo, score: calcularScoreCandidato(artigo, agora) });
+    let breaking = null;
+    if (modo === 'breaking') {
+      if (horas > BREAKING_IDADE_MAX_H) continue;
+      breaking = motivoBreaking(artigo);
+      if (!breaking) continue;
+    }
+    elegiveis.push({ artigo, score: calcularScoreCandidato(artigo, agora), breaking });
   }
 
   elegiveis.sort((a, b) => b.score - a.score);
   const melhor = elegiveis[0];
-  if (!melhor || melhor.score < LIMIAR_MINIMO_SCORE) {
-    return { escolhido: null, motivo: !melhor ? 'nenhum candidato elegível na janela de 24h' : `melhor score (${melhor.score}) abaixo do limiar mínimo (${LIMIAR_MINIMO_SCORE})`, descartados, avaliados: candidatos.length };
+  if (!melhor || melhor.score < limiar) {
+    const vazio = modo === 'breaking' ? 'nenhuma breaking elegível' : 'nenhum candidato elegível na janela de 24h';
+    return { escolhido: null, motivo: !melhor ? vazio : `melhor score (${melhor.score}) abaixo do limiar do feed (${limiar}) — sem post é melhor que post fraco`, descartados, avaliados: candidatos.length };
   }
 
   // Pré-validação de imagem entre os melhores candidatos (2026-09-19, P3 —
@@ -351,7 +446,7 @@ async function selecionarCandidatoNoticia(env) {
       if (imagemCandidato.ok) { escolhidoFinal = candidato; imagemEscolhida = imagemCandidato; break; }
     }
   }
-  return { escolhido: escolhidoFinal.artigo, score: escolhidoFinal.score, imagemResp: imagemEscolhida, descartados, avaliados: candidatos.length };
+  return { escolhido: escolhidoFinal.artigo, score: escolhidoFinal.score, breaking: escolhidoFinal.breaking, imagemResp: imagemEscolhida, descartados, avaliados: candidatos.length };
 }
 
 /* =========================================================================
@@ -603,9 +698,11 @@ async function validarConta(env) {
   if (!env.INSTAGRAM_ACCESS_TOKEN || !env.INSTAGRAM_ACCOUNT_ID) return { ok: false, motivo: 'credenciais do Instagram ausentes' };
   return { ok: true };
 }
+// Última trava antes da Graph API: nada automático sai colado em outro post.
 async function validarRateLimit(env) {
-  const hoje = await jaPublicouHoje(env);
-  return hoje ? { ok: false, motivo: 'já existe 1 publicação real hoje (trava por dia, independente do horário)' } : { ok: true };
+  const hist = await publicacoesDesde(env, Date.now() - BREAKING_INTERVALO_MIN_H * 3600000);
+  if (!hist.ok) return { ok: false, motivo: `não foi possível checar posts recentes: ${hist.motivo}` };
+  return hist.posts.length ? { ok: false, motivo: `já houve publicação nas últimas ${BREAKING_INTERVALO_MIN_H}h (anti-colagem)` } : { ok: true };
 }
 async function rodarValidacoesFinais(ctx, env, { ignorarRateLimit = false } = {}) {
   const passos = [
@@ -693,7 +790,7 @@ function calcularProximosTriggers(agora) {
     else if (d.getTime() <= agora.getTime()) d.setUTCDate(d.getUTCDate() + 1);
     return d.toISOString();
   }
-  return { proxima_meio_dia: proximo(15, 0), proximo_institucional: proximo(16, 0, 0) };
+  return { proxima_meio_dia: proximoSlot(agora), proximo_institucional: null, ultimo_slot: ultimoSlot(agora), slot_hoje: SLOT_DIAS.has(relogioBrasilia(agora).diaSemana) };
 }
 
 /* =========================================================================
@@ -720,7 +817,7 @@ function autenticado(request, env) {
    FASE 1 (no horário do cron): seleciona/valida o que dá pra validar sem
    imagem, e enfileira o job de arte. Rápido — não usa CPU de renderização.
    ========================================================================= */
-async function enfileirarJanelaNoticia(env, janela) {
+async function enfileirarJanelaNoticia(env, janela, { modo = 'slot', agora = Date.now() } = {}) {
   // Freeze durante manutenção — não remove o cron, só impede publicação defeituosa.
   try {
     const freeze = await env.SAUDE_KV.get('instagram_freeze_manutencao');
@@ -729,9 +826,18 @@ async function enfileirarJanelaNoticia(env, janela) {
       return { ok: true, resultado: 'skip', motivo: 'publicação congelada — manutenção em andamento' };
     }
   } catch { /* se KV falhar, prosseguir normalmente */ }
-  const selecao = await selecionarCandidatoNoticia(env);
+  // Job ainda em voo (fila tem 1 posição): nunca sobrescrever.
+  const emVoo = await lerJobAtual(env);
+  if (emVoo && (emVoo.status === 'pending' || emVoo.status === 'in_progress')) return { ok: true, resultado: 'skip', motivo: `job ${emVoo.id} ainda em andamento` };
+  const espaco = avaliarEspacamento(modo, await publicacoesDesde(env, agora - 7 * 24 * 3600000), agora);
+  if (!espaco.ok) {
+    // Breaking roda de hora em hora: só o slot grava o skip (KV budget).
+    if (modo === 'slot') await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo: espaco.motivo, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+    return { ok: true, resultado: 'skip', motivo: espaco.motivo };
+  }
+  const selecao = await selecionarCandidatoNoticia(env, { modo, agora });
   if (!selecao.escolhido) {
-    await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo: selecao.motivo, avaliados: selecao.avaliados, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+    if (modo === 'slot') await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo: selecao.motivo, avaliados: selecao.avaliados, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
     return { ok: true, resultado: 'skip', motivo: selecao.motivo };
   }
   const artigo = selecao.escolhido;
@@ -756,8 +862,8 @@ async function enfileirarJanelaNoticia(env, janela) {
     arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
     publicar: { tipo: 'noticia', janela, articleId: artigo.id, canonicalUrl: artigo.original_url, headline: headlineFinal, caption, score: selecao.score, template_label: templateLabel, fallback: fallback || null },
   });
-  await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template, template_label: templateLabel, fallback: fallback || null, score: selecao.score, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
-  return { ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, score: selecao.score };
+  await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template, template_label: templateLabel, fallback: fallback || null, score: selecao.score, breaking: selecao.breaking || null, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+  return { ok: true, resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, score: selecao.score, breaking: selecao.breaking || null };
 }
 
 async function enfileirarInstitucional(env) {
@@ -855,10 +961,16 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       try {
-        // "0 15 * * MON-SAT" = 12:00 BRT seg-sab — 1 post jornalístico por dia (MISSÃO 2.0, 2026-10-02).
-        // "50 7 * * *" (04:50) e "15 23 * * *" (20:15) removidos na mesma data.
-        if (event.cron === '0 15 * * MON-SAT') await enfileirarJanelaNoticia(env, 'meio_dia_12h00');
-        else if (event.cron === '0 16 * * SUN') await enfileirarInstitucional(env);
+        // 2026-10-29: feed = SEG/QUA/SEX 15h Brasília + breaking excepcional.
+        // Saíram o diário 12h seg-sáb ("0 15 * * MON-SAT") e o institucional
+        // de domingo ("0 16 * * SUN"); qualquer outro cron é ignorado.
+        const quando = new Date(event.scheduledTime || Date.now());
+        if (event.cron === CRON_SLOT) {
+          if (ehSlotNormal(quando)) await enfileirarJanelaNoticia(env, 'slot_15h', { modo: 'slot', agora: quando.getTime() });
+        } else if (event.cron === CRON_BREAKING) {
+          const h = relogioBrasilia(quando).hora;
+          if (h >= BREAKING_HORA_INICIO && h <= BREAKING_HORA_FIM) await enfileirarJanelaNoticia(env, 'breaking', { modo: 'breaking', agora: quando.getTime() });
+        }
       } catch (e) {
         await registrarExecucao(env, { em: new Date().toISOString(), resultado: 'erro_nao_tratado', motivo: e.message, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
       }
@@ -910,6 +1022,9 @@ export default {
         ultimo_heartbeat_vps: heartbeatVps,
         proxima_janela: proximos.proxima_meio_dia,
         proximo_institucional: proximos.proximo_institucional,
+        slot_hoje: proximos.slot_hoje,
+        ultimo_slot: proximos.ultimo_slot,
+        regra_feed: 'SEG/QUA/SEX 15:00 America/Sao_Paulo + breaking excepcional (máx. 1 a cada 7 dias)',
       });
     }
 
@@ -1050,11 +1165,14 @@ export default {
       } catch (erro) { return Response.json({ ok: false, erro: erro.message }, { status: 500 }); }
     }
 
-    // Rotas manuais de teste (fase 1 apenas — enfileiram, sempre em dry run).
+    // Rotas manuais (fase 1 — enfileiram). Com INSTAGRAM_DRY_RUN=false elas
+    // publicam de verdade, então exigem RENDER_SHARED_SECRET (antes eram
+    // abertas: qualquer visita a /run-meio-dia podia gerar um post). Passam
+    // pelas mesmas travas de espaçamento, dedupe e score do cron.
+    if (url.pathname.startsWith('/run-') && !autenticado(request, env)) return new Response('unauthorized', { status: 401 });
     try {
-      if (url.pathname === '/run-meio-dia') return Response.json(await enfileirarJanelaNoticia(env, 'meio_dia_12h00'));
-      // aliases legados — redirecionam para a mesma lógica da janela única
-      if (url.pathname === '/run-manha' || url.pathname === '/run-noite') return Response.json(await enfileirarJanelaNoticia(env, 'meio_dia_12h00'));
+      if (url.pathname === '/run-slot' || url.pathname === '/run-meio-dia' || url.pathname === '/run-manha' || url.pathname === '/run-noite') return Response.json(await enfileirarJanelaNoticia(env, 'slot_15h', { modo: 'slot' }));
+      if (url.pathname === '/run-breaking') return Response.json(await enfileirarJanelaNoticia(env, 'breaking', { modo: 'breaking' }));
       if (url.pathname === '/run-institucional') return Response.json(await enfileirarInstitucional(env));
       if (url.pathname === '/run-lancamento-real') return Response.json(await enfileirarLancamentoReal(env, false));
     } catch (erro) {
@@ -1064,3 +1182,6 @@ export default {
     return Response.json({ sistema: 'OWNews Instagram Publisher', status: 'ONLINE', dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
   },
 };
+
+// Só para tests/ (Node): funções puras e o seletor, com fetch/KV simulados.
+export const __t = { relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING };
