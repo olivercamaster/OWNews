@@ -20553,13 +20553,14 @@ async function ccColetarSistema(env) {
     if (igSaude.dry_run) return { ok: null, detalhe: "Instagram em modo dry_run — não publica de verdade." };
     if (igSaude.freeze_manutencao) return { ok: null, detalhe: "Instagram congelado — manutenção em andamento." };
     if (!ult) return { ok: false, detalhe: "Nenhuma execução registrada ainda." };
-    const hoje = new Date().toISOString().slice(0, 10);
-    const executouHoje = ult.em && ult.em.startsWith(hoje);
-    if (!executouHoje) return { ok: false, detalhe: `Última execução: ${new Date(ult.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} — cron não disparou hoje.` };
+    // Feed SEG/QUA/SEX 15h (2026-10-29): cobra a execução do último slot, não "hoje".
+    const fmtBr = (iso) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const executouSlot = ult.em && (igSaude.ultimo_slot ? ult.em >= igSaude.ultimo_slot : ult.em.startsWith(new Date().toISOString().slice(0, 10)));
+    if (!executouSlot) return { ok: false, detalhe: `Última execução: ${fmtBr(ult.em)} — slot de ${igSaude.ultimo_slot ? fmtBr(igSaude.ultimo_slot) : "hoje"} não disparou.` };
     const tmplStr = ult.template_label ? ` [template ${ult.template_label}]` : "";
     const fbStr = ult.fallback ? ` ⚠ Fallback A→C: ${ult.fallback.razao}` : "";
-    if (ult.resultado === "published") return { ok: !ult.fallback, detalhe: `Publicado hoje: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
-    if (ult.resultado === "skip") return { ok: true, detalhe: `Sem artigo elegível hoje: ${ult.motivo || "sem detalhe"}.` };
+    if (ult.resultado === "published") return { ok: !ult.fallback, detalhe: `Publicado ${fmtBr(ult.em)}: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
+    if (ult.resultado === "skip") return { ok: true, detalhe: `Sem post no slot (${fmtBr(ult.em)}): ${ult.motivo || "sem detalhe"}.` };
     if (ult.resultado === "dry_run") return { ok: true, detalhe: `Dry run: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
     if (ult.resultado === "job_enfileirado") return { ok: true, detalhe: `Aguardando render: "${ult.candidato || ""}".${tmplStr}${fbStr}` };
     if (ult.resultado === "visual_guard_rejected") return { ok: false, detalhe: `🛡 Visual Guard rejeitou: ${ult.motivo || "sem detalhe"}.` };
