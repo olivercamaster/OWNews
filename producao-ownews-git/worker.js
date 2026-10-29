@@ -20554,8 +20554,9 @@ async function ccColetarSistema(env) {
     if (igSaude.freeze_manutencao) return { ok: null, detalhe: "Instagram congelado — manutenção em andamento." };
     if (!ult) return { ok: false, detalhe: "Nenhuma execução registrada ainda." };
     // Feed SEG/QUA/SEX 15h (2026-10-29): cobra a execução do último slot, não "hoje".
+    // Post nas 12h antes do slot conta: ele mesmo teria suprimido o slot.
     const fmtBr = (iso) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-    const executouSlot = ult.em && (igSaude.ultimo_slot ? ult.em >= igSaude.ultimo_slot : ult.em.startsWith(new Date().toISOString().slice(0, 10)));
+    const executouSlot = ult.em && (igSaude.ultimo_slot ? ult.em >= new Date(Date.parse(igSaude.ultimo_slot) - 12 * 3600000).toISOString() : ult.em.startsWith(new Date().toISOString().slice(0, 10)));
     if (!executouSlot) return { ok: false, detalhe: `Última execução: ${fmtBr(ult.em)} — slot de ${igSaude.ultimo_slot ? fmtBr(igSaude.ultimo_slot) : "hoje"} não disparou.` };
     const tmplStr = ult.template_label ? ` [template ${ult.template_label}]` : "";
     const fbStr = ult.fallback ? ` ⚠ Fallback A→C: ${ult.fallback.razao}` : "";
