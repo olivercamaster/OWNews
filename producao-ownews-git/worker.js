@@ -1982,11 +1982,15 @@ html[data-theme="light"] .central-home-cta{background:var(--navy-900);border-col
 .market-feature h3{font-size:20px;line-height:1.22;font-weight:600}
 .market-feature p{font-family:var(--editorial);font-size:14.5px;line-height:1.5;color:var(--muted);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .market-feature .byline{display:block;margin-top:8px}
+.market-feature.sem-foto{display:block}
+#mercado .sem-foto h3{-webkit-line-clamp:6}
 .market-body .row-list{border-top:1px solid var(--line-hair)}
 .market-body .row-list:empty{display:none}
 @media(min-width:760px){
   .market-feature{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:26px;align-items:center}
   .market-feature .thumb{aspect-ratio:16/10;max-height:250px}
+  .market-feature.sem-foto h3{font-size:26px;max-width:36em}
+  .market-feature.sem-foto p{max-width:80ch}
   .market-feature h3{font-size:23px}
   .market-body .row-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;padding-top:18px}
   .market-body .row{border-top:0;padding:0;align-items:flex-start}
@@ -4153,13 +4157,18 @@ function renderMercado(lista, fallbackEditorial){
   el.className = 'market-body market-count-' + Math.min(lista.length, 4);
   const [destaque, ...resto] = lista;
   const img = imagemDe(destaque);
+  // Sem foto real (capa editorial = img.ilustracao) não há coluna de imagem:
+  // o título ocupa a largura. Resumo que só repete o título é omitido.
+  const deck = deckDe(destaque, 170), tit = destaque.title.toLowerCase();
+  const pal = deck.toLowerCase().split(/[^a-zà-ú0-9]+/).filter(w => w.length > 3);
+  const repete = pal.length && pal.filter(w => tit.includes(w)).length / pal.length >= .8;
   el.innerHTML = \`
-    <article class="market-feature" onclick="\${irPara(destaque.id)}">
-      <div class="thumb" \${capaAtributos(img, true)}>\${botaoCarregarImagem()}\${notaIlustrativa(img, false)}</div>
+    <article class="market-feature\${img.ilustracao ? ' sem-foto' : ''}" onclick="\${irPara(destaque.id)}">
+      \${img.ilustracao ? '' : '<div class="thumb" ' + capaAtributos(img, true) + '>' + botaoCarregarImagem() + '</div>'}
       <div class="market-feature-copy">
       <span class="eyebrow">\${cartaoFonte(destaque)}</span>
       <h3>\${escaparHTML(destaque.title)}</h3>
-      \${deckDe(destaque, 170) ? '<p>' + escaparHTML(deckDe(destaque, 170)) + '</p>' : ''}
+      \${deck && !repete ? '<p>' + escaparHTML(deck) + '</p>' : ''}
       <span class="byline">\${fallbackEditorial ? 'Publicado em ' + dataPublicacaoReal(destaque.published_at) : tempoRelativo(destaque.published_at)}</span>
       </div>
     </article>
