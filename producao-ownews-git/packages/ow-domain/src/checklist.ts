@@ -194,16 +194,39 @@ function novoIdItem(data: ChecklistData): string {
   return id;
 }
 
+export const QTD_MAX_ITEM = 99;
+
+/** Quantidade válida (1–99, inteira); qualquer outra coisa vira 1. */
+export function normalizarQtd(q: unknown): number {
+  const n = typeof q === 'number' ? Math.floor(q) : typeof q === 'string' ? parseInt(q, 10) : NaN;
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, QTD_MAX_ITEM) : 1;
+}
+
+/** Quantidade do item (ausente = 1). */
+export function qtdItem(item: ChecklistItem): number {
+  return normalizarQtd(item.q);
+}
+
+/** Grava a quantidade só quando passa de 1 — a lista continua igual à do OWNews web. */
+function comQtd(item: ChecklistItem, q: number | undefined): ChecklistItem {
+  if (q === undefined) return item;
+  const n = normalizarQtd(q);
+  const novo = { ...item };
+  if (n > 1) novo.q = n; else delete novo.q;
+  return novo;
+}
+
 /**
  * Adiciona item personalizado (cat padrão = personalizados). `todoEmbarque` = levar em
  * todo embarque (recorrente, padrão); false = só neste embarque (sai na virada do ciclo).
  * Texto vazio ou repetido (mesmo nome, ignorando maiúsculas) não duplica.
  */
-export function addItem(data: ChecklistData, texto: string, cat = 'personalizados', todoEmbarque = true): ChecklistData {
+export function addItem(data: ChecklistData, texto: string, cat = 'personalizados', todoEmbarque = true, quantidade?: number): ChecklistData {
   const t = texto.trim();
   if (!t || data.items.some(i => i.t.trim().toLowerCase() === t.toLowerCase())) return data;
-  const item: ChecklistItem = { id: novoIdItem(data), t, cat, ok: false };
+  let item: ChecklistItem = { id: novoIdItem(data), t, cat, ok: false };
   if (!todoEmbarque) item.rec = false;
+  item = comQtd(item, quantidade);
   return { ...data, items: [...data.items, item] };
 }
 
@@ -219,20 +242,49 @@ export function removeItem(data: ChecklistData, id: string): ChecklistData {
   };
 }
 
-/** Renomeia um item (texto vazio = sem mudança) e, se informado, muda "todo embarque". */
-export function editarItem(data: ChecklistData, id: string, texto: string, todoEmbarque?: boolean): ChecklistData {
+/**
+ * Renomeia um item (texto vazio = sem mudança) e, se informados, muda "todo embarque" e a
+ * quantidade. Vale também para item padrão: o id continua o mesmo, então a edição da pessoa
+ * nunca é desfeita por "Restaurar itens padrão" nem pela virada do ciclo.
+ */
+export function editarItem(data: ChecklistData, id: string, texto: string, todoEmbarque?: boolean, quantidade?: number): ChecklistData {
   const t = texto.trim();
   if (!t) return data;
   return {
     ...data,
     items: data.items.map(item => {
       if (item.id !== id) return item;
-      const novo: ChecklistItem = { ...item, t };
+      const novo: ChecklistItem = comQtd({ ...item, t }, quantidade);
       if (todoEmbarque === true) delete novo.rec;
       else if (todoEmbarque === false) novo.rec = false;
       return novo;
     }),
   };
+}
+
+/**
+ * Sobe (-1) ou desce (+1) o item uma posição DENTRO da categoria dele (a tela agrupa por
+ * categoria). Na ponta, nada muda. Os outros itens não saem do lugar.
+ */
+export function moverItem(data: ChecklistData, id: string, direcao: -1 | 1): ChecklistData {
+  const idx = data.items.findIndex(i => i.id === id);
+  if (idx < 0) return data;
+  const cat = normalizarCat(data.items[idx]!.cat);
+  let alvo = idx + direcao;
+  while (alvo >= 0 && alvo < data.items.length && normalizarCat(data.items[alvo]!.cat) !== cat) alvo += direcao;
+  if (alvo < 0 || alvo >= data.items.length) return data;
+  const items = data.items.slice();
+  [items[idx], items[alvo]] = [items[alvo]!, items[idx]!];
+  return { ...data, items };
+}
+
+/** Posição do item dentro da categoria: pode subir / pode descer. */
+export function podeMoverItem(data: ChecklistData, id: string): { subir: boolean; descer: boolean } {
+  const item = data.items.find(i => i.id === id);
+  if (!item) return { subir: false, descer: false };
+  const mesmos = data.items.filter(i => normalizarCat(i.cat) === normalizarCat(item.cat));
+  const pos = mesmos.indexOf(item);
+  return { subir: pos > 0, descer: pos >= 0 && pos < mesmos.length - 1 };
 }
 
 /** "8 de 11 itens prontos" / "Mala pronta" / "Lista vazia". */

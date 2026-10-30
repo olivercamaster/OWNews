@@ -17,6 +17,10 @@ import {
   addItem,
   removeItem,
   editarItem,
+  moverItem,
+  podeMoverItem,
+  qtdItem,
+  QTD_MAX_ITEM,
   desmarcarTodos,
   ehItemPadrao,
   contarPadraoOcultos,
@@ -44,7 +48,6 @@ import { formatDateBR } from '../../src/format';
 import { analytics } from '../../src/analytics';
 import { avisar } from '../../src/feedback';
 import { useAcaoUnica } from '../../src/acoes';
-import { PortaoPlus } from '../../src/components/PortaoPlus';
 
 /** "Embarque hoje" / "Embarque amanhã" / "Faltam N dias" — mesma régua do OWNews /meu-embarque. */
 function labelEmbarque(dias: number): string {
@@ -104,9 +107,10 @@ function MeuEmbarqueConteudo() {
   const [aeroportoNome, setAeroportoNome] = useState<string | null>(null);
   const [novoItem, setNovoItem] = useState('');
   const [novoTodo, setNovoTodo] = useState(true);
-  // Painel do item (⋯ ou toque longo): editar nome, "todos os embarques", ocultar/excluir.
-  // `confirmando` = 2º passo antes de excluir.
-  const [menu, setMenu] = useState<{ item: ChecklistItem; confirmando: boolean; texto: string; todo: boolean } | null>(null);
+  const [novoQtd, setNovoQtd] = useState(1);
+  // Painel do item (botão ⋯ visível em cada linha): nome, quantidade, ordem, "todos os
+  // embarques", ocultar/excluir. `confirmando` = 2º passo antes de excluir.
+  const [menu, setMenu] = useState<{ item: ChecklistItem; confirmando: boolean; texto: string; todo: boolean; qtd: number } | null>(null);
   const [alvo, setAlvo] = useState<{ iso: string; dias: number } | null>(null);
   const [ocultarOk, setOcultarOk] = useState(false);
   const insets = useSafeAreaInsets();
@@ -144,20 +148,28 @@ function MeuEmbarqueConteudo() {
   const [add] = useAcaoUnica(async () => {
     const text = novoItem.trim();
     if (!text || !data) return;
-    const novo = addItem(data, text, 'personalizados', novoTodo);
+    const novo = addItem(data, text, 'personalizados', novoTodo, novoQtd);
     setNovoItem('');
     if (novo === data) { avisar('Esse item já está na lista'); return; }
+    setNovoQtd(1);
     await persist(novo);
     analytics.track('checklist_item_created', { todo_embarque: novoTodo });
     avisar('Item adicionado');
   });
 
-  const abrirMenu = (item: ChecklistItem) => setMenu({ item, confirmando: false, texto: item.t, todo: ehRecorrente(item) });
+  const abrirMenu = (item: ChecklistItem) => setMenu({ item, confirmando: false, texto: item.t, todo: ehRecorrente(item), qtd: qtdItem(item) });
+
+  // Ordem: sobe/desce dentro da categoria, na hora (o painel continua aberto).
+  const mover = (direcao: -1 | 1) => {
+    if (!menu || !data) return;
+    persist(moverItem(data, menu.item.id, direcao));
+    analytics.track('checklist_item_moved');
+  };
 
   const salvarItem = async () => {
     if (!menu || !data) return;
     if (!menu.texto.trim()) return;
-    await persist(editarItem(data, menu.item.id, menu.texto, menu.todo));
+    await persist(editarItem(data, menu.item.id, menu.texto, menu.todo, menu.qtd));
     analytics.track('checklist_item_updated');
     avisar('Item atualizado');
     setMenu(null);
@@ -216,7 +228,7 @@ function MeuEmbarqueConteudo() {
                 <Text style={styles.buddyIntroTitle}>Vai lembrando. Eu guardo pra você.</Text>
               </View>
               <Text style={styles.buddyIntroSub}>
-                Toque no item para marcar. Em ⋯ você edita, escolhe se vale para todo embarque e exclui. No embarque seguinte, eu desmarco tudo de novo — os itens continuam.
+                Toque no item para marcar. Em ⋯ você muda nome, quantidade e ordem, escolhe se vale para todo embarque e exclui. No embarque seguinte, eu desmarco tudo de novo — os itens continuam.
               </Text>
             </View>
 
@@ -324,6 +336,7 @@ function MeuEmbarqueConteudo() {
               <Ionicons name="add" size={26} color={colors.onAccent} />
             </TouchableOpacity>
           </View>
+          <Quantidade valor={novoQtd} onChange={setNovoQtd} />
           <TodoEmbarque valor={novoTodo} onChange={setNovoTodo} />
           </View>
           {counts.feitos > 0 && (
@@ -375,7 +388,27 @@ function MeuEmbarqueConteudo() {
                   onSubmitEditing={salvarItem}
                   accessibilityLabel="Nome do item"
                 />
+                <Quantidade valor={menu.qtd} onChange={q => setMenu({ ...menu, qtd: q })} />
                 <TodoEmbarque valor={menu.todo} onChange={v => setMenu({ ...menu, todo: v })} />
+                {(() => {
+                  const pode = podeMoverItem(data, menu.item.id);
+                  if (!pode.subir && !pode.descer) return null;
+                  return (
+                    <View style={styles.ordemRow}>
+                      <Text style={styles.ordemRotulo}>Ordem</Text>
+                      <TouchableOpacity style={[styles.ordemBtn, !pode.subir && styles.addBtnOff]} onPress={() => mover(-1)} disabled={!pode.subir}
+                        accessibilityRole="button" accessibilityLabel="Subir item" accessibilityState={{ disabled: !pode.subir }}>
+                        <Ionicons name="arrow-up" size={18} color={colors.cyanDim} />
+                        <Text style={styles.ordemTexto}>Subir</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.ordemBtn, !pode.descer && styles.addBtnOff]} onPress={() => mover(1)} disabled={!pode.descer}
+                        accessibilityRole="button" accessibilityLabel="Descer item" accessibilityState={{ disabled: !pode.descer }}>
+                        <Ionicons name="arrow-down" size={18} color={colors.cyanDim} />
+                        <Text style={styles.ordemTexto}>Descer</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()}
                 <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnPrimario, !menu.texto.trim() && { opacity: 0.5 }]} onPress={salvarItem} disabled={!menu.texto.trim()} accessibilityRole="button">
                   <Text style={[styles.sheetBtnText, { color: colors.onAccent }]}>Salvar</Text>
                 </TouchableOpacity>
@@ -402,6 +435,27 @@ function MeuEmbarqueConteudo() {
         </Pressable>
       </Modal>
     </OWBackground>
+  );
+}
+
+/** Quantidade a levar (1–99), com botões grandes — nada de teclado numérico escondido. */
+function Quantidade({ valor, onChange }: { valor: number; onChange: (v: number) => void }) {
+  useTema();
+  return (
+    <View style={styles.qtdRow}>
+      <Text style={styles.todoTexto}>Quantidade</Text>
+      <View style={styles.qtdCtrl}>
+        <TouchableOpacity style={[styles.qtdBtn, valor <= 1 && styles.addBtnOff]} onPress={() => onChange(Math.max(1, valor - 1))} disabled={valor <= 1}
+          accessibilityRole="button" accessibilityLabel="Diminuir quantidade" accessibilityState={{ disabled: valor <= 1 }}>
+          <Ionicons name="remove" size={20} color={colors.white} />
+        </TouchableOpacity>
+        <Text style={styles.qtdValor} accessibilityLabel={`Quantidade ${valor}`}>{valor}</Text>
+        <TouchableOpacity style={[styles.qtdBtn, valor >= QTD_MAX_ITEM && styles.addBtnOff]} onPress={() => onChange(Math.min(QTD_MAX_ITEM, valor + 1))} disabled={valor >= QTD_MAX_ITEM}
+          accessibilityRole="button" accessibilityLabel="Aumentar quantidade" accessibilityState={{ disabled: valor >= QTD_MAX_ITEM }}>
+          <Ionicons name="add" size={20} color={colors.white} />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -446,14 +500,16 @@ function MalaItem({
         delayLongPress={450}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: item.ok }}
-        accessibilityLabel={item.t}
+        accessibilityLabel={qtdItem(item) > 1 ? `${item.t}, ${qtdItem(item)} unidades` : item.t}
         accessibilityHint="Toque para marcar ou desmarcar."
       >
         <View style={[styles.checkbox, item.ok && styles.checkboxDone]}>
           {item.ok && <Ionicons name="checkmark" size={14} color={colors.onAccent} />}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>{item.t}</Text>
+          <Text style={[styles.itemText, item.ok && styles.itemTextDone]}>
+            {item.t}{qtdItem(item) > 1 ? <Text style={styles.itemQtd}>{`  × ${qtdItem(item)}`}</Text> : null}
+          </Text>
           {!ehRecorrente(item) && <Text style={styles.soEste}>só neste embarque</Text>}
         </View>
       </TouchableOpacity>
@@ -603,6 +659,21 @@ const styles = themed(() => StyleSheet.create({
   todoTexto: { fontSize: 14, color: colors.white, fontWeight: '500' },
   todoSub: { fontSize: 12, color: colors.mutedDim, marginTop: 1 },
   soEste: { fontSize: 11, color: colors.amber, marginTop: 1, fontWeight: '600' },
+  itemQtd: { fontSize: 14, fontWeight: '700', color: colors.cyanDim, fontVariant: ['tabular-nums'] },
+  qtdRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, minHeight: 48, marginTop: 6 },
+  qtdCtrl: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  qtdBtn: {
+    width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
+  },
+  qtdValor: { minWidth: 36, textAlign: 'center', fontSize: 18, fontWeight: '700', color: colors.white, fontVariant: ['tabular-nums'] },
+  ordemRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, marginTop: 4 },
+  ordemRotulo: { flex: 1, fontSize: 14, color: colors.white, fontWeight: '500' },
+  ordemBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: spacing.sm, borderRadius: radius.md,
+    borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass,
+  },
+  ordemTexto: { fontSize: 14, fontWeight: '600', color: colors.cyanDim },
   sheetBtnPrimario: { backgroundColor: colors.cyan, borderTopWidth: 0, borderRadius: radius.md, justifyContent: 'center', marginTop: spacing.sm, marginBottom: spacing.xs },
   addInput: {
     flex: 1, backgroundColor: maritime.field, borderRadius: radius.sm,
@@ -635,8 +706,8 @@ const styles = themed(() => StyleSheet.create({
   },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
-export default function MeuEmbarque() {
+/** Minha Mala é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
+export default function MinhaMala() {
   useTema();
-  return <PortaoPlus recurso="mala" aba><MeuEmbarqueConteudo /></PortaoPlus>;
+  return <MeuEmbarqueConteudo />;
 }

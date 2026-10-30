@@ -1,7 +1,8 @@
 /**
- * OWBuddy+ — tela informativa e de assinatura.
+ * OWBuddy Premium — tela informativa e de assinatura.
  *
- * Tudo à vista ANTES de qualquer compra: o que é Free, o que é Plus, preço e período (da loja),
+ * Tudo à vista ANTES de qualquer compra: o que é Free, o que é Premium, o período de boas-vindas
+ * de 45 dias (local, sem cobrança), preço e período (da loja),
  * período gratuito (só se a loja disser que a pessoa tem direito), renovação automática, como
  * cancelar, que o Free continua e que nenhum dado é apagado. A compra só abre por toque no botão,
  * e quem confirma é a Google Play / App Store.
@@ -11,7 +12,7 @@ import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'r
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BENEFICIOS_PLUS, CENARIOS_TESTE_PLUS, RECURSOS_FREE, ofertaTexto } from '@owbuddy/domain';
+import { BENEFICIOS_PLUS, CENARIOS_TESTE_PLUS, RECURSOS_FREE, TRIAL_PREMIUM_DIAS, ofertaTexto, textoDiasRestantes } from '@owbuddy/domain';
 import type { AcessoPlus, CenarioTestePlus, ProdutoPlus } from '@owbuddy/domain';
 import { colors, maritime, radius, spacing, themed, typography } from '../src/theme';
 import { useTema } from '../src/tema';
@@ -30,23 +31,23 @@ const URL_EULA_APPLE = 'https://www.apple.com/legal/internet-services/itunes/dev
 
 // Origem do evento: só valores fixos (nunca o parâmetro cru da URL).
 const EVENTO_ORIGEM: Record<string, { origem: string }> = {
-  mala: { origem: 'mala' }, viagem: { origem: 'viagem' }, documentos: { origem: 'documentos' },
-  historico: { origem: 'historico' }, contatos: { origem: 'contatos' }, 'buddy-config': { origem: 'buddy-config' },
-  proximos: { origem: 'proximos' },
+  buddy_inteligente: { origem: 'buddy_inteligente' }, alertas_inteligentes: { origem: 'alertas_inteligentes' },
+  historico_avancado: { origem: 'historico_avancado' }, 'buddy-config': { origem: 'buddy-config' },
+  proximos: { origem: 'proximos' }, fim_periodo: { origem: 'fim_periodo' }, perto_fim: { origem: 'perto_fim' },
 };
 
 const MSG_COMPRA: Record<ResultadoCompra, string | null> = {
   concluida: null,
   cancelada: null,
-  pendente: 'Pagamento aguardando confirmação da loja. O OWBuddy+ libera assim que a loja confirmar.',
-  ja_assinante: 'Você já tem o OWBuddy+ nesta conta da loja. Acesso atualizado.',
+  pendente: 'Pagamento aguardando confirmação da loja. O OWBuddy Premium libera assim que a loja confirmar.',
+  ja_assinante: 'Você já tem o OWBuddy Premium nesta conta da loja. Acesso atualizado.',
   offline: 'Sem internet agora. Nada foi cobrado. Tente de novo quando estiver conectado.',
   erro: 'Não foi possível concluir pela loja agora. Nada foi cobrado pelo OWBuddy.',
 };
 
 const MSG_RESTAURAR: Record<ResultadoRestaurar, string> = {
-  encontrada: 'Assinatura encontrada. OWBuddy+ ativo.',
-  nenhuma: 'Nenhuma assinatura do OWBuddy+ foi encontrada nesta conta da loja.',
+  encontrada: 'Assinatura encontrada. OWBuddy Premium ativo.',
+  nenhuma: 'Nenhuma assinatura do OWBuddy Premium foi encontrada nesta conta da loja.',
   offline: 'Sem internet agora. Tente de novo quando estiver conectado.',
   erro: 'Não foi possível consultar a loja agora.',
 };
@@ -63,23 +64,25 @@ export default function TelaOwBuddyPlus() {
   const { origem } = useLocalSearchParams<{ origem?: string }>();
   const p = useOwBuddyPlus();
   const [msg, setMsg] = useState<string | null>(null);
+  // Assinante da LOJA (o período de 45 dias não é assinatura: durante ele a oferta continua à vista).
+  const assinante = p.plus && p.acesso.origem !== 'trial';
 
   useEffect(() => {
     analytics.track('plus_tela_aberta', (origem && Object.prototype.hasOwnProperty.call(EVENTO_ORIGEM, origem) ? EVENTO_ORIGEM[origem] : null) ?? { origem: 'outra' });
   }, [origem]);
 
-  // Preço e oferta: só da loja, e só quando ainda não é Plus.
+  // Preço e oferta: só da loja, e só para quem ainda não assina.
   useEffect(() => {
-    if (!p.plus && p.produto.tipo !== 'ok') p.carregarProduto();
+    if (!assinante && p.produto.tipo !== 'ok') p.carregarProduto();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.plus]);
+  }, [assinante]);
 
   const [comprar, comprando] = useAcaoUnica(async (produto: ProdutoPlus) => {
     setMsg(null);
     analytics.track('plus_cta_tocado', { com_periodo_gratuito: !!produto.gratis });
     const r = await p.comprar(produto);
     analytics.track('plus_compra_resultado', { resultado: r });
-    if (r === 'concluida') avisar('OWBuddy+ ativo');
+    if (r === 'concluida') avisar('OWBuddy Premium ativo');
     setMsg(MSG_COMPRA[r]);
   });
 
@@ -105,13 +108,13 @@ export default function TelaOwBuddyPlus() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
         {p.modoTeste ? <PainelTeste /> : null}
 
-        <Text style={styles.kicker}>OWBuddy+</Text>
-        <Text style={styles.titulo} accessibilityRole="header">Mais controle de cada embarque</Text>
+        <Text style={styles.kicker}>OWBuddy Premium</Text>
+        <Text style={styles.titulo} accessibilityRole="header">O Buddy cuidando do seu ciclo</Text>
 
         <Situacao acesso={p.acesso} lido={p.lido} />
 
         <View style={styles.cartao}>
-          <Text style={styles.secao}>Com OWBuddy+ você libera</Text>
+          <Text style={styles.secao}>O Premium acrescenta</Text>
           {BENEFICIOS_PLUS.map(b => (
             <View key={b} style={styles.item}>
               <Ionicons name="checkmark" size={18} color={colors.green} />
@@ -120,17 +123,17 @@ export default function TelaOwBuddyPlus() {
           ))}
         </View>
 
-        {!p.plus ? (
+        {!assinante ? (
           <View style={styles.cartao}>
             {semLoja ? (
-              <Text style={styles.corpo}>A assinatura do OWBuddy+ é feita no app para Android ou iPhone, pela Google Play ou pela App Store.</Text>
+              <Text style={styles.corpo}>A assinatura do OWBuddy Premium ainda não está disponível. Quando estiver, será feita pela Google Play ou pela App Store — nunca fora da loja.</Text>
             ) : p.produto.tipo === 'carregando' || !p.lido ? (
               <View style={styles.reserva} accessibilityLabel="Consultando a loja">
                 <Text style={styles.corpoApagado}>Consultando a loja…</Text>
               </View>
             ) : p.produto.tipo === 'erro' ? (
               <View style={{ gap: spacing.sm }}>
-                <Text style={styles.corpo}>Não foi possível consultar o OWBuddy+ agora.</Text>
+                <Text style={styles.corpo}>Não foi possível consultar o OWBuddy Premium agora.</Text>
                 <TouchableOpacity style={styles.secundario} onPress={() => p.carregarProduto()} accessibilityRole="button">
                   <Text style={styles.secundarioTexto}>Tentar novamente</Text>
                 </TouchableOpacity>
@@ -154,7 +157,7 @@ export default function TelaOwBuddyPlus() {
         )}
 
         <View style={styles.cartao}>
-          <Text style={styles.secao}>Continua no OWBuddy Free</Text>
+          <Text style={styles.secao}>Do OWBuddy Free, para sempre</Text>
           {RECURSOS_FREE.map(b => (
             <View key={b} style={styles.item}>
               <Ionicons name="checkmark" size={18} color={colors.iconDefault} />
@@ -166,13 +169,13 @@ export default function TelaOwBuddyPlus() {
 
         {!semLoja ? (
           <View style={styles.links}>
-            {!p.plus ? (
+            {!assinante ? (
               <TouchableOpacity style={styles.link} onPress={restaurar} disabled={restaurando} accessibilityRole="button">
                 <Ionicons name="refresh-outline" size={18} color={colors.cyanDim} />
                 <Text style={styles.linkTexto}>{restaurando ? 'Consultando a loja…' : 'Restaurar compras'}</Text>
               </TouchableOpacity>
             ) : null}
-            {!p.plus ? (
+            {!assinante ? (
               <TouchableOpacity style={styles.link} onPress={gerenciar} accessibilityRole="button">
                 <Ionicons name="open-outline" size={18} color={colors.cyanDim} />
                 <Text style={styles.linkTexto}>Gerenciar assinatura</Text>
@@ -205,10 +208,15 @@ function Situacao({ acesso, lido }: { acesso: AcessoPlus; lido: boolean }) {
   let titulo = 'Você está no OWBuddy Free';
   let linha: string | null = null;
   let cor: string = colors.iconDefault;
-  if (acesso.plus) {
+  if (acesso.nivel === 'premium_trial' && acesso.trial) {
+    icone = 'star';
+    cor = colors.green;
+    titulo = `Premium ativo · ${textoDiasRestantes(acesso.trial.diasRestantes)}`;
+    linha = `Período de boas-vindas de ${TRIAL_PREMIUM_DIAS} dias, sem cobrança, até ${dataCurta(acesso.trial.fim)}. Depois você continua no Free, com tudo o que é seu.`;
+  } else if (acesso.plus) {
     icone = 'checkmark-circle';
     cor = colors.green;
-    titulo = 'OWBuddy+ ativo';
+    titulo = 'OWBuddy Premium ativo';
     if (acesso.origem === 'cache' && acesso.motivoErro) linha = 'Sem conexão com a loja agora. Seu acesso continua liberado.';
     else if (acesso.cancelado) linha = acesso.fimDoPeriodo
       ? `Renovação automática desligada. Ativo até ${dataCurta(acesso.fimDoPeriodo)}.`
@@ -216,16 +224,18 @@ function Situacao({ acesso, lido }: { acesso: AcessoPlus; lido: boolean }) {
     else if (acesso.fimDoPeriodo) linha = `Próxima renovação: ${dataCurta(acesso.fimDoPeriodo)}.`;
   } else if (acesso.estado === 'erro') {
     icone = 'cloud-offline-outline';
-    titulo = 'Não foi possível consultar o OWBuddy+ agora';
+    titulo = 'Não foi possível consultar o OWBuddy Premium agora';
     linha = 'O OWBuddy Free continua funcionando normalmente.';
   } else if (acesso.pendente) {
     icone = 'time-outline';
     cor = colors.amber;
     titulo = 'Pagamento aguardando confirmação';
-    linha = 'O OWBuddy+ libera assim que a loja confirmar.';
+    linha = 'O OWBuddy Premium libera assim que a loja confirmar.';
   } else if (acesso.expirou) {
-    titulo = 'Seu acesso ao OWBuddy+ terminou';
-    linha = 'Seus dados continuam guardados neste aparelho. Assinando de novo, tudo volta como estava.';
+    titulo = acesso.trial?.terminou && !acesso.fimDoPeriodo ? 'Seu período Premium terminou' : 'Seu acesso ao OWBuddy Premium terminou';
+    linha = 'Sua Escala, Minha Mala e seus dados continuam disponíveis normalmente. Os recursos avançados do Buddy agora fazem parte do Premium.';
+  } else if (!acesso.trial) {
+    linha = `Configure sua escala e o Premium fica liberado por ${TRIAL_PREMIUM_DIAS} dias, sem cobrança e sem cadastro.`;
   }
   return (
     <View style={styles.situacao} accessibilityLabel={linha ? `${titulo}. ${linha}` : titulo}>
@@ -289,7 +299,7 @@ function PainelTeste() {
     reiniciarAcessoPlusTeste();
   };
   return (
-    <View style={styles.painel} accessibilityLabel="Modo de teste do OWBuddy+">
+    <View style={styles.painel} accessibilityLabel="Modo de teste do OWBuddy Premium">
       <Text style={styles.painelTitulo}>Modo de teste · somente desenvolvimento</Text>
       <View style={styles.painelChips}>
         {CENARIOS_TESTE_PLUS.map(c => (

@@ -31,7 +31,8 @@ import { OWBackground } from '../src/components/OWBackground';
 import { AvisoFinalizar, AvisoSugestao } from '../src/components/HistoricoAvisos';
 import { formatDateBR } from '../src/format';
 import { analytics } from '../src/analytics';
-import { PortaoPlus } from '../src/components/PortaoPlus';
+import { useOwBuddyPlus } from '../src/plus/acesso';
+import { CartaoPremium } from '../src/components/PortaoPlus';
 
 type Dados = { hist: HistoricoData; escala: EscalaConfig | null; avisos: AvisosHistorico };
 
@@ -41,6 +42,9 @@ function MeuHistoricoConteudo() {
   const [dados, setDados] = useState<Dados | null>(null);
   const [ano, setAno] = useState<number | null>(null);
   const [unidade, setUnidade] = useState<string | null>(null);
+  // Free: registrar, consultar, editar, excluir e a linha do tempo de cada embarque.
+  // Premium: resumo de carreira, totais por ano e filtros. Os registros nunca somem.
+  const { plus } = useOwBuddyPlus();
 
   const load = useCallback(async () => {
     const [hist, escala, avisos] = await Promise.all([getHistorico(), getEscala(), getAvisosHistorico()]);
@@ -53,7 +57,7 @@ function MeuHistoricoConteudo() {
   }, [load]));
 
   const registros = dados?.hist.registros ?? [];
-  const grupos = useMemo(() => agruparPorAno(registros, { ano, unidade }), [registros, ano, unidade]);
+  const grupos = useMemo(() => agruparPorAno(registros, plus ? { ano, unidade } : {}), [registros, ano, unidade, plus]);
   const anos = useMemo(() => anosDoHistorico(registros), [registros]);
   const unidades = useMemo(() => unidadesDoHistorico(registros), [registros]);
   const geral = useMemo(() => resumoHistorico(registros), [registros]);
@@ -91,7 +95,8 @@ function MeuHistoricoConteudo() {
         </View>
       ) : (
         <>
-          {geral.embarques > 0 ? <ResumoGeral r={geral} /> : null}
+          {geral.embarques > 0 && plus ? <ResumoGeral r={geral} /> : null}
+          {geral.embarques > 0 && !plus ? <CartaoPremium recurso="historico_avancado" texto="Dias embarcado por ano e no total, unidades e filtros." /> : null}
           {pendencia ? <AvisoFinalizar p={pendencia} onFeito={load} /> : null}
           {!pendencia && aConfirmar ? <AvisoPlanejado r={aConfirmar} /> : null}
           {!pendencia && sugestao ? <AvisoSugestao s={sugestao} onFeito={load} compacto /> : null}
@@ -99,10 +104,10 @@ function MeuHistoricoConteudo() {
             <Ionicons name="add" size={20} color={colors.cyanDim} />
             <Text style={styles.novoTexto}>Registrar embarque</Text>
           </TouchableOpacity>
-          {anos.length > 1 ? (
+          {plus && anos.length > 1 ? (
             <Filtro opcoes={anos.map(String)} atual={ano ? String(ano) : null} onEscolher={v => setAno(v ? Number(v) : null)} rotulo="Ano" />
           ) : null}
-          {unidades.length > 1 ? (
+          {plus && unidades.length > 1 ? (
             <Filtro opcoes={unidades} atual={unidade} onEscolher={setUnidade} rotulo="Unidade" />
           ) : null}
           {grupos.length === 0 ? <Text style={styles.semFiltro}>Nenhum registro com esse filtro.</Text> : null}
@@ -117,7 +122,7 @@ function MeuHistoricoConteudo() {
         sections={vazio ? [] : grupos.map(g => ({ key: String(g.ano), grupo: g, data: g.registros }))}
         keyExtractor={r => r.id}
         ListHeaderComponent={cabecalho}
-        renderSectionHeader={({ section }) => <CabecalhoAno g={section.grupo} />}
+        renderSectionHeader={({ section }) => <CabecalhoAno g={section.grupo} totais={plus} />}
         renderItem={({ item, index, section }) => (
           <LinhaRegistro r={item} hoje={hoje} primeiro={index === 0} ultimo={index === section.data.length - 1} />
         )}
@@ -193,13 +198,16 @@ function Filtro({ opcoes, atual, onEscolher, rotulo }: { opcoes: string[]; atual
   );
 }
 
-function CabecalhoAno({ g }: { g: GrupoAno }) {
+/** Free: o ano e quantos embarques. Premium (`totais`): também dias embarcado e unidades no ano. */
+function CabecalhoAno({ g, totais }: { g: GrupoAno; totais: boolean }) {
   useTema();
   const partes: string[] = [];
   if (g.resumo.embarques > 0) {
     partes.push(`${g.resumo.embarques} ${g.resumo.embarques === 1 ? 'embarque' : 'embarques'}`);
-    partes.push(`${g.resumo.dias.toLocaleString('pt-BR')} dias embarcado`);
-    if (g.resumo.unidades > 0) partes.push(`${g.resumo.unidades} ${g.resumo.unidades === 1 ? 'unidade' : 'unidades'}`);
+    if (totais) {
+      partes.push(`${g.resumo.dias.toLocaleString('pt-BR')} dias embarcado`);
+      if (g.resumo.unidades > 0) partes.push(`${g.resumo.unidades} ${g.resumo.unidades === 1 ? 'unidade' : 'unidades'}`);
+    }
   }
   if (g.emAndamento > 0) partes.push(`${g.emAndamento} em andamento`);
   return (
@@ -316,8 +324,8 @@ const styles = themed(() => StyleSheet.create({
   rodape: { fontSize: 12, color: colors.mutedDim, textAlign: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.md },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+/** Meu Histórico é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function MeuHistorico() {
   useTema();
-  return <PortaoPlus recurso="historico"><MeuHistoricoConteudo /></PortaoPlus>;
+  return <MeuHistoricoConteudo />;
 }

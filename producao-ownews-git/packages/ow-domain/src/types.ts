@@ -219,6 +219,8 @@ export interface ChecklistItem {
   ok: boolean;
   /** Recorrente (mantido entre ciclos). Ausente = true — mesma regra do OWNews web. */
   rec?: boolean;
+  /** Quantidade a levar (ex.: 7 cuecas). Ausente = 1 (o OWNews web ignora o campo). */
+  q?: number;
 }
 
 export interface ChecklistData {

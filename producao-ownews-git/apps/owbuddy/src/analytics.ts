@@ -94,7 +94,15 @@ type EventName =
   | 'plus_cta_tocado'
   | 'plus_compra_resultado'
   | 'plus_restaurar_resultado'
-  | 'plus_gerenciar_aberto';
+  | 'plus_gerenciar_aberto'
+  // Período Premium de 45 dias: só qual aviso e qual escolha (nenhum dado da pessoa)
+  | 'premium_trial_iniciado'
+  | 'premium_perto_conhecer'
+  | 'premium_perto_ok'
+  | 'premium_fim_conhecer'
+  | 'premium_fim_continuar_free'
+  // Minha Mala: reordenar item
+  | 'checklist_item_moved';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

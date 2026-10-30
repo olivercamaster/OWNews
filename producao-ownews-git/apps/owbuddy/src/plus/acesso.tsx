@@ -1,18 +1,22 @@
 /**
- * OWBuddy+ — a ÚNICA camada de acesso do app.
+ * OWBuddy Premium — a ÚNICA camada de acesso do app.
  *
  *   const { plus } = useOwBuddyPlus();
  *
- * Telas e componentes só perguntam "tem Plus?". Assinatura ativa, período gratuito, compra
- * restaurada, cancelada-ainda-válida, expiração, erro, falta de internet e plataforma ficam
- * aqui e em @owbuddy/domain/plus. Nada de trial local: quem diz é a loja.
+ * Telas e componentes só perguntam "tem Premium?". Assinatura ativa, compra restaurada,
+ * cancelada-ainda-válida, expiração, erro, falta de internet, plataforma e o período de
+ * boas-vindas de 45 dias ficam aqui e em @owbuddy/domain/plus.
+ *
+ * Período de 45 dias: começa sozinho quando existe escala no aparelho (primeiro uso de
+ * verdade), sem cartão, sem conta e sem rede. O relógio efetivo nunca anda para trás.
  */
 import { useEffect, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
-import { atualizarCachePlus, resolverAcessoPlus } from '@owbuddy/domain';
-import type { AcessoPlus, CachePlus, ConsultaLoja, ProdutoPlus } from '@owbuddy/domain';
-import { getCachePlus, setCachePlus } from '../storage';
+import { atualizarCachePlus, combinarComTrial, iniciarTrialPremium, resolverAcessoPlus, statusTrialPremium, tocarTrialPremium } from '@owbuddy/domain';
+import type { AcessoPlus, CachePlus, ConsultaLoja, ProdutoPlus, TrialPremium } from '@owbuddy/domain';
+import { aoMudarDadosDoLembrete, getCachePlus, getEscala, getTrialPremium, setCachePlus, setTrialPremium } from '../storage';
 import { lojaPlus, modoTesteAtivo } from './loja';
+import { analytics } from '../analytics';
 import type { ConsultaProduto, ResultadoCompra, ResultadoRestaurar } from './loja';
 
 export type EstadoProduto = { tipo: 'carregando' } | ConsultaProduto;
@@ -25,11 +29,66 @@ interface Estado {
 }
 
 let cache: CachePlus | null = null;
+/** Última resposta da loja (null = ainda não respondeu). */
+let consultaLoja: ConsultaLoja | null = null;
+/** Registro do período de 45 dias (real ou do cenário simulado). */
+let trial: TrialPremium | null = null;
 let estado: Estado = {
   lido: false,
   acesso: resolverAcessoPlus(null, null, Date.now()),
   produto: { tipo: 'carregando' },
 };
+
+/** Loja + período de boas-vindas → acesso único. */
+function calcularAcesso(): AcessoPlus {
+  const agora = Date.now();
+  return combinarComTrial(resolverAcessoPlus(consultaLoja, cache, agora), statusTrialPremium(trial, agora));
+}
+
+/**
+ * Lê (e, se for a hora, começa) o período de 45 dias. Começa uma vez só, quando já existe
+ * escala. No modo de teste, o cenário pode fixar o período (sem gravar nada real).
+ */
+async function garantirTrial(): Promise<void> {
+  const simulado = lojaPlus().trialSimulado?.();
+  if (simulado !== undefined) {
+    trial = simulado ? { ...simulado, avisoPerto: avisosSimulados.perto, avisoFim: avisosSimulados.fim } : null;
+    return;
+  }
+  const agora = Date.now();
+  let t = await getTrialPremium();
+  if (!t) {
+    if (!(await getEscala())) { trial = null; return; }
+    t = iniciarTrialPremium(null, agora);
+    await setTrialPremium(t);
+    analytics.track('premium_trial_iniciado');
+  } else {
+    const tocado = tocarTrialPremium(t, agora);
+    // Grava o relógio visto no máximo 1×/hora (sem escrita a cada abertura).
+    if (tocado.visto - t.visto >= 3_600_000) { await setTrialPremium(tocado); t = tocado; }
+  }
+  trial = t;
+}
+/** Avisos do período nos cenários simulados (só memória; o teste nunca grava o registro real). */
+const avisosSimulados = { perto: false, fim: false };
+
+/** Marca o aviso do período como visto (uma vez só; nunca volta a aparecer). */
+export async function marcarAvisoTrial(qual: 'perto' | 'fim'): Promise<void> {
+  if (lojaPlus().trialSimulado?.() !== undefined) {
+    avisosSimulados[qual] = true;
+  } else {
+    const t = await getTrialPremium();
+    if (!t) return;
+    await setTrialPremium(qual === 'perto' ? { ...t, avisoPerto: true } : { ...t, avisoFim: true });
+  }
+  await garantirTrial();
+  publicar({ acesso: calcularAcesso() });
+}
+
+/** Registro bruto do período (para os avisos do Início). */
+export function trialPremiumAtual(): TrialPremium | null {
+  return trial;
+}
 const ouvintes = new Set<() => void>();
 let iniciado = false;
 let consultaEmCurso: Promise<void> | null = null;
@@ -81,7 +140,9 @@ export function atualizarAcessoPlus(): Promise<void> {
       const novo = atualizarCachePlus(cache, consulta, Date.now());
       if (novo !== cache) { cache = novo; await gravarCache(novo); }
       ultimaConsulta = Date.now();
-      publicar({ acesso: resolverAcessoPlus(consulta, cache, Date.now()) });
+      consultaLoja = consulta;
+      await garantirTrial();
+      publicar({ acesso: calcularAcesso() });
     } finally {
       consultaEmCurso = null;
     }
@@ -99,7 +160,12 @@ async function iniciar(): Promise<void> {
   if (iniciado) return;
   iniciado = true;
   cache = await lerCache();
-  publicar({ lido: true, acesso: resolverAcessoPlus(null, cache, Date.now()) });
+  await garantirTrial();
+  publicar({ lido: true, acesso: calcularAcesso() });
+  // Escala gravada pela primeira vez (ou apagada) → o período começa sem esperar a loja.
+  aoMudarDadosDoLembrete(() => {
+    garantirTrial().then(() => publicar({ acesso: calcularAcesso() }));
+  });
   lojaPlus().aoMudar?.(() => {
     if (lojaPlus().cacheSimulado) cache = lojaPlus().cacheSimulado!();
     atualizarAcessoPlus();
@@ -180,6 +246,10 @@ export async function reiniciarAcessoPlusTeste(): Promise<void> {
   if (!modoTesteAtivo()) return;
   consultaEmCurso = null; // um cenário "carregando" deixa a consulta anterior presa para sempre
   cache = await lerCache();
-  publicar({ acesso: resolverAcessoPlus(null, cache, Date.now()), produto: { tipo: 'carregando' } });
+  consultaLoja = null;
+  avisosSimulados.perto = false;
+  avisosSimulados.fim = false;
+  await garantirTrial();
+  publicar({ acesso: calcularAcesso(), produto: { tipo: 'carregando' } });
   await Promise.all([atualizarAcessoPlus(), carregarProdutoPlus()]);
 }

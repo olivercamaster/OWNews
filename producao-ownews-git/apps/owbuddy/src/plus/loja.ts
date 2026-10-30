@@ -7,8 +7,8 @@
  *  - lojaIndisponivel → web sem modo de teste: não há loja, ninguém compra nada.
  */
 import { Platform } from 'react-native';
-import { modoTestePermitido } from '@owbuddy/domain';
-import type { CachePlus, ConsultaLoja, PlataformaLoja, ProdutoPlus } from '@owbuddy/domain';
+import { ASSINATURA_PREMIUM_LIBERADA, modoTestePermitido } from '@owbuddy/domain';
+import type { CachePlus, ConsultaLoja, PlataformaLoja, ProdutoPlus, TrialPremium } from '@owbuddy/domain';
 
 export type MotivoErroLoja = 'offline' | 'loja' | 'indisponivel';
 
@@ -34,6 +34,8 @@ export interface LojaPlus {
   cacheSimulado?(): CachePlus | null;
   /** Só a loja de teste: lê o cenário escolhido antes do primeiro uso. */
   preparar?(): Promise<void>;
+  /** Só a loja de teste: período de 45 dias do cenário (undefined = usa o registro real). */
+  trialSimulado?(): TrialPremium | null | undefined;
   /** Avisa quando a loja entrega algo fora de uma compra em andamento (renovação, pendente pago). */
   aoMudar?(cb: () => void): () => void;
 }
@@ -51,9 +53,10 @@ export function modoTesteAtivo(): boolean {
   });
 }
 
+/** Sem loja (web, ou venda ainda desligada): ninguém assina — é Free, não erro. */
 export const lojaIndisponivel: LojaPlus = {
   plataforma: 'indisponivel',
-  consultar: async () => ({ tipo: 'erro', motivo: 'indisponivel' }),
+  consultar: async () => ({ tipo: 'ok', status: { ativo: false, produtoId: null, renovaAutomaticamente: null, fimDoPeriodo: null, pendente: false } }),
   produto: async () => ({ tipo: 'erro', motivo: 'indisponivel' }),
   comprar: async () => 'erro',
   restaurar: async () => 'erro',
@@ -67,7 +70,7 @@ export function lojaPlus(): LojaPlus {
   if (modoTesteAtivo()) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     escolhida = (require('./loja-teste') as typeof import('./loja-teste')).lojaTeste;
-  } else if (Platform.OS === 'android' || Platform.OS === 'ios') {
+  } else if (ASSINATURA_PREMIUM_LIBERADA && (Platform.OS === 'android' || Platform.OS === 'ios')) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     escolhida = (require('./loja-nativa') as typeof import('./loja-nativa')).lojaNativa;
   } else {

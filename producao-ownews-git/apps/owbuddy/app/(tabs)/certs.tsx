@@ -43,7 +43,6 @@ import { analytics } from '../../src/analytics';
 import { confirmarRemocao } from '../../src/confirmar';
 import { avisar } from '../../src/feedback';
 import { useAcaoUnica, useVoltarAndroid } from '../../src/acoes';
-import { PortaoPlus } from '../../src/components/PortaoPlus';
 
 const STATUS_COLOR: Record<string, string> = themed(() => ({
   valido:      colors.green,
@@ -403,8 +402,8 @@ const styles = themed(() => StyleSheet.create({
   certAlert: { fontSize: 12, fontWeight: '600', marginTop: spacing.sm },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+/** Certificados e documentos é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function MeusCerts() {
   useTema();
-  return <PortaoPlus recurso="documentos" aba><MeusCertsConteudo /></PortaoPlus>;
+  return <MeusCertsConteudo />;
 }

@@ -1,16 +1,16 @@
 /**
- * OWBuddy+ SIMULADO — só para validar telas antes das lojas estarem configuradas.
+ * OWBuddy Premium SIMULADO — só para validar telas antes das lojas estarem configuradas.
  * Escolhida por lojaPlus() apenas quando modoTesteAtivo() (dev / preview web com a flag).
  * Preço e período aqui são fictícios e a tela avisa isso; nada é cobrado.
  */
-import { CARENCIA_OFFLINE_DIAS, PRODUTO_PLUS_MENSAL, cenarioTesteValido } from '@owbuddy/domain';
-import type { CachePlus, CenarioTestePlus, ConsultaLoja, ProdutoPlus } from '@owbuddy/domain';
+import { CARENCIA_OFFLINE_DIAS, PRODUTO_PLUS_MENSAL, cenarioTesteValido, trialDoCenario } from '@owbuddy/domain';
+import type { CachePlus, CenarioTestePlus, ConsultaLoja, ProdutoPlus, TrialPremium } from '@owbuddy/domain';
 import { getCenarioTestePlus, setCenarioTestePlus } from '../storage';
 import { perguntar } from '../confirmar';
 import type { ConsultaProduto, LojaPlus, ResultadoCompra, ResultadoRestaurar } from './loja';
 
-/** Cenário inicial do preview: usuário novo, Free, com período gratuito disponível. */
-export const CENARIO_TESTE_PADRAO: CenarioTestePlus = 'free_trial';
+/** Cenário inicial do preview: usuário novo — sem assinatura, período de 45 dias REAL do aparelho. */
+export const CENARIO_TESTE_PADRAO: CenarioTestePlus = 'novo_usuario';
 const DIA = 86_400_000;
 
 let cenario: CenarioTestePlus = CENARIO_TESTE_PADRAO;
@@ -107,6 +107,10 @@ export const lojaTeste: LojaPlus = {
   },
 
   preparar: garantirLido,
+
+  trialSimulado(): TrialPremium | null | undefined {
+    return trialDoCenario(cenario, Date.now());
+  },
 
   cacheSimulado(): CachePlus | null {
     const agora = Date.now();

@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { getPreviewMensagem, DEFAULT_BUDDY_PREFS, PREFS_LEMBRETES_PADRAO } from '@owbuddy/domain';
+import { getPreviewMensagem, DEFAULT_BUDDY_PREFS, PREFS_LEMBRETES_PADRAO, textoDiasRestantes } from '@owbuddy/domain';
 import type { BuddyPrefs, BuddyTom, BuddyTrat, PrefsLembretes } from '@owbuddy/domain';
 import { apagarDadosDoAparelho, getBuddyPrefs, setBuddyPrefs } from '../src/storage';
 import { confirmar } from '../src/confirmar';
@@ -188,7 +188,7 @@ export default function BuddyConfig() {
   const apagarAparelho = () => {
     confirmar(
       'Apagar dados deste aparelho?',
-      'Escala, mala, documentos, viagem, contatos, datas, Meu Histórico e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada, e a assinatura do OWBuddy+ (se você tiver) continua na loja.',
+      'Escala, mala, documentos, viagem, contatos, datas, Meu Histórico e preferências saem deste aparelho. Não dá para desfazer. A Conta OW (se você tiver) não é apagada, e a assinatura do OWBuddy Premium (se você tiver) continua na loja. O período Premium de 45 dias deste aparelho também é apagado.',
       'Apagar tudo',
       async () => {
         await apagarDadosDoAparelho();
@@ -413,8 +413,8 @@ export default function BuddyConfig() {
           ))}
         </View>
 
-        {/* ── OWBuddy+ (situação + tela informativa) ── */}
-        <Text style={styles.sectionTitle}>OWBuddy+</Text>
+        {/* ── OWBuddy Premium (situação + tela informativa) ── */}
+        <Text style={styles.sectionTitle}>OWBuddy Premium</Text>
         <LinhaPlus />
 
         {/* ── Conta OW (opcional) ── */}
@@ -711,21 +711,26 @@ const styles = themed(() => StyleSheet.create({
   atalhoTexto: { flex: 1, fontSize: 15, color: colors.white, fontWeight: '600' },
 }));
 
-/** Situação do OWBuddy+ em uma linha; o toque abre a tela que explica tudo (nunca a compra). */
+/**
+ * Situação do Premium em uma linha — o ÚNICO lugar fixo onde o período de 45 dias aparece
+ * ("Premium ativo · 32 dias restantes"). O toque abre a tela que explica tudo (nunca a compra).
+ */
 function LinhaPlus() {
   useTema();
   const { plus, lido, acesso } = useOwBuddyPlus();
   const sub = !lido || acesso.estado === 'carregando' ? 'Verificando…'
+    : acesso.nivel === 'premium_trial' && acesso.trial ? `Premium ativo · ${textoDiasRestantes(acesso.trial.diasRestantes)}`
     : plus ? (acesso.cancelado ? 'Ativo · renovação desligada' : 'Ativo')
     : acesso.estado === 'erro' ? 'Não foi possível consultar agora'
-    : acesso.expirou ? 'Acesso terminou · seus dados continuam guardados'
-    : 'Você está no Free · conhecer os recursos Plus';
+    : acesso.expirou ? 'Você está no Free · seus dados continuam aqui'
+    : !acesso.trial ? 'Configure sua escala e experimente 45 dias sem cobrança'
+    : 'Você está no Free · conhecer o Premium';
   return (
     <View style={styles.contaCard}>
-      <TouchableOpacity style={styles.atalho} onPress={() => router.push({ pathname: '/owbuddy-plus', params: { origem: 'buddy-config' } })} accessibilityRole="button" accessibilityLabel={`OWBuddy+. ${sub}`}>
-        <Ionicons name={plus ? 'checkmark-circle' : 'sparkles-outline'} size={18} color={plus ? colors.green : colors.cyanDim} />
+      <TouchableOpacity style={styles.atalho} onPress={() => router.push({ pathname: '/owbuddy-plus', params: { origem: 'buddy-config' } })} accessibilityRole="button" accessibilityLabel={`OWBuddy Premium. ${sub}`}>
+        <Ionicons name={plus ? 'star' : 'star-outline'} size={18} color={plus ? colors.green : colors.cyanDim} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.atalhoTexto}>{plus ? 'OWBuddy+ ativo' : 'OWBuddy+'}</Text>
+          <Text style={styles.atalhoTexto}>{plus ? 'OWBuddy Premium ativo' : 'OWBuddy Premium'}</Text>
           <Text style={styles.contaDesc} numberOfLines={2}>{sub}</Text>
         </View>
         <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />

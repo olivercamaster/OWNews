@@ -107,7 +107,7 @@ export function contextoHome(
   if (MOMENTOS_PRE_EMBARQUE.includes(momento.tipo)) {
     const titulo = emDias(dias, 'Embarque hoje', 'Embarque amanhã', n => `Embarque em ${n} dias`);
     if (!checklist || checklist.total === 0) {
-      return { tipo: 'PRE_EMBARQUE', kicker: 'Pré-embarque', titulo, destaque: null, detalhe: 'Monte sua mala no Meu Embarque.' };
+      return { tipo: 'PRE_EMBARQUE', kicker: 'Pré-embarque', titulo, destaque: null, detalhe: 'Monte sua mala na Minha Mala.' };
     }
     const { total, feitos, pendentes } = checklist;
     return {

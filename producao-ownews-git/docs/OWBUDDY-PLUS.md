@@ -1,5 +1,7 @@
 # OWBuddy Free + OWBuddy+ — assinatura (2026-10-25)
 
+> **2026-10-30 — matriz substituída** por [OWBUDDY-FREE-PREMIUM.md](OWBUDDY-FREE-PREMIUM.md): Mala, Viagem, Documentos, Contatos e o Histórico básico passaram a ser Free; Premium = Buddy cruzando módulos, alertas e Histórico de carreira; período de 45 dias local. A parte técnica de loja abaixo continua válida.
+
 Status: arquitetura e UX prontas e testadas no preview com loja SIMULADA. **Nenhum produto criado nas lojas,
 nenhuma cobrança real, nenhum APK/AAB gerado.** Próximos passos: configurar as lojas (checklists abaixo) → RC.
 

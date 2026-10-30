@@ -35,7 +35,7 @@ export function OndeEstarCard({ onde, mala, contatos }: {
         ))}
         {malaTexto ? (
           <TouchableOpacity style={styles.linha} onPress={() => router.navigate('/mala')} accessibilityRole="button">
-            <Text style={styles.rotulo}>Mala</Text>
+            <Text style={styles.rotulo}>Minha Mala</Text>
             <Text style={[styles.valor, mala!.pendentes > 0 ? { color: colors.amber } : { color: colors.green }]}>{malaTexto} ›</Text>
           </TouchableOpacity>
         ) : null}

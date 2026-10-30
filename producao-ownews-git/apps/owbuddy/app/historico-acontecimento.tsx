@@ -30,7 +30,6 @@ import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { novoIdHistorico } from '../src/historico-acoes';
 import { HIST_VISUAL } from '../src/historico-visual';
-import { PortaoPlus } from '../src/components/PortaoPlus';
 
 const ROTULO_LOCAL: Partial<Record<TipoAcontecimentoHist, string>> = {
   HOTEL: 'Hotel / local (opcional)', BASE: 'Base (opcional)', TREINAMENTO: 'Local (opcional)',
@@ -278,8 +277,8 @@ const styles = themed(() => StyleSheet.create({
   secundarioTexto: { fontSize: 14, fontWeight: '600', color: colors.cyanDim },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos). */
+/** Meu Histórico é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function FormAcontecimento() {
   useTema();
-  return <PortaoPlus recurso="historico"><FormAcontecimentoConteudo /></PortaoPlus>;
+  return <FormAcontecimentoConteudo />;
 }

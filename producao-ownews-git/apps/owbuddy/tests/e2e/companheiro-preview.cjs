@@ -143,7 +143,7 @@ ok(JSON.parse(await ls(p,'ownews_checklist_mala')).items.find(i=>i.t==='Adaptado
 // 9. Offline: core continua
 await ctx.setOffline(true); await p.waitForTimeout(800);
 await tab('Escala'); t=await txt(p); ok(/Dia 9 de 14/.test(t),'Offline: Escala funciona');
-await tab('Embarque'); t=await txt(p); ok(/Adaptador universal/.test(t),'Offline: Mala funciona');
+await tab('Minha Mala'); t=await txt(p); ok(/Adaptador universal/.test(t),'Offline: Mala funciona');
 await tab('Certificados'); t=await txt(p); ok(/Passaporte/.test(t),'Offline: Documentos funcionam');
 await tab('Viagem'); t=await txt(p); ok(/Logística Base Macaé/.test(t),'Offline: Viagem e contatos funcionam');
 await tab('Início'); t=await txt(p); ok(/Offline/.test(t)&&/Dia 9 de 14/.test(t),'Offline: Home com aviso discreto e escala');

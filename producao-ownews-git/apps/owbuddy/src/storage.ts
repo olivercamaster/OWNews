@@ -5,8 +5,8 @@ import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import { lerHistorico, lerAvisos, HISTORICO_VERSAO } from '@owbuddy/domain';
 import type { HistoricoData, AvisosHistorico } from '@owbuddy/domain';
-import { lerCachePlus } from '@owbuddy/domain';
-import type { CachePlus } from '@owbuddy/domain';
+import { lerCachePlus, lerTrialPremium } from '@owbuddy/domain';
+import type { CachePlus, TrialPremium } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
 
@@ -36,6 +36,8 @@ export const KEYS = {
   PLUS_CACHE:       'owbuddy_plus_cache',
   // Cenário simulado do OWBuddy+ — lido SÓ quando o modo de teste é permitido (dev/preview).
   PLUS_TESTE:       'owbuddy_plus_teste_cenario',
+  // Período Premium de boas-vindas (45 dias): só o início e o maior relógio já visto. Local, fora do sync.
+  PREMIUM_TRIAL:    'owbuddy_premium_trial',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -319,6 +321,16 @@ export async function getCachePlus(): Promise<CachePlus | null> {
 export async function setCachePlus(c: CachePlus | null): Promise<void> {
   if (c) await set(KEYS.PLUS_CACHE, c);
   else await remove(KEYS.PLUS_CACHE);
+}
+
+// Período Premium de boas-vindas. "Apagar dados deste aparelho" também apaga este registro
+// (privacidade vem antes do antifraude: apagar é apagar).
+export async function getTrialPremium(): Promise<TrialPremium | null> {
+  return lerTrialPremium(await get<unknown>(KEYS.PREMIUM_TRIAL));
+}
+
+export async function setTrialPremium(t: TrialPremium): Promise<void> {
+  await set(KEYS.PREMIUM_TRIAL, t);
 }
 
 export async function getCenarioTestePlus(): Promise<string | null> {

@@ -81,7 +81,7 @@ async function garantirCanal(n: NotificationsModule): Promise<void> {
   if (Platform.OS !== 'android') return;
   await n.setNotificationChannelAsync(CANAL, {
     name: 'Lembretes do OWBuddy',
-    description: 'Escala, viagem, Meu Embarque, certificados, datas importantes e pagamento',
+    description: 'Escala, viagem, Minha Mala, certificados, datas importantes e pagamento',
     importance: n.AndroidImportance.DEFAULT,
   });
 }
@@ -119,7 +119,8 @@ export async function replanejarLembretes(): Promise<number> {
     const [escala, checklist, certs, viagem, eventos, pagamento] = await Promise.all([
       getEscala(), getChecklist(), getCerts(), getViagem(), getEventosPessoais(), getPagamento(),
     ]);
-    // Sem Plus: só lembretes do que é Free (escala, eventos, pagamento). Os dados Plus ficam intactos.
+    // Free: lembretes da escala, datas importantes e pagamento. Premium (assinatura ou 45 dias)
+    // acrescenta mala, viagem e documentos. Os dados ficam intactos nos dois casos.
     const plus = recorteFree(acesso.plus, { checklist, certs, viagem });
     const plano = planejarLembretes({ escala, ...plus, eventos, pagamento, prefs });
     for (const l of plano) {

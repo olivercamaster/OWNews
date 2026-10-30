@@ -41,7 +41,6 @@ import { useAcaoUnica } from '../src/acoes';
 import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { novoIdHistorico } from '../src/historico-acoes';
-import { PortaoPlus } from '../src/components/PortaoPlus';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
@@ -443,8 +442,8 @@ const styles = themed(() => StyleSheet.create({
   salvoSub: { ...typography.small, textAlign: 'center', fontVariant: ['tabular-nums'] },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos). */
+/** Meu Histórico é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function FormEmbarque() {
   useTema();
-  return <PortaoPlus recurso="historico"><FormEmbarqueConteudo /></PortaoPlus>;
+  return <FormEmbarqueConteudo />;
 }

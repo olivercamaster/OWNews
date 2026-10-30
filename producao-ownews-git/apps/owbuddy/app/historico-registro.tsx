@@ -36,7 +36,8 @@ import { useAcaoUnica } from '../src/acoes';
 import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { HIST_VISUAL } from '../src/historico-visual';
-import { PortaoPlus } from '../src/components/PortaoPlus';
+import { useOwBuddyPlus } from '../src/plus/acesso';
+import { CartaoPremium } from '../src/components/PortaoPlus';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
@@ -44,6 +45,7 @@ function RegistroHistoricoConteudo() {
   useTema();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { plus } = useOwBuddyPlus();
   const [hist, setHist] = useState<HistoricoData | null>(null);
   const [viagem, setViagem] = useState<Viagem | null>(null);
 
@@ -161,7 +163,9 @@ function RegistroHistoricoConteudo() {
 
         {pend ? <AvisoFinalizar p={pend} onFeito={load} /> : null}
 
-        {podeImportar ? (
+        {/* Levar a viagem para o histórico num toque é Premium; registrar o voo à mão continua livre. */}
+        {podeImportar && !plus ? <CartaoPremium recurso="historico_avancado" texto="Leve a sua viagem para esta linha do tempo com um toque." /> : null}
+        {podeImportar && plus ? (
           <View style={styles.importar}>
             <Ionicons name="airplane-outline" size={17} color={colors.iconDefault} />
             <View style={{ flex: 1 }}>
@@ -321,8 +325,8 @@ const styles = themed(() => StyleSheet.create({
   rodape: { fontSize: 12, color: colors.mutedDim, textAlign: 'center' },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos). */
+/** Meu Histórico é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function RegistroHistorico() {
   useTema();
-  return <PortaoPlus recurso="historico"><RegistroHistoricoConteudo /></PortaoPlus>;
+  return <RegistroHistoricoConteudo />;
 }

@@ -22,12 +22,12 @@ await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500); let
 ok(t.includes('Hoje é dia de embarque')&&t.includes('Dia 1 de 14')&&t.includes('Faltam 14 dias pra casa.')&&t.includes('Desembarque '+br(dia(14))),'Home embarcado hoje: Dia 1 de 14 · Faltam 14 dias pra casa · '+br(dia(14)));
 const heroLocal=async pg=>pg.evaluate(()=>{const h=[...document.querySelectorAll('[role="button"]')].find(e=>/^EMBARCADO|^PRÉ-EMBARQUE|^DE FOLGA/i.test(e.innerText.trim())); return h?h.innerText:'';});
 let hero=await heroLocal(p); ok(hero&&!/SBJR|Jacarepagu/i.test(hero),'Card embarcado (Dia 1) sem aeroporto/base');
-ok(/Meu Embarque Mala: 0 de 11/.test(t)&&!/\b11 Meu Embarque/.test(t),'Meu Embarque sem badge redundante');
+ok(/Minha Mala Mala: 0 de 11/.test(t)&&!/\b11 Minha Mala/.test(t),'Minha Mala sem badge redundante');
 ok(/Vagas \d+ vagas verificadas/.test(t),'Vagas com dado real e fresco → contador');
 const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,240}?) Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com manchete recente: '+(man?man[1].slice(0,60):''));
 ok(/\bFerramentas\b/.test(t)&&/\bLoja\b/.test(t),'Ferramentas + Loja secundários');
 const tabs=await p.evaluate(()=>[...document.querySelectorAll('[role="tab"],a[href]')].map(e=>e.innerText.replace(/[\uE000-\uF8FF\s]/g,'').trim()).filter(Boolean));
-ok(tabs.slice(-5).join('|')==='Início|Escala|Embarque|Viagem|Certificados','Bottom nav: '+JSON.stringify(tabs.slice(-6)));
+ok(tabs.slice(-5).join('|')==='Início|Escala|MinhaMala|Viagem|Certificados','Bottom nav: '+JSON.stringify(tabs.slice(-6)));
 await p.screenshot({path:OUT+'/rc-home-390.png'}); await ctx.close();
 for(const [nome,d,esperado] of [['sem',null,'Vamos começar pela sua escala'],['pre',dia(2),'Embarque em 2 dias'],['folga',dia(9),'Mais 9 dias em casa.']]){
  ({ctx,p}=await nova(390,d?esc(d):{})); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
@@ -49,7 +49,7 @@ await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2500);
 ok(/Vagas Vagas verificadas/.test(await txt(p)),'Cache antigo de vagas não vira contador'); await ctx.close();
 // NAV + back
 ({ctx,p}=await nova(390,esc(HOJE))); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
-for(const [tab,url] of [['Escala','/escala'],['Embarque','/mala'],['Viagem','/viagem'],['Certificados','/certs'],['Início','/']]){
+for(const [tab,url] of [['Escala','/escala'],['Minha Mala','/mala'],['Viagem','/viagem'],['Certificados','/certs'],['Início','/']]){
  await p.getByRole('tab',{name:new RegExp(tab)}).first().click().catch(async()=>{await p.getByText(tab,{exact:true}).last().click();}); await p.waitForTimeout(1200);
  ok(new URL(p.url()).pathname===url,`Tab ${tab} → ${url}`); }
 await p.getByText('Escala',{exact:true}).last().click(); await p.waitForTimeout(1200);
@@ -84,7 +84,7 @@ ok(t.includes('Legado')&&!/🤜|🤛/.test(t),'Escala antiga com emoji 🤜🤛 
 await ctx.close();
 // TAB BAR em larguras
 for(const W of [320,360,375,390,412,430]){ ({ctx,p}=await nova(W,esc(HOJE))); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
- const r=await p.evaluate(()=>{const ls=[...document.querySelectorAll('[role="tab"] div, a[href] div')].filter(e=>/^(Início|Escala|Embarque|Viagem|Certificados)$/.test(e.innerText.trim())&&e.children.length===0);
+ const r=await p.evaluate(()=>{const ls=[...document.querySelectorAll('[role="tab"] div, a[href] div')].filter(e=>/^(Início|Escala|Minha Mala|Viagem|Certificados)$/.test(e.innerText.trim())&&e.children.length===0);
    return ls.map(e=>({t:e.innerText.trim(),cut:e.scrollWidth>e.clientWidth+1}));});
  const cortados=r.filter(x=>x.cut).map(x=>x.t); ok(r.length>=5&&cortados.length===0,`${W}px: rótulos da barra inteiros ${cortados.length?'(cortados: '+cortados+')':''}`);
  if(W===320) await p.screenshot({path:OUT+'/rc-home-320.png'}); await ctx.close(); }

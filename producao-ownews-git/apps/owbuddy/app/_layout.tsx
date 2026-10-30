@@ -259,7 +259,7 @@ function AppShell() {
         <Stack.Screen
           name="owbuddy-plus"
           options={{
-            title: 'OWBuddy+',
+            title: 'OWBuddy Premium',
             headerStyle: { backgroundColor: colors.navy800 },
             presentation: 'modal',
           }}

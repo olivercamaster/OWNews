@@ -1,7 +1,8 @@
 /**
- * OWBuddy Free + OWBuddy+ — acesso único (OWBUDDY_PLUS), oferta transparente, dados preservados.
- * Regras puras (ow-domain/plus.ts) + garantias estáticas: sem trial local, sem preço/período
- * escritos à mão, sem compra automática, sem apagar dados, modo de teste impossível em produção.
+ * OWBuddy Free + OWBuddy Premium — acesso único (OWBUDDY_PLUS), oferta transparente, dados preservados.
+ * Regras puras (ow-domain/plus.ts) + garantias estáticas: período de 45 dias só local e sem
+ * cobrança, sem preço escrito à mão, sem compra automática, sem apagar dados, venda desligada
+ * até a missão Play Billing, modo de teste impossível em produção.
  * Preços dos fixtures são propositalmente estranhos (R$ 7,77, US$ 1.99) para provar que o texto
  * exibido é SEMPRE o da loja.
  */
@@ -162,7 +163,7 @@ test('Google Play, trial elegível: oferta grátis + base → "1 mês grátis", 
   assert.equal(p.preco, 'R$ 7,77');
   assert.equal(p.ofertaAndroid, 'tok-trial', 'compra a oferta com período gratuito');
   const o = D.ofertaTexto(p);
-  assert.equal(o.cta, 'Experimentar OWBuddy+');
+  assert.equal(o.cta, 'Experimentar OWBuddy Premium');
   assert.equal(o.destaque, '1 mês grátis');
   assert.equal(o.depois, 'Depois, R$ 7,77/mês');
   assert.equal(o.aviso, 'Após o período gratuito de 1 mês, a assinatura passa a ser R$ 7,77/mês, salvo cancelamento.');
@@ -175,7 +176,7 @@ test('Google Play, trial NÃO elegível (loja não devolve a oferta grátis) →
   assert.equal(p.gratis, null);
   assert.equal(p.ofertaAndroid, 'tok-base');
   const o = D.ofertaTexto(p);
-  assert.equal(o.cta, 'Assinar OWBuddy+');
+  assert.equal(o.cta, 'Assinar OWBuddy Premium');
   assert.equal(o.destaque, 'R$ 7,77/mês');
   assert.equal(o.depois, null);
   assert.doesNotMatch(JSON.stringify(o), /grátis|gratuito|trial/i);
@@ -238,13 +239,9 @@ test('textos de período: unidades e plurais', () => {
 
 // ─── Dados preservados ──────────────────────────────────────────────────────
 
-test('dados preservados após expiração: texto conta o que ficou guardado; zero → nada a dizer', () => {
-  assert.equal(D.textoDadosGuardados('historico', 6), 'Seus 6 embarques registrados continuam guardados.');
-  assert.equal(D.textoDadosGuardados('historico', 1), 'Seu embarque registrado continua guardado.');
-  assert.equal(D.textoDadosGuardados('mala', 12), 'Os 12 itens da sua mala continuam guardados.');
-  assert.equal(D.textoDadosGuardados('documentos', 0), null);
-  for (const r of ['mala', 'viagem', 'documentos', 'historico', 'contatos']) {
-    assert.doesNotMatch(D.textoDadosGuardados(r, 3) ?? '', /perd|apag|expira|última|urgente/i);
+test('dados preservados após expiração: os dados não dependem do acesso (nenhuma tela de dado tem portão)', () => {
+  for (const f of ['app/(tabs)/mala.tsx', 'app/(tabs)/viagem.tsx', 'app/(tabs)/certs.tsx', 'app/historico.tsx', 'app/historico-registro.tsx', 'app/historico-form.tsx', 'app/historico-acontecimento.tsx', 'app/contato-form.tsx', 'app/(tabs)/escala.tsx']) {
+    assert.doesNotMatch(ler(f), /<PortaoPlus|<Portao\b/, `${f} é Free para sempre`);
   }
 });
 
@@ -257,17 +254,10 @@ test('recorte Free: sem Plus só esconde do cálculo; nunca altera nem apaga o o
   assert.equal(D.recorteFree(true, dados), dados);
 });
 
-test('Buddy Agora Free: o acontecimento fica, só some o atalho para recurso Plus', () => {
-  const l = [{ id: 'e', acao: { tipo: 'rota', label: 'Ver checklist', rota: '/mala' } }, { id: 'p', acao: { tipo: 'rota', label: 'Ver regra', rota: '/pagamento' } }, { id: 't', acao: { tipo: 'transporte', label: 'Transporte' } }];
-  const f = D.semAtalhoPlus(false, l);
-  assert.equal(f.length, 3);
-  assert.equal(f[0].acao, undefined);
-  assert.equal(f[1].acao.rota, '/pagamento');
-  assert.equal(f[2].acao.tipo, 'transporte');
-  assert.equal(l[0].acao.rota, '/mala', 'original intacto');
-  assert.equal(D.semAtalhoPlus(true, l), l);
-  assert.match(ler('app/(tabs)/index.tsx'), /semAtalhoPlus\(plus, gerarAcontecimentos/);
-  assert.match(ler('app/proximos.tsx'), /semAtalhoPlus\(plus, gerarAcontecimentos/);
+test('Buddy Agora Free: acontecimentos da escala, datas e pagamento ficam; mala/viagem/documentos entram com Premium', () => {
+  assert.equal(D.semAtalhoPlus, undefined, 'sem atalhos removidos: as telas de destino são todas Free');
+  assert.match(ler('app/(tabs)/index.tsx'), /gerarAcontecimentos\(\{ escala, checklist: cruz\.checklist, certs: cruz\.certs, viagem: cruz\.viagem/);
+  assert.match(ler('app/proximos.tsx'), /recorteFree\(plus, \{ checklist: checklistT/);
 });
 
 test('dados restaurados ao reassinar: as telas Plus leem as MESMAS chaves de sempre (sem cópia/migração)', () => {
@@ -284,25 +274,23 @@ test('dados restaurados ao reassinar: as telas Plus leem as MESMAS chaves de sem
 
 const PLUS_ARQS = ['src/plus/acesso.tsx', 'src/plus/loja.ts', 'src/plus/loja-nativa.ts', 'src/plus/loja-teste.ts', 'src/components/PortaoPlus.tsx', 'app/owbuddy-plus.tsx'];
 
-test('nenhuma exclusão de dados: a camada Plus não remove, não sobrescreve e não chama "apagar dados"', () => {
+test('nenhuma exclusão de dados: a camada Premium não remove, não sobrescreve e não chama "apagar dados"', () => {
   for (const f of PLUS_ARQS) {
     const s = semComentarios(ler(f));
-    assert.doesNotMatch(s, /apagarDadosDoAparelho|multiRemove|removeItem|AsyncStorage\.clear|setChecklist|setViagem|setCerts|setContatos|alterarHistorico|setHistorico/, f);
+    assert.doesNotMatch(s, /apagarDadosDoAparelho|multiRemove|removeItem|AsyncStorage\.clear|setChecklist|setViagem|setCerts|setContatos|alterarHistorico|setHistorico|setEscala|deleteEscala/, f);
   }
-  // o portão não monta a tela Plus sem acesso (nada é lido para edição nem gravado)
-  const portao = ler('src/components/PortaoPlus.tsx');
-  assert.match(portao, /if \(plus\) return <>\{children\}<\/>;/);
 });
 
-test('não existe trial local: nada de data de instalação, contador ou período gratuito calculado no app', () => {
-  const todos = [...arquivos('app'), ...arquivos('src'), join(RAIZ, '../../packages/ow-domain/src/plus.ts')];
-  for (const f of todos) {
-    const s = semComentarios(readFileSync(f, 'utf8'));
-    assert.doesNotMatch(s, /installedAt|instaladoEm|dataInstalacao|first_?open|trialInicio|inicioTrial|trial_?start/i, f);
-  }
+test('período de 45 dias: só local, sem cobrança, começa com a escala, relógio nunca volta', () => {
   const dom = semComentarios(ler('../../packages/ow-domain/src/plus.ts'));
-  assert.doesNotMatch(dom, /\b30\s*dias\b/);
-  // único lugar com tempo próprio: carência offline de quem a LOJA confirmou (nunca concede a Free)
+  assert.match(dom, /export const TRIAL_PREMIUM_DIAS = 45;/);
+  assert.match(dom, /const efetivo = Math\.max\(agora, t\.visto\);/);
+  const acesso = semComentarios(ler('src/plus/acesso.tsx'));
+  const garantir = acesso.slice(acesso.indexOf('async function garantirTrial('), acesso.indexOf('const avisosSimulados'));
+  assert.match(garantir, /if \(!\(await getEscala\(\)\)\) \{ trial = null; return; \}/, 'sem escala, não começa');
+  assert.doesNotMatch(garantir, /comprar|requestPurchase|supabase|fetch\(|consultar\(/, 'começar o período não compra nem fala com loja/servidor');
+  assert.doesNotMatch(acesso, /supabase|fetch\(/, 'acesso nunca vai para a nuvem');
+  // carência offline continua só para quem a LOJA confirmou
   assert.match(dom, /cache\.plus && agora - cache\.conferidoEm <= CARENCIA_OFFLINE_DIAS \* DIA_MS/);
 });
 
@@ -310,14 +298,14 @@ test('não hardcodar preço nem período gratuito em telas/serviços (só o modo
   const todos = [...arquivos('app'), ...arquivos('src')].filter(f => !f.endsWith('src/plus/loja-teste.ts'));
   for (const f of todos) {
     const s = semComentarios(readFileSync(f, 'utf8'));
-    assert.doesNotMatch(s, /R\$\s?\d|US\$\s?\d|\d+,\d{2}\s*\/\s*m[eê]s|\b\d+\s*dias grátis|\b1 mês grátis|30 dias/i, f);
+    assert.doesNotMatch(s, /R\$\s?\d|US\$\s?\d|\d+,\d{2}\s*\/\s*m[eê]s|\b\d+\s*dias grátis|\b1 mês grátis|30 dias|45 dias grátis/i, f);
   }
   const teste = ler('src/plus/loja-teste.ts');
   assert.match(teste, /preco: 'R\$ 0,00'/);
   assert.match(ler('app/owbuddy-plus.tsx'), /Modo de teste: preço e período fictícios\. Nada é cobrado\./);
 });
 
-test('nenhum checkout automático: compra só por toque no botão da tela OWBuddy+', () => {
+test('nenhum checkout automático: compra só por toque no botão da tela Premium', () => {
   const tela = ler('app/owbuddy-plus.tsx');
   assert.match(tela, /onPress=\{\(\) => onComprar\(produto\)\}/);
   // só a tela OWBuddy+ chama comprar; requestPurchase só dentro de comprar() da loja nativa
@@ -338,15 +326,22 @@ test('nenhum checkout automático: compra só por toque no botão da tela OWBudd
   assert.doesNotMatch(tela.slice(tela.indexOf('useEffect(() => {'), tela.indexOf('const [comprar')), /comprar\(/);
 });
 
-test('nenhum trial automático e nenhum paywall ao abrir o app: portão só EXPLICA e leva à tela informativa', () => {
+test('nenhum paywall ao abrir o app: o cartão Premium só EXPLICA ([Conhecer Premium] / [Agora não])', () => {
   const portao = semComentarios(ler('src/components/PortaoPlus.tsx'));
   assert.doesNotMatch(portao, /comprar|requestPurchase/);
   assert.match(portao, /router\.push\(\{ pathname: '\/owbuddy-plus'/);
-  assert.match(portao, /Conhecer OWBuddy\+/);
+  assert.match(portao, /Conhecer Premium/);
   assert.match(portao, /Agora não/);
-  for (const f of ['app/_layout.tsx', 'app/(tabs)/index.tsx', 'app/(tabs)/_layout.tsx']) {
-    assert.doesNotMatch(ler(f), /owbuddy-plus'/, `${f} não abre a tela OWBuddy+ sozinho`);
+  assert.doesNotMatch(portao, /lock-closed/, 'sem cadeado: upgrade, não punição');
+  for (const f of ['app/_layout.tsx', 'app/(tabs)/_layout.tsx']) {
+    assert.doesNotMatch(ler(f), /owbuddy-plus'/, `${f} não abre a tela Premium sozinho`);
   }
+  // o Início só leva à tela Premium por toque nos DOIS avisos do período
+  const aviso = semComentarios(ler('src/components/AvisoPeriodoPremium.tsx'));
+  assert.match(aviso, /const conhecer = \(\) =>/);
+  assert.match(aviso, /Continuar no Free/);
+  assert.match(aviso, /!registro\.avisoPerto/);
+  assert.match(aviso, /!registro\.avisoFim/);
 });
 
 test('transparência na tela: aviso de cobrança junto do botão, renovação, cancelamento, Free continua, dados não apagados, restaurar e gerenciar', () => {
@@ -355,7 +350,7 @@ test('transparência na tela: aviso de cobrança junto do botão, renovação, c
   // aviso imediatamente antes do botão, em texto de corpo (15 px, cor primária)
   assert.match(oferta, /<Text style=\{styles\.aviso\}>\{o\.aviso\}<\/Text>\s*<TouchableOpacity/);
   assert.match(tela, /aviso: \{ fontSize: 15, lineHeight: 22, color: colors\.white \}/);
-  for (const t of ['o.renovacao', 'o.cancelamento', 'O OWBuddy Free continua funcionando normalmente.', 'nada é apagado', 'Restaurar compras', 'Gerenciar assinatura', 'Continuar no Free', 'Não foi possível consultar o OWBuddy+ agora.', 'Tentar novamente', 'A assinatura é gerenciada pela loja onde foi contratada']) {
+  for (const t of ['o.renovacao', 'o.cancelamento', 'O OWBuddy Free continua funcionando normalmente.', 'não apaga nada', 'Restaurar compras', 'Gerenciar assinatura', 'Continuar no Free', 'Não foi possível consultar o OWBuddy Premium agora.', 'A assinatura do OWBuddy Premium ainda não está disponível.', 'Tentar novamente', 'A assinatura é gerenciada pela loja onde foi contratada']) {
     assert.ok(tela.includes(t), t);
   }
   // nada de urgência, ameaça ou "melhor valor"
@@ -371,29 +366,21 @@ test('data só quando a loja informa: "Próxima renovação"/"Ativo até" depend
   assert.match(ler('src/plus/loja-nativa.ts'), /fim = typeof s\.expirationDateIOS === 'number' \? s\.expirationDateIOS : null;/);
 });
 
-test('telas Plus atrás do portão (com o recurso certo); telas Free intocadas', () => {
-  const gates = {
-    'app/(tabs)/mala.tsx': 'mala', 'app/(tabs)/viagem.tsx': 'viagem', 'app/(tabs)/certs.tsx': 'documentos',
-    'app/historico.tsx': 'historico', 'app/historico-registro.tsx': 'historico', 'app/historico-form.tsx': 'historico',
-    'app/historico-acontecimento.tsx': 'historico', 'app/contato-form.tsx': 'contatos',
-  };
-  for (const [f, r] of Object.entries(gates)) {
-    assert.match(ler(f), new RegExp(`export default function \\w+\\(\\) \\{\\n  useTema\\(\\);\\n  return <PortaoPlus recurso="${r}"`), f);
-  }
-  for (const f of ['app/(tabs)/escala.tsx', 'app/(tabs)/index.tsx', 'app/escala-config.tsx', 'app/escala-cruzar.tsx', 'src/components/CompartilharEscala.tsx', 'app/buddy-config.tsx', 'app/vagas.tsx', 'app/unidades.tsx', 'app/noticias.tsx', 'app/aeroportos.tsx']) {
-    assert.doesNotMatch(ler(f), /<PortaoPlus/, `${f} é Free`);
-  }
-  // barra inferior continua com as mesmas 5 abas
+test('nenhuma tela trancada; 5 abas com Minha Mala; Premium só em cartões dentro das telas', () => {
+  for (const f of [...arquivos('app')]) assert.doesNotMatch(readFileSync(f, 'utf8'), /<PortaoPlus/, f);
   const tabs = ler('app/(tabs)/_layout.tsx');
-  for (const t of ["title: 'Início'", "title: 'Escala'", "title: 'Embarque'", "title: 'Viagem'", "title: 'Certificados'"]) assert.ok(tabs.includes(t), t);
+  for (const t of ["title: 'Início'", "title: 'Escala'", "title: 'Minha Mala'", "title: 'Viagem'", "title: 'Certificados'"]) assert.ok(tabs.includes(t), t);
+  assert.match(ler('app/historico.tsx'), /<CartaoPremium recurso="historico_avancado"/);
+  assert.match(ler('app/historico-registro.tsx'), /<CartaoPremium recurso="historico_avancado"/);
+  assert.match(ler('app/proximos.tsx'), /<CartaoPremium recurso="buddy_inteligente"/);
 });
 
-test('Início, Buddy Agora e lembretes usam o recorte Free sem Plus (e não apagam nada)', () => {
+test('Início: atalhos e contagem com dados reais (Free); cruzamento e lembretes de mala/viagem/docs com Premium', () => {
   const home = ler('app/(tabs)/index.tsx');
-  assert.match(home, /recorteFree\(plus, \{ viagem: state\.viagem, checklist: state\.checklist, certs: state\.certs \}\)/);
-  assert.match(home, /const avisoHist = plus \?/);
+  assert.match(home, /const cruz = recorteFree\(plus, \{ viagem: state\.viagem, checklist: state\.checklist, certs: state\.certs \}\);/);
+  assert.match(home, /const avisoHist = avisoHistoricoHome\(/, 'aviso do histórico básico é Free');
   assert.match(home, /if \(!state \|\| !plusLido\)/, 'Início espera a última confirmação: sem piscar');
-  assert.match(ler('app/proximos.tsx'), /recorteFree\(plus,/);
+  assert.match(home, /label: 'Minha Mala',\n\s+sub: checkCount\.total === 0/);
   const notif = ler('src/notifications.ts');
   assert.match(notif, /recorteFree\(acesso\.plus,/);
   assert.match(notif, /if \(acesso\.estado === 'carregando'\) return 0;/, 'sem resposta ainda: não mexe no que está agendado');

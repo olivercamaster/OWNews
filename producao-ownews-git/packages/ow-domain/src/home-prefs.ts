@@ -33,7 +33,7 @@ export interface DefModulo {
 export const MODULOS_HOME: DefModulo[] = [
   { id: 'momento',     label: 'Momento da escala', grupo: 'topo',     tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: false, plano: 'free' },
   { id: 'escala',      label: 'Minha Escala',      grupo: 'pessoal',  tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },
-  { id: 'embarque',    label: 'Meu Embarque',      grupo: 'pessoal',  tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },
+  { id: 'embarque',    label: 'Minha Mala',        grupo: 'pessoal',  tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },
   { id: 'viagem',      label: 'Minha Viagem',      grupo: 'pessoal',  tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },
   { id: 'certs',       label: 'Certificados',      grupo: 'pessoal',  tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },
   { id: 'proximos',    label: 'Próximos dias',     grupo: 'proximos', tamanhos: ['NORMAL', 'COMPACTO'],             padrao: 'NORMAL', podeOcultar: true,  plano: 'free' },

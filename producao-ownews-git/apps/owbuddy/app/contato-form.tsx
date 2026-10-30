@@ -16,7 +16,6 @@ import { confirmarRemocao } from '../src/confirmar';
 import { avisar } from '../src/feedback';
 import { useAcaoUnica } from '../src/acoes';
 import { analytics } from '../src/analytics';
-import { PortaoPlus } from '../src/components/PortaoPlus';
 
 function ContatoFormConteudo() {
   useTema();
@@ -135,8 +134,8 @@ const styles = themed(() => StyleSheet.create({
   priv: { fontSize: 12, color: colors.mutedDim, flexShrink: 1, textAlign: 'center' },
 }));
 
-/** OWBuddy+: sem acesso, a tela nem monta (dados intactos); mostra o recurso e os dados guardados. */
+/** Contatos do embarque é do OWBuddy Free para sempre: sem portão, sem conta, funciona offline. */
 export default function ContatoForm() {
   useTema();
-  return <PortaoPlus recurso="contatos"><ContatoFormConteudo /></PortaoPlus>;
+  return <ContatoFormConteudo />;
 }

@@ -148,7 +148,7 @@ export function planejarLembretes(e: EntradaLembretes): LembretePlanejado[] {
   if (emb && e.prefs.checklist && pendentesMala > 0) {
     add({
       id: `checklist-2d-${emb}`, tipo: 'checklist', quando: `${somarDiasISO(emb, -2)}T19:00`,
-      titulo: 'Mala',
+      titulo: 'Minha Mala',
       corpo: pendentesMala === 1
         ? 'Embarque em 2 dias. Falta 1 item na mala.'
         : `Embarque em 2 dias. Faltam ${pendentesMala} itens na mala.`,
