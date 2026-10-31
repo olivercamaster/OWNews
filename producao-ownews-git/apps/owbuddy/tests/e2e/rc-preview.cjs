@@ -24,7 +24,7 @@ const heroLocal=async pg=>pg.evaluate(()=>{const h=[...document.querySelectorAll
 let hero=await heroLocal(p); ok(hero&&!/SBJR|Jacarepagu/i.test(hero),'Card embarcado (Dia 1) sem aeroporto/base');
 ok(/Minha Mala Mala: 0 de 11/.test(t)&&!/\b11 Minha Mala/.test(t),'Minha Mala sem badge redundante');
 ok(/Vagas \d+ vagas verificadas/.test(t),'Vagas com dado real e fresco → contador');
-const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,240}?) Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com manchete recente: '+(man?man[1].slice(0,60):''));
+const man=t.replace(/[\uE000-\uF8FF]/g,'').replace(/\s+/g,' ').match(/Notícias (.{10,900}?) Ver todas Aeroportos/); ok(man&&!man[1].includes('O que importa'),'Notícias com destaques recentes (1–3): '+(man?man[1].slice(0,60):''));
 ok(/\bFerramentas\b/.test(t)&&/\bLoja\b/.test(t),'Ferramentas + Loja secundários');
 const tabs=await p.evaluate(()=>[...document.querySelectorAll('[role="tab"],a[href]')].map(e=>e.innerText.replace(/[\uE000-\uF8FF\s]/g,'').trim()).filter(Boolean));
 ok(tabs.slice(-5).join('|')==='Início|Escala|MinhaMala|Viagem|Certificados','Bottom nav: '+JSON.stringify(tabs.slice(-6)));
@@ -41,7 +41,7 @@ await p.screenshot({path:OUT+'/rc-home-embarcado-dia5.png'}); await ctx.close();
 // vagas/notícias indisponíveis (endpoint falha, sem cache)
 ({ctx,p}=await nova(390,esc(HOJE),/api\/buddy\/(vagas|feed)/)); await p.goto(U+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(3000); t=await txt(p);
 ok(/Vagas Vagas verificadas/.test(t),'Vagas sem dado → só "Vagas verificadas" (sem número)');
-ok(t.includes('Notícias O que importa no setor hoje'),'Notícia indisponível → copy neutra');
+ok(t.includes('Notícias Disponível quando houver conexão'),'Notícia indisponível sem cache (sem rede) → aviso discreto');
 await ctx.close();
 // cache velho de vagas (sem updated_at, cache de 3 dias) offline
 ({ctx,p}=await nova(390,{...esc(HOJE),owbuddy_cache_vagas:{data:[{id:'a',titulo:'X',empresa:'Y'}],cachedAt:Date.now()-72*3600e3}},/api\/buddy\/vagas/));

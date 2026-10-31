@@ -97,12 +97,30 @@ export type FeedResult =
   | { status: 'offline_empty' }
   | { status: 'error'; message: string };
 
+/**
+ * Camada ÚNICA de notícias do Buddy (Home, Notícias Offshore, matéria): um cache, um TTL de 5 min.
+ * Leitura instantânea do que já está no aparelho — a tela pinta isso e chama fetchFeed() em seguida
+ * (stale-while-revalidate: o conteúdo novo substitui o antigo sem esvaziar a tela).
+ */
+export async function feedEmCache(): Promise<{ articles: Article[]; cachedAt: number } | null> {
+  const c = await readCache<Article[]>(CACHE_KEY_FEED);
+  return c ? { articles: normalizarFeed({ articles: c.data }), cachedAt: c.cachedAt } : null;
+}
+
+// Home e Notícias abrindo juntas (ou foco + volta ao app) dividem o mesmo pedido.
+let feedEmVoo: Promise<FeedResult> | null = null;
+
 /** `forcar` ignora o TTL (puxar para atualizar). */
 export async function fetchFeed(forcar = false): Promise<FeedResult> {
   const cached = await readCache<Article[]>(CACHE_KEY_FEED);
   if (!forcar && cached && !isStale(cached.cachedAt, FEED_TTL_MS)) {
     return { status: 'ok', articles: cached.data, fromCache: true, cachedAt: cached.cachedAt };
   }
+  if (!feedEmVoo) feedEmVoo = buscarFeedRede(cached).finally(() => { feedEmVoo = null; });
+  return feedEmVoo;
+}
+
+async function buscarFeedRede(cached: CacheEntry<Article[]> | null): Promise<FeedResult> {
   const r = await buscarJson<unknown>(FEED_URL);
   if (r.ok) {
     const articles = normalizarFeed(r.data);

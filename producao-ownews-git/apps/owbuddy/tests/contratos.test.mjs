@@ -29,7 +29,7 @@ const OK = {
 test('matéria completa passa e mantém só os campos canônicos', () => {
   const a = C.normalizarArtigo(OK);
   assert.ok(a);
-  assert.deepEqual(Object.keys(a).sort(), ['buddy_summary', 'corpo', 'explica', 'id', 'image_credit', 'image_url', 'original_url', 'published_at', 'title', 'url', 'why_it_matters'].sort());
+  assert.deepEqual(Object.keys(a).sort(), ['buddy_summary', 'corpo', 'editorial_score', 'explica', 'id', 'image_credit', 'image_url', 'original_url', 'published_at', 'title', 'url', 'why_it_matters'].sort());
   assert.equal(a.explica.length, 1, 'link javascript: do Explica descartado');
   assert.ok(!('summary' in a), 'lead da fonte nunca entra no app');
 });
@@ -58,6 +58,14 @@ test('feed: lista inválida → []; itens ruins somem, bons ficam na ordem', () 
   assert.deepEqual(C.normalizarFeed({ articles: 'x' }), []);
   const f = C.normalizarFeed({ articles: [OK, { ...OK, id: 'b', corpo: null }, { ...OK, id: 'c' }, 7, null] });
   assert.deepEqual(f.map(a => a.id), ['a1', 'c']);
+});
+
+test('feed: mesma matéria repetida aparece uma vez; editorial_score passa (ou null)', () => {
+  const f = C.normalizarFeed({ articles: [{ ...OK, editorial_score: 90 }, { ...OK }, { ...OK, id: 'c', editorial_score: 'x' }] });
+  assert.deepEqual(f.map(a => a.id), ['a1', 'c']);
+  assert.equal(f[0].editorial_score, 90);
+  assert.equal(f[1].editorial_score, null);
+  assert.equal(C.normalizarFeed({ articles: [{ ...OK, editorial_score: '85' }] })[0].editorial_score, 85);
 });
 
 test('parágrafos do corpo: separados por linha em branco, espaços normalizados', () => {

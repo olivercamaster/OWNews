@@ -24,6 +24,8 @@ export type Article = {
   image_credit: string | null;
   original_url: string;
   published_at: string;
+  /** Relevância editorial do pipeline OWNews (0–100); null em cache antigo. */
+  editorial_score?: number | null;
   /** URL canônica no OWNews — é o que se compartilha. */
   url: string;
   /** BUDDY RESUME */
@@ -42,6 +44,12 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
  * Qualquer item fora do padrão (API antiga, campo faltando) é descartado —
  * o app nunca completa nem inventa texto.
  */
+/** Número (ou string numérica, como o contrato documentava) — senão null. */
+const numero = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+
 export function normalizarArtigo(raw: unknown): Article | null {
   if (!raw || typeof raw !== 'object') return null;
   const a = raw as Record<string, unknown>;
@@ -66,6 +74,8 @@ export function normalizarArtigo(raw: unknown): Article | null {
     image_credit: str(a.image_credit),
     original_url: urlExternaSegura(a.original_url) ?? '',
     published_at: str(a.published_at) ?? '',
+    // Relevância do pipeline OWNews (0–100) — usada só para ordenar os destaques da Home.
+    editorial_score: numero(a.editorial_score),
     url,
     buddy_summary: buddy,
     corpo,
@@ -76,7 +86,10 @@ export function normalizarArtigo(raw: unknown): Article | null {
 
 export function normalizarFeed(json: unknown): Article[] {
   const lista = (json as { articles?: unknown })?.articles;
-  return Array.isArray(lista) ? lista.map(normalizarArtigo).filter((a): a is Article => a !== null) : [];
+  if (!Array.isArray(lista)) return [];
+  // Mesma matéria repetida na resposta aparece uma vez só (o id do OWNews é estável).
+  const vistos = new Set<string>();
+  return lista.map(normalizarArtigo).filter((a): a is Article => a !== null && !vistos.has(a.id) && !!vistos.add(a.id));
 }
 
 /** Parágrafos do corpo OWNews (mesma separação da web: linha em branco). */

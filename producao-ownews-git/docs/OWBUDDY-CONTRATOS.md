@@ -40,7 +40,7 @@ Cache de borda 300 s. Até 20 matérias, mais recentes primeiro.
     "image_credit": "Eixos|null", // nome da fonte
     "original_url": "https://…",  // fonte original (link opcional no app)
     "published_at": "ISO",
-    "editorial_score": "90",
+    "editorial_score": 90,        // número 0–100 do pipeline; o app ordena os destaques da Home com ele
     "url": "https://ownews.com.br/noticia?id=<id>",  // canônica — é o que se compartilha
     "buddy_reviewed_at": "YYYY-MM-DD|null",
     "buddy_source": "ownews",
@@ -53,6 +53,11 @@ Cache de borda 300 s. Até 20 matérias, mais recentes primeiro.
 
 O app exige: `id`, `title`, `buddy_summary`, `corpo`, `why_it_matters` não vazios
 e `url` começando com `https://ownews.com.br/`. Ver `normalizarArtigo()`.
+
+Home (Offshore Agora → Notícias): 1 a 3 destaques derivados localmente deste mesmo feed
+(`destaquesHome()` em `src/frescor.ts`, mesma regra relevância × frescor e mesma regra de pauta
+da Home OWNews). Não há endpoint separado. O app revalida ao abrir a tela e ao voltar do
+segundo plano; pedidos simultâneos (Home + Notícias) viram um só.
 
 Cache no app: `owbuddy_cache_feed_v3` (TTL 5 min; sem rede usa o último) e
 `owbuddy_noticias_abertas_v1` (últimas 40 matérias abertas — abrem offline).

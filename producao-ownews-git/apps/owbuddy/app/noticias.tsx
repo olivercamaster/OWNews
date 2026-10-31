@@ -15,17 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, surface, screen, maritime, themed } from '../src/theme';
 import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
-import { fetchFeed, type Article, type FeedResult } from '../src/api';
+import { feedEmCache, fetchFeed, type Article, type FeedResult } from '../src/api';
+import { idadeCurta } from '../src/frescor';
+import { useAoVoltarAoApp } from '../src/ao-voltar';
 import { analytics } from '../src/analytics';
 
-function relativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const h = Math.floor(diff / 3_600_000);
-  if (h < 1) return 'Agora';
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  return `${d}d`;
-}
 
 function sourceNameFrom(article: Article): string {
   if (article.image_credit) return article.image_credit;
@@ -64,7 +58,7 @@ function ArticleCard({ item }: { item: Article }) {
         )}
         <Text style={styles.cardTitle} numberOfLines={3}>{item.title}</Text>
         <View style={styles.cardFooter}>
-          <Text style={styles.cardMeta}>{relativeTime(item.published_at)}</Text>
+          <Text style={styles.cardMeta}>{idadeCurta(item.published_at)}</Text>
         </View>
       </View>
     </Pressable>
@@ -78,6 +72,11 @@ export default function NoticiasScreen() {
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
+    // Primeira pintura com o que já está no aparelho; a rede substitui sem voltar ao spinner.
+    if (!isRefresh) {
+      const c = await feedEmCache();
+      if (c && c.articles.length) setResult(r0 => r0 ?? { status: 'ok', articles: c.articles, fromCache: true, cachedAt: c.cachedAt });
+    }
     const r = await fetchFeed(isRefresh);
     setResult(r);
     if (isRefresh) setRefreshing(false);
@@ -85,6 +84,7 @@ export default function NoticiasScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useAoVoltarAoApp(() => { load(); });
 
   if (!result) {
     return (

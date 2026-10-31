@@ -57,8 +57,9 @@ import { getWeather, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
 import type { City } from '../../src/cities';
 import { analytics } from '../../src/analytics';
-import { fetchFeed, fetchVagas } from '../../src/api';
-import { contadorVagasHome, frescorClima, noticiaRecenteHome } from '../../src/frescor';
+import { feedEmCache, fetchFeed, fetchVagas, type Article } from '../../src/api';
+import { contadorVagasHome, destaquesHome, frescorClima, idadeCurta } from '../../src/frescor';
+import { useAoVoltarAoApp } from '../../src/ao-voltar';
 import { AcontecimentoLinha } from '../../src/components/AcontecimentoLinha';
 import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -102,8 +103,9 @@ export default function TelaHoje() {
   const [refreshing, setRefreshing] = useState(false);
   // Só número REAL do /api/buddy/vagas (cache 1 h; offline usa o último cache). Sem dado → sem contador.
   const [vagasTotal, setVagasTotal] = useState<number | null>(null);
-  // Manchete canônica do OWNews (/api/buddy/feed) só se publicada nas últimas 48 h.
-  const [manchete, setManchete] = useState<{ id: string; title: string } | null>(null);
+  // Destaques do OWNews (/api/buddy/feed — mesma camada de Notícias Offshore): 1 a 3 por
+  // relevância × frescor. null = ainda sem resposta; 'sem_rede' = primeiro uso offline.
+  const [destaques, setDestaques] = useState<Article[] | 'sem_rede' | null>(null);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [transporte, setTransporte] = useState(false);
   const online = useConnectivity();
@@ -130,10 +132,14 @@ export default function TelaHoje() {
       }).catch(() => setVagasTotal(null));
     }
     if (visiveis.has('noticias')) {
+      // Stale-while-revalidate: pinta o cache do aparelho já, troca quando a rede responder.
+      feedEmCache().then(c => {
+        if (c) setDestaques(d => (d === null ? destaquesHome(c.articles) : d));
+      }).catch(() => {});
       fetchFeed().then(r => {
-        const n = r.status === 'ok' || r.status === 'offline_cached' ? noticiaRecenteHome(r.articles) : null;
-        setManchete(n ? { id: n.id, title: n.title } : null);
-      }).catch(() => setManchete(null));
+        if (r.status === 'ok' || r.status === 'offline_cached') setDestaques(d => mesmaLista(d, destaquesHome(r.articles)));
+        else setDestaques(d => (Array.isArray(d) && d.length ? d : r.status === 'offline_empty' ? 'sem_rede' : []));
+      }).catch(() => {});
     }
     if (city && home.clima) setWeather(await getWeather(city));
   }, []);
@@ -142,6 +148,8 @@ export default function TelaHoje() {
     analytics.screen('home');
     load();
   }, [load]));
+  // Voltou do segundo plano: revalida (o TTL de 5 min do feed decide se vai à rede).
+  useAoVoltarAoApp(() => { load(); });
 
   // Atualiza o clima ao voltar a ficar online
   useEffect(() => {
@@ -310,9 +318,11 @@ export default function TelaHoje() {
         break;
       case 'noticias':
         pecas.push({ id, grupo, forma: 'linha', render: () => (
-          <ActionRow icon="newspaper-outline" label="Notícias"
-            sub={t === 'NORMAL' && manchete ? manchete.title : 'O que importa no setor hoje'}
-            subLines={t === 'NORMAL' && manchete ? 2 : 1} onPress={() => router.push('/noticias')} />
+          t === 'NORMAL' && Array.isArray(destaques) && destaques.length
+            ? <NoticiasDestaques itens={destaques} />
+            : <ActionRow icon="newspaper-outline" label="Notícias"
+                sub={destaques === 'sem_rede' ? 'Disponível quando houver conexão' : 'O que importa no setor hoje'}
+                onPress={() => router.push('/noticias')} />
         ) });
         break;
       case 'aeroportos':
@@ -768,6 +778,49 @@ function HomeTile({
   );
 }
 
+/** Mesmos ids na mesma ordem → mantém a lista atual (sem re-render nem salto de layout). */
+function mesmaLista(atual: Article[] | 'sem_rede' | null, nova: Article[]): Article[] {
+  if (Array.isArray(atual) && atual.length === nova.length && atual.every((a, k) => a.id === nova[k]!.id)) return atual;
+  return nova;
+}
+
+/**
+ * Offshore Agora → Notícias: até 3 manchetes que importam agora (não é feed — o feed é
+ * Notícias Offshore). Sem imagem; título em até 2 linhas (o texto inteiro vai no rótulo acessível).
+ */
+function NoticiasDestaques({ itens }: { itens: Article[] }) {
+  useTema();
+  return (
+    <View>
+      <View style={[styles.actionRow, styles.destaquesCab]}>
+        <View style={styles.actionIconWrap}>
+          <Ionicons name="newspaper-outline" size={17} color={colors.iconDefault} />
+        </View>
+        <Text style={[styles.actionLabel, styles.actionContent]} accessibilityRole="header">Notícias</Text>
+      </View>
+      {itens.map(a => {
+        const idade = idadeCurta(a.published_at);
+        return (
+          <TouchableOpacity key={a.id} style={styles.destaqueLinha} activeOpacity={0.72}
+            accessibilityRole="link" accessibilityLabel={idade ? `${a.title}. Publicada há ${idade}` : a.title}
+            onPress={() => { analytics.track('news_opened', { article_id: a.id, origem: 'home' }); router.push(`/noticia/${a.id}`); }}>
+            <View style={styles.actionContent}>
+              <Text style={styles.destaqueTitulo} numberOfLines={2}>{a.title}</Text>
+              {idade ? <Text style={styles.destaqueIdade}>{idade}</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={14} color={colors.mutedDim} />
+          </TouchableOpacity>
+        );
+      })}
+      <TouchableOpacity style={styles.destaqueVerTodas} activeOpacity={0.72} accessibilityRole="link"
+        accessibilityLabel="Ver todas as notícias" onPress={() => router.push('/noticias')}>
+        <Text style={styles.destaqueVerTodasTxt}>Ver todas</Text>
+        <Ionicons name="arrow-forward" size={13} color={colors.cyan} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 /** Linha de lista compacta (Notícias, Aeroportos). */
 function ActionRow({
   icon, label, sub, subLines = 1, onPress, last = true, accent,
@@ -985,6 +1038,19 @@ const styles = themed(() => StyleSheet.create({
     justifyContent: 'center',
   },
   actionContent: { flex: 1 },
+  // Destaques de Notícias: alinhados à coluna do texto (ícone 32 + gap), sem cartão próprio.
+  destaquesCab: { paddingBottom: 4 },
+  destaqueLinha: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingLeft: spacing.md + 32 + spacing.sm, paddingRight: spacing.md, paddingVertical: 7, minHeight: 44,
+  },
+  destaqueTitulo: { fontSize: 13, lineHeight: 17, color: colors.white, fontWeight: '500' },
+  destaqueIdade: { fontSize: 11, color: colors.mutedDim, marginTop: 2, fontVariant: ['tabular-nums'] },
+  destaqueVerTodas: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    marginLeft: spacing.md + 32 + spacing.sm, paddingVertical: 10, minHeight: 40,
+  },
+  destaqueVerTodasTxt: { fontSize: 12, fontWeight: '700', color: colors.cyan, letterSpacing: 0.3 },
   actionLabel: { fontSize: 14, fontWeight: '600', color: colors.white },
   actionSub: { fontSize: 12, color: colors.muted, marginTop: 1, lineHeight: 16 },
   actionBadge: {
