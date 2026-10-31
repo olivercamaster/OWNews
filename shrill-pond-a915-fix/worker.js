@@ -4559,7 +4559,9 @@ async function retroprocessarCamadaIA(env, limite) {
 /* Correção de idioma do acervo (incidente de 30/10/2026). POST { itens: [{ id, titulo?, resumo?, rascunho? }] }.
    - titulo/resumo: só entram se o texto novo for PT-BR (idiomaTexto === 'pt'); título com 15–170
      caracteres e sem erro de texto. Nada é gerado aqui: o texto vem revisado na requisição.
-   - rascunho: tira do ar (status 'draft', reversível) SÓ se título ou corpo atual estiverem em inglês.
+   - rascunho: tira do ar (status 'rejected', o mesmo da recusa na revisão; reversível voltando a
+     'published') SÓ se título ou corpo atual estiverem em inglês. ('draft' não passa na
+     restrição articles_status_check do banco.)
    Devolve os valores anteriores de cada campo alterado (cópia de segurança de quem chamou).
    1 leitura em lote + 1 PATCH por item (≤ 30 itens: cabe no limite de subrequests). */
 async function rotaAdminCorrigirIdioma(request, env) {
@@ -4590,13 +4592,16 @@ async function rotaAdminCorrigirIdioma(request, env) {
     }
     if (it.rascunho === true) {
       if (!textoEmIngles(a.title) && !textoEmIngles(String(a.content || '').slice(0, 1500))) motivos.push('rascunho_so_para_ingles');
-      else { patch.status = 'draft'; antes.status = a.status; }
+      else { patch.status = 'rejected'; antes.status = a.status; }
     }
     if (motivos.length || !Object.keys(patch).length) { resultados.push({ id: it.id, ok: false, motivos: motivos.length ? motivos : ['nada_a_alterar'] }); continue; }
     const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(it.id)}`, {
       method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
     });
-    resultados.push(pr.ok ? { id: it.id, ok: true, alterado: Object.keys(patch), antes } : { id: it.id, ok: false, motivos: ['patch_http_' + pr.status], antes });
+    if (pr.ok) { resultados.push({ id: it.id, ok: true, alterado: Object.keys(patch), antes }); continue; }
+    let erro = null;
+    try { erro = (await pr.json()).message || null; } catch { /* sem corpo */ }
+    resultados.push({ id: it.id, ok: false, motivos: ['patch_http_' + pr.status], erro, antes });
   }
   return Response.json({ ok: resultados.every((x) => x.ok), resultados });
 }
