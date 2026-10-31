@@ -433,7 +433,7 @@ test("/agenda/submeter tem noindex e saiu do sitemap", () => {
 });
 test("sitemap usa os mesmos critérios das páginas", () => {
   const sm = funcao(FRONT, "async function gerarSitemap()");
-  ["funcaoIndexavel(f)", "salarioIndexavel(f.slug)", "radarIndexavel(u)", "empresaIndexavel(e)", "eventoAgendaIndexavel(ev)", "classificarIndexacaoNoticia("].forEach((k) => expect(sm.includes(k), "falta " + k));
+  ["funcaoIndexavel(f)", "salarioIndexavel(f.slug)", "radarIndexavel(u)", "empresaIndexavel(e)", "eventoAgendaIndexavel(ev)", "noticiaNoIndice("].forEach((k) => expect(sm.includes(k), "falta " + k));
 });
 test("sem rótulos globais de produto inacabado no menu", () => {
   expect(!FRONT.includes('<span class="nav-mais-label">Em desenvolvimento</span>') && !FRONT.includes("'<span class=\"nav-mais-label\">Em desenvolvimento</span>'") && !FRONT.includes("Dados em preparação"));
@@ -575,7 +575,7 @@ if (COLLECTOR) {
     expect(f.includes(".replace(/&amp;/gi, '&')") && f.includes("&#x0*27;"), "SSR");
   });
   test("observabilidade da IA não cria gravação nova no KV", () => {
-    const a = funcao(COLLECTOR, "async function acumularGateEditorial(env, resultados)");
+    const a = funcao(COLLECTOR, "async function acumularGateEditorial(env, resultados, orcamento)");
     expect((a.match(/\.put\(/g) || []).length === 1 && a.includes("entrada.ia_ok = true") && a.includes("entrada.ia_erro ="), "acumulador");
     const o = funcao(COLLECTOR, "async function obterGateEditorialStats(env)");
     expect(!o.includes(".put(") && o.includes("ultima_resposta") && o.includes("ultima_falha"), "stats");

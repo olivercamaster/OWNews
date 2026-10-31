@@ -6306,6 +6306,18 @@ function classificarIndexacaoNoticia(artigo, camada) {
 }
 /* ==== QUALIDADE EDITORIAL 2.1: FIM ==== */
 
+/* Índice de busca (AdSense — baixo valor, 31/10/2026): nota de fonte internacional em inglês sem nenhuma
+   ligação com o Brasil (161 de 568 no levantamento) é tradução/adaptação sem valor próprio para o público
+   do OWNews. Continua publicada (página, Home, Buddy), mas fica fora do índice e dos sitemaps. */
+const FONTES_INTERNACIONAIS_EN = new Set(['Offshore Energy', 'Marine Technology News', 'Transocean', 'SBM Offshore']);
+const LIGACAO_BRASIL = /\bbrasil|brasileir|petrobras|\banp\b|pr[ée]-sal|bacia (de |do |potiguar)(campos|santos|esp[ií]rito santo|sergipe|foz)|margem equatorial|foz do amazonas|maca[ée]|rio de janeiro|niter[óo]i|b[úu]zios|\bmero\b|\bprio\b|\bppsa\b|sapinho[áa]|\blibra\b|\btupi\b|guanabara|amap[áa]/i;
+function noticiaNoIndice(artigo, camada) {
+  if (classificarIndexacaoNoticia(artigo, camada).estado !== 'INDEXABLE') return false;
+  if (!FONTES_INTERNACIONAIS_EN.has(artigo.image_credit)) return true;
+  const texto = [artigo.title, camada && camada.corpo, camada && camada.why_it_matters, camada && camada.buddy_summary].join(' ');
+  return LIGACAO_BRASIL.test(texto);
+}
+
 /* Meta description sem cortar palavra: frase completa quando cabe; senão
    corta no último espaço e marca com reticências. */
 function descricaoMetaSegura(texto, max) {
@@ -7619,7 +7631,7 @@ async function gerarSitemap() {
     const supabaseUrl = "https://awyowuhwkqfyhwgdpepp.supabase.co";
     const supabaseKey = "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt";
     const resp = await fetch(
-      supabaseUrl + "/rest/v1/articles?select=id,title,published_at,summary,content,buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source&status=eq.published&order=published_at.desc&limit=1000",
+      supabaseUrl + "/rest/v1/articles?select=id,title,published_at,summary,content,buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source,image_credit&status=eq.published&order=published_at.desc&limit=1000",
       { headers: { apikey: supabaseKey } }
     );
     if (resp.ok) {
@@ -7629,7 +7641,7 @@ async function gerarSitemap() {
         // corpo igual ao resumo) sai do sitemap — espelha o robots noindex
         // que a própria página /noticia emite para ela.
         const camada = resolverCamadaEditorial(a);
-        if (classificarIndexacaoNoticia(a, camada).estado !== 'INDEXABLE') return;
+        if (!noticiaNoIndice(a, camada)) return;
         const lastmod = a.published_at ? new Date(a.published_at).toISOString().slice(0, 10) : null;
         partes.push(xmlUrl(base + "/noticia?id=" + encodeURIComponent(a.id), (camada && camada.revisado_em) || lastmod));
       });
@@ -7661,14 +7673,14 @@ async function gerarNewsSitemap() {
     const supabaseKey = "sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt";
     const desde = new Date(Date.now() - 48 * 3600000).toISOString();
     const resp = await fetch(
-      supabaseUrl + "/rest/v1/articles?select=id,title,published_at,summary,content,buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source&status=eq.published&published_at=gte." +
+      supabaseUrl + "/rest/v1/articles?select=id,title,published_at,summary,content,buddy_summary,why_it_matters,buddy_reviewed_at,buddy_source,image_credit&status=eq.published&published_at=gte." +
       encodeURIComponent(desde) + "&order=published_at.desc&limit=200",
       { headers: { apikey: supabaseKey } }
     );
     if (resp.ok) {
       const artigos = await resp.json();
       artigos.forEach((a) => {
-        if (classificarIndexacaoNoticia(a, resolverCamadaEditorial(a)).estado !== 'INDEXABLE') return;
+        if (!noticiaNoIndice(a, resolverCamadaEditorial(a))) return;
         partes.push(
           "<url><loc>" + base + "/noticia?id=" + encodeURIComponent(a.id) + "</loc>" +
           "<news:news><news:publication><news:name>OWNews</news:name><news:language>pt</news:language></news:publication>" +
@@ -17013,7 +17025,8 @@ function renderSobre() {
     '<li><strong>Notícias</strong> do setor, com fonte primária identificada e link para a origem em cada matéria.</li>' +
     '<li><strong>Notícias com texto próprio</strong>: cada nota publicada tem Buddy resume (o que aconteceu, em poucas palavras), texto do OWNews com fatos e contexto e o que isso impacta para o offshore — escritos com apoio de inteligência artificial a partir da fonte, conferidos por checagens automáticas e sempre com a fonte original identificada.</li>' +
     '<li><strong><a href="/explica">OWNews Explica</a></strong> e <a href="/guias">Guias</a>: textos originais sobre como o offshore funciona — FPSO, sonda, escala, embarque, Margem Equatorial, Oferta Permanente.</li>' +
-    '<li><strong>Referência</strong>: <a href="/funcoes">Funções a bordo</a>, <a href="/carreiras/sonda-de-perfuracao">Carreiras</a>, <a href="/glossario">Glossário</a>, <a href="/certificados-offshore">Certificados</a> e o <a href="/radar">Radar Offshore</a>, diretório de unidades que operam no Brasil.</li>' +
+    '<li><strong>Referência</strong>: <a href="/funcoes">Funções a bordo</a>, <a href="/carreiras/sonda-de-perfuracao">Carreiras</a>, <a href="/glossario">Glossário</a>, <a href="/certificados-offshore">Certificados</a> e as <a href="/radar">Fichas das unidades</a>.</li>' +
+    '<li><strong>Dados</strong>: o <a href="/radar-offshore">Radar Offshore</a> reúne dados públicos oficiais da ANP — unidades, campos, operadores, produção, exploração e o <a href="/radar-offshore/mapa">mapa offshore</a>, com a fonte e a data de cada base.</li>' +
     '<li><strong>Ferramentas</strong> gratuitas: <a href="/minha-escala">Minha Escala</a>, <a href="/meus-certificados">Meus Certificados</a>, <a href="/meus-alertas">Meus Alertas</a> e <a href="/vagas">Vagas</a> agregadas de fontes públicas.</li>' +
     '</ul>' +
     "</div>" +
@@ -22624,7 +22637,8 @@ export default {
       const slug = url.pathname.slice("/vagas/".length).replace(/\/$/, "");
       const pagina = await renderVagaDetalhe(slug, env, ctx);
       if (!pagina) return pagina404();
-      return new Response(pagina, { headers: { "Content-Type": "text/html; charset=UTF-8" } });
+      // Vaga individual: anúncio efêmero (o conteúdo é do portal da empresa) — fora do índice; o hub /vagas fica.
+      return new Response(pagina, { headers: { "Content-Type": "text/html; charset=UTF-8", "X-Robots-Tag": "noindex, follow" } });
     }
 
     if (url.pathname === "/vagas") {
@@ -23209,7 +23223,7 @@ export default {
 
     if (url.pathname === "/excluir-conta") {
       return new Response(renderExcluirConta(), {
-        headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store" }
+        headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" }
       });
     }
 
@@ -23400,7 +23414,7 @@ export default {
       // nos sitemaps; o resto continua acessível com noindex e SEM o texto da
       // fonte (Missão Editorial Original 4.0: fim da republicação integral).
       const indexacaoNoticia = classificarIndexacaoNoticia(artigo, camadaEditorial);
-      const robotsNoticia = indexacaoNoticia.estado === 'INDEXABLE' ? null : 'noindex,follow';
+      const robotsNoticia = indexacaoNoticia.estado === 'INDEXABLE' && noticiaNoIndice(artigo, camadaEditorial) ? null : 'noindex,follow';
       const materiaOWNews = !!(camadaEditorial && camadaEditorial.corpo);
       // Meta description: Buddy (texto OWNews) — nunca o lead da fonte.
       const descricaoNoticia = descricaoMetaSegura((camadaEditorial && camadaEditorial.buddy_summary) || artigo.title || '', 160);
