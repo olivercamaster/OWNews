@@ -1155,13 +1155,13 @@ async function executarAtualizacaoPrincipal(env) {
   const resultados = {};
 
   try {
-    resultados.anp = await coletarANP(env);
+    resultados.anp = await comSaldoFonte(env, "anp", () => coletarANP(env));
   } catch (erro) {
     resultados.anp = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.petrobras = await coletarPetrobras(env);
+    resultados.petrobras = await comSaldoFonte(env, "petrobras", () => coletarPetrobras(env));
   } catch (erro) {
     resultados.petrobras = { ok: false, erro: erro.message };
   }
@@ -1196,19 +1196,19 @@ async function executarAtualizacaoTerceiraFonte(env) {
   const resultados = {};
 
   try {
-    resultados.ibama = await coletarIBAMA(env);
+    resultados.ibama = await comSaldoFonte(env, "ibama", () => coletarIBAMA(env));
   } catch (erro) {
     resultados.ibama = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.petronoticias = await coletarPetroNoticias(env);
+    resultados.petronoticias = await comSaldoFonte(env, "petronoticias", () => coletarPetroNoticias(env));
   } catch (erro) {
     resultados.petronoticias = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.agencia_brasil = await coletarAgenciaBrasilEconomia(env);
+    resultados.agencia_brasil = await comSaldoFonte(env, "agencia_brasil", () => coletarAgenciaBrasilEconomia(env));
   } catch (erro) {
     resultados.agencia_brasil = { ok: false, erro: erro.message };
   }
@@ -1220,25 +1220,25 @@ async function executarAtualizacaoTerceiraFonte(env) {
   // detalhe por item novo, mesmo custo de qualquer outra fonte RSS do
   // grupo), sem risco adicional de orçamento de subrequests.
   try {
-    resultados.sindipetro_nf = await coletarSindipetroNF(env);
+    resultados.sindipetro_nf = await comSaldoFonte(env, "sindipetro_nf", () => coletarSindipetroNF(env));
   } catch (erro) {
     resultados.sindipetro_nf = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.fup = await coletarFUP(env);
+    resultados.fup = await comSaldoFonte(env, "fup", () => coletarFUP(env));
   } catch (erro) {
     resultados.fup = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.eixos = await coletarEixos(env);
+    resultados.eixos = await comSaldoFonte(env, "eixos", () => coletarEixos(env));
   } catch (erro) {
     resultados.eixos = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.noticias_macae = await coletarNoticiasMacae(env);
+    resultados.noticias_macae = await comSaldoFonte(env, "noticias_macae", () => coletarNoticiasMacae(env));
   } catch (erro) {
     resultados.noticias_macae = { ok: false, erro: erro.message };
   }
@@ -1260,13 +1260,13 @@ async function executarAtualizacaoInternacional(env) {
   const resultados = {};
 
   try {
-    resultados.transocean = await coletarTransocean(env);
+    resultados.transocean = await comSaldoFonte(env, "transocean", () => coletarTransocean(env));
   } catch (erro) {
     resultados.transocean = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.sbm_offshore = await coletarSBMOffshore(env);
+    resultados.sbm_offshore = await comSaldoFonte(env, "sbm_offshore", () => coletarSBMOffshore(env));
   } catch (erro) {
     resultados.sbm_offshore = { ok: false, erro: erro.message };
   }
@@ -1278,7 +1278,7 @@ async function executarAtualizacaoInternacional(env) {
   // a outra fonte nova de volume alto, foi deliberadamente pro Grupo E
   // pra não juntar 2 fontes de 10 itens na mesma invocação.
   try {
-    resultados.offshore_energy = await coletarOffshoreEnergy(env);
+    resultados.offshore_energy = await comSaldoFonte(env, "offshore_energy", () => coletarOffshoreEnergy(env));
   } catch (erro) {
     resultados.offshore_energy = { ok: false, erro: erro.message };
   }
@@ -1308,19 +1308,19 @@ async function executarAtualizacaoImprensaEspecializada(env) {
   const resultados = {};
 
   try {
-    resultados.portos_navios = await coletarPortosENavios(env);
+    resultados.portos_navios = await comSaldoFonte(env, "portos_navios", () => coletarPortosENavios(env));
   } catch (erro) {
     resultados.portos_navios = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.megawhat = await coletarMegaWhat(env);
+    resultados.megawhat = await comSaldoFonte(env, "megawhat", () => coletarMegaWhat(env));
   } catch (erro) {
     resultados.megawhat = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.marine_tech_news = await coletarMarineTechnologyNews(env);
+    resultados.marine_tech_news = await comSaldoFonte(env, "marine_tech_news", () => coletarMarineTechnologyNews(env));
   } catch (erro) {
     resultados.marine_tech_news = { ok: false, erro: erro.message };
   }
@@ -1352,13 +1352,13 @@ async function executarAtualizacaoNovasFontes(env) {
   const resultados = {};
 
   try {
-    resultados.ppsa = await coletarPPSA(env);
+    resultados.ppsa = await comSaldoFonte(env, "ppsa", () => coletarPPSA(env));
   } catch (erro) {
     resultados.ppsa = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.epe = await coletarEPE(env);
+    resultados.epe = await comSaldoFonte(env, "epe", () => coletarEPE(env));
   } catch (erro) {
     resultados.epe = { ok: false, erro: erro.message };
   }
@@ -1367,19 +1367,19 @@ async function executarAtualizacaoNovasFontes(env) {
   // comentário em executarAtualizacaoPrincipal) por causa do limite de
   // subrequests por invocação — este grupo tinha folga de sobra.
   try {
-    resultados.mme = await coletarMME(env);
+    resultados.mme = await comSaldoFonte(env, "mme", () => coletarMME(env));
   } catch (erro) {
     resultados.mme = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.marinha = await coletarMarinha(env);
+    resultados.marinha = await comSaldoFonte(env, "marinha", () => coletarMarinha(env));
   } catch (erro) {
     resultados.marinha = { ok: false, erro: erro.message };
   }
 
   try {
-    resultados.antaq = await coletarANTAQ(env);
+    resultados.antaq = await comSaldoFonte(env, "antaq", () => coletarANTAQ(env));
   } catch (erro) {
     resultados.antaq = { ok: false, erro: erro.message };
   }
@@ -2808,6 +2808,7 @@ async function avaliarSaudeEditorial(env) {
   const homeStale = horasDesdeUltima > LIMIAR_HORAS_HOME_STALE;
   const gateStats = await obterGateEditorialStats(env);
 
+  const tecPend = await resumirFalhasTecnicas(env, agora);
   return {
     ok: true,
     estado,
@@ -2846,7 +2847,8 @@ async function avaliarSaudeEditorial(env) {
     revisao_pendente: await contarArtigosEmRevisao(env),
     buddy_cobertura: await obterBuddyCobertura(env),
     gate_editorial: gateStats,
-    saude_editorial: calcularSaudeEditorial({ agora, artigos, gate: gateStats, automacao })
+    deferred_tecnico: tecPend,
+    saude_editorial: calcularSaudeEditorial({ agora, artigos, gate: gateStats, automacao, tecnicas: tecPend })
   };
 }
 
@@ -2860,7 +2862,7 @@ async function avaliarSaudeEditorial(env) {
      fonte com erro.
    VERDE: publicação recente e pipeline sem falha. */
 const BRT_OFFSET_MS = 3 * 3600000;
-function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
+function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
   const proprias = (artigos || []).filter((a) => a.buddy_source === 'ownews');
   const horas = (a) => (agora - new Date(a.published_at).getTime()) / 3600000;
   // Silêncio do pipeline = última GRAVAÇÃO OWNews (created_at), não a data da
@@ -2903,11 +2905,14 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
     const amostraTaxa = g24.ia_avaliadas_amostra_taxa === undefined ? (g24.ia_avaliadas || 0) : g24.ia_avaliadas_amostra_taxa;
     if (amostraTaxa >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + amostraTaxa); }
     if (fontesErro.length) { status = 'AMARELO'; motivos.push('fonte com erro: ' + fontesErro.join(', ')); }
+    if (tecnicas && tecnicas.pendentes && tecnicas.mais_antiga_h >= 6) { status = 'AMARELO'; motivos.push(tecnicas.pendentes + ' pauta(s) em falha técnica há ' + Math.round(tecnicas.mais_antiga_h) + 'h'); }
+    if (tecnicas && tecnicas.esgotadas_24h) { status = 'AMARELO'; motivos.push(tecnicas.esgotadas_24h + ' pauta(s) desistida(s) por falha técnica repetida em 24h'); }
   }
   return {
     status,
     motivos,
     pipeline,
+    deferred_tecnico: tecnicas || null,
     silencio_alerta: status === 'VERMELHO' && semPublicar >= 12,
     idade_ultima_publicacao_h: idadeUltima,
     ultima_publicacao: ultima ? (ultima.created_at || ultima.published_at) : null,
@@ -2970,7 +2975,7 @@ async function acumularGateEditorial(env, resultados, orcamento) {
     const acum = Array.isArray(raw) ? raw : [];
     const agora = Date.now();
     const entrada = { ts: agora, fontes: {} };
-    if (orcamento) entrada.orc = { u: orcamento.usados, a: orcamento.adiadas };
+    if (orcamento) entrada.orc = { u: orcamento.usados, a: orcamento.adiadas, fa: (orcamento.fontesAdiadas || []).length };
     for (const [nome, r] of Object.entries(resultados)) {
       if (r && r.ok === false) { (entrada.fontes_erro = entrada.fontes_erro || []).push(nome); if (/subrequest/i.test(String(r.erro))) entrada.ia_erro = String(r.erro).slice(0, 120); continue; }
       if (!r) continue;
@@ -3020,13 +3025,15 @@ async function obterGateEditorialStats(env) {
     function agregar(entradas) {
       const fontes = {};
       const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0 };
-      let execucoes = 0, orcUsadoMax = 0;
+      let execucoes = 0, orcUsadoMax = 0, orcAtingido = 0, fontesAdiadas = 0;
       const fontesErro = new Set();
       let totalP = 0, totalEI = 0, iaComAp = 0;
       const motivos = {};
       for (const e of entradas) {
         execucoes++;
         if (e.orc && e.orc.u > orcUsadoMax) orcUsadoMax = e.orc.u;
+        if (e.orc && (e.orc.a || e.orc.fa)) orcAtingido++;
+        if (e.orc && e.orc.fa) fontesAdiadas += e.orc.fa;
         for (const n of e.fontes_erro || []) fontesErro.add(n);
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
@@ -3071,6 +3078,9 @@ async function obterGateEditorialStats(env) {
         retidas_revisao: funil.ret,
         execucoes,
         orcamento_max_usado: orcUsadoMax || null,
+        orcamento_limite: ORC_LIMITE,
+        execucoes_orcamento_atingido: orcAtingido,
+        fontes_adiadas_orcamento: fontesAdiadas,
         fontes_com_erro: [...fontesErro],
         motivos,
         fontes
@@ -4501,7 +4511,9 @@ async function lerMaterialFonte(env, hash) {
    Agora cada pauta nova reserva o custo máximo ANTES de começar; sem saldo
    ela fica "adiada_orcamento" (nada é gravado) e volta na próxima execução.
    ORC_LIMITE deixa folga para o registro da execução e o Telegram. */
-const ORC_LIMITE = 40;
+// Teste de estresse (tests/estresse_orcamento_test.mjs): 36 deixa >= 10 de margem até 50 no pior caso
+// (redirects, Telegram/registro depois da coleta, pequenas mudanças futuras).
+const ORC_LIMITE = 36;
 const CUSTO_FONTE = 3;      // feed + títulos recentes + URLs existentes (+1 quando lê a memória)
 const CUSTO_PAUTA_PT = 7;   // página + banner + IA (até 2) + arquivo + memória + gravação
 const CUSTO_PAUTA_EN = 9;   // + tradução de título e resumo
@@ -4520,6 +4532,16 @@ function reservarOrcamento(env, n) {
 }
 /* Devolve a parte da reserva que a pauta não usou (gasto real contado nos pontos de chamada). */
 function devolverOrcamento(env, reservado, gasto) { if (env && env.__orc && reservado > gasto) env.__orc.usados -= reservado - gasto; }
+/* Fonte inteira só começa se o saldo cobre o custo fixo dela + 1 pauta; senão é adiada
+   (o feed nem é baixado) e entra na próxima execução do grupo. Antes, com o orçamento
+   esgotado, cada fonte seguinte ainda gastava ~4 subrequests fixos (estresse: 48/50). */
+async function comSaldoFonte(env, nome, coletar) {
+  if (env && env.__orc && saldoOrcamento(env) < CUSTO_FONTE + CUSTO_PAUTA_PT) {
+    (env.__orc.fontesAdiadas = env.__orc.fontesAdiadas || []).push(nome);
+    return { ok: true, fonte: nome, adiada_orcamento: true, noticias: [], inseridas: 0 };
+  }
+  return coletar();
+}
 function saldoOrcamento(env) { return env && env.__orc ? ORC_LIMITE - env.__orc.usados : ORC_LIMITE; }
 
 /* ==== FALHA TÉCNICA ≠ REPROVAÇÃO (deferred técnico) ====
@@ -4539,6 +4561,23 @@ function decisaoFalhaTecnica(tec, agoraMs) {
 async function registrarFalhaTecnica(env, hash, erro, extra) {
   if (!env.BUDDY_IA_DO || !hash) return;
   try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/tecnica', { method: 'POST', body: JSON.stringify(Object.assign({ hash, erro: String(erro || '').slice(0, 120) }, extra || {})) }); } catch { /* best effort */ }
+}
+/* Watchdog: pautas em falha técnica — pendentes (vão ser tentadas), desistidas no dia e idade da mais antiga. */
+async function resumirFalhasTecnicas(env, agora) {
+  if (!env.BUDDY_IA_DO) return null;
+  try {
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/tecnicas');
+    const j = r.ok ? await r.json() : {};
+    const lista = Object.values(j || {});
+    const pend = lista.filter((t) => decisaoFalhaTecnica(t, agora) !== 'esgotado');
+    const maisAntiga = lista.reduce((m, t) => Math.min(m, t.t || agora), agora);
+    return {
+      pendentes: pend.length,
+      esgotadas_24h: lista.length - pend.length,
+      mais_antiga_h: lista.length ? Math.round((agora - maisAntiga) / 360000) / 10 : null,
+      exemplos: lista.slice(0, 5).map((t) => ({ titulo: t.ti || null, fonte: t.f || null, tentativas: t.n, erro: t.e }))
+    };
+  } catch { return null; }
 }
 /* Memória das pautas numa chamada só: reprovações (3 dias) + falhas técnicas (24 h). */
 async function listarMemoriaPautas(env) {
@@ -4560,7 +4599,7 @@ async function listarMemoriaPautas(env) {
 function diagnosticarPipeline({ horasSemPublicar, janela, fontesComErro }) {
   const j = janela || {};
   const tecnicas = (j.tecnicas || 0) + (j.insercao_falhou || 0) + ((j.motivos || {}).ia_indisponivel || 0);
-  const adiadasOrc = j.adiadas_orcamento || 0;
+  const adiadasOrc = (j.adiadas_orcamento || 0) + (j.fontes_adiadas_orcamento || 0);
   const novas = (j.ia_avaliadas || 0) + tecnicas + adiadasOrc;
   const motivos = [];
   if (tecnicas) motivos.push(tecnicas + ' pauta(s) parada(s) por erro técnico');

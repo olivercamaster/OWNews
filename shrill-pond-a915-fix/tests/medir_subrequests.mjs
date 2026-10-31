@@ -17,6 +17,7 @@ globalThis.fetch = async (url, init) => {
   cont.fetch_rede++; return fetchReal(url, init);
 };
 const stub = { fetch: async (req) => { cont.do++; const u = new URL(typeof req === 'string' ? req : req.url);
+  if (u.pathname === '/tecnicas') return Response.json({});
   if (u.pathname === '/rejeicoes' && u.searchParams.get('v') === '3') return Response.json({ rej: Object.fromEntries(Object.entries(rej).map(([k, v]) => [k, { c: v.c, n: v.n, t: v.t, m: v.m }])), tec: {} });
   if (u.pathname === '/rejeicoes') return Response.json(u.searchParams.get('v') === '2' ? Object.fromEntries(Object.entries(rej).map(([k, v]) => [k, { c: v.c, n: v.n, t: v.t, m: v.m }])) : Object.keys(rej));
   if (u.pathname === '/rejeicao') return Response.json(rej[u.searchParams.get('hash')] || null);
