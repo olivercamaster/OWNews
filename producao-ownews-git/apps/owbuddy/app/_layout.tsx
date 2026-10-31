@@ -227,6 +227,13 @@ function AppShell() {
           }}
         />
         <Stack.Screen
+          name="minha-unidade"
+          options={{
+            title: 'Minha Unidade',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
           name="historico"
           options={{
             title: 'Meu Histórico',

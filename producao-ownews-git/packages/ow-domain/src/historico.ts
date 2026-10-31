@@ -47,6 +47,8 @@ export interface RegistroEmbarque {
   /** Data REAL do desembarque; null = em andamento. */
   desembarque: string | null;
   unidade?: string;
+  /** Unidade do catálogo do Radar Offshore escolhida pela pessoa (contexto; o nome acima continua mandando). */
+  unidade_ref?: { id: string; slug: string };
   empresa?: string;
   funcao?: string;
   obs?: string;
@@ -121,6 +123,14 @@ export interface LeituraHistorico {
 }
 
 /** Nunca lança. Valor ilegível vira histórico vazio, com contagem para backup. */
+/** Referência ao Radar só com forma válida; qualquer outra coisa é ignorada (o registro fica). */
+function refUnidade(r: unknown): { id: string; slug: string } | undefined {
+  if (!r || typeof r !== 'object') return undefined;
+  const o = r as Record<string, unknown>;
+  const id = typeof o.id === 'string' ? o.id.slice(0, 80) : '', slug = typeof o.slug === 'string' ? o.slug.slice(0, 100) : '';
+  return /^[a-z]+-[A-Za-z0-9-]+$/.test(id) && /^[a-z0-9-]+$/.test(slug) ? { id, slug } : undefined;
+}
+
 export function lerHistorico(raw: unknown): LeituraHistorico {
   const vazio = { data: historicoVazio(), descartados: 0, versaoDesconhecida: false };
   if (raw == null) return vazio;
@@ -143,6 +153,7 @@ export function lerHistorico(raw: unknown): LeituraHistorico {
       embarque: x.embarque as string,
       desembarque: des as string | null,
       unidade: txt(x.unidade, 80), empresa: txt(x.empresa, 80), funcao: txt(x.funcao, 80), obs: txt(x.obs, 300),
+      unidade_ref: refUnidade(x.unidade_ref),
       planejado: x.planejado === true ? true : undefined,
       previsto: prev && typeof prev === 'object' && (isoValido(prev.embarque) || isoValido(prev.desembarque)) ? semVazios({
         embarque: isoValido(prev.embarque) ? prev.embarque as string : undefined,

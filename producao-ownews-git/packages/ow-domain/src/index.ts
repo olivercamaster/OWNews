@@ -20,3 +20,4 @@ export * from './contatos';
 export * from './compartilhar';
 export * from './historico';
 export * from './plus';
+export * from './minha-unidade';

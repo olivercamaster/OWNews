@@ -29,7 +29,7 @@ import {
   textoDias,
   viagemDoRegistro,
 } from '@owbuddy/domain';
-import type { EscalaConfig, HistoricoData, RegistroEmbarque, Viagem } from '@owbuddy/domain';
+import type { EscalaConfig, HistoricoData, RefRadar, RegistroEmbarque, Viagem } from '@owbuddy/domain';
 import { alterarHistorico, getEscala, getHistorico, getViagem } from '../src/storage';
 import { OWBackground } from '../src/components/OWBackground';
 import { OWDatePicker } from '../src/components/OWDatePicker';
@@ -41,6 +41,7 @@ import { useAcaoUnica } from '../src/acoes';
 import { avisar } from '../src/feedback';
 import { analytics } from '../src/analytics';
 import { novoIdHistorico } from '../src/historico-acoes';
+import { CampoUnidade } from '../src/components/CampoUnidade';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
@@ -59,6 +60,8 @@ function FormEmbarqueConteudo() {
   const [embarque, setEmbarque] = useState('');
   const [desembarque, setDesembarque] = useState('');
   const [unidade, setUnidade] = useState('');
+  // Unidade do Radar Offshore escolhida (contexto). O texto acima continua sendo o registro.
+  const [unidadeRef, setUnidadeRef] = useState<RefRadar | null>(null);
   const [funcao, setFuncao] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [obs, setObs] = useState('');
@@ -81,7 +84,7 @@ function FormEmbarqueConteudo() {
         setOriginal(r);
         setEmbarque(r.embarque);
         setDesembarque(r.desembarque ?? (params.finalizar === '1' ? (r.previsto?.desembarque ?? hojeISO()) : ''));
-        setUnidade(r.unidade ?? ''); setFuncao(r.funcao ?? ''); setEmpresa(r.empresa ?? ''); setObs(r.obs ?? '');
+        setUnidade(r.unidade ?? ''); setUnidadeRef(r.unidade_ref ?? null); setFuncao(r.funcao ?? ''); setEmpresa(r.empresa ?? ''); setObs(r.obs ?? '');
         setDetalhes(!!(r.funcao || r.empresa || r.obs));
         setPrevisto(r.previsto);
         if (params.finalizar === '1') setPick('des');
@@ -149,6 +152,7 @@ function FormEmbarqueConteudo() {
       embarque,
       desembarque: des,
       unidade: unidade.trim() || undefined,
+      unidade_ref: unidade.trim() && unidadeRef ? unidadeRef : undefined,
       funcao: funcao.trim() || undefined,
       empresa: empresa.trim() || undefined,
       obs: obs.trim() || undefined,
@@ -278,8 +282,8 @@ function FormEmbarqueConteudo() {
             </View>
           ) : null}
 
-          <Campo label="Unidade / local (opcional)" value={unidade} onChange={setUnidade} placeholder="Ex.: West Jupiter, P-80" />
-          {sugUnidade.length ? <Sugestoes itens={sugUnidade} onEscolher={setUnidade} /> : null}
+          <CampoUnidade rotulo="Unidade / local (opcional)" texto={unidade} refRadar={unidadeRef} onChange={(t, r) => { setUnidade(t); setUnidadeRef(r); }} placeholder="Ex.: West Jupiter, P-80" />
+          {sugUnidade.length ? <Sugestoes itens={sugUnidade} onEscolher={(t) => { setUnidade(t); setUnidadeRef(null); }} /> : null}
 
           {!detalhes ? (
             <TouchableOpacity style={styles.detalhesBtn} onPress={() => setDetalhes(true)} accessibilityRole="button">

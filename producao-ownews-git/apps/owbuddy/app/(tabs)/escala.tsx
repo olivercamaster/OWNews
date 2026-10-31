@@ -34,6 +34,7 @@ import type {
   DayKind,
   CruzamentoDia,
   EscalaSecundaria,
+  MinhaUnidade,
 } from '@owbuddy/domain';
 import {
   getEscala,
@@ -42,6 +43,7 @@ import {
   setEventosPessoais,
   getEscalasCruzar,
   getHistorico,
+  getMinhaUnidade,
 } from '../../src/storage';
 import { OWProgresso } from '../../src/components/OWProgresso';
 import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../../src/theme';
@@ -400,12 +402,15 @@ export default function EscalaScreen() {
   const [compartilhando, setCompartilhando] = useState(false);
   // Meu Histórico (realizado): só a contagem para o atalho — a escala nunca lê nem grava o histórico.
   const [registrados, setRegistrados] = useState(0);
+  // Minha Unidade: só o nome para o atalho (local; a escala não lê nem grava a unidade).
+  const [minhaUnidade, setMinhaUnidadeEstado] = useState<MinhaUnidade | null>(null);
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
-    const [cfg, ep, cz, hist] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar(), getHistorico()]);
+    const [cfg, ep, cz, hist, mu] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar(), getHistorico(), getMinhaUnidade()]);
     setRegistrados(hist.registros.length);
+    setMinhaUnidadeEstado(mu);
     setConfig(cfg);
     setEPState(ep);
     setCruzadas(cz);
@@ -564,6 +569,16 @@ export default function EscalaScreen() {
             <Text style={styles.historicoSub} numberOfLines={1}>
               {registrados > 0 ? `${registrados} ${registrados === 1 ? 'embarque registrado' : 'embarques registrados'}` : 'O que realmente aconteceu em cada embarque'}
             </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
+
+        {/* ── Minha Unidade: onde embarca (contexto do Radar Offshore; não mexe na escala) ── */}
+        <TouchableOpacity style={styles.historico} onPress={() => router.push('/minha-unidade')} accessibilityRole="button" accessibilityLabel="Minha Unidade">
+          <Ionicons name="boat-outline" size={20} color={colors.iconDefault} />
+          <View style={styles.historicoTextos}>
+            <Text style={styles.historicoTitulo}>Minha Unidade</Text>
+            <Text style={styles.historicoSub} numberOfLines={1}>{minhaUnidade ? minhaUnidade.nome : 'Onde você embarca'}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
         </TouchableOpacity>

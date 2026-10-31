@@ -102,7 +102,11 @@ type EventName =
   | 'premium_fim_conhecer'
   | 'premium_fim_continuar_free'
   // Minha Mala: reordenar item
-  | 'checklist_item_moved';
+  | 'checklist_item_moved'
+  // Minha Unidade (Radar Offshore): só a ação — NUNCA o nome ou o id da unidade
+  | 'my_unit_opened'
+  | 'my_unit_set'
+  | 'my_unit_radar_opened';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

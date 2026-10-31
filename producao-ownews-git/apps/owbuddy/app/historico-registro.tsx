@@ -38,6 +38,9 @@ import { analytics } from '../src/analytics';
 import { HIST_VISUAL } from '../src/historico-visual';
 import { useOwBuddyPlus } from '../src/plus/acesso';
 import { CartaoPremium } from '../src/components/PortaoPlus';
+import { usePacoteRadar } from '../src/components/CampoUnidade';
+import { unidadeComNomeExato, unidadeDaRef } from '@owbuddy/domain';
+import { Linking } from 'react-native';
 
 const ddmm = (iso: string) => formatDateBR(iso).slice(0, 5);
 
@@ -46,6 +49,8 @@ function RegistroHistoricoConteudo() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { plus } = useOwBuddyPlus();
+  // Radar Offshore: contexto da unidade (só leitura; o registro continua sendo o que a pessoa escreveu).
+  const pacote = usePacoteRadar();
   const [hist, setHist] = useState<HistoricoData | null>(null);
   const [viagem, setViagem] = useState<Viagem | null>(null);
 
@@ -63,6 +68,16 @@ function RegistroHistoricoConteudo() {
     setHist(h);
     analytics.track('acontecimento_registrado', { origem: 'viagem' });
     avisar('Adicionado à linha do tempo');
+  });
+
+  const unidadeRadar = r && pacote ? unidadeDaRef(pacote.unidades, r.unidade_ref) : null;
+  const sugestaoRadar = r && pacote && !r.unidade_ref ? unidadeComNomeExato(pacote.unidades, r.unidade) : null;
+  // Associação só por toque da pessoa; o texto do registro não muda.
+  const [associarRadar] = useAcaoUnica(async () => {
+    if (!r || !sugestaoRadar) return;
+    const h = await alterarHistorico(x => ({ ...x, registros: x.registros.map(y => (y.id === r.id ? { ...y, unidade_ref: { id: sugestaoRadar.id, slug: sugestaoRadar.slug } } : y)) }));
+    setHist(h);
+    avisar('Unidade associada ao Radar');
   });
 
   if (!hist) return <OWBackground><View style={{ flex: 1 }} /></OWBackground>;
@@ -146,6 +161,19 @@ function RegistroHistoricoConteudo() {
           {r.funcao ? <Info icone="person-outline" texto={r.funcao} /> : null}
           {r.empresa ? <Info icone="briefcase-outline" texto={r.empresa} /> : null}
           {r.obs ? <Info icone="chatbox-ellipses-outline" texto={r.obs} /> : null}
+          {unidadeRadar ? (
+            <TouchableOpacity style={styles.radarLink} onPress={() => { analytics.track('my_unit_radar_opened'); Linking.openURL(`${pacote!.base_url}/unidades/${unidadeRadar.slug}`).catch(() => {}); }} accessibilityRole="link">
+              <Ionicons name="boat-outline" size={16} color={colors.cyanDim} />
+              <Text style={styles.radarLinkTexto}>{unidadeRadar.tipo || 'Unidade'} · Ver unidade no OWNews</Text>
+            </TouchableOpacity>
+          ) : sugestaoRadar ? (
+            <View style={styles.radarSugestao}>
+              <Text style={styles.radarSugestaoTexto}>“{r.unidade}” está no Radar Offshore como {sugestaoRadar.nome} ({sugestaoRadar.tipo || 'unidade'}). Associar este registro? O nome que você escreveu não muda.</Text>
+              <TouchableOpacity style={styles.radarSugestaoBtn} onPress={associarRadar} accessibilityRole="button">
+                <Text style={styles.radarLinkTexto}>Associar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <View style={styles.acoes}>
             <TouchableOpacity style={styles.botao} onPress={() => router.push({ pathname: '/historico-form', params: { id: r.id } })} accessibilityRole="button">
@@ -251,6 +279,11 @@ function ItemLinha({ a, primeiro, ultimo }: { a: AcontecimentoHist; primeiro: bo
 const MARCADOR = 11;
 
 const styles = themed(() => StyleSheet.create({
+  radarLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: spacing.xs },
+  radarLinkTexto: { fontSize: 14, fontWeight: '700', color: colors.cyanDim },
+  radarSugestao: { gap: 6, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: maritime.glassBorder, backgroundColor: maritime.glass },
+  radarSugestaoTexto: { fontSize: 13, lineHeight: 19, color: colors.muted },
+  radarSugestaoBtn: { minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' },
   content: { padding: spacing.md },
   sumiu: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
 

@@ -64,6 +64,7 @@ import { opcoesTransporte } from '../../src/transporte';
 import { LinearGradient } from 'expo-linear-gradient';
 import { OWProgresso } from '../../src/components/OWProgresso';
 import { AvisoPeriodoPremium } from '../../src/components/AvisoPeriodoPremium';
+import { CardMinhaUnidade } from '../../src/components/CardMinhaUnidade';
 import { useOwBuddyPlus } from '../../src/plus/acesso';
 
 // Cor de acento por estado contextual (chip, barra de progresso, borda do hero).
@@ -353,6 +354,9 @@ export default function TelaHoje() {
   // máximo um por vez, logo abaixo do topo — nunca pop-up, nunca em outras telas.
   pecas.splice(pecas.reduce((ult, p, k) => (p.grupo === 'topo' || p.id === 'momento' ? k : ult), -1) + 1, 0,
     { id: 'momento', key: 'periodo-premium', grupo: 'topo', forma: 'bloco', render: () => <AvisoPeriodoPremium /> });
+  // Sua unidade: só embarcado e com notícia nova da unidade (o próprio card some sem valor).
+  pecas.splice(pecas.reduce((ult, p, k) => (p.grupo === 'topo' || p.id === 'momento' ? k : ult), -1) + 1, 0,
+    { id: 'momento', key: 'minha-unidade', grupo: 'topo', forma: 'bloco', render: () => <CardMinhaUnidade embarcado={contexto.tipo === 'EMBARCADO'} /> });
 
   return (
     <OWBackground watermark="home">

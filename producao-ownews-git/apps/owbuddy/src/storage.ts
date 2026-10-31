@@ -5,7 +5,8 @@ import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import { lerHistorico, lerAvisos, HISTORICO_VERSAO } from '@owbuddy/domain';
 import type { HistoricoData, AvisosHistorico } from '@owbuddy/domain';
-import { lerCachePlus, lerTrialPremium } from '@owbuddy/domain';
+import { lerCachePlus, lerTrialPremium, lerMinhaUnidade } from '@owbuddy/domain';
+import type { MinhaUnidade } from '@owbuddy/domain';
 import type { CachePlus, TrialPremium } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
@@ -38,6 +39,9 @@ export const KEYS = {
   PLUS_TESTE:       'owbuddy_plus_teste_cenario',
   // Período Premium de boas-vindas (45 dias): só o início e o maior relógio já visto. Local, fora do sync.
   PREMIUM_TRIAL:    'owbuddy_premium_trial',
+  // Minha Unidade (Radar Offshore): só neste aparelho — fora do sync, do analytics e das notificações.
+  MINHA_UNIDADE:    'owbuddy_minha_unidade',
+  MINHA_UNIDADE_VISTAS: 'owbuddy_minha_unidade_vistas',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -321,6 +325,29 @@ export async function getCachePlus(): Promise<CachePlus | null> {
 export async function setCachePlus(c: CachePlus | null): Promise<void> {
   if (c) await set(KEYS.PLUS_CACHE, c);
   else await remove(KEYS.PLUS_CACHE);
+}
+
+// ─── Minha Unidade ───────────────────────────────────────────────────────────
+// Local-first: a unidade onde a pessoa embarca nunca sai do aparelho (o pacote do Radar é público
+// e igual para todos; o filtro "qual é a minha unidade" acontece aqui).
+export async function getMinhaUnidade(): Promise<MinhaUnidade | null> {
+  return lerMinhaUnidade(await get<unknown>(KEYS.MINHA_UNIDADE));
+}
+
+export async function setMinhaUnidade(mu: MinhaUnidade | null): Promise<void> {
+  if (mu) await set(KEYS.MINHA_UNIDADE, mu);
+  else await remove(KEYS.MINHA_UNIDADE);
+}
+
+/** Ids de notícias da unidade já vistas (para "N novas" no Início). */
+export async function getNoticiasUnidadeVistas(): Promise<string[]> {
+  const v = await get<unknown>(KEYS.MINHA_UNIDADE_VISTAS);
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-60) : [];
+}
+
+export async function marcarNoticiasUnidadeVistas(ids: string[]): Promise<void> {
+  const atuais = await getNoticiasUnidadeVistas();
+  await set(KEYS.MINHA_UNIDADE_VISTAS, [...new Set([...atuais, ...ids])].slice(-60));
 }
 
 // Período Premium de boas-vindas. "Apagar dados deste aparelho" também apaga este registro
