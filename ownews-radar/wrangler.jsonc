@@ -1,0 +1,14 @@
+{
+  // Radar Offshore — worker isolado (não pesa no worker principal do OWNews).
+  // Sem cron: a ingestão roda no VPS (CPU do plano Free não comporta os CSVs da ANP)
+  // e grava os snapshots aqui via PUT /interno/snapshot (segredo RADAR_INGEST_SECRET).
+  // O portal (ownews-git) chama este worker por service binding em /radar-offshore/*.
+  "name": "ownews-radar",
+  "main": "worker/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "RADAR_KV", "id": "8fe9a6acb25d45eb98245225fed3c658" }
+  ],
+  "observability": { "enabled": true }
+}
