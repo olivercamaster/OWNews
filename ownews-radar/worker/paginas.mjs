@@ -8,6 +8,20 @@ import {
 } from './ui.mjs';
 
 const pagina = (o) => ({ status: 200, ...o });
+
+/* Indexação das fichas (AdSense / conteúdo de baixo valor, 31/10/2026): só entra no índice e no sitemap a
+   ficha que tem dado próprio além do cadastro — medido no crawl, as sem isso tinham 36–91 palavras.
+   Unidade: produção oficial no último mês. Sonda: não (a ANP só informa sonda × campo; a lista /sondas
+   cobre). Campo: produção. Operador: produção + notícias. As demais seguem acessíveis (noindex,follow). */
+const temProducao = (p) => !!p && ((p.petroleo_bbl_d || 0) > 0 || (p.gas_mil_m3_d || 0) > 0);
+export function fichaIndexavel(tipo, x, noticias) {
+  if (!x) return false;
+  if (tipo === 'unidade') return x.categoria !== 'sonda' && temProducao(x.producao);
+  if (tipo === 'campo') return temProducao(x.producao);
+  if (tipo === 'operador') return temProducao(x.producao) && (((noticias || {}).operadores || {})[x.id] || []).length > 0;
+  return true;
+}
+const robotsFicha = (tipo, x, noticias) => (fichaIndexavel(tipo, x, noticias) ? {} : { robots: 'noindex,follow' });
 const opsMap = (ops) => new Map((ops || []).map((o) => [o.id, o]));
 const linkOp = (o, ops) => { const x = ops.get(o); return x ? `<a href="${BASE}/operadores/${esc(x.slug)}">${esc(x.nome)}</a>` : null; };
 
@@ -109,6 +123,7 @@ ${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas', 'producao_mar
     ? `${u.nome} (${u.sigla})${u.tipo ? `, ${u.tipo.toLowerCase()}` : ''}${op ? `, operada por ${op.nome}` : ''}: campos com atividade registrada pela ANP e notícias relacionadas.`
     : `${u.nome}: ${u.tipo || 'unidade de produção'}${op ? ` da ${op.nome}` : ''}${u.bacia ? ` na Bacia de ${u.bacia}` : ''}. Campos, capacidade, produção mensal oficial e notícias.`;
   return pagina({
+    ...robotsFicha('unidade', u, noticias),
     titulo: `${u.nome} — ${u.tipo || (sonda ? 'Sonda' : 'Unidade offshore')}`, canonical: `${BASE}/unidades/${u.slug}`, descricao, html,
     jsonLd: { '@context': 'https://schema.org', '@type': 'Place', name: u.nome, description: descricao, ...(Number.isFinite(u.lat) ? { geo: { '@type': 'GeoCoordinates', latitude: u.lat, longitude: u.lon } } : {}) },
   });
@@ -149,7 +164,7 @@ ${sondas.length ? `<section class="ro-bloco"><h2>Sondas com atividade registrada
 <p class="ro-acoes"><a class="ro-botao" href="${BASE}/mapa#campo=${esc(c.slug)}">Ver no mapa</a></p>
 ${listaNoticias((noticias.campos || {})[c.id], `Notícias sobre o campo de ${c.nome}`, `Nenhuma notícia do OWNews cita o campo de ${c.nome} nos últimos 12 meses.`)}
 ${rodapeFonte(meta, ['campos', 'concessionarios', 'producao_mar'])}`;
-  return pagina({ titulo: `Campo de ${c.nome}`, canonical: `${BASE}/campos/${c.slug}`, html, descricao: `Campo de ${c.nome}${c.bacia ? `, Bacia de ${c.bacia}` : ''}: operador${op ? ` ${op.nome}` : ''}, concessionários, unidades, produção mensal oficial e notícias.` });
+  return pagina({ ...robotsFicha('campo', c, noticias), titulo: `Campo de ${c.nome}`, canonical: `${BASE}/campos/${c.slug}`, html, descricao: `Campo de ${c.nome}${c.bacia ? `, Bacia de ${c.bacia}` : ''}: operador${op ? ` ${op.nome}` : ''}, concessionários, unidades, produção mensal oficial e notícias.` });
 }
 
 /* ─── Operadores ─── */
@@ -181,7 +196,7 @@ ${o.sondas.length ? `<section class="ro-bloco"><h2>Sondas</h2><ul class="ro-list
 ${v ? `<section class="ro-bloco"><h2>Vagas verificadas</h2><p>${esc(v.total)} ${v.total === 1 ? 'vaga aberta' : 'vagas abertas'} da ${esc(v.empresa)} no Radar de Vagas do OWNews, publicadas no portal oficial da empresa.</p><ul class="ro-noticias">${v.exemplos.map((x) => `<li>${esc(x.titulo)}${x.local ? ` <span>· ${esc(x.local)}</span>` : ''}</li>`).join('')}</ul><p><a href="/vagas">Ver todas as vagas</a></p></section>` : ''}
 ${listaNoticias((noticias.operadores || {})[o.id], `Notícias de ${o.nome}`, `Nenhuma notícia do OWNews com ${o.nome} no título nos últimos 12 meses.`)}
 ${rodapeFonte(meta, ['campos', 'concessionarios', 'plataformas', 'sondas', 'producao_mar'])}`;
-  return pagina({ titulo: `${o.nome} no offshore brasileiro`, canonical: `${BASE}/operadores/${o.slug}`, html, descricao: `${o.nome}: campos, unidades e sondas no mar brasileiro segundo a ANP, produção dos campos operados e notícias do OWNews.` });
+  return pagina({ ...robotsFicha('operador', o, noticias), titulo: `${o.nome} no offshore brasileiro`, canonical: `${BASE}/operadores/${o.slug}`, html, descricao: `${o.nome}: campos, unidades e sondas no mar brasileiro segundo a ANP, produção dos campos operados e notícias do OWNews.` });
 }
 
 /* ─── Produção ─── */

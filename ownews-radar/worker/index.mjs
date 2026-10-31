@@ -12,7 +12,7 @@ import { CSS, JS_FILTROS, JS_MAPA } from './estaticos.mjs';
 import { BASE } from './ui.mjs';
 
 /** Versão do HTML: suba a cada mudança de página/CSS (entra na chave do cache de borda). */
-const VERSAO_UI = '3';
+const VERSAO_UI = '4';
 const memoria = new Map(); // memo curta por isolate: { valor, em }
 /** Só testes: zera a memória do isolate entre cenários. */
 export function __limparMemoria() { memoria.clear(); }
@@ -158,9 +158,12 @@ async function api(env, url) {
 }
 
 async function sitemap(env) {
-  const { unidades, campos, operadores } = await lerVarias(env, ['unidades', 'campos', 'operadores']);
+  const { unidades, campos, operadores, noticias } = await lerVarias(env, ['unidades', 'campos', 'operadores', 'noticias']);
+  // Só fichas indexáveis (mesma regra da página — P.fichaIndexavel).
   const urls = [BASE, ...['unidades', 'sondas', 'campos', 'operadores', 'producao', 'exploracao', 'futuro', 'mapa', 'fontes'].map((s) => `${BASE}/${s}`),
-    ...(unidades || []).map((u) => `${BASE}/unidades/${u.slug}`), ...(campos || []).map((c) => `${BASE}/campos/${c.slug}`), ...(operadores || []).map((o) => `${BASE}/operadores/${o.slug}`)];
+    ...(unidades || []).filter((u) => P.fichaIndexavel('unidade', u, noticias)).map((u) => `${BASE}/unidades/${u.slug}`),
+    ...(campos || []).filter((c) => P.fichaIndexavel('campo', c, noticias)).map((c) => `${BASE}/campos/${c.slug}`),
+    ...(operadores || []).filter((o) => P.fichaIndexavel('operador', o, noticias)).map((o) => `${BASE}/operadores/${o.slug}`)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>https://ownews.com.br${u}</loc></url>`).join('')}</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
 }

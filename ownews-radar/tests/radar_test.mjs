@@ -10,6 +10,7 @@ import { relacionarNoticias, citaCampo, termosUnidade, contemFrase, vagasPorOper
 import { detectarPautas } from '../ingestao/pautas.mjs';
 import { simplificarAnel } from '../ingestao/geo.mjs';
 import worker, { __limparMemoria } from '../worker/index.mjs';
+import { fichaIndexavel } from '../worker/paginas.mjs';
 import { ambiente } from './_ambiente.mjs';
 
 const testes = [];
@@ -272,7 +273,9 @@ teste('SEO: sitemap com hub, seções e entidades; canonical por página; JSON-L
   const { env, ctx, s } = await preparar();
   const xml = await (await pedir(env, ctx, '/sitemap.xml')).text();
   assert.match(xml, /<loc>https:\/\/ownews\.com\.br\/radar-offshore<\/loc>/);
-  for (const u of s.unidades) assert.ok(xml.includes(`/radar-offshore/unidades/${u.slug}<`));
+  // Só fichas com dado próprio (fichaIndexavel); as demais ficam fora do sitemap.
+  for (const u of s.unidades) assert.equal(xml.includes(`/radar-offshore/unidades/${u.slug}<`), fichaIndexavel('unidade', u, s.noticias), u.slug);
+  assert.ok(s.unidades.some((u) => fichaIndexavel('unidade', u, s.noticias)), 'fixture tem ao menos uma unidade indexável');
   const p = await (await pedir(env, ctx, '/unidades/fpso-almirante-barroso')).json();
   assert.equal(p.canonical, '/radar-offshore/unidades/fpso-almirante-barroso');
   assert.equal(p.jsonLd['@type'], 'Place');
@@ -297,6 +300,24 @@ teste('previsão marcada como previsão; análise marcada como análise', async 
   assert.match(p.html, /Contexto OWNews — análise, não dado da ANP/);
   const e = await (await pedir(env, ctx, '/exploracao')).json();
   assert.match(e.html, /Realizado — dados da ANP/);
+});
+
+teste('indexação: só ficha com dado próprio entra no índice e no sitemap (AdSense, baixo valor)', async () => {
+  const prod = { petroleo_bbl_d: 1000, gas_mil_m3_d: 10 };
+  assert.equal(fichaIndexavel('unidade', { categoria: 'producao', producao: prod }), true);
+  assert.equal(fichaIndexavel('unidade', { categoria: 'producao', producao: null }), false);
+  assert.equal(fichaIndexavel('unidade', { categoria: 'sonda', producao: null }), false, 'sonda: só a lista /sondas');
+  assert.equal(fichaIndexavel('campo', { producao: prod }), true);
+  assert.equal(fichaIndexavel('campo', { producao: { petroleo_bbl_d: 0, gas_mil_m3_d: 0 } }), false);
+  assert.equal(fichaIndexavel('operador', { id: 'op-1', producao: prod }, { operadores: { 'op-1': [{ titulo: 'x' }] } }), true);
+  assert.equal(fichaIndexavel('operador', { id: 'op-1', producao: prod }, { operadores: {} }), false);
+  const { env, ctx } = await preparar();
+  const xml = await (await pedir(env, ctx, '/sitemap.xml')).text();
+  const locs = [...xml.matchAll(/<loc>[^<]*\/(unidades|campos|operadores)\/([^<]+)<\/loc>/g)];
+  for (const [, tipo, slug] of locs) {
+    const p = await (await pedir(env, ctx, `/${tipo}/${slug}`)).json();
+    assert.ok(!/noindex/.test(p.robots || ''), `no sitemap mas noindex: ${tipo}/${slug}`);
+  }
 });
 
 let falhas = 0;
