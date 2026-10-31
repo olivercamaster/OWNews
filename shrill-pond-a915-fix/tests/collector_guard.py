@@ -87,7 +87,9 @@ def run_static():
 
     test("interpretarMetar present", lambda: _check_fn("interpretarMetar"))
     test("similaridadeTitulos present", lambda: _check_fn("similaridadeTitulos"))
-    test("detectarIdiomaEN present", lambda: _check_fn("detectarIdiomaEN"))
+    test("idiomaTexto present (detector PT-BR, substituiu detectarIdiomaEN)", lambda: _check_fn("idiomaTexto"))
+    test("diagnosticarPipeline present (watchdog P0 31/10)", lambda: _check_fn("diagnosticarPipeline"))
+    test("decisaoFalhaTecnica present (deferred técnico)", lambda: _check_fn("decisaoFalhaTecnica"))
     test("classificarRiscoEditorial present", lambda: _check_fn("classificarRiscoEditorial"))
     test("classificarFrescorOffVoos present", lambda: _check_fn("classificarFrescorOffVoos"))
     test("extrairIcaoEStatus present", lambda: _check_fn("extrairIcaoEStatus"))

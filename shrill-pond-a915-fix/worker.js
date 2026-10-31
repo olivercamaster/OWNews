@@ -408,6 +408,7 @@ function tokenAdminValido(request, env) {
 
 export default {
   async fetch(request, env) {
+    env = comOrcamento(env); // /run-* manuais respeitam o mesmo limite de subrequests
     const url = new URL(request.url);
 
     // Segurança (Missão AdSense 2.1, 2026-10-17): este Worker é público em
@@ -446,17 +447,29 @@ export default {
       const alvo = url.searchParams.get("url") || "";
       if (!alvo) return Response.json({ ok: false, erro: "informe ?url=" }, { status: 400 });
       const hash = await sha256(alvo);
-      let rej = null, artigo = null;
+      let rej = null, artigo = null, tec = null;
       if (env.BUDDY_IA_DO) {
         const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/rejeicao?hash=" + hash);
         rej = r.ok ? await r.json() : null;
+        const t = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/tecnica?hash=" + hash);
+        tec = t.ok ? await t.json() : null;
       }
       try {
         const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,status,buddy_source,published_at,created_at&hash=eq.${hash}&limit=1`, { headers: supabaseHeaders(env) });
         artigo = r.ok ? (await r.json())[0] || null : null;
       } catch { /* leitura opcional */ }
       const valida = rej && typeof rej === "object" && rej.t >= (rej.c === "definitiva" ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE) && rej.t >= Date.now() - 3 * 86400000;
-      return Response.json({ ok: true, url: alvo, hash, no_banco: artigo, memoria_reprovacao: rej, memoria_vigente: !!valida });
+      return Response.json({ ok: true, url: alvo, hash, no_banco: artigo, memoria_reprovacao: rej, memoria_vigente: !!valida,
+        falha_tecnica: tec, decisao_tecnica: decisaoFalhaTecnica(tec, Date.now()),
+        onde_parou: artigo ? (artigo.status === 'published' ? 'publicada' : 'no banco com status ' + artigo.status)
+          : valida ? 'memória de reprovação (' + (rej.c || '?') + ': ' + (rej.m || []).join(', ') + ')'
+          : tec && decisaoFalhaTecnica(tec, Date.now()) !== 'tentar' ? 'falha técnica (' + tec.e + '), ' + tec.n + ' tentativa(s)'
+          : 'ainda não avaliada ou fora do feed/filtro de relevância' });
+    }
+    if (url.pathname === "/admin/tecnicas") {
+      if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
+      const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/tecnicas");
+      return new Response(r.body, { headers: { "Content-Type": "application/json" } });
     }
     if (url.pathname === "/admin/rejeicoes") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
@@ -911,7 +924,7 @@ if (url.pathname === "/teste-materia") {
       }
       try {
         const resp = await fetch(
-          `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_credit,original_url,published_at,score_reason&status=eq.draft&is_sensitive=eq.true&order=published_at.desc&limit=20`,
+          `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_credit,original_url,published_at,score_reason&status=in.(draft,rejected)&is_sensitive=eq.true&order=published_at.desc&limit=20`,
           { headers: supabaseHeaders(env) }
         );
         if (!resp.ok) return Response.json({ total: 0, artigos: [], erro: `Supabase HTTP ${resp.status}` });
@@ -946,7 +959,7 @@ if (url.pathname === "/teste-materia") {
             {
               method: 'PATCH',
               headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-              body: JSON.stringify({ status: 'rejected' })
+              body: JSON.stringify({ status: 'rejected', is_sensitive: false })
             }
           );
           if (!resp.ok) { const d = await resp.text(); return Response.json({ ok: false, erro: d.slice(0, 100) }); }
@@ -1077,10 +1090,11 @@ if (url.pathname === "/teste-materia") {
       const inicio = Date.now();
       let resultado = null;
       let erro = null;
+      const envExec = comOrcamento(env);
       try {
         resultado = grupo === "B"
-          ? await executarAtualizacaoNovasFontes(env)
-          : await executarAtualizacaoPrincipal(env); // "50 ..." — horário original, Grupo A.
+          ? await executarAtualizacaoNovasFontes(envExec)
+          : await executarAtualizacaoPrincipal(envExec); // "50 ..." — horário original, Grupo A.
       } catch (e) {
         erro = e.message;
         console.error("[collector] erro na coleta principal:", e.message);
@@ -1094,11 +1108,12 @@ if (url.pathname === "/teste-materia") {
         inicio: new Date(inicio).toISOString(),
         fim: new Date(fim).toISOString(),
         duracao_ms: fim - inicio,
+        orcamento: { limite: ORC_LIMITE, usados: envExec.__orc.usados, adiadas: envExec.__orc.adiadas },
         resultados: resultado ? resultado.resultados : null,
         funil: resultado ? resultado.funil : null,
         erro
       });
-      if (resultado) await acumularGateEditorial(env, resultado.resultados);
+      if (resultado) await acumularGateEditorial(env, resultado.resultados, envExec.__orc);
 
       // Telegram roda DEPOIS da coleta (pra ver os artigos recém-inseridos
       // nesta mesma execução), sempre, mesmo que a coleta principal tenha
@@ -2285,7 +2300,7 @@ async function obterStatusTelegram(env) {
     const candidatos = await buscarCandidatosTelegram(env);
     const resultados = await processarArtigosParaTelegram(
       candidatos, historicoResp.historico, "https://ownews.com.br",
-      { ...env, TELEGRAM_DRY_RUN: "true" }, { info: () => {} }, agora
+      Object.assign(Object.create(env), { TELEGRAM_DRY_RUN: "true" }), { info: () => {} }, agora
     );
     const porId = Object.fromEntries(candidatos.map((a) => [a.id, a]));
     const melhor = resultados.find((r) => r.status === "dry_run");
@@ -2614,7 +2629,7 @@ async function contarArtigosEmRevisao(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_KEY) return 0;
   try {
     const resp = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/articles?select=id&status=eq.draft&is_sensitive=eq.true&limit=1`,
+      `${env.SUPABASE_URL}/rest/v1/articles?select=id&status=in.(draft,rejected)&is_sensitive=eq.true&limit=1`,
       { headers: { ...supabaseHeaders(env), 'Prefer': 'count=exact', 'Range': '0-0' } }
     );
     if (!resp.ok) return 0;
@@ -2874,10 +2889,16 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
   const motivos = [];
   let status = 'VERDE';
   const semPublicar = idadeUltima === null ? Infinity : idadeUltima;
-  if (semPublicar >= 12 && pautas24h > 0) { status = 'VERMELHO'; motivos.push('silêncio: ' + (idadeUltima === null ? 'nenhuma matéria em 7 dias' : Math.round(semPublicar) + 'h sem publicar') + ' com ' + pautas24h + ' pautas avaliadas/barradas em 24h'); }
+  // Watchdog (P0 31/10): silêncio sozinho não é falha. Travado = sem publicar
+  // com pauta nova parada por motivo técnico (janela de 6 h).
+  const janela6 = (gate && gate.janelas && gate.janelas['6h']) || g24;
+  const pipeline = diagnosticarPipeline({ horasSemPublicar: semPublicar, janela: janela6, fontesComErro: [...new Set([...(janela6.fontes_com_erro || []), ...fontesErro])] });
+  const rotuloSilencio = idadeUltima === null ? 'nenhuma matéria em 7 dias' : Math.round(semPublicar) + 'h sem publicar';
+  if (pipeline.estado === 'editorial_pipeline_stalled') { status = 'VERMELHO'; motivos.push('pipeline travado (editorial_pipeline_stalled): ' + rotuloSilencio + ' — ' + pipeline.motivos.join('; ')); }
+  else if (semPublicar >= 12 && pipeline.estado === 'gate_reprovando_tudo') { status = 'VERMELHO'; motivos.push('gate reprovando todas as pautas novas: ' + rotuloSilencio); }
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
   if (status !== 'VERMELHO') {
-    if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar'); }
+    if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar' + (pipeline.estado === 'silencio_editorial' ? ' — silêncio editorial: ' + pipeline.motivos[pipeline.motivos.length - 1] : '')); }
     // Taxa null = ainda sem amostra com o contador de aprovadas (não é 0%).
     const amostraTaxa = g24.ia_avaliadas_amostra_taxa === undefined ? (g24.ia_avaliadas || 0) : g24.ia_avaliadas_amostra_taxa;
     if (amostraTaxa >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + amostraTaxa); }
@@ -2886,6 +2907,7 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao }) {
   return {
     status,
     motivos,
+    pipeline,
     silencio_alerta: status === 'VERMELHO' && semPublicar >= 12,
     idade_ultima_publicacao_h: idadeUltima,
     ultima_publicacao: ultima ? (ultima.created_at || ultima.published_at) : null,
@@ -2941,15 +2963,17 @@ async function obterBuddyCobertura(env) {
   } catch { return null; }
 }
 
-async function acumularGateEditorial(env, resultados) {
+async function acumularGateEditorial(env, resultados, orcamento) {
   if (!env.SAUDE_KV || !resultados) return;
   try {
     const raw = await env.SAUDE_KV.get('gate_acum', 'json');
     const acum = Array.isArray(raw) ? raw : [];
     const agora = Date.now();
     const entrada = { ts: agora, fontes: {} };
+    if (orcamento) entrada.orc = { u: orcamento.usados, a: orcamento.adiadas };
     for (const [nome, r] of Object.entries(resultados)) {
-      if (!r || r.ok === false) continue;
+      if (r && r.ok === false) { (entrada.fontes_erro = entrada.fontes_erro || []).push(nome); if (/subrequest/i.test(String(r.erro))) entrada.ia_erro = String(r.erro).slice(0, 120); continue; }
+      if (!r) continue;
       const p = r.inseridas || 0;
       const ei = r.editorial_incomplete || 0;
       const cs = r.content_summary_count || 0;
@@ -2963,14 +2987,16 @@ async function acumularGateEditorial(env, resultados) {
       // Live Newsroom: funil real (IA avaliou x aprovou de 1ª/2ª x reprovou
       // corrigível/definitiva x barrada pela memória x pauta antiga).
       const rr = motivos.reprovada_recente || 0;
-      const funil = { ia: r.ia_avaliadas || 0, ap: r.ia_aprovadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0, rec: r.recuperacoes || 0, rok: r.recuperadas || 0 };
-      if (p || ei || funil.ant) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
+      const funil = { ia: r.ia_avaliadas || 0, ap: r.ia_aprovadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0, rec: r.recuperacoes || 0, rok: r.recuperadas || 0,
+        // P0 31/10: o que parou por motivo TÉCNICO (não editorial).
+        tec: r.tecnicas || 0, tad: r.adiadas_tecnico || 0, orc: r.adiadas_orcamento || 0, ie: r.insercao_falhou || 0, ret: r.retidas || 0 };
+      if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
         if (item.motivo === 'ia_indisponivel') entrada.ia_erro = String((item.motivos_ia || [])[0] || 'ia_indisponivel').slice(0, 120);
       }
     }
-    const teveDados = Object.keys(entrada.fontes).length > 0;
+    const teveDados = Object.keys(entrada.fontes).length > 0 || !!entrada.fontes_erro;
     if (teveDados) acum.push(entrada);
     const limite = agora - 7 * 86400000;
     const final = acum.filter(e => e.ts >= limite).slice(-500);
@@ -2993,13 +3019,18 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
-      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0 };
+      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0 };
+      let execucoes = 0, orcUsadoMax = 0;
+      const fontesErro = new Set();
       let totalP = 0, totalEI = 0, iaComAp = 0;
       const motivos = {};
       for (const e of entradas) {
+        execucoes++;
+        if (e.orc && e.orc.u > orcUsadoMax) orcUsadoMax = e.orc.u;
+        for (const n of e.fontes_erro || []) fontesErro.add(n);
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
-          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
           if (f.ap !== undefined) iaComAp += f.ia || 0;
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
@@ -3032,6 +3063,15 @@ async function obterGateEditorialStats(env) {
         taxa_aprovacao_ia: iaComAp ? Math.round(funil.ap / iaComAp * 100) : null,
         recuperacoes: funil.rec,
         recuperadas: funil.rok,
+        // P0 31/10 — parte técnica do funil (nunca é reprovação editorial).
+        tecnicas: funil.tec,
+        adiadas_tecnico: funil.tad,
+        adiadas_orcamento: funil.orc,
+        insercao_falhou: funil.ie,
+        retidas_revisao: funil.ret,
+        execucoes,
+        orcamento_max_usado: orcUsadoMax || null,
+        fontes_com_erro: [...fontesErro],
         motivos,
         fontes
       };
@@ -3042,9 +3082,13 @@ async function obterGateEditorialStats(env) {
     // que o acumulador comprova (última resposta e última falha da IA).
     const ultima = (f) => acum.filter(f).reduce((a, e) => (!a || e.ts > a.ts ? e : a), null);
     const iaOk = ultima((e) => e.ia_ok), iaErro = ultima((e) => e.ia_erro);
+    // Funil por janela: onde o fluxo deixa de produzir (1h…24h).
+    const janelas = {};
+    for (const h of [1, 3, 6, 12, 24]) janelas[h + 'h'] = agregar(acum.filter((e) => e.ts >= agora - h * 3600000));
     return {
       '24h': agregar(e24h),
       '7d':  agregar(e7d),
+      janelas,
       entradas_total: acum.length,
       ia: {
         ultima_resposta: iaOk ? new Date(iaOk.ts).toISOString() : null,
@@ -4448,6 +4492,93 @@ async function lerMaterialFonte(env, hash) {
   } catch { return null; }
 }
 
+/* ==== ORÇAMENTO DE SUBREQUESTS POR INVOCAÇÃO (P0 31/10/2026) ====
+   Plano Free: 50 subrequests por invocação (fetch, DO, Workers AI). Medido
+   com o worker real (harness tests/medir_subrequests.mjs): Grupo C gastava
+   71 — pautas já reprovadas ainda baixavam página e consultavam banner — e
+   o alarme somava a varredura extra do Grupo A na mesma invocação. Quem
+   estourava eram justamente as pautas NOVAS (IA → "Too many subrequests").
+   Agora cada pauta nova reserva o custo máximo ANTES de começar; sem saldo
+   ela fica "adiada_orcamento" (nada é gravado) e volta na próxima execução.
+   ORC_LIMITE deixa folga para o registro da execução e o Telegram. */
+const ORC_LIMITE = 40;
+const CUSTO_FONTE = 3;      // feed + títulos recentes + URLs existentes (+1 quando lê a memória)
+const CUSTO_PAUTA_PT = 7;   // página + banner + IA (até 2) + arquivo + memória + gravação
+const CUSTO_PAUTA_EN = 9;   // + tradução de título e resumo
+function comOrcamento(env) {
+  if (!env || env.__orc) return env;
+  const e = Object.create(env);
+  e.__orc = { usados: 0, adiadas: 0 };
+  return e;
+}
+function gastarOrcamento(env, n) { if (env && env.__orc) env.__orc.usados += n; }
+function reservarOrcamento(env, n) {
+  if (!env || !env.__orc) return true;
+  if (env.__orc.usados + n > ORC_LIMITE) { env.__orc.adiadas++; return false; }
+  env.__orc.usados += n;
+  return true;
+}
+/* Devolve a parte da reserva que a pauta não usou (gasto real contado nos pontos de chamada). */
+function devolverOrcamento(env, reservado, gasto) { if (env && env.__orc && reservado > gasto) env.__orc.usados -= reservado - gasto; }
+function saldoOrcamento(env) { return env && env.__orc ? ORC_LIMITE - env.__orc.usados : ORC_LIMITE; }
+
+/* ==== FALHA TÉCNICA ≠ REPROVAÇÃO (deferred técnico) ====
+   Erro de IA, leitura ou gravação não é decisão editorial: não entra na
+   memória de reprovação. Fica em 'tec:<hash>' (BuddyIAPoller) com backoff
+   (20, 40, 80 min); na 4ª falha em 24 h a pauta para de ser tentada até o
+   dia seguinte — uma pauta defeituosa não consome o lote toda hora. */
+const TEC_MAX_TENTATIVAS = 4;
+const TEC_BACKOFF_BASE_MIN = 20;
+function decisaoFalhaTecnica(tec, agoraMs) {
+  if (!tec || !Number.isFinite(tec.t)) return 'tentar';
+  if (agoraMs - tec.t > 24 * 3600000) return 'tentar';
+  if ((tec.n || 1) >= TEC_MAX_TENTATIVAS) return 'esgotado';
+  const espera = TEC_BACKOFF_BASE_MIN * 60000 * Math.pow(2, (tec.n || 1) - 1);
+  return agoraMs - tec.t < espera ? 'aguardar' : 'tentar';
+}
+async function registrarFalhaTecnica(env, hash, erro, extra) {
+  if (!env.BUDDY_IA_DO || !hash) return;
+  try { await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/tecnica', { method: 'POST', body: JSON.stringify(Object.assign({ hash, erro: String(erro || '').slice(0, 120) }, extra || {})) }); } catch { /* best effort */ }
+}
+/* Memória das pautas numa chamada só: reprovações (3 dias) + falhas técnicas (24 h). */
+async function listarMemoriaPautas(env) {
+  const vazio = { rej: new Map(), tec: new Map() };
+  if (!env.BUDDY_IA_DO) return vazio;
+  try {
+    const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName('global')).fetch('https://buddy-ia.interno/rejeicoes?v=3');
+    const j = r.ok ? await r.json() : null;
+    if (!j || typeof j !== 'object' || Array.isArray(j) || !j.rej) return vazio;
+    return { rej: new Map(Object.entries(j.rej || {})), tec: new Map(Object.entries(j.tec || {})) };
+  } catch { return vazio; }
+}
+
+/* ==== WATCHDOG: SILÊNCIO EDITORIAL x PIPELINE TRAVADO ====
+   0 publicação sozinho não é falha (fim de semana, fontes sem pauta nova).
+   Travado = sem publicar E com pauta nova sendo impedida por motivo
+   TÉCNICO (IA/gravação/leitura com erro, orçamento estourado, fonte com
+   erro). Recebe o funil agregado da janela (mesmo formato de agregar()). */
+function diagnosticarPipeline({ horasSemPublicar, janela, fontesComErro }) {
+  const j = janela || {};
+  const tecnicas = (j.tecnicas || 0) + (j.insercao_falhou || 0) + ((j.motivos || {}).ia_indisponivel || 0);
+  const adiadasOrc = j.adiadas_orcamento || 0;
+  const novas = (j.ia_avaliadas || 0) + tecnicas + adiadasOrc;
+  const motivos = [];
+  if (tecnicas) motivos.push(tecnicas + ' pauta(s) parada(s) por erro técnico');
+  if (adiadasOrc) motivos.push(adiadasOrc + ' pauta(s) adiada(s) por orçamento de subrequests');
+  if ((fontesComErro || []).length) motivos.push('fonte com erro: ' + fontesComErro.join(', '));
+  const sem = Number.isFinite(horasSemPublicar) ? horasSemPublicar : Infinity;
+  if (sem < 6) return { estado: 'publicando', novas, tecnicas, adiadas_orcamento: adiadasOrc, motivos };
+  // Pauta nova existe e a maior parte dela trava por motivo técnico.
+  if ((tecnicas + adiadasOrc) >= 3 && (tecnicas + adiadasOrc) * 2 >= novas) {
+    return { estado: 'editorial_pipeline_stalled', novas, tecnicas, adiadas_orcamento: adiadasOrc, motivos };
+  }
+  if ((j.ia_avaliadas || 0) >= 8 && !(j.ia_aprovadas || 0)) {
+    return { estado: 'gate_reprovando_tudo', novas, tecnicas, adiadas_orcamento: adiadasOrc, motivos: motivos.concat([(j.ia_avaliadas || 0) + ' pautas novas avaliadas pela IA, nenhuma aprovada']) };
+  }
+  return { estado: 'silencio_editorial', novas, tecnicas, adiadas_orcamento: adiadasOrc,
+    motivos: motivos.concat([novas ? novas + ' pauta(s) nova(s) avaliada(s), nenhuma com qualidade para publicar' : 'nenhuma pauta nova relevante nas fontes']) };
+}
+
 /* Memória de reprovação do gate (storage do BuddyIAPoller, 3 dias). */
 // Mapa hash -> { c: classe, n: tentativas reprovadas, t: ms, m: motivos }.
 async function listarRejeicoesRecentes(env) {
@@ -4691,6 +4822,42 @@ export class BuddyIAPoller {
       }
       return Response.json({ ok: true });
     }
+    if (url.pathname === '/tecnica' && request.method === 'POST') {
+      const d = await request.json();
+      if (d && d.hash) {
+        const ant = await this.state.storage.get('tec:' + d.hash);
+        const vale = ant && typeof ant === 'object' && Date.now() - (ant.t || 0) <= 24 * 3600000;
+        await this.state.storage.put('tec:' + d.hash, {
+          t: Date.now(), n: vale ? (ant.n || 1) + 1 : 1, e: String(d.erro || '').slice(0, 120),
+          ti: d.titulo ? String(d.titulo).slice(0, 140) : undefined, f: d.fonte ? String(d.fonte).slice(0, 40) : undefined
+        });
+      }
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === '/rejeicoes' && url.searchParams.get('v') === '3') {
+      const lim3d = Date.now() - 3 * 86400000, lim1d = Date.now() - 86400000, rej = {}, tec = {}, velhos = [];
+      (await this.state.storage.list({ prefix: 'rej:' })).forEach((v, k) => {
+        const t = typeof v === 'number' ? v : (v && v.t) || 0;
+        const c = v && v.c === 'definitiva' ? 'definitiva' : 'corrigivel';
+        const desde = c === 'definitiva' ? BUDDY_IA_REJ_VALIDA_DESDE : BUDDY_IA_REJ_CORRIGIVEL_DESDE;
+        if (t < lim3d) velhos.push(k);
+        else if (t >= desde) rej[k.slice(4)] = { c, n: (v && v.n) || 1, t, m: (v && v.m) || [] };
+      });
+      (await this.state.storage.list({ prefix: 'tec:' })).forEach((v, k) => {
+        if (!v || (v.t || 0) < lim1d) velhos.push(k); else tec[k.slice(4)] = { n: v.n || 1, t: v.t, e: v.e };
+      });
+      if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
+      return Response.json({ rej, tec });
+    }
+    if (url.pathname === '/tecnicas') {
+      const lim1d = Date.now() - 86400000, tec = {};
+      (await this.state.storage.list({ prefix: 'tec:' })).forEach((v, k) => { if (v && (v.t || 0) >= lim1d) tec[k.slice(4)] = v; });
+      return Response.json(tec);
+    }
+    if (url.pathname === '/tecnica') {
+      const v = await this.state.storage.get('tec:' + (url.searchParams.get('hash') || ''));
+      return Response.json(v === undefined ? null : v);
+    }
     if (url.pathname === '/rejeicoes') {
       // Reprovações do redator anterior (llama-3.3) não valem para o atual:
       // a matéria volta a ser avaliada uma vez pelo mesmo gate.
@@ -4913,9 +5080,13 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
   };
 
   // Verifica todas as URLs em um único fetch para evitar N+1 subrequests.
+  gastarOrcamento(env, CUSTO_FONTE);
   const urlsExistentes = await filtrarUrlsExistentes(env, noticias.map(i => i.url));
 
   for (const item of noticias) {
+    let hashItem = null;
+    let reservado = 0;
+    const gasto = { n: 0 };
     try {
       const existe = urlsExistentes.has(item.url);
 
@@ -4948,6 +5119,35 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         resultado.noticias.push({ titulo: item.title, status: "antiga", fonte });
         continue;
       }
+      // P0 31/10: memória ANTES de baixar a página. A chave é sha256(URL),
+      // disponível no item do feed — pauta já reprovada não gasta página,
+      // banner, tradução nem IA (antes: 2–4 subrequests por pauta, por execução).
+      hashItem = await sha256(item.url);
+      if (!contexto._memoria) {
+        gastarOrcamento(env, 1);
+        contexto._memoria = await listarMemoriaPautas(env);
+        contexto._rejeicoes = contexto._memoria.rej;
+      }
+      const rejPrevia = contexto._rejeicoes.get(hashItem);
+      if (rejPrevia && decisaoMemoriaRejeicao(rejPrevia, (Date.now() - new Date(item.publishedAt).getTime()) / 3600000, Date.now()) === 'bloquear') {
+        resultado.editorial_incomplete = (resultado.editorial_incomplete || 0) + 1;
+        resultado.noticias.push({ titulo: item.title, status: 'editorial_incomplete', motivo: 'reprovada_recente', classe: rejPrevia.c, fonte });
+        continue;
+      }
+      const decisaoTec = decisaoFalhaTecnica(contexto._memoria.tec.get(hashItem), Date.now());
+      if (decisaoTec !== 'tentar') {
+        resultado.adiadas_tecnico = (resultado.adiadas_tecnico || 0) + 1;
+        resultado.noticias.push({ titulo: item.title, status: decisaoTec === 'esgotado' ? 'tecnico_esgotado' : 'adiada_tecnico', erro: (contexto._memoria.tec.get(hashItem) || {}).e, fonte });
+        continue;
+      }
+      const custo = FONTES_IDIOMA_EN.has(fonte) ? CUSTO_PAUTA_EN : CUSTO_PAUTA_PT;
+      if (!reservarOrcamento(env, custo)) {
+        resultado.adiadas_orcamento = (resultado.adiadas_orcamento || 0) + 1;
+        resultado.noticias.push({ titulo: item.title, status: 'adiada_orcamento', fonte });
+        continue;
+      }
+      reservado = custo;
+      gasto.n++;
       const detalhes = await lerNoticia(item.url, fonte);
       let dataEditorial = detalhes.publishedAt || item.publishedAt;
       if (!dataEditorial || !Number.isFinite(new Date(dataEditorial).getTime())) {
@@ -4974,6 +5174,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       let imageUrlValidada = detalhes.imageUrl ? decodificarEntidadesUrl(detalhes.imageUrl) : null;
       let imagemDescartadaPorRepeticao = false;
       if (imageUrlValidada) {
+        gasto.n++;
         const ehBannerRepetido = await imagemPareceBannerRepetidoDaFonte(env, imageUrlValidada, detalhes.imageCredit);
         if (ehBannerRepetido) {
           imageUrlValidada = null;
@@ -5012,6 +5213,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       let resumoPublicado = detalhes.summary;
       const fonteEN = FONTES_IDIOMA_EN.has(fonte);
       if (precisaTraduzir(tituloFinal, fonteEN)) {
+        gasto.n++;
         const trad = await traduzirTituloParaPT(env, tituloFinal);
         if (!trad || textoEmIngles(trad)) {
           resultado.bloqueadas_idioma++;
@@ -5023,6 +5225,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         resultado.traduzidas++;
       }
       if (precisaTraduzir(resumoPublicado, fonteEN)) {
+        gasto.n++;
         const tradRes = await traduzirResumoParaPT(env, resumoPublicado);
         resumoPublicado = tradRes && !textoEmIngles(tradRes) ? tradRes : null;
       }
@@ -5039,7 +5242,7 @@ image_url: imageUrlValidada,
 image_caption: imageUrlValidada ? (detalhes.imageCaption || null) : null,
 image_credit: detalhes.imageCredit || null,
 slug: criarSlug(tituloPublicado),
-        hash: await sha256(item.url),
+        hash: hashItem,
         status: "published",
         is_sensitive: false,
         published_at: new Date(dataEditorial).toISOString()
@@ -5048,7 +5251,11 @@ slug: criarSlug(tituloPublicado),
       // Automação Editorial 2.0: classificar risco antes de publicar
       const risco = classificarRiscoEditorial(artigo);
       if (risco.nivel === 'SENSIVEL') {
-        artigo.status = 'draft';
+        // O banco não aceita 'draft' (articles_status_check): a matéria era
+        // recusada na gravação e voltava a gastar IA a cada execução. Retida =
+        // 'rejected' + is_sensitive + "[RETIDO:" no score_reason — fora do ar,
+        // na fila /revisao, e publicada só por decisão humana.
+        artigo.status = 'rejected';
         artigo.is_sensitive = true;
       }
 
@@ -5086,7 +5293,7 @@ slug: criarSlug(tituloPublicado),
       const materialFonte = corpoEnParaGate || artigo.content || artigo.summary;
       // Reprovada no gate nos últimos 3 dias: não gasta IA de novo a cada
       // ciclo (cota diária gratuita de Workers AI é da conta inteira).
-      if (!contexto._rejeicoes) contexto._rejeicoes = await listarRejeicoesRecentes(env);
+      if (!contexto._rejeicoes) contexto._rejeicoes = (await listarMemoriaPautas(env)).rej;
       const rejAnterior = contexto._rejeicoes.get(artigo.hash);
       const decisaoRej = decisaoMemoriaRejeicao(rejAnterior, (Date.now() - new Date(dataEditorial).getTime()) / 3600000, Date.now());
       if (decisaoRej === 'bloquear') {
@@ -5101,6 +5308,7 @@ slug: criarSlug(tituloPublicado),
       const camadaIA = recuperacao
         ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, { tituloTraduzido: tituloPublicado !== tituloFinal })
         : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
+      if (!(camadaIA.motivos || []).includes('sem_material')) gasto.n += camadaIA.tentativas || 1;
       // sem_material reprova ANTES de chamar a IA: não é avaliação do redator.
       if (!camadaIA.erro && !(camadaIA.motivos || []).includes('sem_material')) {
         resultado.ia_avaliadas = (resultado.ia_avaliadas || 0) + 1;
@@ -5108,13 +5316,20 @@ slug: criarSlug(tituloPublicado),
         if (camadaIA.tentativas === 2) resultado.ia_segunda = (resultado.ia_segunda || 0) + 1;
         if (recuperacao && camadaIA.ok) resultado.recuperadas = (resultado.recuperadas || 0) + 1;
       }
+      if (camadaIA.erro) {
+        gasto.n++;
+        resultado.tecnicas = (resultado.tecnicas || 0) + 1;
+        await registrarFalhaTecnica(env, artigo.hash, 'ia:' + camadaIA.erro, { titulo: artigo.title, fonte });
+      }
       const classeRep = !camadaIA.ok && !camadaIA.erro ? classeReprovacao(camadaIA.motivos) : null;
       if (classeRep) {
+        gasto.n++;
         await registrarRejeicao(env, artigo.hash, classeRep, { motivos: camadaIA.motivos, titulo: artigo.title, fonte });
         resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] = (resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] || 0) + 1;
       }
       if (camadaIA.ok && camadaIA.tentativas === 2 && !recuperacao) resultado.aprovadas_2a = (resultado.aprovadas_2a || 0) + 1;
       if (camadaIA.ok) {
+        gasto.n++;
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
         artigo.content = camadaIA.corpo;
@@ -5173,6 +5388,7 @@ slug: criarSlug(tituloPublicado),
       }
 
       let erroInsercao = null;
+      gasto.n++;
       try {
         await inserirArtigo(env, artigo);
       } catch(e) {
@@ -5182,6 +5398,7 @@ slug: criarSlug(tituloPublicado),
           delete artigo.why_it_matters;
           delete artigo.buddy_source;
           delete artigo.buddy_reviewed_at;
+          gasto.n++;
           await inserirArtigo(env, artigo);
           erroInsercao = 'migracao_pendente';
         } else {
@@ -5209,11 +5426,19 @@ slug: criarSlug(tituloPublicado),
       });
 
     } catch (erro) {
+      // Falha técnica (leitura, gravação recusada, data): não é reprovação.
+      // Vai para a memória técnica com backoff — sem ela, uma pauta que o
+      // banco recusa voltava a gastar página + IA em toda execução.
+      resultado.tecnicas = (resultado.tecnicas || 0) + 1;
+      if (/gravar|insert|inserir|supabase|23505|23514|violates/i.test(String(erro.message))) resultado.insercao_falhou = (resultado.insercao_falhou || 0) + 1;
+      if (hashItem) { gasto.n++; await registrarFalhaTecnica(env, hashItem, erro.message, { titulo: item.title, fonte }); }
       resultado.noticias.push({
         titulo: item.title,
         status: "erro",
         erro: erro.message
       });
+    } finally {
+      devolverOrcamento(env, reservado, gasto.n);
     }
   }
 
@@ -7240,16 +7465,18 @@ export class EditorialPoller {
     const inicio = Date.now();
     let resultado = null;
     let erro = null;
+    // Um orçamento de subrequests para a invocação INTEIRA (turno + guarda + Telegram).
+    const envExec = comOrcamento(this.env);
     try {
       resultado = grupo === "B"
-        ? await executarAtualizacaoNovasFontes(this.env)
+        ? await executarAtualizacaoNovasFontes(envExec)
         : grupo === "C"
-        ? await executarAtualizacaoTerceiraFonte(this.env)
+        ? await executarAtualizacaoTerceiraFonte(envExec)
         : grupo === "D"
-        ? await executarAtualizacaoInternacional(this.env)
+        ? await executarAtualizacaoInternacional(envExec)
         : grupo === "E"
-        ? await executarAtualizacaoImprensaEspecializada(this.env)
-        : await executarAtualizacaoPrincipal(this.env);
+        ? await executarAtualizacaoImprensaEspecializada(envExec)
+        : await executarAtualizacaoPrincipal(envExec);
     } catch (e) {
       erro = e.message;
       console.error("[EditorialPoller] erro na varredura horária:", e.message);
@@ -7263,10 +7490,11 @@ export class EditorialPoller {
       inicio: new Date(inicio).toISOString(),
       fim: new Date(fim).toISOString(),
       duracao_ms: fim - inicio,
+      orcamento: { limite: ORC_LIMITE, usados: envExec.__orc.usados, adiadas: envExec.__orc.adiadas },
       resultados: resultado ? resultado.resultados : null,
       erro
     });
-    if (resultado) await acumularGateEditorial(this.env, resultado.resultados);
+    if (resultado) await acumularGateEditorial(this.env, resultado.resultados, envExec.__orc);
 
     // Stale guard (P0.3/P0.4, Missão Contínua — "Home precisa estar viva"):
     // a rotação normal já cobre cada grupo pelo menos a cada ~4h, mas isso
@@ -7278,10 +7506,17 @@ export class EditorialPoller {
     // reagendar. Nunca inventa notícia — só garante que uma tentativa real
     // de descoberta aconteceu antes de aceitar "não há nada novo".
     try {
+      gastarOrcamento(envExec, 1);
       const horasSemPublicar = await horasDesdeUltimaPublicacao(this.env);
-      if (horasSemPublicar !== null && horasSemPublicar > 6 && grupo !== "A") {
+      // P0 31/10: a guarda rodava o Grupo A na MESMA invocação do turno — sem
+      // publicação, toda hora, somando ~10–20 subrequests ao turno e estourando
+      // o limite nas pautas novas. Agora só roda se sobrar orçamento para ela.
+      const saldoGuarda = saldoOrcamento(envExec);
+      if (horasSemPublicar !== null && horasSemPublicar > 6 && grupo !== "A" && saldoGuarda < 2 * CUSTO_FONTE + CUSTO_PAUTA_PT) {
+        console.warn(`[EditorialPoller] guarda do Grupo A adiada: saldo ${saldoGuarda} subrequests após o turno ${grupo}.`);
+      } else if (horasSemPublicar !== null && horasSemPublicar > 6 && grupo !== "A") {
         console.warn(`[EditorialPoller] Hero com ${horasSemPublicar.toFixed(1)}h — varredura extraordinária (Grupo A) além do turno normal (${grupo}).`);
-        const extra = await executarAtualizacaoPrincipal(this.env);
+        const extra = await executarAtualizacaoPrincipal(envExec);
         await registrarExecucaoEmKV(this.env, {
           grupo: "A",
           trigger_cron: "hourly-alarm-stale-guard",
@@ -7302,9 +7537,10 @@ export class EditorialPoller {
       console.error("[Telegram via EditorialPoller] erro não tratado, ignorado com segurança:", e.message);
     }
 
-    // Agenda Offshore crawler (1x/dia, throttled via SAUDE_KV)
+    // Agenda Offshore crawler (1x/dia, throttled via SAUDE_KV) — só com saldo
+    // de subrequests; senão tenta na próxima hora.
     try {
-      await agendaEscanearFontes(this.env);
+      if (saldoOrcamento(envExec) >= 12) await agendaEscanearFontes(this.env);
     } catch (e) {
       console.warn("[AgendaCrawler] erro isolado, ignorado:", e.message);
     }
