@@ -41,6 +41,10 @@
   // KV dedicado só pro orçamento diário / rate limit / cache de perguntas
   // normalizadas da IA — nenhum dado pessoal, só contadores e respostas já
   // geradas (ver registrarUsoIA/perguntaEmCache no worker.js).
+  // Radar Offshore: worker isolado chamado em /radar-offshore/* (ver rotaRadarOffshore).
+  "services": [
+    { "binding": "RADAR", "service": "ownews-radar" }
+  ],
   "kv_namespaces": [
     { "binding": "PERGUNTE_IA_KV", "id": "cedf263f9dce418189dea07bce83eab0" }
   ]

@@ -1058,7 +1058,7 @@ function menuMaisItens() {
   const a = (href, nome) => '<a href="' + href + '" role="menuitem">' + nome + '</a>';
   const g = (rotulo, links, cls) => '<div class="nav-mais-grupo' + (cls ? ' ' + cls : '') + '"><span class="nav-mais-label">' + rotulo + '</span>' + links + '</div>';
   return g('Portal', a('/', 'Notícias') + a('/mercado', 'Mercado Offshore') + a('/carreiras', 'Carreiras Offshore'), 'nav-mais-portal') +
-    g('Agora', a('/offshore-agora', 'Offshore Agora') + a('/radar', 'Radar Offshore') + a('/aviacao-offshore', 'Aviação Offshore')) +
+    g('Agora', a('/offshore-agora', 'Offshore Agora') + a('/radar-offshore', 'Radar Offshore') + a('/aviacao-offshore', 'Aviação Offshore')) +
     g('Carreira', a('/vagas', 'Vagas Verificadas') + a('/carreiras/cadastre-seu-curriculo', 'Cadastre seu Currículo') + a('/funcoes', 'Funções a Bordo') + a('/empresas', 'Empresas Offshore')) +
     g('Ferramentas', a('/minha-escala', 'Minha Escala') + a('/meus-certificados', 'Meus Certificados') + a('/checklist-embarque', 'Checklist de Embarque')) +
     g('Aprender', a('/explica', 'OWNews Explica') + a('/glossario', 'Glossário Offshore')) +
@@ -1082,7 +1082,7 @@ const CENTRAL_OFFSHORE_GRUPOS = [
   { t: 'Já trabalho offshore', d: 'Organize escala, documentos e a preparação para cada embarque.',
     l: [['/minha-escala', 'Minha Escala'], ['/meus-certificados', 'Meus Certificados'], ['/checklist-embarque', 'Checklist de Embarque'], ['/aeroportos', 'Aeroportos Offshore']] },
   { t: 'Quero acompanhar o setor', d: 'Operações, mercado, unidades e o contexto por trás das notícias.',
-    l: [['/offshore-agora', 'Offshore Agora'], ['/mercado', 'Mercado Offshore'], ['/radar', 'Radar Offshore'], ['/explica', 'OWNews Explica'], ['/agenda', 'Agenda Offshore']] }
+    l: [['/offshore-agora', 'Offshore Agora'], ['/mercado', 'Mercado Offshore'], ['/radar-offshore', 'Radar Offshore'], ['/explica', 'OWNews Explica'], ['/agenda', 'Agenda Offshore']] }
 ];
 const CENTRAL_OFFSHORE_INTENCOES = '<div class="cof-grid">' + CENTRAL_OFFSHORE_GRUPOS.map((g) =>
   '<div class="cof-card"><h3 class="cof-titulo">' + g.t + '</h3><p class="cof-desc">' + g.d + '</p><div class="cof-links">' +
@@ -3074,6 +3074,16 @@ ${CSS_TEMA_CLARO}
     </span>
     <span class="chc-btn" aria-hidden="true"><span class="cw-btn-arrow">→</span></span>
   </a>
+  <a class="central-home-cta" href="/radar-offshore" id="radarHomeCta" onclick="if(window.ownewsEvento)window.ownewsEvento('radar_opened')">
+    <span class="chc-accent" aria-hidden="true"></span>
+    <span class="chc-corpo">
+      <span class="chc-status"><span class="chc-status-dot"></span><span class="chc-status-lbl">RADAR OFFSHORE</span></span>
+      <span class="chc-main">O offshore brasileiro em dados</span>
+      <span class="chc-sub" id="radarHomeSub">UNIDADES · SONDAS · CAMPOS · OPERADORES</span>
+    </span>
+    <span class="chc-btn" aria-hidden="true"><span class="cw-btn-arrow">→</span></span>
+  </a>
+  <script>fetch("/radar-offshore/api/resumo").then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||!d.unidades_producao)return;var e=document.getElementById("radarHomeSub");if(e)e.textContent=d.unidades_producao+" UNIDADES · "+d.sondas+" SONDAS · "+d.campos_mar+" CAMPOS · "+d.operadores_campos+" OPERADORES"}).catch(function(){})</script>
   <script>(function(){
   try{
     var LS_ESCALA="ownews_minha_escala";
@@ -8456,6 +8466,23 @@ function campoEstrutura(rotulo, conteudoHtml) {
 }
 
 /* ---------- chrome compartilhado (header/topline/rodapé/tabbar) ---------- */
+/* Radar Offshore (2026-10-31): worker isolado "ownews-radar" (service binding RADAR) lê os
+   snapshots oficiais da ANP. Páginas chegam como JSON (X-Radar-Pagina: 1) e saem com a casca do
+   site; API, sitemap e estáticos passam direto. Radar fora do ar → aviso, o resto do site segue. */
+async function rotaRadarOffshore(request, env) {
+  try {
+    if (!env.RADAR) throw new Error('sem binding');
+    const r = await env.RADAR.fetch(request);
+    if (r.headers.get('x-radar-pagina') !== '1') return r;
+    const p = await r.json();
+    return new Response(paginaChrome(p.titulo, p.descricao, '<div class="radar-offshore">' + p.html + '</div>', p.canonical, { jsonLd: p.jsonLd, robots: p.robots }), {
+      status: p.status || 200, headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': p.status === 200 ? 'public, max-age=600' : 'no-store' }
+    });
+  } catch (e) {
+    return new Response(paginaChrome('Radar Offshore', 'Radar Offshore do OWNews.', '<h1>Radar Offshore</h1><p>O Radar Offshore está temporariamente indisponível. As notícias do OWNews seguem normalmente.</p>', '/radar-offshore', { robots: 'noindex,follow' }), { status: 503, headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': 'no-store' } });
+  }
+}
+
 function paginaChrome(tituloAba, descricaoMeta, conteudoHtml, caminhoCanonico, opcoesOg) {
   const opcoes = opcoesOg || {};
   // Missão AdSense 2.1: o sufixo " | OWNews" é sempre adicionado aqui —
@@ -16448,11 +16475,11 @@ function renderRadarIndex() {
     "</div>";
 
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Radar Offshore" }]) +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Radar Offshore", href: "/radar-offshore" }, { nome: "Fichas das unidades" }]) +
     RADAR_CSS +
     '<div class="hub-hero">' +
     '<span class="eyebrow">Radar Offshore</span>' +
-    "<h1>Radar Offshore</h1>" +
+    "<h1>Fichas das unidades</h1>" +
     '<p class="hub-lead">Explore navios, sondas, FPSOs e embarcações do mercado offshore brasileiro. Busque uma unidade, consulte suas características e acompanhe informações relacionadas ao setor.</p>' +
     "</div>" +
 
@@ -16838,7 +16865,7 @@ async function renderRadarFicha(slug, env, ctx) {
   const vagasRel = vagasRelacionadasUnidade(unidade);
 
   const conteudo =
-    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Radar Offshore", href: "/radar" }, { nome: unidade.nome }]) +
+    breadcrumb([{ nome: "Home", href: "/" }, { nome: "Radar Offshore", href: "/radar-offshore" }, { nome: "Fichas", href: "/radar" }, { nome: unidade.nome }]) +
     RADAR_CSS +
 
     // 1 — Hero: identificação + nome + favoritar (sem operador no eyebrow, sem aviso metodológico)
@@ -16932,7 +16959,7 @@ async function renderRadarFicha(slug, env, ctx) {
 
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
-    '<a href="/radar">Voltar ao Radar Offshore →</a>' +
+    '<a href="/radar">Voltar às fichas das unidades →</a> · <a href="/radar-offshore">Radar Offshore: dados oficiais da ANP →</a>' +
     "</div>" +
 
     "<script>" +
@@ -22232,6 +22259,7 @@ function nlRenderCancelar(status) {
 
 export default {
   async fetch(request, env, ctx) {
+    if (/^\/radar-offshore(\/|$)/.test(new URL(request.url).pathname)) return rotaRadarOffshore(request, env);
     const url = new URL(request.url);
     futebolConfigurar(env);
     // Vagas: páginas leem a lista viva (KV, memória de 5 min por isolate) antes
@@ -22531,7 +22559,7 @@ export default {
 
     if (url.pathname === "/robots.txt") {
       return new Response(
-        "User-agent: *\nAllow: /\nDisallow: /command-center\nDisallow: /api/cc/\n\nSitemap: https://ownews.com.br/sitemap.xml\nSitemap: https://ownews.com.br/sitemap-news.xml\n",
+        "User-agent: *\nAllow: /\nDisallow: /command-center\nDisallow: /api/cc/\n\nSitemap: https://ownews.com.br/sitemap.xml\nSitemap: https://ownews.com.br/sitemap-news.xml\nSitemap: https://ownews.com.br/radar-offshore/sitemap.xml\n",
         { headers: { "Content-Type": "text/plain; charset=UTF-8" } }
       );
     }
