@@ -178,7 +178,65 @@ function motivoBreaking(artigo) {
   return e ? e.motivo : null;
 }
 
+// <idioma-ptbr> — bloco idêntico em ownews-git, coletor e publisher do Instagram (teste compara os três).
+// Detector determinístico de idioma (PT-BR x inglês) por palavras funcionais. Acento NÃO decide:
+// nomes próprios (Amapá, Búzios, Macaé) aparecem em textos em inglês — foi assim que
+// "Petrobras hits paydirt ... Amapá waters" passou como português (incidente de 30/10/2026).
+const IDIOMA_EN = new Set(('the of and to in for on with at by from into onto its it is are was were has have had be been being will would can could ' +
+  'after over than this that these those their there our your his her they we you he she which who whose what when where while amid via ' +
+  'but or not no more most also up out down off about against between through during before under without within across toward towards ' +
+  'new first second third fourth fifth hits wins win secures secure awards award awarded signs sign signed launches launched completes completed complete ' +
+  'expands acquires acquired orders ordered joins receives received keeps grows boosts eyes targets starts begins delivers delivered lands gets sets ' +
+  'kicks taps makes takes moves nears reaches strikes inks bags scoops nets clinches unveils plans provides announces announced reports report ' +
+  'release releases earnings quarterly quarter fleet status update results deal deals milestone paydirt waters arsenal ultra time look inside ' +
+  'company firm group subsidiary agreement partnership selected conduct conducts testing tests successful successfully further largest biggest').split(/\s+/));
+const IDIOMA_PT = new Set(('de da do das dos para com em no na nos nas que um uma uns umas por pela pelo pelas pelos ao aos à às é são e o os ' +
+  'foi foram será serão ser está estão estava sobre entre após até como mais menos seu sua seus suas também já não ou nesta neste ' +
+  'anuncia anunciou inicia iniciou conclui concluiu recebe recebeu assina assinou garante amplia ampliou lança lançou aprova aprovou ' +
+  'registra registrou descobre perfura confirma confirmou fecha fechou ganha ganhou contrata contratou apresenta prevê vai tem ' +
+  'nova novo novas novos primeira primeiro terceira terceiro segunda segundo poço poços campo bacia navio sonda plataforma petróleo ' +
+  'gás contrato acordo empresa companhia milhões bilhões trimestre resultados área águas costa produção operação').split(/\s+/));
+/** 'en' | 'pt' | 'indefinido' (texto curto sem palavra funcional, ex.: "ROV-USV"). */
+function idiomaTexto(texto) {
+  const t = String(texto || '');
+  const ws = t.toLowerCase().normalize('NFC').match(/[a-zà-ÿ]+(?:['’][a-z]+)?/g) || [];
+  let en = 0, pt = 0;
+  for (const w of ws) { const b = w.replace(/['’]s$/, ''); if (IDIOMA_EN.has(b)) en++; if (IDIOMA_PT.has(b)) pt++; }
+  if (/[a-z]['’]s\b/i.test(t)) en++; // possessivo inglês (Margin’s, Petrobras')
+  if (en >= 2 && en > pt) return 'en';
+  if (pt >= 2 && pt > en) return 'pt';
+  if (en >= 1 && pt === 0) return 'en';
+  if (pt >= 1 && en === 0) return 'pt';
+  return 'indefinido';
+}
+/** Texto público em inglês? (vazio = não). */
+function textoEmIngles(texto) {
+  return !!texto && idiomaTexto(texto) === 'en';
+}
+// </idioma-ptbr>
+
+/* Contexto da arte e da legenda: o resumo, só se estiver em PT-BR (resumo em
+   inglês sai vazio — a arte e a legenda funcionam sem contexto). */
+function contextoPublico(artigo) {
+  const c = artigo && artigo.summary ? limparPrefixoFonte(artigo.summary) : null;
+  return c && !textoEmIngles(c) ? c : null;
+}
+
+/* Algum texto público do post em inglês? Linhas "Fonte:"/"Acesse:" ficam de fora
+   (nome da fonte e endereço). Devolve a linha problemática ou null. */
+function textoPostEmIngles(...textos) {
+  for (const t of textos) {
+    for (const linha of String(t || '').split(/\n+/)) {
+      if (/^(Fonte|Acesse):/i.test(linha.trim())) continue;
+      if (textoEmIngles(linha)) return linha.trim().slice(0, 120);
+    }
+  }
+  return null;
+}
+
 function falhaFiltroDuro(artigo) {
+  // Regra absoluta (2026-10-31): o OWNews só publica em PT-BR. Título em inglês nunca vira post.
+  if (textoEmIngles(artigo.title)) return 'título em inglês — o OWNews só publica em PT-BR';
   const texto = normalizeParaScore(`${artigo.title} ${artigo.summary || ''}`);
   if (PALAVRAS_RISCO.some((p) => texto.includes(p))) return `vocabulário de risco/vítima detectado: "${PALAVRAS_RISCO.find((p) => texto.includes(p))}"`;
   if (PALAVRAS_ACUSACAO.some((p) => texto.includes(p))) return `vocabulário de acusação não confirmada detectado: "${PALAVRAS_ACUSACAO.find((p) => texto.includes(p))}"`;
@@ -355,7 +413,7 @@ function editoriaDeInstagram(artigo) {
 
 async function buscarCandidatosNoticia(env, agora = Date.now()) {
   const desde = new Date(agora - JANELA_FRESCOR_MS).toISOString();
-  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=60`;
+  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=60`;
   const resp = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
   if (!resp.ok) throw new Error(`Supabase (articles) HTTP ${resp.status}`);
   return resp.json();
@@ -405,6 +463,7 @@ async function selecionarCandidatoNoticia(env, { modo = 'slot', agora = Date.now
 
   for (const artigo of candidatos) {
     if (idsJaUsados.has(artigo.id)) { descartados.push({ id: artigo.id, motivo: 'já publicado/testado antes (dedupe por article_id)' }); continue; }
+    if (artigo.buddy_source === 'duplicada') { descartados.push({ id: artigo.id, motivo: 'mesmo fato já publicado a partir de outra fonte (duplicada)' }); continue; }
     const horas = (agora - new Date(artigo.published_at).getTime()) / 3600000;
     if (!(horas >= 0 && horas <= 24)) { descartados.push({ id: artigo.id, motivo: `fora da janela de frescor (${horas.toFixed(1)}h)` }); continue; }
     const motivoDuro = falhaFiltroDuro(artigo);
@@ -483,7 +542,8 @@ function truncar(s, max) {
 }
 function gerarLegendaNoticia(artigo, headlineNormalizada) {
   const fato = truncar(headlineNormalizada || artigo.title, 200);
-  const contexto = artigo.summary ? truncar(artigo.summary, 260) : '';
+  const ctx = contextoPublico(artigo);
+  const contexto = ctx ? truncar(ctx, 260) : '';
   const linhas = [fato];
   if (contexto) linhas.push(contexto);
   linhas.push('Mais detalhes e contexto no OWNews.');
@@ -691,6 +751,9 @@ async function validarArtwork(ctx) {
 }
 async function validarCaption(ctx) {
   if (!ctx.caption || ctx.caption.length < 20) return { ok: false, motivo: 'legenda vazia ou curta demais' };
+  // Última barreira antes do Instagram (vale para notícia, institucional e recuperação manual).
+  const linhaEN = textoPostEmIngles(ctx.caption);
+  if (linhaEN) return { ok: false, motivo: `legenda com texto em inglês (o OWNews só publica em PT-BR): "${linhaEN}"` };
   if (ctx.caption.length > 2200) return { ok: false, motivo: 'legenda excede limite do Instagram (2200 caracteres)' };
   return { ok: true };
 }
@@ -850,6 +913,12 @@ async function enfileirarJanelaNoticia(env, janela, { modo = 'slot', agora = Dat
   const headlineNorm = normalizarCapitalizacaoTitulo(artigo.title);
   const headlineFinal = condensarHeadlineSocial(headlineNorm);
   const caption = gerarLegendaNoticia(artigo, headlineFinal);
+  const linhaEN = textoPostEmIngles(headlineFinal, contextoPublico(artigo), caption);
+  if (linhaEN) {
+    const motivo = `texto em inglês bloqueado (o OWNews só publica em PT-BR): "${linhaEN}"`;
+    if (modo === 'slot') await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'skip', motivo, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
+    return { ok: true, resultado: 'skip', motivo };
+  }
   const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
   const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
   const fallback = !imagemResp.ok ? { de: 'A', para: 'C', razao: categorizarFallbackMotivo(imagemResp.motivo), motivo_raw: imagemResp.motivo } : null;
@@ -859,7 +928,7 @@ async function enfileirarJanelaNoticia(env, janela, { modo = 'slot', agora = Dat
 
   const job = await enfileirarJob(env, {
     tipo: 'noticia',
-    arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
+    arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: contextoPublico(artigo), fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
     publicar: { tipo: 'noticia', janela, articleId: artigo.id, canonicalUrl: artigo.original_url, headline: headlineFinal, caption, score: selecao.score, template_label: templateLabel, fallback: fallback || null },
   });
   await registrarExecucao(env, { tipo: 'noticia', janela, em: new Date().toISOString(), resultado: 'job_enfileirado', jobId: job.id, candidato: headlineFinal, template, template_label: templateLabel, fallback: fallback || null, score: selecao.score, breaking: selecao.breaking || null, dry_run: env.INSTAGRAM_DRY_RUN !== 'false' });
@@ -1150,12 +1219,14 @@ export default {
         const headlineNorm = normalizarCapitalizacaoTitulo(artigo.title);
         const headlineFinal = condensarHeadlineSocial(headlineNorm);
         const caption = gerarLegendaNoticia(artigo, headlineFinal);
+        const linhaEN = textoPostEmIngles(headlineFinal, contextoPublico(artigo), caption);
+        if (linhaEN) return Response.json({ ok: false, erro: `texto em inglês bloqueado (o OWNews só publica em PT-BR): "${linhaEN}"` }, { status: 422 });
         const template = escolherTemplateNoticia({ temFoto: imagemResp.ok, aspectRatio: imagemResp.aspectRatio, headline: headlineFinal });
         const templateLabel = imagemResp.ok ? (template === 'n1' ? 'A' : template === 'n3' ? 'A_split' : 'B') : 'C';
         const fallback = !imagemResp.ok ? { de: 'A', para: 'C', razao: categorizarFallbackMotivo(imagemResp.motivo), motivo_raw: imagemResp.motivo } : null;
         const job = await enfileirarJob(env, {
           tipo: 'noticia',
-          arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: artigo.summary ? limparPrefixoFonte(artigo.summary) : null, fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
+          arte: { template, categoria: categoriaLabel, headline: headlineFinal, contexto: contextoPublico(artigo), fotoUrl: imagemResp.ok ? (imagemResp.fotoUrl || artigo.image_url) : null },
           publicar: { tipo: 'noticia', janela: 'recuperacao_manual', articleId: artigo.id, canonicalUrl: artigo.original_url, headline: headlineFinal, caption, score: 999, template_label: templateLabel, fallback: fallback || null },
           forcarReal: true,
           forcarRateLimit: true,
@@ -1184,4 +1255,4 @@ export default {
 };
 
 // Só para tests/ (Node): funções puras e o seletor, com fetch/KV simulados.
-export const __t = { relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING };
+export const __t = { idiomaTexto, textoEmIngles, textoPostEmIngles, contextoPublico, gerarLegendaNoticia, validarCaption, falhaFiltroDuro, relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING };

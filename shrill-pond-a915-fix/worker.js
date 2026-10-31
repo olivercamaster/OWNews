@@ -429,6 +429,9 @@ export default {
     if (url.pathname === "/admin/materia-ownews") {
       return rotaAdminMateriaOWNews(request, env);
     }
+    if (url.pathname === "/admin/corrigir-idioma") {
+      return rotaAdminCorrigirIdioma(request, env);
+    }
     if (url.pathname === "/admin/arquivo-fonte") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
@@ -3278,8 +3281,9 @@ const LIMIAR_SIMILARIDADE_DUPLICATA_FONTE_SECUNDARIA = 0.2;
 /* ── IDIOMA / TRADUÇÃO ────────────────────────────────────────────────────────
    Fontes internacionais (Offshore Energy, Marine Technology News, Transocean,
    SBM Offshore) publicam em inglês. Todo conteúdo público do OWNews deve ser
-   PT-BR. Fluxo: detectarIdiomaEN → traduzirTituloParaPT → inserir PT.
-   Se tradução falhar → artigo bloqueado (não publicado em EN).
+   PT-BR. Fluxo: precisaTraduzir (idiomaTexto) → traduzir → conferir que
+   saiu PT → barreira final campoPublicoEmIngles antes de gravar.
+   Título sem tradução válida → artigo bloqueado; resumo sem tradução → vazio.
    Custo: ~130-200 neurons/tradução via @cf/meta/m2m100-1.2b; mínimo 10K
    neurons/dia free-tier Cloudflare. */
 
@@ -3287,12 +3291,22 @@ const FONTES_IDIOMA_EN = new Set([
   "Offshore Energy", "Marine Technology News", "Transocean", "SBM Offshore"
 ]);
 
-function detectarIdiomaEN(texto) {
+/* Precisa traduzir? Fonte 100% em inglês: tudo que não for claramente PT
+   (inclui "indefinido", ex.: "Electrical fault triggers rig intervention").
+   Outras fontes: só o que for claramente inglês. */
+function precisaTraduzir(texto, fonteEN) {
   if (!texto) return false;
-  // PT diacrítico presente → definitivamente PT
-  if (/[àáâãäèéêëìíîïòóôõöùúûüç]/i.test(texto)) return false;
-  // Palavras funcionais EN comuns (word-boundary) → provável EN
-  return /\b(the|and\b|for\b|with|its\b|has\b|are\b|will\b|was\b|been|new\b|from|secures|awards|wins\b|signs\b|launches|completes|expands|acquires|orders\b|joins\b|broadens|appraisal|vessel|drillship|contract\b|awarded|receives|keeps\b|rakes\b|forges?|scoops|first\b)\b/i.test(texto);
+  const i = idiomaTexto(texto);
+  return fonteEN ? i !== 'pt' : i === 'en';
+}
+
+/* Campo público ainda em inglês (barreira final antes de gravar). null = tudo PT. */
+function campoPublicoEmIngles(artigo) {
+  for (const c of ['title', 'summary', 'buddy_summary', 'why_it_matters']) {
+    if (textoEmIngles(artigo[c])) return c;
+  }
+  if (textoEmIngles(String(artigo.content || '').slice(0, 1500))) return 'content';
+  return null;
 }
 
 async function traduzirTituloParaPT(env, titulo) {
@@ -4088,13 +4102,45 @@ function validarMateriaOWNews(mat, artigo, fonte) {
 /* Título em inglês (press release publicado sem tradução): sem acento do
    português, sem palavra funcional do português e com palavra funcional ou
    verbo típico de release em inglês. */
-const Q4_EN_TITULO = new Set('the and of for with its to in on at from by into signs announces reports completes receives awarded wins intends delivers enters secures expands launches growing year'.split(' '));
-const Q4_PT_TITULO = new Set('de da do das dos em no na nos nas com para por que um uma ao aos se sobre entre ou e o a os as'.split(' '));
+// <idioma-ptbr> — bloco idêntico em ownews-git, coletor e publisher do Instagram (teste compara os três).
+// Detector determinístico de idioma (PT-BR x inglês) por palavras funcionais. Acento NÃO decide:
+// nomes próprios (Amapá, Búzios, Macaé) aparecem em textos em inglês — foi assim que
+// "Petrobras hits paydirt ... Amapá waters" passou como português (incidente de 30/10/2026).
+const IDIOMA_EN = new Set(('the of and to in for on with at by from into onto its it is are was were has have had be been being will would can could ' +
+  'after over than this that these those their there our your his her they we you he she which who whose what when where while amid via ' +
+  'but or not no more most also up out down off about against between through during before under without within across toward towards ' +
+  'new first second third fourth fifth hits wins win secures secure awards award awarded signs sign signed launches launched completes completed complete ' +
+  'expands acquires acquired orders ordered joins receives received keeps grows boosts eyes targets starts begins delivers delivered lands gets sets ' +
+  'kicks taps makes takes moves nears reaches strikes inks bags scoops nets clinches unveils plans provides announces announced reports report ' +
+  'release releases earnings quarterly quarter fleet status update results deal deals milestone paydirt waters arsenal ultra time look inside ' +
+  'company firm group subsidiary agreement partnership selected conduct conducts testing tests successful successfully further largest biggest').split(/\s+/));
+const IDIOMA_PT = new Set(('de da do das dos para com em no na nos nas que um uma uns umas por pela pelo pelas pelos ao aos à às é são e o os ' +
+  'foi foram será serão ser está estão estava sobre entre após até como mais menos seu sua seus suas também já não ou nesta neste ' +
+  'anuncia anunciou inicia iniciou conclui concluiu recebe recebeu assina assinou garante amplia ampliou lança lançou aprova aprovou ' +
+  'registra registrou descobre perfura confirma confirmou fecha fechou ganha ganhou contrata contratou apresenta prevê vai tem ' +
+  'nova novo novas novos primeira primeiro terceira terceiro segunda segundo poço poços campo bacia navio sonda plataforma petróleo ' +
+  'gás contrato acordo empresa companhia milhões bilhões trimestre resultados área águas costa produção operação').split(/\s+/));
+/** 'en' | 'pt' | 'indefinido' (texto curto sem palavra funcional, ex.: "ROV-USV"). */
+function idiomaTexto(texto) {
+  const t = String(texto || '');
+  const ws = t.toLowerCase().normalize('NFC').match(/[a-zà-ÿ]+(?:['’][a-z]+)?/g) || [];
+  let en = 0, pt = 0;
+  for (const w of ws) { const b = w.replace(/['’]s$/, ''); if (IDIOMA_EN.has(b)) en++; if (IDIOMA_PT.has(b)) pt++; }
+  if (/[a-z]['’]s\b/i.test(t)) en++; // possessivo inglês (Margin’s, Petrobras')
+  if (en >= 2 && en > pt) return 'en';
+  if (pt >= 2 && pt > en) return 'pt';
+  if (en >= 1 && pt === 0) return 'en';
+  if (pt >= 1 && en === 0) return 'pt';
+  return 'indefinido';
+}
+/** Texto público em inglês? (vazio = não). */
+function textoEmIngles(texto) {
+  return !!texto && idiomaTexto(texto) === 'en';
+}
+// </idioma-ptbr>
+/* Título em inglês: mesmo detector do bloco <idioma-ptbr> (o acento não decide). */
 function tituloEmIngles(titulo) {
-  const t = String(titulo || '');
-  if (/[ãõçáéíóúâêôà]/i.test(t)) return false;
-  const w = t.toLowerCase().match(/[a-z]+/g) || [];
-  return w.some((x) => Q4_EN_TITULO.has(x)) && !w.some((x) => Q4_PT_TITULO.has(x));
+  return textoEmIngles(titulo);
 }
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
    - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
@@ -4510,6 +4556,51 @@ async function retroprocessarCamadaIA(env, limite) {
    da fonte. Corpo: { itens: [{ id, acao, buddy_summary, corpo, why_it_matters,
    fonte_material? }] } — fonte_material = texto da fonte quando o banco só
    tem o resumo (ex.: fontes em inglês). Até 12 itens por chamada. */
+/* Correção de idioma do acervo (incidente de 30/10/2026). POST { itens: [{ id, titulo?, resumo?, rascunho? }] }.
+   - titulo/resumo: só entram se o texto novo for PT-BR (idiomaTexto === 'pt'); título com 15–170
+     caracteres e sem erro de texto. Nada é gerado aqui: o texto vem revisado na requisição.
+   - rascunho: tira do ar (status 'draft', reversível) SÓ se título ou corpo atual estiverem em inglês.
+   Devolve os valores anteriores de cada campo alterado (cópia de segurança de quem chamou).
+   1 leitura em lote + 1 PATCH por item (≤ 30 itens: cabe no limite de subrequests). */
+async function rotaAdminCorrigirIdioma(request, env) {
+  if (request.method !== 'POST') return Response.json({ ok: false, erro: 'use POST' }, { status: 405 });
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: 'Supabase não configurado' });
+  let corpo;
+  try { corpo = await request.json(); } catch { return Response.json({ ok: false, erro: 'json inválido' }, { status: 400 }); }
+  const itens = (Array.isArray(corpo && corpo.itens) ? corpo.itens : []).filter((it) => it && /^[0-9a-f-]{36}$/i.test(String(it.id || ''))).slice(0, 30);
+  if (!itens.length) return Response.json({ ok: false, erro: 'sem itens válidos' }, { status: 400 });
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,status&id=in.(${itens.map((it) => it.id).join(',')})`, { headers: supabaseHeaders(env) });
+  if (!r.ok) return Response.json({ ok: false, erro: 'select_http_' + r.status });
+  const atuais = new Map((await r.json()).map((a) => [a.id, a]));
+  const resultados = [];
+  for (const it of itens) {
+    const a = atuais.get(it.id);
+    if (!a) { resultados.push({ id: it.id, ok: false, motivos: ['nao_encontrado'] }); continue; }
+    const patch = {}, antes = {}, motivos = [];
+    if (it.titulo != null) {
+      const tt = sanearTextoPublicacao(String(it.titulo));
+      const errT = detectarErrosTexto(tt + '.').filter((e) => e !== 'frase_incompleta');
+      if (tt.length < 15 || tt.length > 170 || errT.length || idiomaTexto(tt) !== 'pt') motivos.push('titulo_invalido');
+      else { patch.title = tt; antes.title = a.title; }
+    }
+    if (it.resumo != null) {
+      const rr = sanearTextoPublicacao(String(it.resumo));
+      if (rr.length < 20 || idiomaTexto(rr) !== 'pt') motivos.push('resumo_invalido');
+      else { patch.summary = rr; antes.summary = a.summary; }
+    }
+    if (it.rascunho === true) {
+      if (!textoEmIngles(a.title) && !textoEmIngles(String(a.content || '').slice(0, 1500))) motivos.push('rascunho_so_para_ingles');
+      else { patch.status = 'draft'; antes.status = a.status; }
+    }
+    if (motivos.length || !Object.keys(patch).length) { resultados.push({ id: it.id, ok: false, motivos: motivos.length ? motivos : ['nada_a_alterar'] }); continue; }
+    const pr = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(it.id)}`, {
+      method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify(patch)
+    });
+    resultados.push(pr.ok ? { id: it.id, ok: true, alterado: Object.keys(patch), antes } : { id: it.id, ok: false, motivos: ['patch_http_' + pr.status], antes });
+  }
+  return Response.json({ ok: resultados.every((x) => x.ok), resultados });
+}
+
 async function rotaAdminMateriaOWNews(request, env) {
   if (request.method !== 'POST') return Response.json({ ok: false, erro: 'use POST' }, { status: 405 });
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return Response.json({ ok: false, erro: 'Supabase não configurado' });
@@ -4907,12 +4998,17 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
       // é condição suficiente para confirmar "já está em PT"; qualquer título
       // sem diacrítico PT DEVE ser tratado como EN e traduzido — sem depender
       // de lista de palavras que é inerentemente incompleta.
+      // Corrigido em 2026-10-31 (post em inglês no Instagram): a regra "tem
+      // acento → já é PT" deixava passar "Petrobras hits paydirt ... Amapá
+      // waters" (o "á" de Amapá). Agora decide o idioma real (idiomaTexto),
+      // confere o resultado da tradução e, se o resumo não puder ser
+      // traduzido, ele sai vazio (nunca em inglês). Barreira final abaixo.
       let tituloPublicado = tituloFinal;
       let resumoPublicado = detalhes.summary;
-      const PT_DIACRITIC_RE = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
-      if (FONTES_IDIOMA_EN.has(fonte) && !PT_DIACRITIC_RE.test(tituloFinal)) {
+      const fonteEN = FONTES_IDIOMA_EN.has(fonte);
+      if (precisaTraduzir(tituloFinal, fonteEN)) {
         const trad = await traduzirTituloParaPT(env, tituloFinal);
-        if (!trad) {
+        if (!trad || textoEmIngles(trad)) {
           resultado.bloqueadas_idioma++;
           resultado.falhas_traducao++;
           resultado.noticias.push({ titulo: tituloFinal, status: "bloqueada_idioma_en", fonte });
@@ -4920,10 +5016,10 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         }
         tituloPublicado = trad;
         resultado.traduzidas++;
-        if (detalhes.summary && !PT_DIACRITIC_RE.test(detalhes.summary)) {
-          const tradRes = await traduzirResumoParaPT(env, detalhes.summary);
-          if (tradRes) resumoPublicado = tradRes;
-        }
+      }
+      if (precisaTraduzir(resumoPublicado, fonteEN)) {
+        const tradRes = await traduzirResumoParaPT(env, resumoPublicado);
+        resumoPublicado = tradRes && !textoEmIngles(tradRes) ? tradRes : null;
       }
 
       const artigo = {
@@ -5058,6 +5154,16 @@ slug: criarSlug(tituloPublicado),
           tentativas: camadaIA.tentativas || null,
           fonte
         });
+        continue;
+      }
+
+      // Barreira final de idioma: nenhum campo público sai em inglês (título,
+      // resumo, Buddy, impacto, corpo) — vale para todas as fontes e para o
+      // título reescrito pela IA. A pauta não é gravada e volta na próxima coleta.
+      const campoEN = campoPublicoEmIngles(artigo);
+      if (campoEN) {
+        resultado.bloqueadas_idioma++;
+        resultado.noticias.push({ titulo: artigo.title, status: "bloqueada_idioma_en", campo: campoEN, fonte });
         continue;
       }
 
@@ -6037,27 +6143,22 @@ async function corrigirTitulosEmIngles(env) {
 
   const artigos = await resp.json();
   const resultado = { total_analisados: artigos.length, corrigidos: 0, ignorados: 0, erros: 0, detalhes: [] };
-  const PT_DIACRITIC_RE_COR = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
 
   for (const a of artigos) {
     // Usa detecção robusta: para fontes conhecidas como EN, qualquer título
     // sem diacrítico PT precisa de tradução (mesmo sem palavras-função EN).
     const ehFonteEN = FONTES_IDIOMA_EN.has(a.image_credit);
-    const precisaTraduzir = ehFonteEN
-      ? !PT_DIACRITIC_RE_COR.test(a.title)
-      : detectarIdiomaEN(a.title);
-    if (!precisaTraduzir) { resultado.ignorados++; continue; }
+    if (!precisaTraduzir(a.title, ehFonteEN)) { resultado.ignorados++; continue; }
 
     const trad = await traduzirTituloParaPT(env, a.title);
-    if (!trad) { resultado.erros++; resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: "falha_traducao" }); continue; }
+    if (!trad || textoEmIngles(trad)) { resultado.erros++; resultado.detalhes.push({ id: a.id, titulo_original: a.title, status: "falha_traducao" }); continue; }
 
     const novoSlug = criarSlug(trad);
     const patchBody = { title: trad, slug: novoSlug };
 
-    const resumoNeedsTrad = a.summary && (ehFonteEN ? !PT_DIACRITIC_RE_COR.test(a.summary) : detectarIdiomaEN(a.summary));
-    if (resumoNeedsTrad) {
+    if (precisaTraduzir(a.summary, ehFonteEN)) {
       const tradRes = await traduzirResumoParaPT(env, a.summary);
-      if (tradRes) patchBody.summary = tradRes;
+      if (tradRes && !textoEmIngles(tradRes)) patchBody.summary = tradRes;
     }
 
     const patch = await fetch(
@@ -6097,17 +6198,15 @@ async function corrigirBodyEmIngles(env) {
   if (!resp.ok) return { ok: false, erro: `Supabase select: ${resp.status}` };
 
   const artigos = await resp.json();
-  const PT_DIACRITIC_RE = /[àáâãäèéêëìíîïòóôõöùúûüç]/i;
   const resultado = { total_analisados: artigos.length, corrigidos: 0, ignorados: 0, erros: 0, detalhes: [] };
 
   for (const a of artigos) {
     const body = a.content || "";
-    // Verifica os primeiros 100 chars: nomes técnicos PT (FPSO Itajaí, etc.)
-    // aparecem no meio/fim, não no início de texto originalmente EN.
-    const ehBodyEN = body.length > 30 && !PT_DIACRITIC_RE.test(body.slice(0, 100));
+    // Idioma real (idiomaTexto), não acento: corpo PT sem acento no começo não é mais trocado.
+    const ehBodyEN = body.length > 30 && textoEmIngles(body.slice(0, 600));
     if (!ehBodyEN) { resultado.ignorados++; continue; }
     const novoBody = a.summary || "";
-    if (!novoBody || novoBody.length < 20) { resultado.ignorados++; continue; }
+    if (!novoBody || novoBody.length < 20 || textoEmIngles(novoBody)) { resultado.ignorados++; continue; }
 
     const patch = await fetch(
       `${env.SUPABASE_URL}/rest/v1/articles?id=eq.${a.id}`,

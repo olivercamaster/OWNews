@@ -6225,13 +6225,45 @@ function validarMateriaOWNews(mat, artigo, fonte) {
 /* Título em inglês (press release publicado sem tradução): sem acento do
    português, sem palavra funcional do português e com palavra funcional ou
    verbo típico de release em inglês. */
-const Q4_EN_TITULO = new Set('the and of for with its to in on at from by into signs announces reports completes receives awarded wins intends delivers enters secures expands launches growing year'.split(' '));
-const Q4_PT_TITULO = new Set('de da do das dos em no na nos nas com para por que um uma ao aos se sobre entre ou e o a os as'.split(' '));
+// <idioma-ptbr> — bloco idêntico em ownews-git, coletor e publisher do Instagram (teste compara os três).
+// Detector determinístico de idioma (PT-BR x inglês) por palavras funcionais. Acento NÃO decide:
+// nomes próprios (Amapá, Búzios, Macaé) aparecem em textos em inglês — foi assim que
+// "Petrobras hits paydirt ... Amapá waters" passou como português (incidente de 30/10/2026).
+const IDIOMA_EN = new Set(('the of and to in for on with at by from into onto its it is are was were has have had be been being will would can could ' +
+  'after over than this that these those their there our your his her they we you he she which who whose what when where while amid via ' +
+  'but or not no more most also up out down off about against between through during before under without within across toward towards ' +
+  'new first second third fourth fifth hits wins win secures secure awards award awarded signs sign signed launches launched completes completed complete ' +
+  'expands acquires acquired orders ordered joins receives received keeps grows boosts eyes targets starts begins delivers delivered lands gets sets ' +
+  'kicks taps makes takes moves nears reaches strikes inks bags scoops nets clinches unveils plans provides announces announced reports report ' +
+  'release releases earnings quarterly quarter fleet status update results deal deals milestone paydirt waters arsenal ultra time look inside ' +
+  'company firm group subsidiary agreement partnership selected conduct conducts testing tests successful successfully further largest biggest').split(/\s+/));
+const IDIOMA_PT = new Set(('de da do das dos para com em no na nos nas que um uma uns umas por pela pelo pelas pelos ao aos à às é são e o os ' +
+  'foi foram será serão ser está estão estava sobre entre após até como mais menos seu sua seus suas também já não ou nesta neste ' +
+  'anuncia anunciou inicia iniciou conclui concluiu recebe recebeu assina assinou garante amplia ampliou lança lançou aprova aprovou ' +
+  'registra registrou descobre perfura confirma confirmou fecha fechou ganha ganhou contrata contratou apresenta prevê vai tem ' +
+  'nova novo novas novos primeira primeiro terceira terceiro segunda segundo poço poços campo bacia navio sonda plataforma petróleo ' +
+  'gás contrato acordo empresa companhia milhões bilhões trimestre resultados área águas costa produção operação').split(/\s+/));
+/** 'en' | 'pt' | 'indefinido' (texto curto sem palavra funcional, ex.: "ROV-USV"). */
+function idiomaTexto(texto) {
+  const t = String(texto || '');
+  const ws = t.toLowerCase().normalize('NFC').match(/[a-zà-ÿ]+(?:['’][a-z]+)?/g) || [];
+  let en = 0, pt = 0;
+  for (const w of ws) { const b = w.replace(/['’]s$/, ''); if (IDIOMA_EN.has(b)) en++; if (IDIOMA_PT.has(b)) pt++; }
+  if (/[a-z]['’]s\b/i.test(t)) en++; // possessivo inglês (Margin’s, Petrobras')
+  if (en >= 2 && en > pt) return 'en';
+  if (pt >= 2 && pt > en) return 'pt';
+  if (en >= 1 && pt === 0) return 'en';
+  if (pt >= 1 && en === 0) return 'pt';
+  return 'indefinido';
+}
+/** Texto público em inglês? (vazio = não). */
+function textoEmIngles(texto) {
+  return !!texto && idiomaTexto(texto) === 'en';
+}
+// </idioma-ptbr>
+/* Título em inglês: mesmo detector do bloco <idioma-ptbr> (o acento não decide). */
 function tituloEmIngles(titulo) {
-  const t = String(titulo || '');
-  if (/[ãõçáéíóúâêôà]/i.test(t)) return false;
-  const w = t.toLowerCase().match(/[a-z]+/g) || [];
-  return w.some((x) => Q4_EN_TITULO.has(x)) && !w.some((x) => Q4_PT_TITULO.has(x));
+  return textoEmIngles(titulo);
 }
 /* Critério único de indexação de notícia (frontend: robots/sitemap; collector: gate).
    - DESCARTAR: sem material mínimo, título com erro, ou fora do escopo.
@@ -6297,7 +6329,8 @@ async function obterNoticiasHomeServidor() {
   const resp = await fetch(supabaseUrl + '/rest/v1/articles?select=' + NOTICIAS_HOME_SELECT_SERVIDOR + '&status=eq.published&order=published_at.desc&limit=40', { headers: { apikey: supabaseKey } });
   if (!resp.ok) return [];
   const lista = await resp.json();
-  return Array.isArray(lista) ? lista.map((n) => Object.assign({}, n, {
+  // Matéria com título em inglês nunca vai para a Home (barreira de idioma; a origem é o coletor).
+  return Array.isArray(lista) ? lista.filter((n) => !textoEmIngles(n.title)).map((n) => Object.assign({}, n, {
     title: n.title ? decodificarEntidadesHTMLServidor(n.title) : n.title,
     summary: n.summary ? decodificarEntidadesHTMLServidor(n.summary) : n.summary
   })) : [];
