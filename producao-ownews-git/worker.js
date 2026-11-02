@@ -7048,6 +7048,45 @@ const FUNCOES_OFFSHORE = [
     resumo: "Apoia as atividades de logística da unidade: controle de cargas, documentação de movimentação de materiais e apoio ao Material Administrator." }
 ];
 
+/* Minha Função (OWBuddy, 02/11/2026): catálogo público e leve das funções para o app fazer o match
+   NO APARELHO (a função da pessoa nunca é enviada ao OWNews). Apelidos: só os já documentados nas
+   fichas acima (nomeAntigo); termos ambíguos ficam de fora ("Pusher" casaria com Deck Pusher,
+   "Master" é genérico demais, correspondências "não confirmadas" não entram). Famílias = mesma
+   especialidade em níveis diferentes — relacionada, nunca a mesma função. */
+const ALIASES_FUNCAO = {
+  roustabout: ["Homem de Área", "Roustabout"], guindasteiro: ["Guindasteiro"], plataformista: ["Roughneck"],
+  "assistente-torrista": ["Assistant Derrickman"], toolpusher: ["Drilling Foreman"], "1-oficial-de-maquinas": ["Subchefe de Máquinas"],
+  "chefe-de-maquinas": ["Chief Engineer"], eto: ["Electro-Technical Officer"], imediato: ["Chief Mate", "Chief Officer"], comandante: ["Captain"],
+  dpo: ["Dynamic Positioning Operator"], clerk: ["Rig Clerk", "Offshore Clerk"], "rig-administrator": ["Administrador de Bordo"],
+  "medico-offshore": ["Medic"], "engine-room-operator": ["ERO"], welder: ["Soldador Offshore", "Soldador"], bosun: ["Contramestre"],
+  "ab-seaman": ["Able Bodied Seaman", "Marinheiro de Convés"], "material-administrator": ["Material Man", "Almoxarife Offshore", "Warehouse Offshore"],
+  "log-tech": ["Logistics Technician"]
+};
+const FAMILIAS_FUNCAO = [
+  ["mecanico", "assistant-mechanic", "sr-mechanic", "mechanic-supervisor"], ["eletricista", "sr-electrician", "electrical-supervisor"],
+  ["electronic-technician", "sr-electronic-technician"], ["rov", "subsea", "subsea-technician", "subsea-engineer", "subsea-supervisor"],
+  ["tecnico-seguranca-trabalho", "hse-advisor", "hse-advisor-sr"], ["toolpusher", "sr-toolpusher"], ["oim", "rig-manager", "assistant-rig-manager"],
+  ["clerk", "rig-administrator"], ["almoxarife", "material-administrator", "log-tech"], ["bosun", "ab-seaman"], ["enfermeiro-offshore", "medico-offshore"]
+];
+// Categorias do Radar de Vagas (categoriaVaga) que pertencem a cada área de Carreiras.
+const AREA_CATEGORIAS_VAGA = { deck: ["conves"], drilling: ["perfuracao"], subsea: ["subsea"], engine: ["manutencao"], seguranca: ["sms"], marine: ["conves"], logistica: ["operacoes"], gestao: [] };
+function catalogoFuncoesBuddy() {
+  const rel = (s) => new Set([...FUNCOES_OFFSHORE.filter((f) => f.slug === s).flatMap((f) => f.caminhoCarreira || []), ...FAMILIAS_FUNCAO.filter((g) => g.includes(s)).flat()].filter((x) => x !== s));
+  return {
+    versao: 1,
+    areas: Object.entries(AREAS_OFFSHORE).map(([id, a]) => ({ id, nome: a.nome, categorias_vaga: AREA_CATEGORIAS_VAGA[id] || [] })),
+    funcoes: FUNCOES_OFFSHORE.map((f) => ({
+      slug: f.slug, nome: f.nome, area: f.area,
+      // Nome oficial, partes entre parênteses/barra (ex.: "Torrista (Derrickman)") e apelidos documentados.
+      termos: [...new Set([f.nome, ...f.nome.split(/[()\/]/).map((t) => t.trim()).filter((t) => t.length >= 3), ...(ALIASES_FUNCAO[f.slug] || [])])],
+      relacionadas: [...rel(f.slug)],
+      // Porta de entrada sem formação de oficial: 1º degrau das trilhas de Deck, Perfuração e Máquinas (subalternos).
+      entrada: [CAMINHO_DECK[0], CAMINHO_DRILLING[0], CAMINHO_MAQUINAS_SUBALTERNOS[0]].includes(f.slug),
+      url: "https://ownews.com.br/funcoes/" + f.slug
+    }))
+  };
+}
+
 /* ---------- Carreiras Offshore 2.0 — Sonda de Perfuração (2026-09-28) ---
    Estrutura organizacional de uma sonda de perfuração para fins de
    mapeamento visual de carreiras. A hierarquia representa ESTRUTURA
@@ -17098,7 +17137,7 @@ function renderPrivacidade() {
     '<div class="hub-hero">' +
     '<span class="eyebrow">Privacidade</span>' +
     "<h1>Política de Privacidade</h1>" +
-    '<p class="hub-lead">O que o OWNews (site) e o aplicativo OWBuddy coletam hoje, o que fica só no seu aparelho e como excluir sua conta. Responsável: OffshoreWorks, que publica o OWNews e o OWBuddy. Atualizada em 24/10/2026.</p>' +
+    '<p class="hub-lead">O que o OWNews (site) e o aplicativo OWBuddy coletam hoje, o que fica só no seu aparelho e como excluir sua conta. Responsável: OffshoreWorks, que publica o OWNews e o OWBuddy. Atualizada em 02/11/2026.</p>' +
     "</div>" +
     '<div class="area-group" style="margin-top:8px">' +
     "<h2>Site OWNews: o que coletamos</h2>" +
@@ -17108,7 +17147,7 @@ function renderPrivacidade() {
     '<div class="area-group" id="owbuddy">' +
     "<h2>Aplicativo OWBuddy</h2>" +
     '<p class="area-desc">O OWBuddy funciona <strong>sem conta</strong>. Tudo o que você cadastra fica guardado no próprio celular. Não usamos localização por GPS, câmera, microfone nem contatos da agenda do telefone.</p>' +
-    '<p class="area-desc"><strong>Só no seu aparelho (nunca enviado)</strong>: viagem (voo, horário, localizador, assento, observações), contatos do embarque (nome e telefone que você digita), datas importantes, Meu Pagamento (só a regra da data — o app não pede salário), escalas de outras pessoas no Cruzar, cidade do clima, layout da Home, aparência e lembretes.</p>' +
+    '<p class="area-desc"><strong>Só no seu aparelho (nunca enviado)</strong>: viagem (voo, horário, localizador, assento, observações), contatos do embarque (nome e telefone que você digita), datas importantes, Meu Pagamento (só a regra da data — o app não pede salário), escalas de outras pessoas no Cruzar, cidade do clima, Minha Unidade (onde você embarca) e Minha Função (área e função no offshore — o app baixa a lista pública de funções do OWNews e faz a combinação com vagas e notícias no próprio aparelho; a sua escolha não é enviada a ninguém, nem ao analytics), layout da Home, aparência e lembretes.</p>' +
     '<p class="area-desc"><strong>Com a Conta OW (opcional)</strong>, sincronizam com a sua conta: escala (ciclo, data de referência, base/aeroporto, dobras e férias), certificados e documentos (tipo, nome, validade, emissão, instituição, aviso e observação que você escreveu — nunca foto nem número do documento), a lista do Meu Embarque e as preferências do Buddy (tom, tratamento e apelido).</p>' +
     '<p class="area-desc"><strong>Serviços usados pelo app</strong>: notícias, vagas, unidades e aeroportos vêm do OWNews; o clima vem da Open-Meteo, que recebe só as coordenadas da cidade que você escolheu (e o nome digitado na busca de cidade); a Conta OW usa o Supabase. Ligar, WhatsApp, mapa, Uber e 99 só abrem o app correspondente — o OWBuddy não envia nada por você.</p>' +
     '<p class="area-desc"><strong>Notificações</strong>: lembretes locais (embarque, mala, viagem, validades, datas, pagamento), agendados no próprio aparelho, desligados até você ativar e escolher as categorias em Meu Buddy. Não há servidor de push do OWBuddy; o texto não mostra nomes de pessoas, documentos nem itens da mala.</p>' +
@@ -23622,6 +23661,9 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/buddy/funcoes" && request.method === "GET") {
+      return new Response(JSON.stringify(catalogoFuncoesBuddy()), { headers: { "Content-Type": "application/json; charset=UTF-8", "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400" } });
+    }
     if (url.pathname === "/api/buddy/vagas" && request.method === "GET") {
       // S1 (2026-10-05): usa getVagasRadar() — fonte dinâmica (KV Radar 2.0, fallback estático).
       // Aplica os mesmos filtros do /vagas web: sem banco de talentos, sem expiradas.
