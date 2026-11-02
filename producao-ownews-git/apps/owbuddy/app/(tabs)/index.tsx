@@ -32,6 +32,8 @@ import {
   DEF_MODULO,
   avisoHistoricoHome,
   recorteFree,
+  mostrarConviteFuncao,
+  vagasParaFuncao,
 } from '@owbuddy/domain';
 import type {
   EscalaConfig, BuddyPrefs, Viagem, ChecklistData, Certificado, HomeContexto, HomeChecklistContagem,
@@ -42,6 +44,7 @@ import {
   getEscala, getBuddyPrefs, getViagem, getChecklist, getCerts, getCityPref, setCityPref,
   getEventosPessoais, getPagamento, getPrefsHome, setPrefsHome, getContatos,
   getHistorico, getAvisosHistorico,
+  getMinhaFuncao, getConviteFuncaoDispensado, dispensarConviteFuncao, getVagasFuncaoVistas,
 } from '../../src/storage';
 import { AvisoFinalizar, AvisoSugestao } from '../../src/components/HistoricoAvisos';
 import { ondePrecisoEstar, linhasPreparacao } from '../../src/onde-estar';
@@ -57,7 +60,7 @@ import { getWeather, type WeatherData } from '../../src/weather';
 import { useConnectivity } from '../../src/connectivity';
 import type { City } from '../../src/cities';
 import { analytics } from '../../src/analytics';
-import { feedEmCache, fetchFeed, fetchVagas, type Article } from '../../src/api';
+import { feedEmCache, fetchCatalogoFuncoes, fetchFeed, fetchVagas, type Article } from '../../src/api';
 import { contadorVagasHome, destaquesHome, frescorClima, idadeCurta } from '../../src/frescor';
 import { useAoVoltarAoApp } from '../../src/ao-voltar';
 import { AcontecimentoLinha } from '../../src/components/AcontecimentoLinha';
@@ -103,6 +106,9 @@ export default function TelaHoje() {
   const [refreshing, setRefreshing] = useState(false);
   // Só número REAL do /api/buddy/vagas (cache 1 h; offline usa o último cache). Sem dado → sem contador.
   const [vagasTotal, setVagasTotal] = useState<number | null>(null);
+  // Minha Função (local): quantas vagas combinam e quantas ainda não foram vistas. Sem função → null.
+  const [vagasFuncao, setVagasFuncao] = useState<{ total: number; novas: number; avisos: boolean } | null>(null);
+  const [conviteFuncao, setConviteFuncao] = useState(false);
   // Destaques do OWNews (/api/buddy/feed — mesma camada de Notícias Offshore): 1 a 3 por
   // relevância × frescor. null = ainda sem resposta; 'sem_rede' = primeiro uso offline.
   const [destaques, setDestaques] = useState<Article[] | 'sem_rede' | null>(null);
@@ -125,12 +131,21 @@ export default function TelaHoje() {
     const visiveis = new Set(modulosVisiveis(home));
     // Rede só para o que está visível (e com cache): Vagas, Notícias e clima.
     if (visiveis.has('vagas')) {
-      fetchVagas().then(r => {
-        if (r.status !== 'ok' && r.status !== 'offline_cached') { setVagasTotal(null); return; }
+      fetchVagas().then(async r => {
+        if (r.status !== 'ok' && r.status !== 'offline_cached') { setVagasTotal(null); setVagasFuncao(null); return; }
         const obtidoEm = r.status === 'ok' && !r.fromCache ? Date.now() : r.cachedAt;
-        setVagasTotal(contadorVagasHome(r.vagas.length, obtidoEm, r.updatedAt));
-      }).catch(() => setVagasTotal(null));
+        const total = contadorVagasHome(r.vagas.length, obtidoEm, r.updatedAt);
+        setVagasTotal(total);
+        const mf = await getMinhaFuncao();
+        if (!mf || total == null) { setVagasFuncao(null); return; }
+        const [cat, vistas] = await Promise.all([fetchCatalogoFuncoes().catch(() => null), getVagasFuncaoVistas()]);
+        const para = vagasParaFuncao(r.vagas, mf, cat).paraVoce.map(x => x.vaga.id);
+        setVagasFuncao({ total: para.length, novas: para.filter(id => !vistas.includes(id)).length, avisos: mf.alertas });
+      }).catch(() => { setVagasTotal(null); setVagasFuncao(null); });
     }
+    Promise.all([getMinhaFuncao(), getConviteFuncaoDispensado()])
+      .then(([mf, disp]) => setConviteFuncao(mostrarConviteFuncao(mf, disp, Date.now())))
+      .catch(() => setConviteFuncao(false));
     if (visiveis.has('noticias')) {
       // Stale-while-revalidate: pinta o cache do aparelho já, troca quando a rede responder.
       feedEmCache().then(c => {
@@ -297,7 +312,10 @@ export default function TelaHoje() {
           accent: critCerts.length > 0 ? colors.amber : undefined, onPress: () => router.navigate('/certs') }));
         break;
       case 'vagas': {
-        const sub = vagasTotal != null ? `${vagasTotal} ${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'}` : 'Vagas verificadas';
+        // Com Minha Função: a mesma linha diz quantas combinam ("novas" só com avisos ligados).
+        const sub = vagasFuncao && vagasFuncao.avisos && vagasFuncao.novas > 0 ? `${vagasFuncao.novas} ${vagasFuncao.novas === 1 ? 'nova para sua função' : 'novas para sua função'}`
+          : vagasFuncao && vagasFuncao.total > 0 ? `${vagasFuncao.total} ${vagasFuncao.total === 1 ? 'relacionada à sua função' : 'relacionadas à sua função'}`
+          : vagasTotal != null ? `${vagasTotal} ${vagasTotal === 1 ? 'vaga verificada' : 'vagas verificadas'}` : 'Vagas verificadas';
         if (t === 'DESTAQUE') {
           pecas.push({ id, grupo, forma: 'bloco', render: () => (
             <CardDestaque icon="briefcase-outline" titulo="Vagas" numero={vagasTotal}
@@ -427,6 +445,23 @@ export default function TelaHoje() {
             <TouchableOpacity onPress={() => dispensarDica(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dispensar dica">
               <Ionicons name="close" size={16} color={colors.mutedDim} />
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Minha Função: convite único (sem função; "Agora não" pausa 30 dias) ── */}
+        {home.dicaVista && conviteFuncao && (
+          <View style={styles.convite}>
+            <Text style={styles.conviteKicker}>DEIXE O BUDDY MAIS SEU</Text>
+            <Text style={styles.conviteTexto}>Informe sua função para ver primeiro vagas e conteúdos relacionados à sua área.</Text>
+            <View style={styles.conviteAcoes}>
+              <TouchableOpacity style={styles.dicaBtn} onPress={() => router.push('/minha-funcao')} accessibilityRole="button">
+                <Text style={styles.dicaBtnTexto}>Adicionar minha função</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dicaBtn} accessibilityRole="button"
+                onPress={() => { setConviteFuncao(false); analytics.track('my_role_invite_dismissed'); dispensarConviteFuncao(new Date().toISOString()); }}>
+                <Text style={styles.conviteAgoraNao}>Agora não</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -897,6 +932,14 @@ const styles = themed(() => StyleSheet.create({
     paddingHorizontal: spacing.sm + 4, paddingVertical: 6, marginBottom: spacing.md,
   },
   dicaTexto: { flex: 1, fontSize: 13, color: colors.white, lineHeight: 18 },
+  convite: {
+    backgroundColor: maritime.glass, borderRadius: radius.lg, borderWidth: 1, borderColor: maritime.glassBorder,
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm + 2, paddingBottom: 4, marginBottom: spacing.md, gap: 4,
+  },
+  conviteKicker: { ...typography.micro, color: colors.kicker },
+  conviteTexto: { fontSize: 13, color: colors.white, lineHeight: 18 },
+  conviteAcoes: { flexDirection: 'row', gap: spacing.md },
+  conviteAgoraNao: { fontSize: 13, fontWeight: '600', color: colors.muted },
   dicaBtn: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 6 },
   dicaBtnTexto: { fontSize: 13, fontWeight: '700', color: colors.cyan },
 

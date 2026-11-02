@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, surface, screen, maritime, themed } from '../src/theme';
 import { useTema } from '../src/tema';
 import { OWBackground } from '../src/components/OWBackground';
-import { feedEmCache, fetchFeed, type Article, type FeedResult } from '../src/api';
+import { feedEmCache, fetchCatalogoFuncoes, fetchFeed, type Article, type FeedResult } from '../src/api';
+import { noticiaRelacionada, type CatalogoFuncoes, type MinhaFuncao } from '@owbuddy/domain';
+import { getMinhaFuncao } from '../src/storage';
 import { idadeCurta } from '../src/frescor';
 import { useAoVoltarAoApp } from '../src/ao-voltar';
 import { analytics } from '../src/analytics';
@@ -27,7 +29,7 @@ function sourceNameFrom(article: Article): string {
   catch { return ''; }
 }
 
-function ArticleCard({ item }: { item: Article }) {
+function ArticleCard({ item, relacionada = false }: { item: Article; relacionada?: boolean }) {
   useTema();
   const [pressed, setPressed] = useState(false);
   const handlePress = () => {
@@ -59,6 +61,7 @@ function ArticleCard({ item }: { item: Article }) {
         <Text style={styles.cardTitle} numberOfLines={3}>{item.title}</Text>
         <View style={styles.cardFooter}>
           <Text style={styles.cardMeta}>{idadeCurta(item.published_at)}</Text>
+          {relacionada ? <Text style={styles.cardRelacionada}>Relacionado à sua função</Text> : null}
         </View>
       </View>
     </Pressable>
@@ -69,6 +72,8 @@ export default function NoticiasScreen() {
   useTema();
   const [result, setResult] = useState<FeedResult | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Minha Função (local): só MARCA a notícia cujo título nomeia a função — o feed não muda de ordem.
+  const [funcao, setFuncao] = useState<{ mf: MinhaFuncao; cat: CatalogoFuncoes | null } | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -84,6 +89,9 @@ export default function NoticiasScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    getMinhaFuncao().then(async (mf) => setFuncao(mf ? { mf, cat: await fetchCatalogoFuncoes().catch(() => null) } : null)).catch(() => setFuncao(null));
+  }, []));
   useAoVoltarAoApp(() => { load(); });
 
   if (!result) {
@@ -133,7 +141,7 @@ export default function NoticiasScreen() {
         <FlatList
           data={articles}
           keyExtractor={a => a.id}
-          renderItem={({ item }) => <ArticleCard item={item} />}
+          renderItem={({ item }) => <ArticleCard item={item} relacionada={!!funcao && noticiaRelacionada(item.title, funcao.mf, funcao.cat)} />}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
@@ -183,6 +191,7 @@ const styles = themed(() => StyleSheet.create({
   cardTitle: { ...typography.h3, fontSize: 14, lineHeight: 19 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   cardMeta: { ...typography.micro, fontSize: 10, color: colors.mutedDim },
+  cardRelacionada: { fontSize: 11, fontWeight: '600', color: colors.cyanDim },
 
   separator: { height: spacing.sm },
   emptyTitle: { ...typography.h3, color: colors.muted },

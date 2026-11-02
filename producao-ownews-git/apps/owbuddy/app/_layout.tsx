@@ -234,6 +234,13 @@ function AppShell() {
           }}
         />
         <Stack.Screen
+          name="minha-funcao"
+          options={{
+            title: 'Minha Função',
+            headerStyle: { backgroundColor: colors.navy800 },
+          }}
+        />
+        <Stack.Screen
           name="historico"
           options={{
             title: 'Meu Histórico',

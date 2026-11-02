@@ -333,6 +333,16 @@ export default function BuddyConfig() {
           <Text style={styles.saveBtnText}>{saved ? 'Salvo ✓' : 'Salvar preferências'}</Text>
         </TouchableOpacity>
 
+        {/* ── Personalização: Minha Função (local; prioriza vagas e conteúdos) ── */}
+        <Text style={styles.sectionTitle}>Personalização</Text>
+        <TouchableOpacity style={[styles.contaCard, styles.switchRow]} onPress={() => router.push('/minha-funcao')} accessibilityRole="button" accessibilityLabel="Minha Função">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>Minha Função</Text>
+            <Text style={styles.switchSub}>Área e função no offshore, para priorizar vagas e conteúdos. Fica só neste aparelho.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
+
         {/* ── Lembretes (notificações locais) ── */}
         <Text style={styles.sectionTitle}>Lembretes</Text>
         <View style={styles.contaCard}>

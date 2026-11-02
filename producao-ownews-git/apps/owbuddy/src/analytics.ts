@@ -106,7 +106,14 @@ type EventName =
   // Minha Unidade (Radar Offshore): só a ação — NUNCA o nome ou o id da unidade
   | 'my_unit_opened'
   | 'my_unit_set'
-  | 'my_unit_radar_opened';
+  | 'my_unit_radar_opened'
+  // Minha Função: só a ação — NUNCA área, função, situação ou combinação com a unidade
+  | 'my_role_opened'
+  | 'my_role_set'
+  | 'my_role_removed'
+  | 'my_role_content_opened'
+  | 'my_role_invite_dismissed'
+  | 'jobs_role_tab';
 
 type EventProps = Record<string, string | number | boolean | null>;
 

@@ -5,8 +5,8 @@ import type { ContatoEmbarque } from '@owbuddy/domain';
 import type { ConfigPagamento, PrefsHome } from '@owbuddy/domain';
 import { lerHistorico, lerAvisos, HISTORICO_VERSAO } from '@owbuddy/domain';
 import type { HistoricoData, AvisosHistorico } from '@owbuddy/domain';
-import { lerCachePlus, lerTrialPremium, lerMinhaUnidade } from '@owbuddy/domain';
-import type { MinhaUnidade } from '@owbuddy/domain';
+import { lerCachePlus, lerTrialPremium, lerMinhaUnidade, lerMinhaFuncao } from '@owbuddy/domain';
+import type { MinhaUnidade, MinhaFuncao } from '@owbuddy/domain';
 import type { CachePlus, TrialPremium } from '@owbuddy/domain';
 import type { City } from './cities';
 import { normalizarModoAparencia, type ModoAparencia } from './aparencia';
@@ -42,6 +42,10 @@ export const KEYS = {
   // Minha Unidade (Radar Offshore): só neste aparelho — fora do sync, do analytics e das notificações.
   MINHA_UNIDADE:    'owbuddy_minha_unidade',
   MINHA_UNIDADE_VISTAS: 'owbuddy_minha_unidade_vistas',
+  // Minha Função: só neste aparelho — fora do sync, do analytics e dos logs (o match é local).
+  MINHA_FUNCAO:     'owbuddy_minha_funcao',
+  MINHA_FUNCAO_CONVITE: 'owbuddy_minha_funcao_convite',
+  VAGAS_FUNCAO_VISTAS: 'owbuddy_vagas_funcao_vistas',
 } as const;
 
 // Avisos de mudança (usado para replanejar lembretes locais sem import circular).
@@ -374,6 +378,41 @@ export async function getModoAparencia(): Promise<ModoAparencia> {
   return normalizarModoAparencia(await get<unknown>(KEYS.APARENCIA));
 }
 
+// ─── Minha Função ────────────────────────────────────────────────────────────
+// Local-first, como Minha Unidade: a função nunca sai do aparelho. "Apagar dados deste aparelho"
+// remove tudo (prefixo owbuddy_). Sair da conta não apaga (preferência do aparelho, como as demais).
+export async function getMinhaFuncao(): Promise<MinhaFuncao | null> {
+  return lerMinhaFuncao(await get<unknown>(KEYS.MINHA_FUNCAO));
+}
+
+export async function setMinhaFuncao(mf: MinhaFuncao | null): Promise<void> {
+  if (mf) await set(KEYS.MINHA_FUNCAO, mf);
+  else await remove(KEYS.MINHA_FUNCAO);
+}
+
+/** Quando a pessoa tocou "Agora não" no convite da Home (pausa de 30 dias). */
+export async function getConviteFuncaoDispensado(): Promise<string | null> {
+  const v = await get<unknown>(KEYS.MINHA_FUNCAO_CONVITE);
+  return typeof v === 'string' ? v : null;
+}
+
+export async function dispensarConviteFuncao(agoraISO: string): Promise<void> {
+  await set(KEYS.MINHA_FUNCAO_CONVITE, agoraISO);
+}
+
+/** Vagas "para você" já vistas (para contar só as novas). */
+export async function getVagasFuncaoVistas(): Promise<string[]> {
+  const v = await get<unknown>(KEYS.VAGAS_FUNCAO_VISTAS);
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-200) : [];
+}
+
+export async function marcarVagasFuncaoVistas(ids: string[]): Promise<void> {
+  const atuais = await getVagasFuncaoVistas();
+  await set(KEYS.VAGAS_FUNCAO_VISTAS, [...new Set([...atuais, ...ids])].slice(-200));
+}
+
+
 export async function setModoAparencia(modo: ModoAparencia): Promise<void> {
   await set(KEYS.APARENCIA, modo);
 }
+

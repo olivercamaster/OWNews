@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buscarJson } from './net';
 import { normalizarArtigo, normalizarFeed, OWNEWS_BASE_URL, type Article } from './contratos';
-import { lerPacoteRadar, type PacoteRadar } from '@owbuddy/domain';
+import { lerCatalogoFuncoes, lerPacoteRadar, type CatalogoFuncoes, type PacoteRadar } from '@owbuddy/domain';
 export { paragrafos, type Article, type ExplicaItem } from './contratos';
 
 // Contratos documentados em docs/OWBUDDY-CONTRATOS.md (mudou lá → muda aqui e no teste).
@@ -11,6 +11,8 @@ const VAGAS_URL = `${BASE_URL}/api/buddy/vagas`;
 const UNIDADES_URL = `${BASE_URL}/api/buddy/unidades`;
 // Radar Offshore: pacote público (catálogo + notícias de todas as unidades). O app filtra no aparelho.
 const RADAR_PACOTE_URL = `${BASE_URL}/radar-offshore/api/buddy`;
+// Minha Função: catálogo público de Carreiras (igual para todos). O app nunca envia a função da pessoa.
+const FUNCOES_URL = `${BASE_URL}/api/buddy/funcoes`;
 
 // v3: feed só com matéria OWNews completa (Buddy + corpo + Impacto + fonte).
 // O cache v2 tinha o lead da fonte em `summary` — não é mais lido.
@@ -22,6 +24,8 @@ const CACHE_KEY_VAGAS = 'owbuddy_cache_vagas';
 const CACHE_KEY_VAGAS_META = 'owbuddy_cache_vagas_meta_v1';
 const CACHE_KEY_UNIDADES = 'owbuddy_cache_unidades_v1';
 const CACHE_KEY_RADAR = 'owbuddy_cache_radar_v1';
+const CACHE_KEY_FUNCOES = 'owbuddy_cache_funcoes_v1';
+const FUNCOES_TTL_MS = 24 * 60 * 60 * 1000; // o catálogo de Carreiras muda raramente
 const RADAR_TTL_MS = 6 * 60 * 60 * 1000; // 6 h (as bases da ANP mudam no máximo 1×/dia)
 const FEED_TTL_MS = 5 * 60 * 1000;       // 5 min
 const VAGAS_TTL_MS = 60 * 60 * 1000;     // 1 h
@@ -223,4 +227,17 @@ export async function fetchPacoteRadar(forcar = false): Promise<{ pacote: Pacote
     return { pacote, cachedAt: Date.now(), fromCache: false };
   }
   return cached ? { pacote: cached.data, cachedAt: cached.cachedAt, fromCache: true } : null;
+}
+
+/**
+ * Catálogo de funções (Carreiras do OWNews). Sem internet: o último guardado; sem nada guardado:
+ * null — a tela deixa escrever a função à mão ou configurar depois.
+ */
+export async function fetchCatalogoFuncoes(forcar = false): Promise<CatalogoFuncoes | null> {
+  const cached = await readCache<CatalogoFuncoes>(CACHE_KEY_FUNCOES);
+  if (!forcar && cached && !isStale(cached.cachedAt, FUNCOES_TTL_MS)) return lerCatalogoFuncoes(cached.data);
+  const r = await buscarJson<unknown>(FUNCOES_URL);
+  const cat = r.ok ? lerCatalogoFuncoes(r.data) : null;
+  if (cat) { await writeCache(CACHE_KEY_FUNCOES, cat); return cat; }
+  return cached ? lerCatalogoFuncoes(cached.data) : null;
 }

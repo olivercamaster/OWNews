@@ -44,6 +44,7 @@ import {
   getEscalasCruzar,
   getHistorico,
   getMinhaUnidade,
+  getMinhaFuncao,
 } from '../../src/storage';
 import { OWProgresso } from '../../src/components/OWProgresso';
 import { tone, bottomNavSpace, colors, spacing, radius, typography, surface, maritime, themed, tokens } from '../../src/theme';
@@ -404,13 +405,16 @@ export default function EscalaScreen() {
   const [registrados, setRegistrados] = useState(0);
   // Minha Unidade: só o nome para o atalho (local; a escala não lê nem grava a unidade).
   const [minhaUnidade, setMinhaUnidadeEstado] = useState<MinhaUnidade | null>(null);
+  // Minha Função: só o rótulo para o atalho (local; a escala não lê nem grava a função).
+  const [minhaFuncao, setMinhaFuncaoEstado] = useState<string | null>(null);
   // Agora é tab: reserva o espaço da nav flutuante no fim do scroll (Android + iOS).
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
-    const [cfg, ep, cz, hist, mu] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar(), getHistorico(), getMinhaUnidade()]);
+    const [cfg, ep, cz, hist, mu, mf] = await Promise.all([getEscala(), getEventosPessoais(), getEscalasCruzar(), getHistorico(), getMinhaUnidade(), getMinhaFuncao()]);
     setRegistrados(hist.registros.length);
     setMinhaUnidadeEstado(mu);
+    setMinhaFuncaoEstado(mf ? (mf.situacao === 'quero_embarcar' ? 'Quero embarcar' : mf.funcao?.nome ?? mf.texto_livre ?? 'Área informada') : null);
     setConfig(cfg);
     setEPState(ep);
     setCruzadas(cz);
@@ -579,6 +583,16 @@ export default function EscalaScreen() {
           <View style={styles.historicoTextos}>
             <Text style={styles.historicoTitulo}>Minha Unidade</Text>
             <Text style={styles.historicoSub} numberOfLines={1}>{minhaUnidade ? minhaUnidade.nome : 'Onde você embarca'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
+        </TouchableOpacity>
+
+        {/* ── Minha Função: o que faz no offshore (prioriza vagas e conteúdos; não mexe na escala) ── */}
+        <TouchableOpacity style={styles.historico} onPress={() => router.push('/minha-funcao')} accessibilityRole="button" accessibilityLabel="Minha Função">
+          <Ionicons name="construct-outline" size={20} color={colors.iconDefault} />
+          <View style={styles.historicoTextos}>
+            <Text style={styles.historicoTitulo}>Minha Função</Text>
+            <Text style={styles.historicoSub} numberOfLines={1}>{minhaFuncao ?? 'O que você faz a bordo'}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.mutedDim} />
         </TouchableOpacity>
