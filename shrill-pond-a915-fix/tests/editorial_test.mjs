@@ -65,6 +65,11 @@ test('imagem: lê dimensões de JPEG, PNG, WebP e GIF; recusa logo, pixel, banne
   assert.match(W.avaliarImagem('image/svg+xml', new Uint8Array(40)).motivo, /^nao_e_foto/);
   assert.match(W.avaliarImagem('text/html', new Uint8Array(40)).motivo, /^nao_e_foto/, 'página de erro no lugar da imagem');
   assert.equal(W.avaliarImagem('image/jpeg', new Uint8Array(40)).ok, false, 'arquivo corrompido');
+  assert.equal(W.avaliarImagem(null, webpX(1024, 576)).ok, true, 'servidor sem content-type: decide pelos bytes');
+  assert.equal(W.avaliarImagem('application/octet-stream', jpeg(1200, 675)).ok, true);
+  const jpegGrande = new Uint8Array(30000); jpegGrande.set([0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff]);
+  assert.equal(W.avaliarImagem('image/jpeg', jpegGrande).ok, true, 'JPEG com metadados > 64 KB');
+  assert.equal(W.avaliarImagem(null, new Uint8Array(40)).ok, false, 'sem tipo e sem bytes de imagem');
 });
 
 test('imagem remota: 404 e erro de rede viram fallback; redirect para foto válida passa', async () => {

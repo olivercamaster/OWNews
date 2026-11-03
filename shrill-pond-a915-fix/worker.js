@@ -4577,9 +4577,17 @@ function dimensoesImagem(b) {
 }
 function avaliarImagem(contentType, bytes) {
   const ct = String(contentType || '').toLowerCase();
-  if (!ct.startsWith('image/') || ct.includes('svg')) return { ok: false, motivo: 'nao_e_foto:' + (ct.split(';')[0] || 'sem_tipo') };
+  // Servidor sem content-type (ou genérico) não condena a foto: decide pelos bytes. SVG/HTML nunca.
+  const generico = !ct || ct.startsWith('application/octet-stream') || ct.startsWith('binary/');
+  if (ct.includes('svg') || (!ct.startsWith('image/') && !generico)) return { ok: false, motivo: 'nao_e_foto:' + (ct.split(';')[0] || 'sem_tipo') };
   const d = dimensoesImagem(bytes);
-  if (!d) return { ok: false, motivo: 'dimensoes_ilegiveis' };
+  if (!d) {
+    // JPEG com metadados enormes ou AVIF/HEIC: dimensão não lida no começo do arquivo; arquivo grande = foto.
+    const jpeg = bytes && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const ftyp = bytes && bytes.length > 12 && String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === 'ftyp';
+    if ((jpeg || ftyp) && bytes.length >= 20000) return { ok: true, w: null, h: null, tipo: jpeg ? 'jpeg' : 'avif' };
+    return { ok: false, motivo: 'dimensoes_ilegiveis' };
+  }
   if (d.w < 400 || d.h < 200) return { ok: false, motivo: 'pequena:' + d.w + 'x' + d.h };
   const r = d.w / d.h;
   if (r < 0.5 || r > 3.2) return { ok: false, motivo: 'proporcao:' + d.w + 'x' + d.h };
