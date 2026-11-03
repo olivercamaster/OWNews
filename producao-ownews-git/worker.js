@@ -5777,6 +5777,8 @@ function linkDocumentoPrimario(urlFonte) {
 /* Correções que mudam o sentido de uma notícia: nota na própria matéria e
    registro em /correcoes (Política de Correções). Data = dia da correção. */
 const CORRECOES_NOTICIAS = [
+  { id: "78d228bf-0b58-4b72-b6e0-6cd5f9482591", data: '2026-11-03', titulo: "Shell vende participação no projeto de gás e GNL North West Shelf, na Austrália, por US$ 1,45 bilhão",
+    texto: "O título dizia que a Shell recebeu US$ 1,45 bilhão \"por perda de participação\". A Shell vendeu sua participação de 16,67% no North West Shelf à XRG, do grupo ADNOC; US$ 1,45 bilhão é o valor-base da venda." },
   { id: "4de434ae-8c6f-4430-9be6-591934398ec2", data: '2026-10-22', titulo: "TechnipFMC e BP assinam memorando para árvores submarinas de 20 mil psi no Golfo dos EUA",
     texto: "O título e o texto diziam que a TechnipFMC forneceria \"20 mil árvores submarinas\". O número 20 mil se refere à pressão de trabalho dos equipamentos (20 mil psi); o anúncio não informa quantas árvores serão fornecidas." },
   { id: "268e6894-b497-4c93-8b78-4f70af345185", data: '2026-10-22', titulo: "Sumitomo Electric inaugura primeira fábrica britânica de cabos submarinos HVDC na Escócia",
