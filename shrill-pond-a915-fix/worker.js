@@ -2684,7 +2684,7 @@ async function avaliarSaudeEditorial(env) {
   const desde = new Date(Date.now() - 7 * 86400000).toISOString();
   const endpoint =
     `${env.SUPABASE_URL}/rest/v1/articles` +
-    `?select=published_at,created_at,image_credit,image_url,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}` +
+    `?select=title,published_at,created_at,image_credit,image_url,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}` +
     `&order=published_at.desc`;
 
   const resposta = await fetch(endpoint, { headers: supabaseHeaders(env) });
@@ -2908,10 +2908,14 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
     if (tecnicas && tecnicas.pendentes && tecnicas.mais_antiga_h >= 6) { status = 'AMARELO'; motivos.push(tecnicas.pendentes + ' pauta(s) em falha técnica há ' + Math.round(tecnicas.mais_antiga_h) + 'h'); }
     if (tecnicas && tecnicas.esgotadas_24h) { status = 'AMARELO'; motivos.push(tecnicas.esgotadas_24h + ' pauta(s) desistida(s) por falha técnica repetida em 24h'); }
   }
+  const mix = diagnosticarMix(artigos, agora);
+  if (mix.estado !== 'ok' && status === 'VERDE') { status = 'AMARELO'; }
+  if (mix.estado !== 'ok') motivos.push('MIX EDITORIAL DEGRADADO: ' + mix.motivos.join('; '));
   return {
     status,
     motivos,
     pipeline,
+    mix,
     deferred_tecnico: tecnicas || null,
     silencio_alerta: status === 'VERMELHO' && semPublicar >= 12,
     idade_ultima_publicacao_h: idadeUltima,
@@ -2994,8 +2998,11 @@ async function acumularGateEditorial(env, resultados, orcamento) {
       const rr = motivos.reprovada_recente || 0;
       const funil = { ia: r.ia_avaliadas || 0, ap: r.ia_aprovadas || 0, a2: r.aprovadas_2a || 0, rc: r.rep_corrigivel || 0, rd: r.rep_definitiva || 0, rr, ant: r.antigas || 0, rec: r.recuperacoes || 0, rok: r.recuperadas || 0,
         // P0 31/10: o que parou por motivo TÉCNICO (não editorial).
-        tec: r.tecnicas || 0, tad: r.adiadas_tecnico || 0, orc: r.adiadas_orcamento || 0, ie: r.insercao_falhou || 0, ret: r.retidas || 0 };
-      if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
+        tec: r.tecnicas || 0, tad: r.adiadas_tecnico || 0, orc: r.adiadas_orcamento || 0, ie: r.insercao_falhou || 0, ret: r.retidas || 0,
+        // 03/11: seleção editorial (rotina internacional descartada) e classe das publicadas.
+        rot: r.internacional_rotina || 0, cA: r.classe_A || 0, cB: r.classe_B || 0, cC: r.classe_C || 0, cD: r.classe_D || 0,
+        sim: r.sem_imagem || 0, imr: r.imagem_recusada || 0 };
+      if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret || funil.rot) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
         if (item.motivo === 'ia_indisponivel') entrada.ia_erro = String((item.motivos_ia || [])[0] || 'ia_indisponivel').slice(0, 120);
@@ -3024,7 +3031,7 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
-      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0 };
+      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0 };
       let execucoes = 0, orcUsadoMax = 0, orcAtingido = 0, fontesAdiadas = 0;
       const fontesErro = new Set();
       let totalP = 0, totalEI = 0, iaComAp = 0;
@@ -3037,7 +3044,7 @@ async function obterGateEditorialStats(env) {
         for (const n of e.fontes_erro || []) fontesErro.add(n);
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
-          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
           if (f.ap !== undefined) iaComAp += f.ia || 0;
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
@@ -3076,6 +3083,10 @@ async function obterGateEditorialStats(env) {
         adiadas_orcamento: funil.orc,
         insercao_falhou: funil.ie,
         retidas_revisao: funil.ret,
+        internacional_rotina: funil.rot,
+        publicadas_classe: { A: funil.cA, B: funil.cB, C: funil.cC, D_duplicada: funil.cD },
+        publicadas_sem_imagem_propria: funil.sim,
+        imagens_recusadas: funil.imr,
         execucoes,
         orcamento_max_usado: orcUsadoMax || null,
         orcamento_limite: ORC_LIMITE,
@@ -4502,6 +4513,87 @@ async function lerMaterialFonte(env, hash) {
   } catch { return null; }
 }
 
+/* ==== SELEÇÃO EDITORIAL — BRASIL PRIMEIRO (03/11/2026) ====
+   O OWNews é um portal brasileiro: 13 das 14 publicações de 31/10–03/11 vieram de fontes
+   internacionais e quase todas eram rotina sem relação com o Brasil (eólica europeia, GNL na
+   Alemanha, plataformas no Egito). Fonte em inglês só vira matéria quando o TÍTULO mostra:
+   ligação com o Brasil, acidente/tema do trabalhador, grande evento (descoberta, first oil,
+   decisão de investimento, valores na casa do bilhão) ou empresa com presença forte no Brasil
+   + contrato/frota/FPSO. O resto é "internacional_rotina": não baixa página, não chama IA,
+   não grava nada (custo zero). Calibrado em 80 títulos reais de 27/10–03/11. */
+const SEL_BRASIL = /\b(brazil|brazilian|brasil|petrobras|b[uú]zios|mero|pre-?salt|santos basin|campos basin|esp[ií]rito santo|equatorial margin|amap[aá]|foz do amazonas|south americ\w*|prio|bacalhau|sergipe|potiguar|rio de janeiro|maca[eé])\b/i;
+const SEL_TRABALHADOR = /\b(fatal\w*|killed|deaths?|dies|died|missing|blowout|explosion|fire|sinks?|sank|capsiz\w*|evacuat\w*|injur\w*|crews?|workers?|seafarers?|strikes?|helicopters?)\b/i;
+const SEL_GRANDE = /\b(discover(y|ies|s|ed)?|first (oil|gas)|start-?ups?|final investment decision|(takes?|reach(es|ed)?|sanction\w*|took) (the )?fid)\b|\$\s?\d+(\.\d+)?\s?(billion|bn)\b|\bbillion\b/i;
+const SEL_EMPRESA_BR = /\b(transocean|seadrill|valaris|noble|constellation|foresea|ocyan|subsea ?7|technipfmc|sbm offshore|modec|yinson|bw offshore|saipem|dof|equinor)\b/i;
+const SEL_ACAO = /\b(contracts?|awards?|wins?|won|orders?|fpsos?|fleet|backlog|drillships?|rigs?|epci)\b/i;
+function selecaoInternacional(titulo) {
+  const t = String(titulo || '');
+  if (SEL_BRASIL.test(t)) return { publicar: true, motivo: 'brasil' };
+  if (SEL_TRABALHADOR.test(t)) return { publicar: true, motivo: 'trabalhador_ou_acidente' };
+  if (SEL_GRANDE.test(t)) return { publicar: true, motivo: 'grande_evento' };
+  if (SEL_EMPRESA_BR.test(t) && SEL_ACAO.test(t)) return { publicar: true, motivo: 'empresa_no_brasil' };
+  return { publicar: false, motivo: 'internacional_rotina' };
+}
+/* Classe editorial (interna, nunca exibida): A = fonte oficial/primária brasileira; B = imprensa
+   brasileira ou internacional com ligação com o Brasil; C = internacional publicada (fica fora do
+   índice no portal — noticiaNoIndice); D = não publicada. */
+const FONTES_OFICIAIS_BR = new Set(['ANP', 'Petrobras', 'PPSA', 'MME', 'EPE', 'Marinha do Brasil', 'ANTAQ', 'IBAMA']);
+function classeEditorial(fonte, tituloOriginal) {
+  if (FONTES_OFICIAIS_BR.has(fonte)) return 'A';
+  if (!FONTES_IDIOMA_EN.has(fonte)) return 'B';
+  return selecaoInternacional(tituloOriginal).motivo === 'brasil' ? 'B' : 'C';
+}
+
+/* ==== IMAGEM VÁLIDA OU FALLBACK (03/11/2026) ====
+   Toda notícia publicada tem imagem: a foto da fonte, se for uma FOTO de verdade; senão o portal
+   mostra a capa editorial OWNews (institucional, nunca finge ser o fato). Antes de gravar, baixa
+   só o começo do arquivo e confere: responde, é imagem (não HTML/SVG), dimensões lidas do próprio
+   cabeçalho (JPEG/PNG/WebP/GIF) com no mínimo 400×200 e proporção entre 0,5 e 3,2 — fora disso é
+   ícone, logo, pixel de rastreamento ou banner. Falhou → fallback (nunca card quebrado). */
+function dimensoesImagem(b) {
+  if (!b || b.length < 26) return null;
+  const u16 = (i) => (b[i] << 8) | b[i + 1], le16 = (i) => b[i] | (b[i + 1] << 8), le24 = (i) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { w: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, h: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0, tipo: 'png' };
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return { w: le16(6), h: le16(8), tipo: 'gif' };
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+    const f = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (f === 'VP8X') return { w: le24(24) + 1, h: le24(27) + 1, tipo: 'webp' };
+    if (f === 'VP8 ' && b.length >= 30) return { w: le16(26) & 0x3fff, h: le16(28) & 0x3fff, tipo: 'webp' };
+    if (f === 'VP8L' && b.length >= 25) { const v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24); return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1, tipo: 'webp' }; }
+    return null;
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: u16(i + 7), h: u16(i + 5), tipo: 'jpeg' };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + u16(i + 2);
+    }
+    return null;
+  }
+  return null;
+}
+function avaliarImagem(contentType, bytes) {
+  const ct = String(contentType || '').toLowerCase();
+  if (!ct.startsWith('image/') || ct.includes('svg')) return { ok: false, motivo: 'nao_e_foto:' + (ct.split(';')[0] || 'sem_tipo') };
+  const d = dimensoesImagem(bytes);
+  if (!d) return { ok: false, motivo: 'dimensoes_ilegiveis' };
+  if (d.w < 400 || d.h < 200) return { ok: false, motivo: 'pequena:' + d.w + 'x' + d.h };
+  const r = d.w / d.h;
+  if (r < 0.5 || r > 3.2) return { ok: false, motivo: 'proporcao:' + d.w + 'x' + d.h };
+  return { ok: true, w: d.w, h: d.h, tipo: d.tipo };
+}
+async function validarImagemRemota(url) {
+  try {
+    const r = await fetch(url, { headers: { Range: 'bytes=0-65535', 'User-Agent': 'Mozilla/5.0 (compatible; OWNewsBot/1.0)' }, redirect: 'follow', signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return { ok: false, motivo: 'http_' + r.status };
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return avaliarImagem(r.headers.get('content-type'), buf.subarray(0, 65536));
+  } catch (e) { return { ok: false, motivo: 'erro:' + String(e && e.message || e).slice(0, 40) }; }
+}
+
 /* ==== ORÇAMENTO DE SUBREQUESTS POR INVOCAÇÃO (P0 31/10/2026) ====
    Plano Free: 50 subrequests por invocação (fetch, DO, Workers AI). Medido
    com o worker real (harness tests/medir_subrequests.mjs): Grupo C gastava
@@ -4515,8 +4607,8 @@ async function lerMaterialFonte(env, hash) {
 // (redirects, Telegram/registro depois da coleta, pequenas mudanças futuras).
 const ORC_LIMITE = 36;
 const CUSTO_FONTE = 3;      // feed + títulos recentes + URLs existentes (+1 quando lê a memória)
-const CUSTO_PAUTA_PT = 7;   // página + banner + IA (até 2) + arquivo + memória + gravação
-const CUSTO_PAUTA_EN = 9;   // + tradução de título e resumo
+const CUSTO_PAUTA_PT = 8;   // página + banner + validação da imagem + IA (até 2) + arquivo + memória + gravação
+const CUSTO_PAUTA_EN = 10;  // + tradução de título e resumo
 function comOrcamento(env) {
   if (!env || env.__orc) return env;
   const e = Object.create(env);
@@ -4589,6 +4681,33 @@ async function listarMemoriaPautas(env) {
     if (!j || typeof j !== 'object' || Array.isArray(j) || !j.rej) return vazio;
     return { rej: new Map(Object.entries(j.rej || {})), tec: new Map(Object.entries(j.tec || {})) };
   } catch { return vazio; }
+}
+
+/* ==== WATCHDOG DO MIX EDITORIAL (03/11/2026) ====
+   Não força publicação; só sinaliza quando o portal deixa de ser brasileiro: quase todas as
+   últimas publicações são internacionais sem ligação com o Brasil (ficam fora do índice no
+   portal), ou passaram muitas horas sem nenhuma matéria brasileira/indexável. Também mede
+   imagem: publicação sem imagem própria vai para o fallback institucional. */
+const LIGACAO_BRASIL_PT = /\bbrasil|brasileir|petrobras|\banp\b|pr[ée]-sal|bacia (de |do |potiguar)(campos|santos|esp[ií]rito santo|sergipe|foz)|margem equatorial|foz do amazonas|maca[ée]|rio de janeiro|niter[óo]i|b[úu]zios|\bmero\b|\bprio\b|\bppsa\b|amap[áa]/i;
+const FONTES_INTERNACIONAIS_NOMES = new Set(['Offshore Energy', 'Marine Technology News', 'Transocean', 'SBM Offshore']);
+function diagnosticarMix(proprias, agora) {
+  const ord = (proprias || []).filter((a) => a.buddy_source === 'ownews').slice().sort((a, b) => new Date(b.created_at || b.published_at) - new Date(a.created_at || a.published_at));
+  const brasileira = (a) => !FONTES_INTERNACIONAIS_NOMES.has(a.image_credit) || LIGACAO_BRASIL_PT.test(String(a.title || ''));
+  const ultimas = ord.slice(0, 10);
+  const intlSemBrasil = ultimas.filter((a) => !brasileira(a)).length;
+  const ultimaBr = ord.find(brasileira);
+  const horasSemBr = ultimaBr ? Math.round((agora - new Date(ultimaBr.created_at || ultimaBr.published_at).getTime()) / 360000) / 10 : null;
+  const h24 = ord.filter((a) => agora - new Date(a.created_at || a.published_at).getTime() <= 86400000);
+  const semImagem24 = h24.filter((a) => !a.image_url).length;
+  const motivos = [];
+  if (ultimas.length >= 5 && intlSemBrasil / ultimas.length >= 0.7) motivos.push(intlSemBrasil + ' das últimas ' + ultimas.length + ' publicações são internacionais sem ligação com o Brasil');
+  if (horasSemBr === null || horasSemBr >= 24) motivos.push(horasSemBr === null ? 'nenhuma matéria brasileira na janela' : Math.round(horasSemBr) + 'h sem matéria brasileira/indexável');
+  if (h24.length >= 4 && semImagem24 / h24.length > 0.5) motivos.push(semImagem24 + ' de ' + h24.length + ' publicações em 24h sem imagem própria (fallback institucional)');
+  return {
+    estado: motivos.length ? 'mix_editorial_degradado' : 'ok',
+    motivos, ultimas_internacionais_sem_brasil: intlSemBrasil, ultimas_avaliadas: ultimas.length,
+    horas_sem_materia_brasileira: horasSemBr, publicadas_24h: h24.length, sem_imagem_propria_24h: semImagem24
+  };
 }
 
 /* ==== WATCHDOG: SILÊNCIO EDITORIAL x PIPELINE TRAVADO ====
@@ -5158,6 +5277,15 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         resultado.noticias.push({ titulo: item.title, status: "antiga", fonte });
         continue;
       }
+      // Brasil primeiro: internacional de rotina para aqui, sem custo (decisão pelo título).
+      if (FONTES_IDIOMA_EN.has(fonte)) {
+        const sel = selecaoInternacional(item.title);
+        if (!sel.publicar) {
+          resultado.internacional_rotina = (resultado.internacional_rotina || 0) + 1;
+          resultado.noticias.push({ titulo: item.title, status: 'internacional_rotina', fonte });
+          continue;
+        }
+      }
       // P0 31/10: memória ANTES de baixar a página. A chave é sha256(URL),
       // disponível no item do feed — pauta já reprovada não gasta página,
       // banner, tradução nem IA (antes: 2–4 subrequests por pauta, por execução).
@@ -5218,6 +5346,15 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         if (ehBannerRepetido) {
           imageUrlValidada = null;
           imagemDescartadaPorRepeticao = true;
+        }
+      }
+      if (imageUrlValidada) {
+        gasto.n++;
+        const im = await validarImagemRemota(imageUrlValidada);
+        if (!im.ok) {
+          resultado.imagem_recusada = (resultado.imagem_recusada || 0) + 1;
+          (resultado.imagens_recusadas_motivos = resultado.imagens_recusadas_motivos || []).push(im.motivo);
+          imageUrlValidada = null;
         }
       }
 
@@ -5453,6 +5590,9 @@ slug: criarSlug(tituloPublicado),
       }
 
       resultado.inseridas++;
+      const classe = artigo.buddy_source === 'duplicada' ? 'D' : classeEditorial(fonte, item.title);
+      resultado['classe_' + classe] = (resultado['classe_' + classe] || 0) + 1;
+      if (!artigo.image_url) resultado.sem_imagem = (resultado.sem_imagem || 0) + 1; // portal mostra a capa institucional
       if (artigo.buddy_summary) resultado.com_buddy = (resultado.com_buddy || 0) + 1;
       if (artigo.why_it_matters) resultado.com_impacto = (resultado.com_impacto || 0) + 1;
 
@@ -6235,6 +6375,11 @@ function noticiaRelevante(titulo) {
   // Empresa do setor no título = relevante (auditoria 2026-09-27, ver
   // EMPRESAS_SETOR_OFFSHORE) — mesmo peso do núcleo offshore.
   if (EMPRESAS_SETOR_OFFSHORE.some(p => bateComBordaDePalavraColeta(t, p))) return true;
+
+  // Petrobras + E&P/operação (03/11/2026): "Produção própria de O&G da Petrobras cresceu 11,7%"
+  // e "transbordo para Petrobras" eram descartadas por não citarem "petróleo"/"plataforma".
+  // Petrobras sozinha continua não bastando (preço de combustível segue a regra da cadeia).
+  if (/\bpetrobr[aá]s\b/.test(t) && /\b(produ[cç][aã]o|produz\w*|o&g|[óo]leo|campos?|po[cç]os?|pr[ée]-sal|transbordo|descoberta|explora[cç][aã]o|sondas?|fpsos?|plataformas?|navios?|offshore|bacias?|reservas|margem equatorial)\b/.test(t)) return true;
 
   if (PALAVRAS_EXCLUSAO_RUIDO_INSTITUCIONAL.some(p => t.includes(p))) {
     // Ruído institucional só reprova de fato quando NÃO há também um termo
