@@ -328,6 +328,8 @@ teste('contexto para notícias: relação pelo nome (unidade/campo), dados reais
   assert.equal(a.fonte, 'ANP');
   assert.deepEqual((await pedirCtx('Mercado de trabalho offshore aquece no fim do ano')).entidades, [], 'sem relação → vazio');
   assert.deepEqual((await pedirCtx('curto')).entidades, []);
+  const ops = (await pedirCtx('Shell vende participação em projeto de gás na Austrália por US$ 1,45 bilhão', 'A Shell Australia vende sua fatia.')).entidades;
+  assert.ok(!ops.some((e) => e.tipo === 'Operador'), 'notícia internacional não ganha dados brasileiros da empresa');
   const xml = await (await pedir(env, ctx, '/sitemap.xml')).text();
   assert.match(xml, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/, 'lastmod = data do snapshot');
   assert.equal(fichaIndexavel('campo', { nome: 'Búzios_Eco', producao: { petroleo_bbl_d: 1, gas_mil_m3_d: 1 } }), false, 'jazida compartilhada fora do índice');

@@ -168,8 +168,10 @@ async function api(env, url) {
       ent.push({ tipo: 'Campo', nome: c.nome, url: `${BASE}/campos/${c.slug}`, indexavel: P.fichaIndexavel('campo', c, noticias),
         dados: [c.bacia && `Bacia de ${c.bacia}`, op && `Operador: ${op.nome}`, c.situacao && `Situação: ${c.situacao}`, (c.unidades || []).length && `${c.unidades.length} ${c.unidades.length === 1 ? 'unidade de produção' : 'unidades de produção'}`, prod(c.producao)].filter(Boolean) });
     }
-    // Empresa só quando nenhuma unidade/campo foi citado (senão toda nota da Petrobras teria o mesmo bloco).
-    if (!ent.length) for (const o of (operadores || []).filter((x) => rel.operadores[x.id] && x.producao && x.producao.petroleo_bbl_d > 0)) {
+    // Empresa só quando nenhuma unidade/campo foi citado (senão toda nota da Petrobras teria o mesmo bloco)
+    // E só se o texto tiver ligação com o Brasil: "Shell vende ativo na Austrália" não ganha dados da Shell Brasil.
+    const brasil = /\b(brasil|brasileir\w*|petrobr[aá]s|anp|pr[ée]-sal|bacia (de|do) (campos|santos|esp[ií]rito santo|sergipe|potiguar)|margem equatorial|foz do amazonas|amap[aá]|maca[ée]|rio de janeiro|esp[ií]rito santo)\b/i.test(`${titulo} ${resumo}`);
+    if (!ent.length && brasil) for (const o of (operadores || []).filter((x) => rel.operadores[x.id] && x.producao && x.producao.petroleo_bbl_d > 0)) {
       ent.push({ tipo: 'Operador', nome: o.nome, url: `${BASE}/operadores/${o.slug}`, indexavel: P.fichaIndexavel('operador', o, noticias),
         dados: [`${o.campos.length} ${o.campos.length === 1 ? 'campo operado' : 'campos operados'} no mar`, o.unidades.length && `${o.unidades.length} ${o.unidades.length === 1 ? 'unidade de produção' : 'unidades de produção'}`, prod(o.producao)].filter(Boolean) });
     }
