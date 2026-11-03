@@ -67,6 +67,23 @@ test("CASO 1: forte de 22h perde para quase tão forte de 3h", () => {
   expect(s.hero.id === B.id, "hero=" + s.hero.title);
 });
 
+test("CASO 1c (03/11): internacional fora do índice de 1h não toma a manchete da brasileira de 10h", () => {
+  const intl = art(1, 90, { _noIndice: false }), br = art(10, 80, { _noIndice: true });
+  const s = H.selecionarHomeServidor(ordenar([intl, br, art(12, 60, { _noIndice: true })]), AGORA);
+  expect(s.hero.id === br.id, "hero=" + s.hero.title);
+  expect(s.laterais[0].id !== intl.id || s.laterais.length === 1, "indexável vem antes nas laterais da mesma faixa");
+});
+test("CASO 1d (03/11): internacional urgente (acidente) pode ser manchete", () => {
+  const urg = art(1, 85, { _noIndice: false, title: "Explosão em plataforma deixa feridos no Golfo" }), br = art(10, 70, { _noIndice: true });
+  const s = H.selecionarHomeServidor(ordenar([urg, br]), AGORA);
+  expect(s.hero.id === urg.id, "hero=" + s.hero.title);
+});
+test("CASO 1e (03/11): sem indexável em 24h, a Home não congela — usa a melhor recente", () => {
+  const intl = art(2, 80, { _noIndice: false }), br = art(30, 90, { _noIndice: true });
+  const s = H.selecionarHomeServidor(ordenar([intl, br]), AGORA);
+  expect(s.hero.id === intl.id, "hero=" + (s.hero && s.hero.title));
+});
+
 test("CASO 1b: reprodução de 20/10 — matéria de 22h (75) vs nova de 2h (63) → nova", () => {
   const eni = art(22.5, 75), transocean = art(23.5, 85), nova = art(2, 63);
   const s = H.selecionarHomeServidor(ordenar([eni, transocean, nova]), AGORA);

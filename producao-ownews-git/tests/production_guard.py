@@ -583,7 +583,8 @@ def _check_tema_paleta():
     expect_not_in("filter:invert", bloco, "inversão automática proibida")
     expect_in('html[data-theme="light"] .lead h1', bloco, "texto sobre imagem continua claro")
     expect_in('html[data-theme="light"] body{background:', bloco, "fundo claro com as mesmas cartas náuticas")
-    expect_in("%232a4a6b", bloco, "traço navy-acinzentado nas marcas d'água claras")
+    # 03/11/2026: os fundos SVG saíram do worker para public/img/fundo-*.svg (−21,7 KB); o traço continua lá.
+    expect_in("#2a4a6b", _fundos_svg_referenciados(bloco), "traço navy-acinzentado nas marcas d'água claras")
 
 
 def _check_buddy_asset():
@@ -673,6 +674,14 @@ def _check_owbuddy_route():
     expect_in('"/owbuddy"', sitemap, "sitemap")
 
 
+def _fundos_svg_referenciados(css):
+    """Conteúdo dos SVG de fundo que o CSS referencia em /img/ (Static Assets), para checar o desenho."""
+    nomes = re.findall(r'url\("/img/(fundo-\d+\.svg)"\)', css)
+    expect(len(nomes) > 0, "CSS referencia os fundos em /img/")
+    base = Path(__file__).resolve().parent.parent / "public" / "img"
+    return "\n".join((base / n).read_text(encoding="utf-8") for n in nomes)
+
+
 def _check_watermarks():
     w = worker()
     bloco = w.split("const CSS_TEMA_CLARO = `", 1)[1].split("`;", 1)[0]
@@ -684,7 +693,7 @@ def _check_watermarks():
     expect_in(".eco-section{background-image:var(--wm-bati)", bloco, "batimetria no Ecossistema")
     expect_in(".hub-main::before{", bloco, "rosa dos ventos nas páginas internas")
     expect_in("@media(min-width:1100px){.hub-main::before", bloco, "rosa só em telas largas (não atrás de texto no mobile)")
-    expect_in("stroke-opacity%3D%220.0", bloco, "opacidade baixa (tom sobre tom)")
+    expect_in('stroke-opacity="0.0', _fundos_svg_referenciados(bloco), "opacidade baixa (tom sobre tom)")
 
 
 def _check_hierarquia_headings():
