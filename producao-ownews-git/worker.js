@@ -5777,6 +5777,14 @@ function linkDocumentoPrimario(urlFonte) {
 /* Correções que mudam o sentido de uma notícia: nota na própria matéria e
    registro em /correcoes (Política de Correções). Data = dia da correção. */
 const CORRECOES_NOTICIAS = [
+  { id: "5aaebc26-6256-482f-9f6c-b0aa34c0c1f2", data: '2026-11-03', titulo: "Petrochina, CNOOC e Petrobras vencem 10º Leilão Spot da PPSA",
+    texto: "O resumo dizia que cada empresa garantiu lotes de 3 milhões de barris. Os 3 milhões de barris são a soma dos lotes das três empresas." },
+  { id: "6675332d-7fd6-4778-8dfd-fefa27654b5c", data: '2026-11-03', titulo: "Mais colaboração com a Petrobras eleva carteira da Oceânica para mais de US$ 2 bilhões",
+    texto: "O título traduzia \"backlog\" como \"recuo\". O contrato eleva a carteira de pedidos da Oceânica para cerca de US$ 2,05 bilhões." },
+  { id: "921b6278-2704-43bf-a2b3-9cc8d237fff6", data: '2026-11-03', titulo: "Descoberta de gás no Mar do Norte pode produzir até 10,3 milhões de barris de óleo equivalente",
+    texto: "O título dizia que a descoberta \"produz até 10 milhões\" de barris. Segundo a fonte, ela pode produzir até 10,3 milhões de barris de óleo equivalente." },
+  { id: "d8b29463-f51b-418c-8b83-01168b3ea41d", data: '2026-11-03', titulo: "Contratos de apoio à perfuração na Ásia-Pacífico para dois navios elevam carteira da Solstad em até US$ 30 milhões",
+    texto: "O título traduzia \"backlog\" como \"recuo\" e trazia termos sem tradução (\"duo Vessel\", \"APAC\")." },
   { id: "7c96af85-6a9b-43d7-bec1-7fe4991934ed", data: '2026-11-03', titulo: "Tripulações de DP são o novo gargalo: como operadores de OSV podem tripular embarcações mais rápido",
     texto: "O texto dizia que \"a disponibilidade de tripulação qualificada supera a oferta de embarcações\" — o oposto da fonte, que afirma que o recurso mais escasso muitas vezes não é o navio, e sim as pessoas que o operam. O texto também listava práticas que o autor não citou; as seis práticas do artigo original foram incluídas. O título trocava \"tripular\" por \"capacitar\"." },
   { id: "78d228bf-0b58-4b72-b6e0-6cd5f9482591", data: '2026-11-03', titulo: "Shell vende participação no projeto de gás e GNL North West Shelf, na Austrália, por US$ 1,45 bilhão",
