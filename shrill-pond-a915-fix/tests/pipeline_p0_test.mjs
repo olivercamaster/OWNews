@@ -25,7 +25,7 @@ const iso = (h) => new Date(Date.now() - h * HORA).toISOString();
 const PAGINA = (t) => `<html><head><meta property="og:title" content="${t}"><meta name="description" content="Resumo da matéria com mais de quarenta caracteres para o teste."><meta property="article:published_time" content="${iso(1)}"></head><body><article><p>${'Parágrafo com fatos da fonte sobre a operação offshore. '.repeat(12)}</p></article></body></html>`;
 
 /** Ambiente simulado: Supabase, páginas, DO real (BuddyIAPoller) com storage em memória. Conta subrequests. */
-function ambiente({ insercao = 201, existentes = [] } = {}) {
+function ambiente({ insercao = 201, existentes = [], verificador = { response: '{"problemas":[]}' } } = {}) {
   const cont = { rede: 0, supabase: 0, do: 0, ia: 0, inseridos: [] };
   const storage = new Map();
   const state = { storage: {
@@ -49,7 +49,7 @@ function ambiente({ insercao = 201, existentes = [] } = {}) {
   };
   let doObj;
   const stub = { fetch: async (req, init) => { cont.do++; const r = typeof req === 'string' ? new Request(req, init) : req; return doObj.fetch(r); } };
-  const env = { SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'k', SUPABASE_ANON_KEY: 'k', AI: { run: async () => ({}) },
+  const env = { SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'k', SUPABASE_ANON_KEY: 'k', AI: { run: async () => { cont.verif = (cont.verif || 0) + 1; if (verificador instanceof Error) throw verificador; return verificador; } },
     BUDDY_IA_DO: { idFromName: () => 'g', get: () => stub }, SAUDE_KV: { get: async () => null, put: async () => {} } };
   doObj = new W.BuddyIAPoller_(state, env);
   return { env, cont, storage };
@@ -122,6 +122,33 @@ test('orçamento: sem saldo a pauta fica adiada (nada gravado) e entra na execu�
   assert.equal(cont.inseridos.length, r.inseridas);
   const r2 = await W.processarNoticias(W.comOrcamento(env), 'Eixos', lote, { }, );
   assert.ok(r2.inseridas > 0, 'execução seguinte avança');
+});
+
+test('barreira de fidelidade: verificador fora do ar não publica (fail closed) e vira falha técnica, não reprovação', async () => {
+  const it = item(8);
+  const { env, cont, storage } = ambiente({ verificador: new Error('4006: daily free allocation') });
+  globalThis.__IA = async (art) => { cont.ia++; return aprovada(art); };
+  const r = await W.processarNoticias(W.comOrcamento(env), 'Eixos', [it], {});
+  assert.equal(cont.inseridos.length, 0);
+  assert.equal(r.fid_erro, 1);
+  assert.ok([...storage.keys()].some((k) => k.startsWith('tec:')), 'tenta de novo na próxima coleta');
+  assert.ok(![...storage.keys()].some((k) => k.startsWith('rej:')));
+});
+
+test('barreira de fidelidade: BLOCK → uma 2ª redação; bloqueou de novo → não publica, rascunho e motivo guardados', async () => {
+  const it = item(9);
+  const bloqueio = { response: JSON.stringify({ problemas: [{ tipo: 'oferta_demanda', campo: 'corpo', trecho: 'oferta supera', fonte: 'scarcest resource', grave: true }] }) };
+  const { env, cont, storage } = ambiente({ verificador: bloqueio });
+  const tentativas = [];
+  globalThis.__IA = async (e, art, mat, t) => { cont.ia++; tentativas.push(t); return Object.assign(aprovada(art), { tentativas: t }); };
+  const r = await W.processarNoticias(W.comOrcamento(env), 'Eixos', [it], {});
+  assert.equal(cont.inseridos.length, 0);
+  assert.deepEqual(tentativas, [1, 2], 'uma única regeneração');
+  assert.equal(cont.verif, 2, 'regeneração também é verificada');
+  assert.equal(r.noticias[0].motivo, 'bloqueada_fidelidade');
+  assert.match(r.noticias[0].motivo_legivel, /oferta e demanda/);
+  const bloq = [...storage].find(([k]) => k.startsWith('bloq:'));
+  assert.ok(bloq && bloq[1].rascunho.corpo && bloq[1].motivo, 'rascunho fica para diagnóstico');
 });
 
 test('idempotência: URL já no banco não grava de novo nem chama IA', async () => {

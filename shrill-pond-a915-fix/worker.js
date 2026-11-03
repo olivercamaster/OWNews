@@ -469,6 +469,54 @@ export default {
       out.subrequests = gasto.n;
       return Response.json(out);
     }
+    // Barreira em teste controlado (não grava nada): {fonte | hash, titulo, buddy, corpo, impacto, resumo, sem_ia}.
+    if (url.pathname === "/admin/verificar-fidelidade" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      if (!d) return Response.json({ ok: false, erro: "json" }, { status: 400 });
+      let fonteTxt = d.fonte ? String(d.fonte) : null;
+      if (!fonteTxt && d.hash && env.BUDDY_IA_DO) {
+        const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/fonte?hash=" + encodeURIComponent(d.hash));
+        fonteTxt = r.ok ? (await r.json()).material : null;
+      }
+      if (!fonteTxt) return Response.json({ ok: false, erro: "sem fonte" }, { status: 400 });
+      const b = await barreiraFidelidade(env, fonteTxt.slice(0, 6500), { titulo: d.titulo, buddy: d.buddy, corpo: d.corpo, impacto: d.impacto, resumo: d.resumo }, { semIA: !!d.sem_ia });
+      return Response.json(b);
+    }
+    // Correção de matéria publicada (texto verificado contra a fonte): mesmos id/slug/URL/imagem/data.
+    if (url.pathname === "/admin/corrigir-materia" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      const id = d && String(d.id || '');
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ ok: false, erro: 'id inválido' }, { status: 400 });
+      const patch = {};
+      for (const k of ['title', 'content', 'buddy_summary', 'why_it_matters', 'summary']) if (d[k] !== undefined) patch[k] = d[k] === null ? null : String(d[k]).trim();
+      if (!Object.keys(patch).length || Object.values(patch).some((v) => v !== null && (v.length < 15 || idiomaTexto(v) !== 'pt'))) return Response.json({ ok: false, erro: 'campos vazios, curtos ou fora do PT-BR' }, { status: 400 });
+      const r0 = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=title,content,buddy_summary,why_it_matters,summary&id=eq.${id}`, { headers: supabaseHeaders(env) });
+      const antes = r0.ok ? (await r0.json())[0] : null;
+      if (!antes) return Response.json({ ok: false, erro: 'não encontrada' }, { status: 404 });
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${id}`, { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
+      return Response.json({ ok: r.ok, http_status: r.status, antes });
+    }
+    // Auditoria do acervo SÓ com as regras determinísticas (custo zero de IA): matéria publicada × fonte arquivada.
+    if (url.pathname === "/admin/auditar-fidelidade") {
+      const lim = Math.min(40, Number(url.searchParams.get("limite")) || 30), off = Number(url.searchParams.get("offset")) || 0;
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,hash,summary,buddy_summary,why_it_matters,content&status=eq.published&buddy_source=eq.ownews&order=created_at.desc&limit=${lim}&offset=${off}`, { headers: supabaseHeaders(env) });
+      const arts = r.ok ? await r.json() : [];
+      const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")), out = [];
+      let semFonte = 0;
+      for (const a of arts) {
+        const f = await stub.fetch("https://buddy-ia.interno/fonte?hash=" + encodeURIComponent(a.hash));
+        const mat = f.ok ? (await f.json()).material : null;
+        if (!mat) { semFonte++; continue; }
+        const pr = verificarRelacoesFonte(mat, { titulo: a.title, buddy: a.buddy_summary, corpo: a.content, impacto: a.why_it_matters, resumo: a.summary });
+        if (pr.length) out.push({ id: a.id, titulo: a.title, problemas: pr });
+      }
+      return Response.json({ auditadas: arts.length - semFonte, sem_fonte_arquivada: semFonte, suspeitas: out });
+    }
+    if (url.pathname === "/admin/bloqueadas") {
+      if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
+      const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/bloqueadas");
+      return new Response(r.body, { status: r.status, headers: { "Content-Type": "application/json" } });
+    }
     if (url.pathname === "/admin/corrigir-idioma") {
       return rotaAdminCorrigirIdioma(request, env);
     }
@@ -3042,8 +3090,10 @@ async function acumularGateEditorial(env, resultados, orcamento) {
         rot: r.internacional_rotina || 0, cA: r.classe_A || 0, cB: r.classe_B || 0, cC: r.classe_C || 0, cD: r.classe_D || 0,
         sim: r.sem_imagem || 0, imr: r.imagem_recusada || 0,
         // Pipeline v2: valor editorial das publicadas e contexto que a matéria realmente usou.
-        vH: (r.valor || {}).HIGH || 0, vM: (r.valor || {}).MEDIUM || 0, vL: (r.valor || {}).LOW || 0, xr: r.ctx_radar || 0, xh: r.ctx_historico || 0, xp: r.ctx_primaria || 0 };
-      if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret || funil.rot) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
+        vH: (r.valor || {}).HIGH || 0, vM: (r.valor || {}).MEDIUM || 0, vL: (r.valor || {}).LOW || 0, xr: r.ctx_radar || 0, xh: r.ctx_historico || 0, xp: r.ctx_primaria || 0,
+        // Barreira de fidelidade à fonte (P0 03/11).
+        fP: r.fid_pass || 0, fW: r.fid_warn || 0, fB: r.fid_block || 0, fE: r.fid_erro || 0, fR: r.fid_regeneradas || 0 };
+      if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret || funil.rot || funil.fB || funil.fE) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
         if (item.motivo === 'ia_indisponivel') entrada.ia_erro = String((item.motivos_ia || [])[0] || 'ia_indisponivel').slice(0, 120);
@@ -3072,7 +3122,7 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
-      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0, vH: 0, vM: 0, vL: 0, xr: 0, xh: 0, xp: 0 };
+      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0, vH: 0, vM: 0, vL: 0, xr: 0, xh: 0, xp: 0, fP: 0, fW: 0, fB: 0, fE: 0, fR: 0 };
       let execucoes = 0, orcUsadoMax = 0, orcAtingido = 0, fontesAdiadas = 0;
       const fontesErro = new Set();
       let totalP = 0, totalEI = 0, iaComAp = 0;
@@ -3085,7 +3135,7 @@ async function obterGateEditorialStats(env) {
         for (const n of e.fontes_erro || []) fontesErro.add(n);
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
-          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr', 'vH', 'vM', 'vL', 'xr', 'xh', 'xp']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr', 'vH', 'vM', 'vL', 'xr', 'xh', 'xp', 'fP', 'fW', 'fB', 'fE', 'fR']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
           if (f.ap !== undefined) iaComAp += f.ia || 0;
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
@@ -3130,6 +3180,7 @@ async function obterGateEditorialStats(env) {
         imagens_recusadas: funil.imr,
         valor_editorial: { HIGH: funil.vH, MEDIUM: funil.vM, LOW_fora_do_indice: funil.vL },
         contexto_usado: { radar: funil.xr, historico_ownews: funil.xh, documento_primario: funil.xp },
+        fidelidade_fonte: { pass: funil.fP, warn: funil.fW, block: funil.fB, verificador_falhou: funil.fE, regeneradas: funil.fR },
         execucoes,
         orcamento_max_usado: orcUsadoMax || null,
         orcamento_limite: ORC_LIMITE,
@@ -4335,6 +4386,9 @@ const BUDDY_IA_SISTEMA =
   'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) — com pelo menos um nome próprio ou número escrito exatamente como aparece na matéria, no meio da frase — e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
   'Se o efeito é indireto, diga concretamente como, sem especular ("pode elevar", "podendo gerar", "cadeia offshore" sem dizer qual). Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
   'CONTEXTO VERIFICADO: quando vier depois da matéria, também é material confirmado (dados públicos da ANP, matérias anteriores do OWNews, documento oficial). Use só o que ajudar o leitor a entender ESTE fato, em no máximo um parágrafo do corpo e sem forçar: dado do Radar com atribuição ("segundo dados da ANP"), cobertura anterior com a data ("Em 30/10/2026, o OWNews noticiou que…"), documento oficial como fonte do fato. Nunca use o contexto para criar relação, consequência ou número que a matéria e o contexto não sustentam; se não ajuda, ignore. Não abra todas as notas do mesmo jeito: comece pelo que é mais importante neste fato.\n\n' +
+  'FIDELIDADE (acima de tudo): o sentido de cada frase é o da matéria. Preserve oferta × demanda, escassez × excesso, alta × queda, mais × menos, antes × depois, previsto × realizado, confirmado × não confirmado e negações. ' +
+  '"Não X, mas Y" / "not X but Y": o que vale é Y ("the scarcest resource is not the vessel but the people" = faltam PESSOAS). Atribua a alguém só o que essa pessoa disse; aspas só para frase que está entre aspas na matéria. ' +
+  'Se a matéria anuncia uma lista ("seis práticas") e os itens não estão no texto, não invente itens. Buddy, corpo, impacto e título contam os MESMOS fatos.\n\n' +
   'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. Números exatamente como na matéria: não arredonde, não some, não subtraia, não converta unidades (escreva "58 mil", nunca "58 000"). ' +
   'Fale de vagas ou empregos só se a matéria informar contratação ou número de empregos. ' +
   'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
@@ -4435,6 +4489,7 @@ function extrairJsonIA(resposta) {
 // e material insuficiente nunca entram aqui.
 const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|longo|cliche_ia|generico|especulativo|sem_ancora|incomplet|espaco_antes|parenteses|numero_sem_fonte|unidade_trocada|nome_sem_fonte|emprego_sem_base|proibido_impacto|maior_que_fonte|sensacionalista|ingles/;
 const BUDDY_IA_DICAS_REESCRITA = [
+  [/fidelidade:/, 'A versão anterior mudou o sentido da matéria. Releia a matéria e preserve exatamente as relações (oferta × demanda, alta × queda, previsto × realizado), números, nomes e quem disse o quê.'],
   [/copia_|parafrase_rasa|frase_redundante/, 'Não reaproveite frases da matéria: reescreva com estrutura e vocabulário próprios.'],
   [/repete_/, 'Buddy, corpo e impacto devem dizer coisas diferentes; não repita o título nem o buddy no corpo.'],
   [/curto|paragrafos_1|frases_1/, 'O corpo precisa de 3 ou 4 parágrafos completos, com 2 ou 3 frases cada.'],
@@ -4474,7 +4529,9 @@ function dicasReescritaIA(motivos) {
 async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
-  const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
+  const materialTodo = String(materialFonte || artigo.content || artigo.summary || '');
+  // Fonte maior que a janela: o redator é avisado para não completar o que não viu ("seis práticas").
+  const material = materialTodo.length > 5000 ? materialTodo.slice(0, 5000) + '\n[A MATÉRIA CONTINUA ALÉM DESTE TRECHO: não liste, resuma nem descreva o que não aparece acima.]' : materialTodo;
   // Pipeline v2: contexto verificado entra na redação e nas checagens (números/nomes do contexto valem).
   const contexto = String((opcoes && opcoes.contexto) || '').slice(0, 3500);
   const materialChecagem = contexto ? material + '\n\n' + contexto : material;
@@ -4494,6 +4551,7 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
         { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + (contexto ? '\n\n' + contexto : '') + pedidoTitulo +
+          (t > 1 && artigo._fidelidade ? '\n\nA versão anterior foi BLOQUEADA por não ser fiel à fonte:\n' + artigo._fidelidade + '\nReescreva a partir da MATÉRIA, não da versão anterior.' : '') +
           (t > 1 && /titulo:(sentido|sem_entidade|numero)/.test(String(artigo._motivos || '')) && opcoes && opcoes.tituloOriginal ? '\n\nO título anterior mudou o fato. Escreva o título com a MESMA ação, a mesma empresa e os mesmos números do título original: "' + String(opcoes.tituloOriginal).slice(0, 200) + '".' : '') +
           (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Corrija assim:\n' + (dicasReescritaIA(artigo._motivos) || '- Reescreva com vocabulário e ordem próprios, sem frases da matéria.') +
             (artigo._trechos && artigo._trechos.length ? '\nEstas frases da versão anterior repetem a matéria; não as reaproveite, diga o fato com outra estrutura:\n' + artigo._trechos.map((f) => '« ' + f.slice(0, 220) + ' »').join('\n') : '') : '') }
@@ -4738,6 +4796,130 @@ function avaliarValorEditorial({ pacote, corpo, fonte, tituloOriginal }) {
   return { valor, usou: { radar: usouRadar, historico: usouHistorico, primaria: usouPrimaria } };
 }
 
+/* ==== BARREIRA DE FIDELIDADE À FONTE (P0 03/11/2026) ====
+   Caso real: "the scarcest resource is often not the vessel but the people" virou "a disponibilidade
+   de tripulação qualificada supera a oferta de embarcações" no corpo, enquanto o Buddy dizia
+   "escassez" — o gate conferia cópia, números e nomes, mas nada comparava SENTIDO com a fonte.
+   A fonte é a autoridade: título, Buddy, corpo e impacto são conferidos contra o material da fonte
+   (nunca um contra o outro só). 1) Regras determinísticas onde uma palavra inverte o fato (oferta ×
+   demanda, alta × queda, previsto × realizado, confirmou × não confirmou, milhão × bilhão), custo
+   zero. 2) Uma checagem semântica com IA (mesmo modelo, 1 chamada) só para quem passou em tudo.
+   BLOCK = não publica; falha do verificador = não publica (falha técnica, tenta na próxima coleta). */
+const FID_ESCASSEZ_RE = /\b(escassez|escass[oa]s?|falta(m)? de|faltam|d[eé]ficit|gargalo|dif[ií]ce(l|is) de (encontrar|substituir|contratar|repor)|insuficien\w*|shortages?|scarce|scarcest|scarcity|lack of|shortfalls?|bottlenecks?|hard(er|est)? to (find|replace|fill)|undersupplied|tight supply)\b/;
+const FID_EXCESSO_RE = /\b(excesso|sobra(m)?|super[aá]vit|excedente|sobreoferta|abund[aâ]n\w*|surplus|oversuppl\w*|glut|excess (capacity|supply)|abundan\w*)\b/;
+// "X supera Y": quem está à esquerda de "supera" é o que sobra. Demanda/necessidade maior = escassez;
+// oferta/disponibilidade maior (de qualquer coisa: "disponibilidade de tripulação supera a oferta de
+// embarcações") = excesso.
+const FID_COMPARA_RE = /\b(demanda|procura|necessidade|oferta|disponibilidade|demand|supply|availability)\b[^.;]{0,60}?\b(?:supera\w*|excede\w*|ultrapassa\w*|(?:e|é) maior (?:do )?que|exceeds?|outstrips?|outpaces?|is (?:higher|greater) than)\b/g;
+const FID_LADO = (w) => /^(demanda|procura|necessidade|demand)$/.test(w) ? 'D' : 'O';
+function fidPolaridade(t) {
+  const x = semAcento(t);
+  let esc = FID_ESCASSEZ_RE.test(x), exc = FID_EXCESSO_RE.test(x);
+  for (const m of x.matchAll(FID_COMPARA_RE)) { if (FID_LADO(m[1]) === 'D') esc = true; else exc = true; }
+  return { esc, exc };
+}
+const FID_ALTA = /(cresc|aument|subi|sobe|alta|avanc|expan|elev|ganh|rose|rise|increas|grew|grow|gain|higher|up\b|jump|climb)/;
+const FID_QUEDA = /(caiu|cai\b|caem|queda|recu|reduz|redu[cç]|diminu|baix|retra|perd|fell|fall|declin|drop|down\b|decreas|lower|slump|shrank)/;
+function fidDirecoesPct(t) {
+  // Percentual → direção dita no mesmo trecho (até 60 caracteres antes).
+  const out = [], x = semAcento(t);
+  for (const m of x.matchAll(/(\d+(?:[.,]\d+)?)\s?(%|por cento|percent)/g)) {
+    const antes = x.slice(Math.max(0, m.index - 60), m.index).split(/[.;]/).pop();
+    const d = FID_QUEDA.test(antes) ? 'queda' : FID_ALTA.test(antes) ? 'alta' : null;
+    if (d) out.push({ n: parseFloat(m[1].replace(',', '.')), d });
+  }
+  return out;
+}
+const FID_MAG = { mil: 1e3, thousand: 1e3, k: 1e3, milhao: 1e6, milhoes: 1e6, mi: 1e6, million: 1e6, millions: 1e6, mn: 1e6, m: 1e6, mm: 1e6, bilhao: 1e9, bilhoes: 1e9, bi: 1e9, billion: 1e9, billions: 1e9, bn: 1e9, b: 1e9, trilhao: 1e12, trilhoes: 1e12, tri: 1e12, trillion: 1e12, tn: 1e12 };
+function fidValores(t) {
+  // Valores com ordem de grandeza ("US$ 1,45 bilhão", "$500 million", "4,711 MMbbl/d"): as duas
+  // leituras do separador (PT e EN), para comparar fonte EN com texto PT.
+  const vs = [], x = semAcento(t);
+  for (const m of x.matchAll(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s?(?:(mil|thousand|milhao|milhoes|million|millions|mn|bilhao|bilhoes|billion|billions|bn|bi|trilhao|trilhoes|trillion|tn|tri)\b|(mm)(?=bbl|bpd|boe|btu))/g)) {
+    const mag = FID_MAG[m[2] || m[3]] || 1, s = m[1];
+    const pt = parseFloat(s.replace(/\./g, '').replace(',', '.')), en = parseFloat(s.replace(/,/g, ''));
+    vs.push({ txt: m[0], mag, vals: [...new Set([pt * mag, en * mag].filter(Number.isFinite))] });
+  }
+  return vs;
+}
+const FID_REALIZADO = /\b(iniciou|iniciaram|comecou|comecaram|entrou em (operacao|producao)|entraram em|concluiu|concluiram|inaugurou|started|began|commenced|completed|entered (production|service|operation)|came on ?stream)\b/;
+const FID_FUTURO = /\b(prev\w*|deve|devem|devera|planej\w*|pretend\w*|programad\w*|previst\w*|expected|expects?|will|plans?|planned|scheduled|due to|targets?|aims?|is set to|anticipat\w*)\b/;
+const FID_NEG_CONF = /\b(nao (confirm\w*)|nunca confirm\w*|sem confirmacao|did not confirm|has not confirmed|have not confirmed|declined to confirm|would not confirm|unconfirmed|not (yet )?confirmed)\b/;
+function fidFrases(t) { return semAcento(t).split(/(?<=[.!?;])\s+|\n+/).filter(Boolean); }
+
+/* Regras determinísticas. Devolve problemas {tipo, campo, trecho, motivo} — motivo legível. */
+function verificarRelacoesFonte(fonte, campos) {
+  const F = String(fonte || ''), fp = fidPolaridade(F), fx = semAcento(F), problemas = [];
+  const fPct = fidDirecoesPct(F), fVal = fidValores(F).flatMap((v) => v.vals), fFrases = fidFrases(F);
+  for (const [campo, txt] of Object.entries(campos)) {
+    if (!txt) continue;
+    const p = fidPolaridade(txt);
+    if (p.exc && !fp.exc && fp.esc) problemas.push({ tipo: 'oferta_demanda_invertida', campo, motivo: 'Possível inversão entre oferta e demanda: o texto fala em excesso/oferta maior, a fonte fala em escassez.' });
+    if (p.esc && !fp.esc && fp.exc) problemas.push({ tipo: 'oferta_demanda_invertida', campo, motivo: 'Possível inversão entre oferta e demanda: o texto fala em escassez, a fonte fala em excesso/oferta maior.' });
+    for (const d of fidDirecoesPct(txt)) {
+      const naFonte = fPct.filter((f) => Math.abs(f.n - d.n) < 1e-9);
+      if (naFonte.length && !naFonte.some((f) => f.d === d.d)) problemas.push({ tipo: 'direcao_invertida', campo, trecho: d.n + '%', motivo: `O texto diz ${d.d} de ${d.n}%; na fonte esse percentual é de ${naFonte[0].d}.` });
+    }
+    for (const v of fidValores(txt)) {
+      if (!v.vals.some((a) => fVal.some((b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 0.005)))) problemas.push({ tipo: 'numero_divergente', campo, trecho: v.txt, motivo: `Valor "${v.txt}" não aparece na fonte com essa ordem de grandeza.` });
+    }
+    for (const fr of fidFrases(txt)) {
+      if (FID_REALIZADO.test(fr) && !/\bnao\b/.test(fr)) {
+        for (const ano of fr.match(/\b20\d\d\b/g) || []) {
+          const ff = fFrases.filter((s) => s.includes(ano));
+          if (!ff.length) problemas.push({ tipo: 'data_sem_fonte', campo, trecho: ano, motivo: `O texto diz que algo aconteceu em ${ano}, ano que não aparece na fonte.` });
+          else if (!ff.some((s) => FID_REALIZADO.test(s)) && ff.some((s) => FID_FUTURO.test(s))) problemas.push({ tipo: 'previsto_como_realizado', campo, trecho: ano, motivo: `A fonte trata ${ano} como previsão; o texto diz que já aconteceu.` });
+        }
+      }
+      if (/\bconfirm(ou|aram|a|ed|s)\b/.test(fr) && !/\b(nao|nunca|sem|not|n't)\b[^.]{0,25}confirm/.test(fr) && FID_NEG_CONF.test(fx) && !fFrases.some((s) => /\bconfirm(ou|aram|ed|s)\b/.test(s) && !FID_NEG_CONF.test(s))) {
+        problemas.push({ tipo: 'negacao_invertida', campo, motivo: 'O texto afirma uma confirmação que a fonte diz não ter ocorrido.' });
+      }
+    }
+  }
+  return problemas;
+}
+
+const FID_TIPOS_IA = ['contradicao', 'sem_suporte', 'entidade', 'numero', 'data', 'causalidade', 'oferta_demanda', 'negacao', 'atribuicao', 'previsto_realizado', 'citacao'];
+const FID_SISTEMA =
+  'Você é o verificador de fatos do OWNews. Recebe a FONTE (autoridade factual, pode estar em inglês) e um TEXTO DO OWNEWS em português (título, buddy, corpo, impacto e resumo). ' +
+  'Para cada afirmação do texto, confira o SIGNIFICADO na fonte. Paráfrase fiel, tradução correta, resumo e omissão NÃO são problema. Estilo não é problema. ' +
+  'Aponte só: contradicao (o texto diz o oposto), sem_suporte (afirmação central que a fonte não sustenta, inclusive itens de lista que a fonte não traz), entidade (empresa, pessoa, navio, sonda, campo, país ou cargo trocado), ' +
+  'numero (valor, percentual, quantidade ou ordem de grandeza diferente), data, causalidade (causa e efeito invertidos ou inventados), oferta_demanda (escassez × excesso, mais × menos), negacao (negação perdida ou criada), ' +
+  'atribuicao (algo posto na boca de quem não disse), previsto_realizado (plano/previsão contado como fato consumado ou o contrário), citacao (aspas que não estão na fonte). ' +
+  'Atenção a construções como "não X, mas Y" e "the scarcest resource is not A but B": o recurso escasso é B. ' +
+  '"grave": true quando muda o fato para o leitor; false para imprecisão pequena que não muda o sentido. ' +
+  'Responda SOMENTE JSON: {"problemas":[{"tipo":string,"campo":"titulo"|"buddy"|"corpo"|"impacto"|"resumo","trecho":string,"fonte":string,"grave":boolean}]} — lista vazia quando o texto é fiel.';
+async function verificarFidelidadeIA(env, fonte, campos) {
+  if (!env || !env.AI) return { erro: 'ia_indisponivel' };
+  const texto = Object.entries(campos).filter(([, v]) => v).map(([k, v]) => k.toUpperCase() + ': ' + String(v)).join('\n\n');
+  let saida;
+  try {
+    saida = await env.AI.run(BUDDY_IA_MODELO, { messages: [{ role: 'system', content: FID_SISTEMA }, { role: 'user', content: 'FONTE:\n' + String(fonte).slice(0, 6500) + '\n\nTEXTO DO OWNEWS:\n' + texto }], max_tokens: 700, temperature: 0, ...BUDDY_IA_OPCOES_MODELO });
+  } catch (e) { return { erro: 'verificador:' + String(e && e.message || e).slice(0, 100) }; }
+  const j = extrairJsonIA(saida);
+  if (!j || !Array.isArray(j.problemas)) return { erro: 'verificador_json_invalido' };
+  return { problemas: j.problemas.filter((p) => p && FID_TIPOS_IA.includes(String(p.tipo))).map((p) => ({ tipo: String(p.tipo), campo: String(p.campo || ''), trecho: String(p.trecho || '').slice(0, 200), fonte: String(p.fonte || '').slice(0, 200), grave: p.grave !== false })) };
+}
+const FID_MOTIVO_LEGIVEL = { contradicao: 'Contradiz a fonte', sem_suporte: 'Afirmação sem suporte na fonte', entidade: 'Entidade trocada', numero: 'Número divergente da fonte', data: 'Data divergente da fonte', causalidade: 'Causa e efeito não sustentados pela fonte', oferta_demanda: 'Possível inversão entre oferta e demanda', negacao: 'Negação invertida', atribuicao: 'Atribuição não sustentada pela fonte', previsto_realizado: 'Previsão contada como fato realizado (ou o contrário)', citacao: 'Citação que não está na fonte' };
+/* Barreira final: PASS | WARN | BLOCK. "resumo" (lead da fonte traduzido) com problema não bloqueia
+   a matéria: sai do ar (resumo nulo). Falha do verificador = BLOCK técnico (fail closed). */
+async function barreiraFidelidade(env, fonte, campos, opcoes) {
+  const det = verificarRelacoesFonte(fonte, campos);
+  const detMateria = det.filter((p) => p.campo !== 'resumo');
+  if (detMateria.length) return { veredito: 'BLOCK', origem: 'regras', problemas: det, motivo: detMateria[0].motivo, removerResumo: det.some((p) => p.campo === 'resumo') };
+  if (opcoes && opcoes.semIA) return { veredito: 'PASS', origem: 'regras', problemas: det, removerResumo: det.length > 0 };
+  const ia = await verificarFidelidadeIA(env, fonte, campos);
+  if (ia.erro) return { veredito: 'BLOCK', origem: 'erro', erro: ia.erro, problemas: [], motivo: 'Verificador de fidelidade indisponível — não publicado (fail closed).' };
+  const graves = ia.problemas.filter((p) => p.grave && p.campo !== 'resumo');
+  const removerResumo = det.length > 0 || ia.problemas.some((p) => p.campo === 'resumo');
+  if (graves.length) return { veredito: 'BLOCK', origem: 'ia', problemas: ia.problemas, motivo: (FID_MOTIVO_LEGIVEL[graves[0].tipo] || graves[0].tipo) + (graves[0].trecho ? ': "' + graves[0].trecho + '"' : '') + '.', removerResumo };
+  return { veredito: ia.problemas.some((p) => p.campo !== 'resumo') ? 'WARN' : 'PASS', origem: 'ia', problemas: ia.problemas, removerResumo };
+}
+/* Instrução da 2ª redação a partir do bloqueio: o que estava errado e o que a fonte diz. */
+function dicaFidelidade(b) {
+  return (b.problemas || []).filter((p) => p.campo !== 'resumo').slice(0, 4).map((p) => '- ' + (p.motivo || (FID_MOTIVO_LEGIVEL[p.tipo] || p.tipo) + (p.trecho ? ' em "' + p.trecho + '"' : '') + (p.fonte ? ' — a fonte diz: "' + p.fonte + '"' : '')) + ' Preserve exatamente a relação factual da fonte.').join('\n');
+}
+
 /* ==== IMAGEM VÁLIDA OU FALLBACK (03/11/2026) ====
    Toda notícia publicada tem imagem: a foto da fonte, se for uma FOTO de verdade; senão o portal
    mostra a capa editorial OWNews (institucional, nunca finge ser o fato). Antes de gravar, baixa
@@ -4809,8 +4991,8 @@ async function validarImagemRemota(url) {
 // (redirects, Telegram/registro depois da coleta, pequenas mudanças futuras).
 const ORC_LIMITE = 36;
 const CUSTO_FONTE = 3;      // feed + títulos recentes + URLs existentes (+1 quando lê a memória)
-const CUSTO_PAUTA_PT = 8;   // página + banner + validação da imagem + IA (até 2) + arquivo + memória + gravação
-const CUSTO_PAUTA_EN = 10;  // + tradução de título e resumo
+const CUSTO_PAUTA_PT = 10;  // página + banner + validação da imagem + IA (até 2) + verificador de fidelidade (até 2) + arquivo + memória + gravação
+const CUSTO_PAUTA_EN = 12;  // + tradução de título e resumo
 const CUSTO_CONTEXTO_V2 = 3; // pacote de contexto: Radar + histórico OWNews + documento primário
 function comOrcamento(env) {
   if (!env || env.__orc) return env;
@@ -5180,6 +5362,14 @@ export class BuddyIAPoller {
           m: Array.isArray(d.motivos) ? d.motivos.slice(0, 6).map((x) => String(x).slice(0, 60)) : [],
           ti: d.titulo ? String(d.titulo).slice(0, 140) : undefined, f: d.fonte ? String(d.fonte).slice(0, 40) : undefined
         });
+        // Bloqueio da barreira de fidelidade: rascunho + motivo legível ficam para diagnóstico (30 dias).
+        const b = d.bloqueio;
+        if (b && typeof b === 'object') {
+          const cx = (v, n) => v ? String(v).slice(0, n) : undefined, r = b.rascunho || {};
+          await this.state.storage.put('bloq:' + d.hash, { t: Date.now(), ti: cx(d.titulo, 140), f: cx(d.fonte, 40), motivo: cx(b.motivo, 300), origem: cx(b.origem, 20), url: cx(b.url, 400),
+            problemas: (Array.isArray(b.problemas) ? b.problemas : []).slice(0, 6).map((p) => ({ tipo: cx(p.tipo, 30), campo: cx(p.campo, 20), trecho: cx(p.trecho, 200), fonte: cx(p.fonte, 200), motivo: cx(p.motivo, 200) })),
+            rascunho: { titulo: cx(r.titulo, 200), buddy: cx(r.buddy, 600), corpo: cx(r.corpo, 4000), impacto: cx(r.impacto, 500) } });
+        }
       }
       return Response.json({ ok: true });
     }
@@ -5233,6 +5423,14 @@ export class BuddyIAPoller {
       });
       if (velhos.length) await this.state.storage.delete(velhos.slice(0, 128));
       return Response.json(url.searchParams.get('v') === '2' || url.searchParams.get('detalhe') === '1' ? vivos : Object.keys(vivos));
+    }
+    if (url.pathname === '/bloqueadas') {
+      const lim = Date.now() - 30 * 86400000, out = [];
+      for (const [k, v] of await this.state.storage.list({ prefix: 'bloq:' })) {
+        if (!v || v.t < lim) { await this.state.storage.delete(k); continue; }
+        out.push(Object.assign({ hash: k.slice(5) }, v));
+      }
+      return Response.json(out.sort((a, b) => b.t - a.t));
     }
     if (url.pathname === '/rejeicao') {
       const v = await this.state.storage.get('rej:' + (url.searchParams.get('hash') || ''));
@@ -5690,9 +5888,33 @@ slug: criarSlug(tituloPublicado),
       // anterior do OWNews + documento oficial) e fidelidade ao título original da fonte.
       const pacote = v2 ? await montarPacoteContexto(env, { fonte, tituloOriginal: item.title, titulo: tituloPublicado, resumo: resumoPublicado || artigo.summary, linksPrimarios: detalhes.linksPrimarios, url: item.url, gasto }) : null;
       const opIA = Object.assign({ tituloTraduzido: tituloPublicado !== tituloFinal }, v2 ? { contexto: blocoContextoRedacao(pacote), tituloOriginal: item.title } : {});
-      const camadaIA = recuperacao
+      let camadaIA = recuperacao
         ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, opIA)
         : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, opIA);
+      // Barreira de fidelidade (P0 03/11): o texto aprovado pelo gate é conferido contra a FONTE.
+      // BLOCK na 1ª redação → uma 2ª, com o erro e o trecho da fonte; conferida de novo. Sem loop.
+      let fid = null;
+      if (camadaIA.ok) {
+        const fonteFid = String(materialFonte || '').slice(0, 5000) + (opIA.contexto ? '\n\n' + opIA.contexto : '');
+        const camposFid = (c) => ({ titulo: c.titulo || artigo.title, buddy: c.buddy_summary, corpo: c.corpo, impacto: c.why_it_matters, resumo: artigo.summary });
+        gasto.n++;
+        fid = await barreiraFidelidade(env, fonteFid, camposFid(camadaIA));
+        if (fid.veredito === 'BLOCK' && fid.origem !== 'erro' && camadaIA.tentativas === 1) {
+          resultado.fid_regeneradas = (resultado.fid_regeneradas || 0) + 1;
+          const r2 = await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: 'fidelidade:' + fid.problemas.map((p) => p.tipo).join('+'), _fidelidade: dicaFidelidade(fid) }), materialFonte, 2, opIA);
+          gasto.n++;
+          if (r2.ok) { gasto.n++; const f2 = await barreiraFidelidade(env, fonteFid, camposFid(r2)); camadaIA = r2; fid = f2; camadaIA.tentativas = 2; }
+        }
+        const k = fid.origem === 'erro' ? 'erro' : fid.veredito.toLowerCase();
+        resultado['fid_' + k] = (resultado['fid_' + k] || 0) + 1;
+        console.log(JSON.stringify({ evento: fid.veredito === 'BLOCK' ? 'editorial_validation_blocked' : 'editorial_validation_passed', veredito: fid.veredito, origem: fid.origem, reason: (fid.problemas || []).map((p) => p.tipo).join(',') || fid.erro || null, hash: artigo.hash, fonte }));
+        if (fid.veredito === 'BLOCK') {
+          camadaIA = fid.origem === 'erro'
+            ? { ok: false, erro: 'fidelidade:' + fid.erro, tentativas: camadaIA.tentativas }
+            : { ok: false, relacao: camadaIA.relacao, motivos: ['fidelidade:' + [...new Set(fid.problemas.filter((p) => p.campo !== 'resumo').map((p) => p.tipo))].join('+')], motivo_legivel: fid.motivo, tentativas: camadaIA.tentativas,
+                bloqueio: { motivo: fid.motivo, origem: fid.origem, problemas: fid.problemas, url: artigo.original_url, rascunho: { titulo: camadaIA.titulo || artigo.title, buddy: camadaIA.buddy_summary, corpo: camadaIA.corpo, impacto: camadaIA.why_it_matters } } };
+        } else if (fid.removerResumo) artigo.summary = null;
+      }
       if (!(camadaIA.motivos || []).includes('sem_material')) gasto.n += camadaIA.tentativas || 1;
       // sem_material reprova ANTES de chamar a IA: não é avaliação do redator.
       if (!camadaIA.erro && !(camadaIA.motivos || []).includes('sem_material')) {
@@ -5709,7 +5931,7 @@ slug: criarSlug(tituloPublicado),
       const classeRep = !camadaIA.ok && !camadaIA.erro ? classeReprovacao(camadaIA.motivos) : null;
       if (classeRep) {
         gasto.n++;
-        await registrarRejeicao(env, artigo.hash, classeRep, { motivos: camadaIA.motivos, titulo: artigo.title, fonte });
+        await registrarRejeicao(env, artigo.hash, classeRep, { motivos: camadaIA.motivos, titulo: artigo.title, fonte, bloqueio: camadaIA.bloqueio });
         resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] = (resultado[classeRep === 'definitiva' ? 'rep_definitiva' : 'rep_corrigivel'] || 0) + 1;
       }
       if (camadaIA.ok && camadaIA.tentativas === 2 && !recuperacao) resultado.aprovadas_2a = (resultado.aprovadas_2a || 0) + 1;
@@ -5723,6 +5945,8 @@ slug: criarSlug(tituloPublicado),
         artigo.why_it_matters = camadaIA.why_it_matters;
         artigo.buddy_source = MATERIA_OWNEWS;
         artigo.buddy_reviewed_at = new Date().toISOString();
+        // Rastreabilidade (interna, nunca exibida): veredito da barreira e o que ela apontou.
+        if (fid && artigo.score_reason && typeof artigo.score_reason === 'object') artigo.score_reason.fidelidade = { v: 1, veredito: fid.veredito, origem: fid.origem, tipos: (fid.problemas || []).map((p) => p.tipo + ':' + p.campo), resumo_removido: !!fid.removerResumo, em: new Date().toISOString() };
         if (v2) {
           const ve = avaliarValorEditorial({ pacote, corpo: camadaIA.corpo, fonte, tituloOriginal: item.title });
           const ed = { versao: 2, fonte_classe: pacote.fonte_classe, valor: ve.valor, usou: ve.usou, radar: pacote.radar.map((e) => e.nome), historico: ve.usou.historico ? pacote.historico : [], primaria: pacote.primaria ? pacote.primaria.url : null };
@@ -5754,6 +5978,7 @@ slug: criarSlug(tituloPublicado),
         const _motivoGate = camadaIA.erro ? 'ia_indisponivel'
           : (camadaIA.motivos || []).includes('fora_escopo') ? 'fora_escopo'
           : (camadaIA.motivos || []).includes('sem_material') ? 'sem_material'
+          : (camadaIA.motivos || []).some((m) => m.startsWith('fidelidade:')) ? 'bloqueada_fidelidade'
           : (camadaIA.motivos || []).some((m) => /^titulo:(sentido|sem_entidade|numero)/.test(m)) ? 'titulo_infiel'
           : (camadaIA.motivos || []).some((m) => m.startsWith('titulo:')) ? 'titulo_invalido'
           : _isCS && !corpoEnParaGate ? 'content=summary'
@@ -5764,6 +5989,7 @@ slug: criarSlug(tituloPublicado),
           status: 'editorial_incomplete',
           motivo: _motivoGate,
           motivos_ia: camadaIA.motivos || (camadaIA.erro ? [camadaIA.erro] : []),
+          ...(camadaIA.motivo_legivel ? { motivo_legivel: camadaIA.motivo_legivel } : {}),
           classe: classeRep,
           tentativas: camadaIA.tentativas || null,
           fonte
@@ -5950,7 +6176,10 @@ return {
       paragrafos.push(texto);
     }
 
-    if (paragrafos.length >= 8) break;
+    // Era "8 parágrafos" (03/11): artigo longo (Offshore Energy, 11 min) perdia a parte que listava
+    // as "seis práticas" anunciadas no início — o redator completou a lista sozinho. Agora o limite é
+    // de texto (o redator vê 5.000 caracteres e é avisado quando a fonte continua).
+    if (paragrafos.length >= 40 || paragrafos.reduce((n, p) => n + p.length, 0) >= 12000) break;
   }
 
   return paragrafos.join('\n\n');
@@ -8612,6 +8841,16 @@ function extrairResumoFactualTelegram(content) {
 }
 
 function obterResumoSeguroTelegram(artigo) {
+  // Fonte única de fatos (P0 03/11): matéria OWNews → o Buddy, que passou pela barreira de
+  // fidelidade. O "summary" é o lead cru da fonte (ANP 03/11: "223.980 m³/d" no lead, 223,98 milhões
+  // no texto) e o corpo pode ter sido corrigido depois — nunca reinterpretar a fonte de novo.
+  if (artigo.buddy_source === MATERIA_OWNEWS && artigo.buddy_summary) {
+    const b = limparEspacosTelegram(artigo.buddy_summary);
+    const fr = b.match(/[^.!?]+[.!?]+/g) || [b];
+    let r = fr[0].trim();
+    for (const f of fr.slice(1)) { if ((r + ' ' + f.trim()).length > 280) break; r += ' ' + f.trim(); }
+    if (r.length >= 40) return { resumo: r, fonte: "buddy" };
+  }
   const summary = limparEspacosTelegram(artigo.summary || "");
   if (summary && !ehResumoGenericoTelegram(summary)) {
     return { resumo: summary.slice(0, 220), fonte: "summary" };
@@ -9106,7 +9345,7 @@ async function buscarCandidatosTelegram(env) {
   const corteJanela = new Date(Date.now() - LIMITE_IDADE_CANDIDATO_HORAS_TELEGRAM * 3600000).toISOString();
   const corte = corteJanela > TELEGRAM_ATIVADO_EM ? corteJanela : TELEGRAM_ATIVADO_EM;
   const endpoint =
-    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,image_url,image_credit,published_at,original_url` +
+    `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,content,buddy_summary,buddy_source,image_url,image_credit,published_at,original_url` +
     // Live Newsroom (2026-10-20): só matéria OWNews completa vai ao canal
     // (duplicada/insuficiente/legado não).
     `&status=eq.published&buddy_source=eq.ownews&published_at=gte.${encodeURIComponent(corte)}&order=published_at.desc&limit=50`;
