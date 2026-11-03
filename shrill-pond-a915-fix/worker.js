@@ -508,6 +508,16 @@ export default {
         const mat = f.ok ? (await f.json()).material : null;
         if (!mat) { semFonte++; continue; }
         const pr = verificarRelacoesFonte(mat, { titulo: a.title, buddy: a.buddy_summary, corpo: a.content, impacto: a.why_it_matters, resumo: a.summary });
+        if (pr.length && url.searchParams.get("detalhe") === "1") {
+          // Trechos da fonte e do texto em volta do que foi apontado, para a revisão humana.
+          const txt = { titulo: a.title, buddy: a.buddy_summary, corpo: a.content, impacto: a.why_it_matters, resumo: a.summary };
+          const perto = (t, chave) => { const i = String(t || '').indexOf(chave); return i < 0 ? null : String(t).slice(Math.max(0, i - 140), i + 100); };
+          for (const p of pr) {
+            const chave = String(p.trecho || '').match(/\d+(?:[.,]\d+)?/);
+            p.no_texto = chave ? perto(txt[p.campo], chave[0]) : String(txt[p.campo] || '').slice(0, 300);
+            p.na_fonte = chave ? (perto(mat, chave[0].split(/[.,]/)[0]) || '(número ausente da fonte arquivada)') : null;
+          }
+        }
         if (pr.length) out.push({ id: a.id, titulo: a.title, problemas: pr });
       }
       return Response.json({ auditadas: arts.length - semFonte, sem_fonte_arquivada: semFonte, suspeitas: out });
@@ -4805,8 +4815,11 @@ function avaliarValorEditorial({ pacote, corpo, fonte, tituloOriginal }) {
    demanda, alta × queda, previsto × realizado, confirmou × não confirmou, milhão × bilhão), custo
    zero. 2) Uma checagem semântica com IA (mesmo modelo, 1 chamada) só para quem passou em tudo.
    BLOCK = não publica; falha do verificador = não publica (falha técnica, tenta na próxima coleta). */
-const FID_ESCASSEZ_RE = /\b(escassez|escass[oa]s?|falta(m)? de|faltam|d[eé]ficit|gargalo|dif[ií]ce(l|is) de (encontrar|substituir|contratar|repor)|insuficien\w*|shortages?|scarce|scarcest|scarcity|lack of|shortfalls?|bottlenecks?|hard(er|est)? to (find|replace|fill)|undersupplied|tight supply)\b/;
-const FID_EXCESSO_RE = /\b(excesso|sobra(m)?|super[aá]vit|excedente|sobreoferta|abund[aâ]n\w*|surplus|oversuppl\w*|glut|excess (capacity|supply)|abundan\w*)\b/;
+// Escassez/excesso só contam quando falam de um RECURSO (gente, embarcação, combustível, capacidade):
+// "falta de regulamentação" não é escassez de oferta. Auditoria do acervo (03/11) mostrou o falso positivo.
+const FID_RECURSO = '(mao de obra|profissiona\\w*|trabalhador\\w*|tripula\\w*|oficia\\w*|pessoa\\w*|pessoal|marit\\w*|embarca\\w*|navios?|sondas?|rigs?|vessels?|crews?|people|workers?|officers?|seafarers?|labou?r|staff|talent|gas|petroleo|oleo|oil|diesel|combust\\w*|fuel|capacidade|capacity|oferta|supply|equipament\\w*|equipment|insumos?)';
+const FID_ESCASSEZ_RE = new RegExp('\\b(?:(?:escassez|falta|faltam|deficit|carencia|shortages?|lack|shortfalls?|scarcity)\\s(?:de |do |da |of |em )?(?:\\S+\\s){0,2}?' + FID_RECURSO + '\\b|scarce|scarcest|escass[oa]s?|hard(?:er|est)? to (?:find|replace|fill)|sobra(?:m)? (?:de )?demanda|excesso de demanda|demanda reprimida|undersupplied|tight supply)');
+const FID_EXCESSO_RE = new RegExp('\\b(?:(?:excesso|sobra|sobram|excedente|surplus|oversupply|glut|abundancia|abundance)\\s(?:de |do |da |of |in )?(?:\\S+\\s){0,2}?' + FID_RECURSO + '\\b|sobreoferta|oversupplied|excess (?:capacity|supply))');
 // "X supera Y": quem está à esquerda de "supera" é o que sobra. Demanda/necessidade maior = escassez;
 // oferta/disponibilidade maior (de qualquer coisa: "disponibilidade de tripulação supera a oferta de
 // embarcações") = excesso.
@@ -4814,19 +4827,20 @@ const FID_COMPARA_RE = /\b(demanda|procura|necessidade|oferta|disponibilidade|de
 const FID_LADO = (w) => /^(demanda|procura|necessidade|demand)$/.test(w) ? 'D' : 'O';
 function fidPolaridade(t) {
   const x = semAcento(t);
-  let esc = FID_ESCASSEZ_RE.test(x), exc = FID_EXCESSO_RE.test(x);
+  let esc = FID_ESCASSEZ_RE.test(x), exc = FID_EXCESSO_RE.test(x.replace(/sobra(m)? (de )?demanda|excesso de demanda/g, ''));
   for (const m of x.matchAll(FID_COMPARA_RE)) { if (FID_LADO(m[1]) === 'D') esc = true; else exc = true; }
   return { esc, exc };
 }
-const FID_ALTA = /(cresc|aument|subi|sobe|alta|avanc|expan|elev|ganh|rose|rise|increas|grew|grow|gain|higher|up\b|jump|climb)/;
-const FID_QUEDA = /(caiu|cai\b|caem|queda|recu|reduz|redu[cç]|diminu|baix|retra|perd|fell|fall|declin|drop|down\b|decreas|lower|slump|shrank)/;
+const FID_ALTA = /\b(cresc\w*|aument\w*|subi\w*|sobe\w*|alta|avanc\w*|expan\w*|elev\w*|ganh\w*|rose|rise\w*|increas\w*|grew|grow\w*|gain\w*|higher|up|jump\w*|climb\w*)\b/g;
+const FID_QUEDA = /\b(caiu|cai|caem|queda|recu\w*|reduz\w*|redu[cç]\w*|diminu\w*|baix\w*|retra\w*|cede\w*|perd\w*|fell|fall\w*|declin\w*|drop\w*|down|decreas\w*|lower\w*|slump\w*|shrank|eased)\b/g;
 function fidDirecoesPct(t) {
-  // Percentual → direção dita no mesmo trecho (até 60 caracteres antes).
+  // Percentual → direção da palavra MAIS PRÓXIMA antes dele, no mesmo trecho (até 40 caracteres).
   const out = [], x = semAcento(t);
   for (const m of x.matchAll(/(\d+(?:[.,]\d+)?)\s?(%|por cento|percent)/g)) {
-    const antes = x.slice(Math.max(0, m.index - 60), m.index).split(/[.;]/).pop();
-    const d = FID_QUEDA.test(antes) ? 'queda' : FID_ALTA.test(antes) ? 'alta' : null;
-    if (d) out.push({ n: parseFloat(m[1].replace(',', '.')), d });
+    const antes = x.slice(Math.max(0, m.index - 40), m.index).split(/[.;]|, (?:enquanto|while|e o|and)/).pop();
+    const ult = (re) => { let k = -1; for (const a of antes.matchAll(re)) k = a.index; return k; };
+    const a = ult(FID_ALTA), q = ult(FID_QUEDA);
+    if (a >= 0 || q >= 0) out.push({ n: parseFloat(m[1].replace(',', '.')), d: q > a ? 'queda' : 'alta' });
   }
   return out;
 }
@@ -4842,15 +4856,41 @@ function fidValores(t) {
   }
   return vs;
 }
-const FID_REALIZADO = /\b(iniciou|iniciaram|comecou|comecaram|entrou em (operacao|producao)|entraram em|concluiu|concluiram|inaugurou|started|began|commenced|completed|entered (production|service|operation)|came on ?stream)\b/;
-const FID_FUTURO = /\b(prev\w*|deve|devem|devera|planej\w*|pretend\w*|programad\w*|previst\w*|expected|expects?|will|plans?|planned|scheduled|due to|targets?|aims?|is set to|anticipat\w*)\b/;
+// Na FONTE também valem: número por extenso com separador de milhar ("20,000 psi", "1.686.000") e
+// moeda abreviada ("$3m", "US$5bn", "£24.5m"). Número curto sem grandeza ("500") não conta, para não
+// mascarar troca de milhão por bilhão.
+function fidValoresFonte(t) {
+  const out = fidValores(t).flatMap((v) => v.vals), x = semAcento(t);
+  for (const m of x.matchAll(/(?<![\d.,])(\d{1,3}(?:[.,]\d{3})+)(?![\d.,]?\d)/g)) { const s = m[1]; out.push(parseFloat(s.replace(/[.,]/g, ''))); }
+  // Unidades do setor: 140 kboe/d, 1 mtpa, 3 tcf, 13 bcm.
+  for (const m of x.matchAll(/(\d+(?:[.,]\d+)?)\s?(k(?=boe|bbl|bpd|b\/d|t\b)|mtpa|mmtpa|mt\b|tcf|bcf|bcm|mmscfd|mmcf)/g)) {
+    const mag = m[2] === 'k' ? 1e3 : /^(mtpa|mt|mmtpa)$/.test(m[2]) ? 1e6 : m[2] === 'tcf' ? 1e12 : /^(bcf|bcm)$/.test(m[2]) ? 1e9 : 1e6;
+    for (const v of [parseFloat(m[1].replace(',', '.')), parseFloat(m[1].replace(/,/g, ''))]) if (Number.isFinite(v)) out.push(v * mag);
+  }
+  // Faixa com a grandeza só no fim: "$50 and $100 million", "160-175 kboe/d", "entre 10 e 30 milhões".
+  for (const m of x.matchAll(/(\d+(?:[.,]\d+)?)\s?(?:-|–|to|and|a|e)\s?(?:us\$|r\$|\$)?\s?(\d+(?:[.,]\d+)?)\s?(mil|thousand|milhoes|million|millions|mn|bilhoes|billion|billions|bn|k(?=boe|bbl|bpd)|mtpa)\b/g)) {
+    const mag = FID_MAG[m[3]] || (m[3] === 'k' ? 1e3 : m[3] === 'mtpa' ? 1e6 : 1);
+    for (const v of [parseFloat(m[1].replace(',', '.')), parseFloat(m[1].replace(/,/g, ''))]) if (Number.isFinite(v)) out.push(v * mag);
+  }
+  for (const m of x.matchAll(/(?:us\$|r\$|\$|£|€|usd|nok|eur)\s?(\d+(?:[.,]\d+)?)\s?(k|m|mn|b|bn)\b/g)) {
+    const mag = { k: 1e3, m: 1e6, mn: 1e6, b: 1e9, bn: 1e9 }[m[2]];
+    for (const v of [parseFloat(m[1].replace(',', '.')), parseFloat(m[1].replace(/,/g, ''))]) if (Number.isFinite(v)) out.push(v * mag);
+  }
+  return out;
+}
+const FID_REALIZADO = /\b(iniciou|iniciaram|iniciad[oa]s?|comecou|comecaram|entrou em (?:operacao|producao)|entraram em|concluiu|concluiram|inaugurou|started|began|commenced|completed|kicked off|reached|achieved|entered (?:production|service|operation)|came on ?stream)\b/;
+const FID_FUTURO = /\b(preve\w*|previst\w*|previsao|deve|devem|devera|planej\w*|pretend\w*|programad\w*|previst\w*|expected|expects?|will|plans?|planned|scheduled|due|targets?|targeting|aims?|is set to|anticipat\w*|until|ate)\b/;
 const FID_NEG_CONF = /\b(nao (confirm\w*)|nunca confirm\w*|sem confirmacao|did not confirm|has not confirmed|have not confirmed|declined to confirm|would not confirm|unconfirmed|not (yet )?confirmed)\b/;
+// "iniciou ... em 2027": verbo de fato consumado colado ao ano (até 40 caracteres, sem "previsto/prazo/
+// cronograma" no meio). Na fonte, olha o que vem antes do mesmo ano.
+const FID_REAL_ANO = new RegExp(FID_REALIZADO.source + '([^.;]{0,40}?)\\b(20\\d\\d)\\b', 'g');
 function fidFrases(t) { return semAcento(t).split(/(?<=[.!?;])\s+|\n+/).filter(Boolean); }
 
 /* Regras determinísticas. Devolve problemas {tipo, campo, trecho, motivo} — motivo legível. */
 function verificarRelacoesFonte(fonte, campos) {
-  const F = String(fonte || ''), fp = fidPolaridade(F), fx = semAcento(F), problemas = [];
-  const fPct = fidDirecoesPct(F), fVal = fidValores(F).flatMap((v) => v.vals), fFrases = fidFrases(F);
+  // Fonte arquivada pode ter entidades HTML ("milh&otilde;es" — Eixos): decodifica antes de comparar.
+  const F = decodeHtml(String(fonte || '')), fp = fidPolaridade(F), fx = semAcento(F), problemas = [];
+  const fPct = fidDirecoesPct(F), fVal = fidValoresFonte(F), fFrases = fidFrases(F);
   for (const [campo, txt] of Object.entries(campos)) {
     if (!txt) continue;
     const p = fidPolaridade(txt);
@@ -4860,16 +4900,20 @@ function verificarRelacoesFonte(fonte, campos) {
       const naFonte = fPct.filter((f) => Math.abs(f.n - d.n) < 1e-9);
       if (naFonte.length && !naFonte.some((f) => f.d === d.d)) problemas.push({ tipo: 'direcao_invertida', campo, trecho: d.n + '%', motivo: `O texto diz ${d.d} de ${d.n}%; na fonte esse percentual é de ${naFonte[0].d}.` });
     }
+    const tx = semAcento(txt);
     for (const v of fidValores(txt)) {
-      if (!v.vals.some((a) => fVal.some((b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 0.005)))) problemas.push({ tipo: 'numero_divergente', campo, trecho: v.txt, motivo: `Valor "${v.txt}" não aparece na fonte com essa ordem de grandeza.` });
+      // "mais de US$ 2 bilhões" para 2,05 bilhões é fiel: com qualificador de aproximação, 10% de folga.
+      const i = tx.indexOf(v.txt), qual = i > 0 && /(mais de|acima de|cerca de|quase|aproximadamente|em torno de|perto de|ao redor de)\s+(us\$|r\$|£|€)?\s*$/.test(tx.slice(Math.max(0, i - 30), i));
+      const tol = qual ? 0.1 : 0.005;
+      if (!v.vals.some((a) => fVal.some((b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * tol)))) problemas.push({ tipo: 'numero_divergente', campo, trecho: v.txt, motivo: `Valor "${v.txt}" não aparece na fonte com essa ordem de grandeza.` });
     }
     for (const fr of fidFrases(txt)) {
-      if (FID_REALIZADO.test(fr) && !/\bnao\b/.test(fr)) {
-        for (const ano of fr.match(/\b20\d\d\b/g) || []) {
-          const ff = fFrases.filter((s) => s.includes(ano));
-          if (!ff.length) problemas.push({ tipo: 'data_sem_fonte', campo, trecho: ano, motivo: `O texto diz que algo aconteceu em ${ano}, ano que não aparece na fonte.` });
-          else if (!ff.some((s) => FID_REALIZADO.test(s)) && ff.some((s) => FID_FUTURO.test(s))) problemas.push({ tipo: 'previsto_como_realizado', campo, trecho: ano, motivo: `A fonte trata ${ano} como previsão; o texto diz que já aconteceu.` });
-        }
+      for (const m of (/\bnao\b/.test(fr) ? [] : fr.matchAll(FID_REAL_ANO))) {
+        if (/previst|prazo|cronograma|antes d|ate |visando|meta/.test(m[2])) continue;
+        const ano = m[3];
+        if (!fx.includes(ano)) { problemas.push({ tipo: 'data_sem_fonte', campo, trecho: ano, motivo: `O texto diz que algo aconteceu em ${ano}, ano que não aparece na fonte.` }); continue; }
+        const ctx = [...fx.matchAll(new RegExp('\\b' + ano + '\\b', 'g'))].map((y) => fx.slice(Math.max(0, y.index - 80), y.index));
+        if (!ctx.some((c) => FID_REALIZADO.test(c)) && ctx.every((c) => FID_FUTURO.test(c))) problemas.push({ tipo: 'previsto_como_realizado', campo, trecho: ano, motivo: `A fonte trata ${ano} como previsão; o texto diz que já aconteceu.` });
       }
       if (/\bconfirm(ou|aram|a|ed|s)\b/.test(fr) && !/\b(nao|nunca|sem|not|n't)\b[^.]{0,25}confirm/.test(fr) && FID_NEG_CONF.test(fx) && !fFrases.some((s) => /\bconfirm(ou|aram|ed|s)\b/.test(s) && !FID_NEG_CONF.test(s))) {
         problemas.push({ tipo: 'negacao_invertida', campo, motivo: 'O texto afirma uma confirmação que a fonte diz não ter ocorrido.' });
@@ -5898,7 +5942,7 @@ slug: criarSlug(tituloPublicado),
       // BLOCK na 1ª redação → uma 2ª, com o erro e o trecho da fonte; conferida de novo. Sem loop.
       let fid = null;
       if (camadaIA.ok) {
-        const fonteFid = 'VEÍCULO DA FONTE: ' + fonte + '\n' + String(materialFonte || '').slice(0, 5000) + (opIA.contexto ? '\n\n' + opIA.contexto : '');
+        const fonteFid = 'VEÍCULO DA FONTE: ' + fonte + '\nTÍTULO DA FONTE: ' + String(item.title || '') + '\n' + String(materialFonte || '').slice(0, 5000) + (opIA.contexto ? '\n\n' + opIA.contexto : '');
         const camposFid = (c) => ({ titulo: c.titulo || artigo.title, buddy: c.buddy_summary, corpo: c.corpo, impacto: c.why_it_matters, resumo: artigo.summary });
         gasto.n++;
         fid = await barreiraFidelidade(env, fonteFid, camposFid(camadaIA));

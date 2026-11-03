@@ -69,6 +69,27 @@ test('confirmou × não confirmou', () => {
   passa('Petrobras confirmed the contract award.', 'A Petrobras confirmou o contrato.');
 });
 
+test('falsos positivos da auditoria do acervo (03/11) continuam passando', () => {
+  passa('Houve redução de 1,1% frente a maio e crescimento de 12,6% na comparação com julho de 2025.', 'A produção cresceu 12,6% frente a julho de 2025.');
+  passa('O Brent subiu 4,94% na semana, enquanto o WTI cedeu 1,41%.', 'Na semana, o WTI recuou 1,41% e o Brent avançou 4,94%.');
+  passa('Problemas na disponibilidade de gás levaram a Alunorte a reduzir sua produção para 50% da capacidade.', 'A falta de gás obrigou a unidade a operar a 50% da capacidade.');
+  passa('O setor enfrenta excesso de oferta de energia e curtailment.', 'Ela disse que a falta de regulamentação impede a previsibilidade dos investimentos.');
+  passa('Falta de mão de obra é desafio para a indústria de navegação.', 'O problema não é falta de mercado: sobra demanda e faltam profissionais treinados.');
+  passa('“Conseguimos antecipar a produção da plataforma P-71, que estava originalmente prevista para 2023.”', 'A unidade entrou em produção antes do cronograma previsto para 2023.');
+  passa('The project kicked off the processing stage in July 2026, with final products scheduled for April 2027.', 'A etapa de processamento começou em julho de 2026 e os produtos devem ser entregues em abril de 2027.');
+  passa('O evento dá continuidade à agenda iniciada pela EPE em 2025.', 'O encontro dá sequência ao diagnóstico que a EPE começou a montar em 2025.');
+  passa('The rated working pressure is 20,000 psi.', 'As árvores são de 20 mil psi.');
+  passa('Os estoques tiveram alta de 2,969 milh&otilde;es de barris.', 'Os estoques subiram 2,969 milhões de barris.');
+  passa('It will maintain plateau production of 140 kboe/day.', 'Deve manter um platô de 140 mil boe por dia.');
+  passa('SEFE secured 1 mtpa of Canadian LNG.', 'A SEFE garantiu 1 milhão de toneladas por ano de GNL.');
+  passa('Resources are estimated at more than 3 tcf of gas.', 'Os recursos passam de 3 trilhões de pés cúbicos de gás.');
+  passa('A contract with a value between $50 and $100 million.', 'Contrato entre US$ 50 milhões e US$ 100 milhões.');
+  passa('Capacity planned to be 160-175 kboe/d.', 'Capacidade planejada entre 160 e 175 mil boe por dia.');
+  passa("It increases Oceânica's backlog to approximately R$10.3 billion (US$2.05 billion).", 'A carteira passa de US$ 2 bilhões.'.replace('passa de', 'chega a mais de'));
+  passa('The partners previously signed a CCS agreement in 2023 and performed studies.', 'A parceria segue estudos iniciados em 2023.');
+  bloqueia('Equinor struck gas that could deliver up to 10.3 million boe.', 'A descoberta pode produzir até 10 milhões de boe.', 'numero_divergente');
+});
+
 const IA = (problemas) => ({ AI: { run: async () => ({ response: JSON.stringify({ problemas }) }) } });
 test('barreira: IA aponta entidade/atribuição grave → BLOCK com motivo legível; leve → WARN; fiel → PASS', async () => {
   const campos = { titulo: 'West Saturn inicia campanha', corpo: 'A Petrobras afirmou que o mercado está aquecido.' };
