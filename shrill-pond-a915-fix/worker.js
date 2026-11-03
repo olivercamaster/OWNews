@@ -479,7 +479,7 @@ export default {
         fonteTxt = r.ok ? (await r.json()).material : null;
       }
       if (!fonteTxt) return Response.json({ ok: false, erro: "sem fonte" }, { status: 400 });
-      const b = await barreiraFidelidade(env, fonteTxt.slice(0, 6500), { titulo: d.titulo, buddy: d.buddy, corpo: d.corpo, impacto: d.impacto, resumo: d.resumo }, { semIA: !!d.sem_ia });
+      const b = await barreiraFidelidade(env, (d.veiculo ? 'VEÍCULO DA FONTE: ' + d.veiculo + '\n' : '') + fonteTxt.slice(0, 5500), { titulo: d.titulo, buddy: d.buddy, corpo: d.corpo, impacto: d.impacto, resumo: d.resumo }, { semIA: !!d.sem_ia });
       return Response.json(b);
     }
     // Correção de matéria publicada (texto verificado contra a fonte): mesmos id/slug/URL/imagem/data.
@@ -4882,23 +4882,26 @@ function verificarRelacoesFonte(fonte, campos) {
 const FID_TIPOS_IA = ['contradicao', 'sem_suporte', 'entidade', 'numero', 'data', 'causalidade', 'oferta_demanda', 'negacao', 'atribuicao', 'previsto_realizado', 'citacao'];
 const FID_SISTEMA =
   'Você é o verificador de fatos do OWNews. Recebe a FONTE (autoridade factual, pode estar em inglês) e um TEXTO DO OWNEWS em português (título, buddy, corpo, impacto e resumo). ' +
-  'Para cada afirmação do texto, confira o SIGNIFICADO na fonte. Paráfrase fiel, tradução correta, resumo e omissão NÃO são problema. Estilo não é problema. ' +
-  'Aponte só: contradicao (o texto diz o oposto), sem_suporte (afirmação central que a fonte não sustenta, inclusive itens de lista que a fonte não traz), entidade (empresa, pessoa, navio, sonda, campo, país ou cargo trocado), ' +
-  'numero (valor, percentual, quantidade ou ordem de grandeza diferente), data, causalidade (causa e efeito invertidos ou inventados), oferta_demanda (escassez × excesso, mais × menos), negacao (negação perdida ou criada), ' +
-  'atribuicao (algo posto na boca de quem não disse), previsto_realizado (plano/previsão contado como fato consumado ou o contrário), citacao (aspas que não estão na fonte). ' +
-  'Atenção a construções como "não X, mas Y" e "the scarcest resource is not A but B": o recurso escasso é B. ' +
-  '"grave": true quando muda o fato para o leitor; false para imprecisão pequena que não muda o sentido. ' +
-  'Responda SOMENTE JSON: {"problemas":[{"tipo":string,"campo":"titulo"|"buddy"|"corpo"|"impacto"|"resumo","trecho":string,"fonte":string,"grave":boolean}]} — lista vazia quando o texto é fiel.';
+  'Quebre o texto em afirmações (cada fato, número, nome, item de lista, declaração atribuída a alguém) e procure CADA uma na FONTE. ' +
+  'veredito por afirmação: "ok" (a fonte diz isso, mesmo com outras palavras ou traduzido), "sem_suporte" (a fonte não diz — inclusive item de lista, exemplo ou detalhe que não aparece no texto da fonte), ' +
+  '"contradicao" (a fonte diz o oposto), "entidade" (empresa, pessoa, navio, sonda, campo, país ou cargo trocado), "numero" (valor, percentual ou ordem de grandeza diferente), "data", ' +
+  '"causalidade" (causa e efeito invertidos ou inventados), "oferta_demanda" (escassez × excesso, mais × menos), "negacao" (negação perdida ou criada), "atribuicao" (posto na boca de quem não disse), ' +
+  '"previsto_realizado" (plano contado como fato consumado ou o contrário), "citacao" (aspas que não estão na fonte). ' +
+  'Paráfrase fiel, tradução correta, resumo e omissão são "ok". Estilo não importa. "não X, mas Y" / "not X but Y": o que vale é Y. ' +
+  'Confira todas, mas na resposta liste SOMENTE as que não são "ok". Responda SOMENTE JSON, curto: {"conferidas":número de afirmações conferidas,"afirmacoes":[{"campo":"titulo"|"buddy"|"corpo"|"impacto"|"resumo","trecho":string até 120 caracteres,"veredito":string,"fonte":string até 120 caracteres}]} — lista vazia quando tudo é fiel; "fonte" = o trecho da fonte que contradiz (vazio se não há).';
 async function verificarFidelidadeIA(env, fonte, campos) {
   if (!env || !env.AI) return { erro: 'ia_indisponivel' };
   const texto = Object.entries(campos).filter(([, v]) => v).map(([k, v]) => k.toUpperCase() + ': ' + String(v)).join('\n\n');
   let saida;
   try {
-    saida = await env.AI.run(BUDDY_IA_MODELO, { messages: [{ role: 'system', content: FID_SISTEMA }, { role: 'user', content: 'FONTE:\n' + String(fonte).slice(0, 6500) + '\n\nTEXTO DO OWNEWS:\n' + texto }], max_tokens: 700, temperature: 0, ...BUDDY_IA_OPCOES_MODELO });
+    saida = await env.AI.run(BUDDY_IA_MODELO, { messages: [{ role: 'system', content: FID_SISTEMA }, { role: 'user', content: 'FONTE:\n' + String(fonte).slice(0, 5600) + '\n\nTEXTO DO OWNEWS:\n' + texto }], max_tokens: 4000, temperature: 0, reasoning_effort: 'medium' });
   } catch (e) { return { erro: 'verificador:' + String(e && e.message || e).slice(0, 100) }; }
   const j = extrairJsonIA(saida);
-  if (!j || !Array.isArray(j.problemas)) return { erro: 'verificador_json_invalido' };
-  return { problemas: j.problemas.filter((p) => p && FID_TIPOS_IA.includes(String(p.tipo))).map((p) => ({ tipo: String(p.tipo), campo: String(p.campo || ''), trecho: String(p.trecho || '').slice(0, 200), fonte: String(p.fonte || '').slice(0, 200), grave: p.grave !== false })) };
+  const lista = j && (Array.isArray(j.afirmacoes) ? j.afirmacoes : Array.isArray(j.problemas) ? j.problemas : null);
+  if (!lista) return { erro: 'verificador_json_invalido' };
+  // Inferência no "impacto" (seção de leitura do OWNews) sem suporte literal = aviso; o resto muda o fato = grave.
+  return { conferidas: Number(j.conferidas) || null, problemas: lista.map((p) => p && Object.assign({}, p, { tipo: String(p.veredito || p.tipo || '') })).filter((p) => p && FID_TIPOS_IA.includes(p.tipo))
+    .map((p) => ({ tipo: p.tipo, campo: String(p.campo || ''), trecho: String(p.trecho || '').slice(0, 200), fonte: String(p.fonte || '').slice(0, 200), grave: !(p.tipo === 'sem_suporte' && p.campo === 'impacto') })) };
 }
 const FID_MOTIVO_LEGIVEL = { contradicao: 'Contradiz a fonte', sem_suporte: 'Afirmação sem suporte na fonte', entidade: 'Entidade trocada', numero: 'Número divergente da fonte', data: 'Data divergente da fonte', causalidade: 'Causa e efeito não sustentados pela fonte', oferta_demanda: 'Possível inversão entre oferta e demanda', negacao: 'Negação invertida', atribuicao: 'Atribuição não sustentada pela fonte', previsto_realizado: 'Previsão contada como fato realizado (ou o contrário)', citacao: 'Citação que não está na fonte' };
 /* Barreira final: PASS | WARN | BLOCK. "resumo" (lead da fonte traduzido) com problema não bloqueia
@@ -5895,7 +5898,7 @@ slug: criarSlug(tituloPublicado),
       // BLOCK na 1ª redação → uma 2ª, com o erro e o trecho da fonte; conferida de novo. Sem loop.
       let fid = null;
       if (camadaIA.ok) {
-        const fonteFid = String(materialFonte || '').slice(0, 5000) + (opIA.contexto ? '\n\n' + opIA.contexto : '');
+        const fonteFid = 'VEÍCULO DA FONTE: ' + fonte + '\n' + String(materialFonte || '').slice(0, 5000) + (opIA.contexto ? '\n\n' + opIA.contexto : '');
         const camposFid = (c) => ({ titulo: c.titulo || artigo.title, buddy: c.buddy_summary, corpo: c.corpo, impacto: c.why_it_matters, resumo: artigo.summary });
         gasto.n++;
         fid = await barreiraFidelidade(env, fonteFid, camposFid(camadaIA));
