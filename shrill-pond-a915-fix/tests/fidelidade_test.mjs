@@ -63,6 +63,14 @@ test('previsto × realizado e datas', () => {
   passa('The FPSO started production in 2025.', 'O FPSO começou a produzir em 2025.');
 });
 
+test('atribuição: declaração posta na boca de quem a fonte diz que não comentou', () => {
+  const F = 'An analyst at Rystad Energy said that rig demand in Brazil will stay high through 2027. Petrobras did not comment.';
+  bloqueia(F, 'A Petrobras afirmou que a demanda por sondas no Brasil seguirá alta até 2027.', 'atribuicao_sem_fonte');
+  bloqueia(F, 'Segundo a Petrobras, a demanda por sondas seguirá alta.', 'atribuicao_sem_fonte');
+  passa(F, 'Segundo a Rystad Energy, a demanda por sondas no Brasil seguirá alta até 2027.');
+  passa('Petrobras said the FPSO reached first oil.', 'A Petrobras informou que o FPSO produziu o primeiro óleo.');
+});
+
 test('confirmou × não confirmou', () => {
   bloqueia('A empresa não confirmou o contrato.', 'A empresa confirmou o contrato.', 'negacao_invertida');
   passa('A empresa não confirmou o contrato.', 'A empresa não confirmou o contrato com a operadora.');

@@ -5778,7 +5778,7 @@ function linkDocumentoPrimario(urlFonte) {
    registro em /correcoes (Política de Correções). Data = dia da correção. */
 const CORRECOES_NOTICIAS = [
   { id: "5aaebc26-6256-482f-9f6c-b0aa34c0c1f2", data: '2026-11-03', titulo: "Petrochina, CNOOC e Petrobras vencem 10º Leilão Spot da PPSA",
-    texto: "O resumo dizia que cada empresa garantiu lotes de 3 milhões de barris. Os 3 milhões de barris são a soma dos lotes das três empresas." },
+    texto: "O resumo dizia que cada empresa garantiu lotes de 3 milhões de barris. A Petrochina e a CNOOC arremataram uma carga de 1 milhão de barris cada, e a Petrobras, duas cargas de 500 mil barris." },
   { id: "6675332d-7fd6-4778-8dfd-fefa27654b5c", data: '2026-11-03', titulo: "Mais colaboração com a Petrobras eleva carteira da Oceânica para mais de US$ 2 bilhões",
     texto: "O título traduzia \"backlog\" como \"recuo\". O contrato eleva a carteira de pedidos da Oceânica para cerca de US$ 2,05 bilhões." },
   { id: "921b6278-2704-43bf-a2b3-9cc8d237fff6", data: '2026-11-03', titulo: "Descoberta de gás no Mar do Norte pode produzir até 10,3 milhões de barris de óleo equivalente",

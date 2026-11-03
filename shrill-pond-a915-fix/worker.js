@@ -4884,6 +4884,11 @@ const FID_NEG_CONF = /\b(nao (confirm\w*)|nunca confirm\w*|sem confirmacao|did n
 // "iniciou ... em 2027": verbo de fato consumado colado ao ano (até 40 caracteres, sem "previsto/prazo/
 // cronograma" no meio). Na fonte, olha o que vem antes do mesmo ano.
 const FID_REAL_ANO = new RegExp(FID_REALIZADO.source + '([^.;]{0,40}?)\\b(20\\d\\d)\\b', 'g');
+// Atribuição: "X afirmou / segundo X" quando a fonte diz que X NÃO comentou (P0 03/11, teste controlado).
+const FID_ATRIB_RE = /(?:\b(?:[Ss]egundo|[Dd]e acordo com|[Cc]onforme)\s+(?:o|a|os|as)?\s*([A-ZÀ-Ú][\wÀ-ú&.-]+(?:\s+[A-ZÀ-Ú][\wÀ-ú&.-]+){0,3})|([A-ZÀ-Ú][\wÀ-ú&.-]+(?:\s+[A-ZÀ-Ú][\wÀ-ú&.-]+){0,3})\s+(?:afirmou|afirma|disse|diz|declarou|informou|explicou|destacou|ressaltou|garantiu|confirmou|avalia|avaliou|prev[eê]))/g;
+function fidAtribuicoes(t) {
+  return [...String(t || '').matchAll(FID_ATRIB_RE)].map((m) => (m[1] || m[2]).replace(/^(A|O|As|Os|Em|No|Na|Para)\s+/, '').trim()).filter((n) => n.length >= 3);
+}
 function fidFrases(t) { return semAcento(t).split(/(?<=[.!?;])\s+|\n+/).filter(Boolean); }
 
 /* Regras determinísticas. Devolve problemas {tipo, campo, trecho, motivo} — motivo legível. */
@@ -4893,6 +4898,10 @@ function verificarRelacoesFonte(fonte, campos) {
   const fPct = fidDirecoesPct(F), fVal = fidValoresFonte(F), fFrases = fidFrases(F);
   for (const [campo, txt] of Object.entries(campos)) {
     if (!txt) continue;
+    for (const nome of new Set(fidAtribuicoes(txt))) {
+      const n = semAcento(nome).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (new RegExp('\\b' + n + '\\b[^.]{0,40}\\b(did not|didn\'t|declined to|has not|would not|nao)\\s+(comment|respond|reply|confirm|comentou|respondeu|se pronunciou|quis comentar)').test(fx)) problemas.push({ tipo: 'atribuicao_sem_fonte', campo, trecho: nome, motivo: `O texto atribui uma declaração a ${nome}, mas a fonte diz que ${nome} não comentou.` });
+    }
     const p = fidPolaridade(txt);
     if (p.exc && !fp.exc && fp.esc) problemas.push({ tipo: 'oferta_demanda_invertida', campo, motivo: 'Possível inversão entre oferta e demanda: o texto fala em excesso/oferta maior, a fonte fala em escassez.' });
     if (p.esc && !fp.esc && fp.exc) problemas.push({ tipo: 'oferta_demanda_invertida', campo, motivo: 'Possível inversão entre oferta e demanda: o texto fala em escassez, a fonte fala em excesso/oferta maior.' });
@@ -4931,6 +4940,7 @@ const FID_SISTEMA =
   '"contradicao" (a fonte diz o oposto), "entidade" (empresa, pessoa, navio, sonda, campo, país ou cargo trocado), "numero" (valor, percentual ou ordem de grandeza diferente), "data", ' +
   '"causalidade" (causa e efeito invertidos ou inventados), "oferta_demanda" (escassez × excesso, mais × menos), "negacao" (negação perdida ou criada), "atribuicao" (posto na boca de quem não disse), ' +
   '"previsto_realizado" (plano contado como fato consumado ou o contrário), "citacao" (aspas que não estão na fonte). ' +
+  'Para cada "segundo X", "X afirmou", "X disse", "para X": confira na fonte se é X mesmo quem diz aquilo; se quem diz é outra pessoa ou empresa, é "atribuicao". ' +
   'Paráfrase fiel, tradução correta, resumo e omissão são "ok". Estilo não importa. "não X, mas Y" / "not X but Y": o que vale é Y. ' +
   'Confira todas, mas na resposta liste SOMENTE as que não são "ok". Responda SOMENTE JSON, curto: {"conferidas":número de afirmações conferidas,"afirmacoes":[{"campo":"titulo"|"buddy"|"corpo"|"impacto"|"resumo","trecho":string até 120 caracteres,"veredito":string,"fonte":string até 120 caracteres}]} — lista vazia quando tudo é fiel; "fonte" = o trecho da fonte que contradiz (vazio se não há).';
 async function verificarFidelidadeIA(env, fonte, campos) {
