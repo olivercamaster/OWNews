@@ -430,6 +430,18 @@ export default {
     if (url.pathname === "/admin/materia-ownews") {
       return rotaAdminMateriaOWNews(request, env);
     }
+    // Correção de título (03/11/2026): tradução que muda o sentido ("shedding its stake" → "perda").
+    // Só título; valida PT-BR e tamanho; devolve o antigo. Registro público fica em /correcoes.
+    if (url.pathname === "/admin/corrigir-titulo" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      const id = d && String(d.id || ''), t = d && String(d.title || '').replace(/\s+/g, ' ').trim();
+      if (!/^[0-9a-f-]{36}$/i.test(id) || t.length < 15 || t.length > 170 || idiomaTexto(t) !== 'pt') return Response.json({ ok: false, erro: 'id ou título inválido' }, { status: 400 });
+      const r0 = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=title&id=eq.${id}`, { headers: supabaseHeaders(env) });
+      const antes = r0.ok ? ((await r0.json())[0] || {}).title : null;
+      if (!antes) return Response.json({ ok: false, erro: 'não encontrada' }, { status: 404 });
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${id}`, { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ title: t }) });
+      return Response.json({ ok: r.ok, http_status: r.status, antes, depois: t });
+    }
     if (url.pathname === "/admin/corrigir-idioma") {
       return rotaAdminCorrigirIdioma(request, env);
     }
