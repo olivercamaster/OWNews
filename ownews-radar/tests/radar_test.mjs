@@ -320,6 +320,19 @@ teste('indexação: só ficha com dado próprio entra no índice e no sitemap (A
   }
 });
 
+teste('contexto para notícias: relação pelo nome (unidade/campo), dados reais, nada inventado', async () => {
+  const { env, ctx } = await preparar();
+  const pedirCtx = async (t, r = '') => (await pedir(env, ctx, `/api/contexto?t=${encodeURIComponent(t)}&r=${encodeURIComponent(r)}`)).json();
+  const a = await pedirCtx('FPSO Almirante Barroso atinge novo pico de produção');
+  assert.ok(a.entidades.some((e) => e.tipo === 'Unidade' && e.nome === 'FPSO Almirante Barroso' && e.url === '/radar-offshore/unidades/fpso-almirante-barroso'));
+  assert.equal(a.fonte, 'ANP');
+  assert.deepEqual((await pedirCtx('Mercado de trabalho offshore aquece no fim do ano')).entidades, [], 'sem relação → vazio');
+  assert.deepEqual((await pedirCtx('curto')).entidades, []);
+  const xml = await (await pedir(env, ctx, '/sitemap.xml')).text();
+  assert.match(xml, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/, 'lastmod = data do snapshot');
+  assert.equal(fichaIndexavel('campo', { nome: 'Búzios_Eco', producao: { petroleo_bbl_d: 1, gas_mil_m3_d: 1 } }), false, 'jazida compartilhada fora do índice');
+});
+
 let falhas = 0;
 for (const [n, f] of testes) {
   try { await f(); console.log('ok   ' + n); } catch (e) { falhas++; console.log('FALHA ' + n + '\n      ' + String(e.message).split('\n').slice(0, 4).join('\n      ')); }

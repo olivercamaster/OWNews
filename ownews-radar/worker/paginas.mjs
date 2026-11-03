@@ -17,7 +17,8 @@ const temProducao = (p) => !!p && ((p.petroleo_bbl_d || 0) > 0 || (p.gas_mil_m3_
 export function fichaIndexavel(tipo, x, noticias) {
   if (!x) return false;
   if (tipo === 'unidade') return x.categoria !== 'sonda' && temProducao(x.producao);
-  if (tipo === 'campo') return temProducao(x.producao);
+  // Jazida compartilhada da ANP ("Búzios_Eco") duplica o campo-base: acessível, fora do índice (03/11/2026).
+  if (tipo === 'campo') return temProducao(x.producao) && !/_eco$/i.test(String(x.nome_anp || x.nome || ''));
   if (tipo === 'operador') return temProducao(x.producao) && (((noticias || {}).operadores || {})[x.id] || []).length > 0;
   return true;
 }

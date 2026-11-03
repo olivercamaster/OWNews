@@ -9,7 +9,8 @@
  */
 import * as P from './paginas.mjs';
 import { CSS, JS_FILTROS, JS_MAPA } from './estaticos.mjs';
-import { BASE } from './ui.mjs';
+import { BASE, barris, gas, mesExtenso } from './ui.mjs';
+import { relacionarNoticias } from '../ingestao/noticias.mjs';
 
 /** Versão do HTML: suba a cada mudança de página/CSS (entra na chave do cache de borda). */
 const VERSAO_UI = '4';
@@ -142,6 +143,38 @@ async function api(env, url) {
       fonte: 'ANP',
     });
   }
+  if (rota === 'contexto') {
+    // Contexto do Radar para uma notícia do OWNews (03/11/2026): mesmo critério de relação da
+    // ingestão (título + 1ª frase; unidade pelo nome completo ou P-NN; campo só com "campo"),
+    // calculado na hora contra o catálogo do KV. Só dados reais da ANP; sem relação → lista vazia.
+    const titulo = String(url.searchParams.get('t') || '').slice(0, 300), resumo = String(url.searchParams.get('r') || '').slice(0, 600);
+    if (titulo.length < 8) return json({ entidades: [] });
+    const { unidades, campos, operadores, noticias, meta } = await lerVarias(env, ['unidades', 'campos', 'operadores', 'noticias', 'meta']);
+    if (!unidades || !campos) return json({ entidades: [] }, 200, { 'cache-control': 'public, max-age=300' });
+    const rel = relacionarNoticias([{ id: 'n', title: titulo, buddy_summary: resumo, published_at: new Date().toISOString() }], { unidades, campos, operadores: operadores || [] }, { max: 1 });
+    const ops = new Map((operadores || []).map((o) => [o.id, o]));
+    const prod = (p) => (p && (p.petroleo_bbl_d > 0 || p.gas_mil_m3_d > 0) ? `Produção em ${mesExtenso(p.mes)}: ${barris(p.petroleo_bbl_d)} de petróleo e ${gas(p.gas_mil_m3_d)} de gás` : null);
+    // Nome-base do campo (a ANP lista jazidas compartilhadas como "Itapu_Eco") e nome do setor (P-NN).
+    const camposBase = (l) => [...new Set((l || []).map((c) => String(c.nome || '').replace(/_eco$/i, '').trim()).filter(Boolean))];
+    const nomeSetor = (n) => { const m = /^Petrobras (\d{1,3})$/.exec(n); return m ? `${n} (P-${m[1]})` : n; };
+    const ent = [];
+    for (const u of unidades.filter((x) => rel.unidades[x.id])) {
+      const op = ops.get(u.categoria === 'sonda' ? u.operador_sonda : u.operador);
+      ent.push({ tipo: u.categoria === 'sonda' ? 'Sonda' : 'Unidade', nome: nomeSetor(u.nome), url: `${BASE}/unidades/${u.slug}`, indexavel: P.fichaIndexavel('unidade', u, noticias),
+        dados: [u.tipo, op && (u.categoria === 'sonda' ? 'Operador da sonda: ' : 'Operador: ') + op.nome, u.bacia && `Bacia de ${u.bacia}`, camposBase(u.campos).length && `${camposBase(u.campos).length === 1 ? 'Campo' : 'Campos'}: ${camposBase(u.campos).slice(0, 3).join(', ')}`, prod(u.producao)].filter(Boolean) });
+    }
+    for (const c of campos.filter((x) => rel.campos[x.id])) {
+      const op = ops.get(c.operador);
+      ent.push({ tipo: 'Campo', nome: c.nome, url: `${BASE}/campos/${c.slug}`, indexavel: P.fichaIndexavel('campo', c, noticias),
+        dados: [c.bacia && `Bacia de ${c.bacia}`, op && `Operador: ${op.nome}`, c.situacao && `Situação: ${c.situacao}`, (c.unidades || []).length && `${c.unidades.length} ${c.unidades.length === 1 ? 'unidade de produção' : 'unidades de produção'}`, prod(c.producao)].filter(Boolean) });
+    }
+    // Empresa só quando nenhuma unidade/campo foi citado (senão toda nota da Petrobras teria o mesmo bloco).
+    if (!ent.length) for (const o of (operadores || []).filter((x) => rel.operadores[x.id] && x.producao && x.producao.petroleo_bbl_d > 0)) {
+      ent.push({ tipo: 'Operador', nome: o.nome, url: `${BASE}/operadores/${o.slug}`, indexavel: P.fichaIndexavel('operador', o, noticias),
+        dados: [`${o.campos.length} ${o.campos.length === 1 ? 'campo operado' : 'campos operados'} no mar`, o.unidades.length && `${o.unidades.length} ${o.unidades.length === 1 ? 'unidade de produção' : 'unidades de produção'}`, prod(o.producao)].filter(Boolean) });
+    }
+    return json({ entidades: ent.slice(0, 3), fonte: 'ANP', atualizado_em: meta?.gerado_em || null }, 200, { 'cache-control': 'public, max-age=3600' });
+  }
   if (rota.startsWith('geo/')) {
     const nome = rota.slice(4);
     if (nome === 'unidades') {
@@ -158,13 +191,15 @@ async function api(env, url) {
 }
 
 async function sitemap(env) {
-  const { unidades, campos, operadores, noticias } = await lerVarias(env, ['unidades', 'campos', 'operadores', 'noticias']);
+  const { unidades, campos, operadores, noticias, meta } = await lerVarias(env, ['unidades', 'campos', 'operadores', 'noticias', 'meta']);
+  // lastmod = data do snapshot de dados da ANP (muda só quando a ingestão traz dado novo; nunca a data do deploy).
+  const lastmod = meta && /^\d{4}-\d{2}-\d{2}/.test(String(meta.gerado_em || '')) ? String(meta.gerado_em).slice(0, 10) : null;
   // Só fichas indexáveis (mesma regra da página — P.fichaIndexavel).
   const urls = [BASE, ...['unidades', 'sondas', 'campos', 'operadores', 'producao', 'exploracao', 'futuro', 'mapa', 'fontes'].map((s) => `${BASE}/${s}`),
     ...(unidades || []).filter((u) => P.fichaIndexavel('unidade', u, noticias)).map((u) => `${BASE}/unidades/${u.slug}`),
     ...(campos || []).filter((c) => P.fichaIndexavel('campo', c, noticias)).map((c) => `${BASE}/campos/${c.slug}`),
     ...(operadores || []).filter((o) => P.fichaIndexavel('operador', o, noticias)).map((o) => `${BASE}/operadores/${o.slug}`)];
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>https://ownews.com.br${u}</loc></url>`).join('')}</urlset>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>https://ownews.com.br${u}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`).join('')}</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
 }
 
