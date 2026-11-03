@@ -442,6 +442,33 @@ export default {
       const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${id}`, { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ title: t }) });
       return Response.json({ ok: r.ok, http_status: r.status, antes, depois: t });
     }
+    // Pipeline v2 em simulação (somente leitura): lê a pauta, monta o pacote de contexto e, com
+    // ?ia=1, redige e avalia — sem gravar no banco nem na memória de pautas.
+    if (url.pathname === "/admin/simular-pauta") {
+      const alvo = url.searchParams.get("url") || "", fonte = url.searchParams.get("fonte") || "";
+      if (!/^https:\/\//.test(alvo) || !fonte) return Response.json({ ok: false, erro: "informe ?url=&fonte=" }, { status: 400 });
+      const gasto = { n: 1 };
+      const d = await lerNoticia(alvo, fonte);
+      const en = FONTES_IDIOMA_EN.has(fonte), tituloOriginal = url.searchParams.get("titulo") || d.title;
+      const out = { fonte, titulo_original: tituloOriginal, classe: classeEditorial(fonte, tituloOriginal), selecao: en ? selecaoInternacional(tituloOriginal) : { publicar: noticiaRelevante(tituloOriginal) }, links_primarios: d.linksPrimarios };
+      out.imagem = d.imageUrl ? await validarImagemRemota(d.imageUrl) : { ok: false, motivo: 'sem_imagem' };
+      gasto.n++;
+      let titulo = tituloOriginal, resumo = d.summary;
+      if (url.searchParams.get("ia") === "1" && precisaTraduzir(titulo, en)) { gasto.n++; titulo = (await traduzirTituloParaPT(env, titulo)) || titulo; out.titulo_traduzido = titulo; out.fidelidade_traducao = verificarFidelidadeTitulo(tituloOriginal, titulo); }
+      if (url.searchParams.get("ia") === "1" && precisaTraduzir(resumo, en)) { gasto.n++; resumo = await traduzirResumoParaPT(env, resumo); }
+      const pacote = await montarPacoteContexto(env, { fonte, tituloOriginal, titulo, resumo, linksPrimarios: d.linksPrimarios, url: alvo, gasto });
+      out.pacote = Object.assign({}, pacote, { primaria: pacote.primaria && { url: pacote.primaria.url, chars: pacote.primaria.texto.length } });
+      out.contexto_redacao = blocoContextoRedacao(pacote);
+      if (url.searchParams.get("ia") === "1") {
+        const material = en ? (d.content && d.content.length > String(resumo || '').length + 50 ? d.content : resumo) : (d.content || d.summary);
+        const c = await gerarCamadaEditorialIA(env, { title: titulo, summary: resumo, content: material }, material, 1, { tituloTraduzido: titulo !== tituloOriginal, contexto: out.contexto_redacao, tituloOriginal });
+        gasto.n += c.tentativas || 1;
+        out.redacao = c;
+        if (c.ok) out.valor = avaliarValorEditorial({ pacote, corpo: c.corpo, fonte, tituloOriginal });
+      }
+      out.subrequests = gasto.n;
+      return Response.json(out);
+    }
     if (url.pathname === "/admin/corrigir-idioma") {
       return rotaAdminCorrigirIdioma(request, env);
     }
@@ -3013,7 +3040,9 @@ async function acumularGateEditorial(env, resultados, orcamento) {
         tec: r.tecnicas || 0, tad: r.adiadas_tecnico || 0, orc: r.adiadas_orcamento || 0, ie: r.insercao_falhou || 0, ret: r.retidas || 0,
         // 03/11: seleção editorial (rotina internacional descartada) e classe das publicadas.
         rot: r.internacional_rotina || 0, cA: r.classe_A || 0, cB: r.classe_B || 0, cC: r.classe_C || 0, cD: r.classe_D || 0,
-        sim: r.sem_imagem || 0, imr: r.imagem_recusada || 0 };
+        sim: r.sem_imagem || 0, imr: r.imagem_recusada || 0,
+        // Pipeline v2: valor editorial das publicadas e contexto que a matéria realmente usou.
+        vH: (r.valor || {}).HIGH || 0, vM: (r.valor || {}).MEDIUM || 0, vL: (r.valor || {}).LOW || 0, xr: r.ctx_radar || 0, xh: r.ctx_historico || 0, xp: r.ctx_primaria || 0 };
       if (p || ei || funil.ant || funil.tec || funil.tad || funil.orc || funil.ret || funil.rot) entrada.fontes[nome] = Object.assign({ p, ei, cs, motivos }, funil);
       for (const item of r.noticias || []) {
         if (item.status === 'inserida' || ['fora_escopo', 'sem_buddy_valido', 'titulo_invalido'].includes(item.motivo)) entrada.ia_ok = true;
@@ -3043,7 +3072,7 @@ async function obterGateEditorialStats(env) {
     const agora = Date.now();
     function agregar(entradas) {
       const fontes = {};
-      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0 };
+      const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0, vH: 0, vM: 0, vL: 0, xr: 0, xh: 0, xp: 0 };
       let execucoes = 0, orcUsadoMax = 0, orcAtingido = 0, fontesAdiadas = 0;
       const fontesErro = new Set();
       let totalP = 0, totalEI = 0, iaComAp = 0;
@@ -3056,7 +3085,7 @@ async function obterGateEditorialStats(env) {
         for (const n of e.fontes_erro || []) fontesErro.add(n);
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
-          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
+          for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr', 'vH', 'vM', 'vL', 'xr', 'xh', 'xp']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
           if (f.ap !== undefined) iaComAp += f.ia || 0;
           fontes[nome].p += f.p || 0;
           fontes[nome].ei += f.ei || 0;
@@ -3099,6 +3128,8 @@ async function obterGateEditorialStats(env) {
         publicadas_classe: { A: funil.cA, B: funil.cB, C: funil.cC, D_duplicada: funil.cD },
         publicadas_sem_imagem_propria: funil.sim,
         imagens_recusadas: funil.imr,
+        valor_editorial: { HIGH: funil.vH, MEDIUM: funil.vM, LOW_fora_do_indice: funil.vL },
+        contexto_usado: { radar: funil.xr, historico_ownews: funil.xh, documento_primario: funil.xp },
         execucoes,
         orcamento_max_usado: orcUsadoMax || null,
         orcamento_limite: ORC_LIMITE,
@@ -4303,6 +4334,7 @@ const BUDDY_IA_SISTEMA =
   '"indireta" = energia em terra, combustíveis, refino, gás, política ou economia do petróleo. "nenhuma" = fora do setor de energia.\n\n' +
   'IMPACTO ("O que isso impacta para o offshore?"): 1 ou 2 frases afirmativas que citam um elemento concreto da matéria (unidade, campo, contrato, porto, regra, prazo) — com pelo menos um nome próprio ou número escrito exatamente como aparece na matéria, no meio da frase — e a consequência para operação, campanha, cronograma, logística, fornecedores ou produção. ' +
   'Se o efeito é indireto, diga concretamente como, sem especular ("pode elevar", "podendo gerar", "cadeia offshore" sem dizer qual). Sem impacto concreto sustentado pela matéria, devolva impacto "".\n\n' +
+  'CONTEXTO VERIFICADO: quando vier depois da matéria, também é material confirmado (dados públicos da ANP, matérias anteriores do OWNews, documento oficial). Use só o que ajudar o leitor a entender ESTE fato, em no máximo um parágrafo do corpo e sem forçar: dado do Radar com atribuição ("segundo dados da ANP"), cobertura anterior com a data ("Em 30/10/2026, o OWNews noticiou que…"), documento oficial como fonte do fato. Nunca use o contexto para criar relação, consequência ou número que a matéria e o contexto não sustentam; se não ajuda, ignore. Não abra todas as notas do mesmo jeito: comece pelo que é mais importante neste fato.\n\n' +
   'Use somente fatos explícitos: nenhum número, data ou nome que não esteja no texto. Números exatamente como na matéria: não arredonde, não some, não subtraia, não converta unidades (escreva "58 mil", nunca "58 000"). ' +
   'Fale de vagas ou empregos só se a matéria informar contratação ou número de empregos. ' +
   'NUNCA escreva: "isso pode", "pode afetar", "pode impactar", "pode levar", "pode gerar", "potencial", "isso significa", "isso importa", "oportunidades", "crescimento da economia", "acompanhe", "segmento central", "reforça", "vale destacar", "em resumo", "em um movimento", "nesse contexto", "marco importante".';
@@ -4443,6 +4475,9 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
   const material = String(materialFonte || artigo.content || artigo.summary || '').slice(0, 5000);
+  // Pipeline v2: contexto verificado entra na redação e nas checagens (números/nomes do contexto valem).
+  const contexto = String((opcoes && opcoes.contexto) || '').slice(0, 3500);
+  const materialChecagem = contexto ? material + '\n\n' + contexto : material;
   // Índice de newsletter (legenda de foto + chamadas "NESTA EDIÇÃO"): não é
   // matéria — virou nota com a legenda tratada como fato (Eixos, 21/10).
   // Divulgação de live/programa da própria fonte também não é fato (22/10).
@@ -4458,7 +4493,8 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
     saida = await env.AI.run(BUDDY_IA_MODELO, {
       messages: [
         { role: 'system', content: BUDDY_IA_SISTEMA },
-        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + pedidoTitulo +
+        { role: 'user', content: 'TÍTULO: ' + String(artigo.title || '') + '\n\nMATÉRIA:\n' + material + (contexto ? '\n\n' + contexto : '') + pedidoTitulo +
+          (t > 1 && /titulo:(sentido|sem_entidade|numero)/.test(String(artigo._motivos || '')) && opcoes && opcoes.tituloOriginal ? '\n\nO título anterior mudou o fato. Escreva o título com a MESMA ação, a mesma empresa e os mesmos números do título original: "' + String(opcoes.tituloOriginal).slice(0, 200) + '".' : '') +
           (t > 1 ? '\n\nATENÇÃO: a versão anterior foi reprovada (' + String(tentativa && artigo._motivos || '').slice(0, 160) + '). Corrija assim:\n' + (dicasReescritaIA(artigo._motivos) || '- Reescreva com vocabulário e ordem próprios, sem frases da matéria.') +
             (artigo._trechos && artigo._trechos.length ? '\nEstas frases da versão anterior repetem a matéria; não as reaproveite, diga o fato com outra estrutura:\n' + artigo._trechos.map((f) => '« ' + f.slice(0, 220) + ' »').join('\n') : '') : '') }
       ],
@@ -4483,7 +4519,7 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   const relacao = ['direta', 'indireta', 'nenhuma'].includes(j.relacao_offshore) ? j.relacao_offshore : null;
   if (relacao === 'nenhuma') return { ok: false, relacao, motivos: ['fora_escopo'] };
   const corpo = Array.isArray(j.corpo) ? j.corpo.map((p) => String(p || '').trim()).filter(Boolean).join('\n\n') : String(j.corpo || '');
-  const v = validarMateriaOWNews({ buddy_summary: String(j.buddy || ''), why_it_matters: String(j.impacto || ''), corpo }, artigo, material);
+  const v = validarMateriaOWNews({ buddy_summary: String(j.buddy || ''), why_it_matters: String(j.impacto || ''), corpo }, artigo, materialChecagem);
   if (!v.ok) {
     // Uma segunda redação quando a reprovação é de forma — o gate não é
     // afrouxado, só se pede outro texto.
@@ -4494,7 +4530,12 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
     return { ok: false, relacao, motivos: v.motivos, tentativas: t };
   }
   // Acervo (retroprocessamento) mantém o título já publicado.
-  const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, material, opcoes && opcoes.tituloTraduzido, t > 1);
+  const tit = manterTitulo ? { ok: true, titulo: null } : escolherTituloOWNews(artigo.title, j.titulo, materialChecagem, opcoes && opcoes.tituloTraduzido, t > 1);
+  // Fidelidade do título (v2): ação, entidade e números do título ORIGINAL da fonte.
+  if (tit.ok && opcoes && opcoes.tituloOriginal) {
+    const fid = verificarFidelidadeTitulo(opcoes.tituloOriginal, tit.titulo || artigo.title);
+    if (!fid.ok) { tit.ok = false; tit.motivos = fid.motivos; }
+  }
   if (!tit.ok) {
     // Matéria aprovada e só o título falhou: uma 2ª redação com a dica do
     // título (o texto inteiro passa de novo pelo mesmo gate).
@@ -4554,6 +4595,147 @@ function classeEditorial(fonte, tituloOriginal) {
   if (FONTES_OFICIAIS_BR.has(fonte)) return 'A';
   if (!FONTES_IDIOMA_EN.has(fonte)) return 'B';
   return selecaoInternacional(tituloOriginal).motivo === 'brasil' ? 'B' : 'C';
+}
+
+/* ==== PIPELINE EDITORIAL v2 — PACOTE DE CONTEXTO (04/11/2026) ====
+   Antes da redação, monta um pacote com o que dá para VERIFICAR: documento oficial citado pela
+   matéria (fonte primária), dados do Radar Offshore sobre a unidade/campo/operador citado (entidade
+   exata, ANP) e matérias anteriores do OWNews sobre a MESMA entidade (do banco, nunca da memória da
+   IA). Nada disso é obrigatório: sem contexto verificável, a nota segue só com a fonte — e o valor
+   editorial fica baixo (fora do índice). Custo máximo: 3 subrequests por pauta nova. */
+const DOMINIOS_PRIMARIOS = ['petrobras.com.br', 'ppsa.gov.br', 'anp.gov.br', 'epe.gov.br', 'ibama.gov.br', 'equinor.com', 'shell.com', 'sbmoffshore.com', 'modec.com', 'subsea7.com', 'seadrill.com', 'transocean.com', 'prio3.com.br', 'ocyan.com.br'];
+function dominioPrimario(host) {
+  const h = String(host || '').toLowerCase().replace(/^www\./, '');
+  return /(^|\.)(gov|mil|leg|jus)\.br$/.test(h) || DOMINIOS_PRIMARIOS.some((d) => h === d || h.endsWith('.' + d));
+}
+/* Links do CORPO da matéria para documento oficial (não home, não rede social, não o próprio site). */
+function extrairLinksPrimarios(html, urlBase) {
+  let hostBase = '';
+  try { hostBase = new URL(urlBase).hostname.replace(/^www\./, ''); } catch {}
+  const area = String(html || '').replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, ' ');
+  const vistos = new Set(), out = [];
+  for (const m of area.matchAll(/<a\s[^>]*href="(https?:\/\/[^"#]+)"/gi)) {
+    let u; try { u = new URL(m[1].replace(/&amp;/g, '&')); } catch { continue; }
+    const h = u.hostname.replace(/^www\./, '');
+    if (h === hostBase || !dominioPrimario(h) || u.pathname.split('/').filter(Boolean).length < 2 || vistos.has(u.href)) continue;
+    if (/\.(jpg|jpeg|png|gif|webp|zip)$/i.test(u.pathname) || /(facebook|twitter|linkedin|instagram|youtube|whatsapp)/i.test(h)) continue;
+    vistos.add(u.href); out.push(u.href);
+    if (out.length >= 2) break;
+  }
+  return out;
+}
+
+// Liga/desliga o pipeline v2 na coleta (a rota /admin/simular-pauta usa sempre).
+const PIPELINE_V2_ATIVO = false;
+const RADAR_CONTEXTO_URL = 'https://ownews.com.br/radar-offshore/api/contexto';
+const semAcento = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function classeFonte(fonte, tituloOriginal) {
+  if (FONTES_OFICIAIS_BR.has(fonte)) return 'OFFICIAL_BR';
+  if (!FONTES_IDIOMA_EN.has(fonte)) return 'PRESS_BR';
+  return selecaoInternacional(tituloOriginal).motivo === 'brasil' ? 'INTL_BR' : 'INTL';
+}
+/* Termo para achar a MESMA entidade no acervo: "Petrobras 71 (P-71)" → "P-71"; campo/FPSO pelo nome. */
+function termoEntidade(e) {
+  if (!e || (e.tipo !== 'Unidade' && e.tipo !== 'Campo' && e.tipo !== 'Sonda')) return null;
+  const p = /\((P-\d{1,3})\)/.exec(e.nome);
+  const t = p ? p[1] : String(e.nome || '').trim();
+  return t.length >= 4 ? t : null;
+}
+async function montarPacoteContexto(env, p) {
+  const pac = { fonte_classe: classeFonte(p.fonte, p.tituloOriginal), radar: [], radar_base: null, historico: [], primaria: null };
+  const g = p.gasto || { n: 0 };
+  try {
+    g.n++;
+    const r = await fetch(RADAR_CONTEXTO_URL + '?t=' + encodeURIComponent(String(p.titulo || '').slice(0, 300)) + '&r=' + encodeURIComponent(String(p.resumo || '').slice(0, 500)), { signal: AbortSignal.timeout(5000) });
+    const j = r.ok ? await r.json() : null;
+    if (j && Array.isArray(j.entidades)) { pac.radar = j.entidades.slice(0, 3); pac.radar_base = j.atualizado_em || null; }
+  } catch { /* sem Radar, sem contexto do Radar */ }
+  const termos = [...new Set(pac.radar.map(termoEntidade).filter(Boolean))].slice(0, 3);
+  if (termos.length && env.SUPABASE_URL) {
+    try {
+      g.n++;
+      const desde = new Date(Date.now() - 365 * 86400000).toISOString();
+      const ou = termos.map((t) => 'title.ilike.*' + t.replace(/[*,()]/g, ' ') + '*').join(',');
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,created_at,original_url&status=eq.published&buddy_source=eq.ownews&created_at=gte.${encodeURIComponent(desde)}&or=(${encodeURIComponent(ou)})&order=created_at.desc&limit=6`, { headers: supabaseHeaders(env) });
+      const l = r.ok ? await r.json() : [];
+      // Relação forte: o título anterior cita a entidade como palavra inteira.
+      const casa = (titulo) => termos.some((t) => new RegExp('(^|[^\\p{L}\\d])' + semAcento(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\d])', 'u').test(semAcento(titulo)));
+      pac.historico = (Array.isArray(l) ? l : []).filter((a) => a.original_url !== p.url && casa(a.title)).slice(0, 3)
+        .map((a) => ({ id: a.id, titulo: a.title, data: String(a.created_at).slice(0, 10) }));
+    } catch { /* sem histórico */ }
+  }
+  if (!FONTES_OFICIAIS_BR.has(p.fonte) && (p.linksPrimarios || []).length) {
+    try {
+      g.n++;
+      const html = await baixarPagina(p.linksPrimarios[0]);
+      const txt = String(extrairConteudoMateria(html) || '').replace(/\s+/g, ' ').trim();
+      if (txt.length >= 300) pac.primaria = { url: p.linksPrimarios[0], texto: txt.slice(0, 1500) };
+    } catch { /* documento oficial fora do ar: segue sem ele */ }
+  }
+  return pac;
+}
+const dataBrCurta = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : ''; };
+function blocoContextoRedacao(pac) {
+  if (!pac) return '';
+  const l = [];
+  for (const e of pac.radar) l.push(`- Radar Offshore do OWNews (dados públicos da ANP${pac.radar_base ? ', base de ' + dataBrCurta(pac.radar_base) : ''}) — ${e.tipo} ${e.nome}: ${(e.dados || []).join('; ')}.`);
+  for (const h of pac.historico) l.push(`- Em ${dataBrCurta(h.data)}, o OWNews publicou: "${h.titulo}".`);
+  if (pac.primaria) l.push(`- Documento oficial citado pela matéria (${(() => { try { return new URL(pac.primaria.url).hostname; } catch { return 'fonte oficial'; } })()}): ${pac.primaria.texto}`);
+  return l.length ? 'CONTEXTO VERIFICADO PELO OWNEWS (use só o que ajudar a entender o fato):\n' + l.join('\n') : '';
+}
+
+/* Fidelidade do título: ação, entidade e números do título da fonte precisam sobreviver à tradução/
+   reescrita. "Shell sheds stake" → "por perda de participação" (03/11) reprovaria aqui. */
+const ACOES_TITULO = {
+  venda: /\b(sells?|selling|sold|sheds?|shedding|divests?|divesting|offloads?|offloading|vende\w*|venda|desinvest\w*)\b/,
+  compra: /\b(acquires?|acquired|buys?|bought|purchases?|compra\w*|adquir\w*|aquisi[cç][aã]o)\b/,
+  contrato: /\b(wins?|won|awards?|awarded|secures?|lands?|nets?|contracts?|orders?|contrat\w*|conquist\w*|venc\w*|garant\w*|fecha\w*|encomend\w*)\b/,
+  inicio: /\b(starts?|started|begins?|kicks? off|first (oil|gas)|start-?up|inici\w*|come[cç]\w*|entra em (opera|produ)\w*|primeiro (óleo|oleo|gás|gas))\b/,
+  descoberta: /\b(discover\w*|finds?|found|hits? paydirt|descobr\w*|descoberta|encontr\w*)\b/,
+  negativo: /\b(loss|loses?|losing|lost|dry|cancels?|halts?|suspends?|abandons?|perd\w*|seco|cancel\w*|suspend\w*|interromp\w*|abandon\w*)\b/,
+};
+const ACOES_CONTRARIAS = [['venda', 'compra'], ['venda', 'negativo'], ['inicio', 'negativo'], ['descoberta', 'negativo'], ['contrato', 'negativo']];
+function acoesTitulo(t) { const x = semAcento(t); return Object.keys(ACOES_TITULO).filter((k) => ACOES_TITULO[k].test(x)); }
+function verificarFidelidadeTitulo(original, final) {
+  const o = acoesTitulo(original), f = acoesTitulo(final), motivos = [];
+  for (const [a, b] of ACOES_CONTRARIAS) {
+    if ((o.includes(a) && !o.includes(b) && f.includes(b) && !f.includes(a)) || (o.includes(b) && !o.includes(a) && f.includes(a) && !f.includes(b))) motivos.push('titulo:sentido_' + a + '_' + b);
+  }
+  // Nomes próprios do título da fonte (inclusive a 1ª palavra, quando é nome): pelo menos um precisa
+  // estar no título final. Adjetivo pátrio vale pelo radical ("Australian" → "Austrália"); siglas EN → PT.
+  const GENERICAS = /^(The|And|For|With|From|After|Into|Over|Its|New|First|Four|Two|Three|North|South|East|West|Offshore|Oil|Gas|Fatal|Search|How|Why|What|Global|UK|US)$/;
+  const SIGLAS = { lng: 'gnl', flng: 'gnl', fsru: 'fsru', fpso: 'fpso', epci: 'epci', fid: 'decisao' };
+  const nomes = String(original || '').split(/\s+/).map((w) => w.replace(/[^\p{L}\d&-]/gu, '')).filter((w) => /^\p{Lu}[\p{L}\d&-]{2,}$/u.test(w) && !GENERICAS.test(w));
+  const fn = semAcento(final);
+  // Lugares mudam de grafia na tradução ("Gabon" → "Gabão", "Australian" → "Austrália"): radical.
+  const palavrasFinal = fn.split(/[^a-z0-9]+/).filter(Boolean);
+  const presente = (n) => { const k = semAcento(n); return fn.includes(SIGLAS[k] || k) || (k.length >= 5 && palavrasFinal.some((w) => w.length >= 4 && w.slice(0, 3) === k.slice(0, 3) && Math.abs(w.length - k.length) <= 3)); };
+  if (nomes.length && !nomes.some(presente)) motivos.push('titulo:sem_entidade');
+  // Números do título final precisam existir no título da fonte (ou no material, conferido pelo gate).
+  const nums = (t) => (String(t || '').match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.'));
+  const no = nums(original);
+  if (no.length && nums(final).some((n) => !no.includes(n) && !no.some((x) => Math.abs(parseFloat(x) - parseFloat(n)) < 1e-9))) motivos.push('titulo:numero_diferente');
+  return { ok: !motivos.length, motivos };
+}
+
+/* Valor editorial (controle de qualidade, não SEO): mede o que a nota ENTREGA, não a origem.
+   HIGH = usou contexto verificável (Radar com dado, cobertura anterior, documento oficial).
+   MEDIUM = fato oficial brasileiro, ou grande evento/acidente/urgência (curto, mas relevante).
+   LOW = uma fonte parafraseada e nada mais → publicada fora do índice. Imagem não conta. */
+function avaliarValorEditorial({ pacote, corpo, fonte, tituloOriginal }) {
+  const c = semAcento(corpo);
+  const usouRadar = !!pacote && pacote.radar.some((e) => {
+    const nome = semAcento(termoEntidade(e) || e.nome);
+    const numeros = (e.dados || []).join(' ').match(/\d+(?:,\d+)?/g) || [];
+    return c.includes(nome) && numeros.some((n) => n.length >= 2 && c.includes(n));
+  });
+  const usouHistorico = !!pacote && pacote.historico.length > 0 && /ownews (ja )?(noticiou|publicou|informou|mostrou|registrou)/.test(c);
+  const usouPrimaria = !!pacote && !!pacote.primaria;
+  const urgente = /\b(acidente|explos|incendio|vazamento|morte|fatal|resgate|desaparec)/.test(semAcento(corpo).slice(0, 400));
+  const sel = FONTES_IDIOMA_EN.has(fonte) ? selecaoInternacional(tituloOriginal).motivo : null;
+  const valor = (usouRadar || usouHistorico || usouPrimaria) ? 'HIGH'
+    : (FONTES_OFICIAIS_BR.has(fonte) || urgente || sel === 'grande_evento' || sel === 'trabalhador_ou_acidente') ? 'MEDIUM' : 'LOW';
+  return { valor, usou: { radar: usouRadar, historico: usouHistorico, primaria: usouPrimaria } };
 }
 
 /* ==== IMAGEM VÁLIDA OU FALLBACK (03/11/2026) ====
@@ -4629,6 +4811,7 @@ const ORC_LIMITE = 36;
 const CUSTO_FONTE = 3;      // feed + títulos recentes + URLs existentes (+1 quando lê a memória)
 const CUSTO_PAUTA_PT = 8;   // página + banner + validação da imagem + IA (até 2) + arquivo + memória + gravação
 const CUSTO_PAUTA_EN = 10;  // + tradução de título e resumo
+const CUSTO_CONTEXTO_V2 = 3; // pacote de contexto: Radar + histórico OWNews + documento primário
 function comOrcamento(env) {
   if (!env || env.__orc) return env;
   const e = Object.create(env);
@@ -5327,7 +5510,9 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
         resultado.noticias.push({ titulo: item.title, status: decisaoTec === 'esgotado' ? 'tecnico_esgotado' : 'adiada_tecnico', erro: (contexto._memoria.tec.get(hashItem) || {}).e, fonte });
         continue;
       }
-      const custo = FONTES_IDIOMA_EN.has(fonte) ? CUSTO_PAUTA_EN : CUSTO_PAUTA_PT;
+      // Pipeline v2: + Radar, histórico OWNews e documento primário (até 3 subrequests).
+      const v2 = PIPELINE_V2_ATIVO || !!env.__v2;
+      const custo = (FONTES_IDIOMA_EN.has(fonte) ? CUSTO_PAUTA_EN : CUSTO_PAUTA_PT) + (v2 ? CUSTO_CONTEXTO_V2 : 0);
       if (!reservarOrcamento(env, custo)) {
         resultado.adiadas_orcamento = (resultado.adiadas_orcamento || 0) + 1;
         resultado.noticias.push({ titulo: item.title, status: 'adiada_orcamento', fonte });
@@ -5501,9 +5686,13 @@ slug: criarSlug(tituloPublicado),
       // (mesmo gate, mesma 2ª tentativa — custa 1 chamada de IA, não 2).
       const recuperacao = decisaoRej === 'recuperar';
       if (recuperacao) resultado.recuperacoes = (resultado.recuperacoes || 0) + 1;
+      // Pipeline v2: pacote de contexto verificável ANTES da redação (fato + Radar + cobertura
+      // anterior do OWNews + documento oficial) e fidelidade ao título original da fonte.
+      const pacote = v2 ? await montarPacoteContexto(env, { fonte, tituloOriginal: item.title, titulo: tituloPublicado, resumo: resumoPublicado || artigo.summary, linksPrimarios: detalhes.linksPrimarios, url: item.url, gasto }) : null;
+      const opIA = Object.assign({ tituloTraduzido: tituloPublicado !== tituloFinal }, v2 ? { contexto: blocoContextoRedacao(pacote), tituloOriginal: item.title } : {});
       const camadaIA = recuperacao
-        ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, { tituloTraduzido: tituloPublicado !== tituloFinal })
-        : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, { tituloTraduzido: tituloPublicado !== tituloFinal });
+        ? await gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: (rejAnterior.m || []).join(',') || 'reprovada' }), materialFonte, 2, opIA)
+        : await gerarCamadaEditorialIA(env, artigo, materialFonte, 1, opIA);
       if (!(camadaIA.motivos || []).includes('sem_material')) gasto.n += camadaIA.tentativas || 1;
       // sem_material reprova ANTES de chamar a IA: não é avaliação do redator.
       if (!camadaIA.erro && !(camadaIA.motivos || []).includes('sem_material')) {
@@ -5534,6 +5723,14 @@ slug: criarSlug(tituloPublicado),
         artigo.why_it_matters = camadaIA.why_it_matters;
         artigo.buddy_source = MATERIA_OWNEWS;
         artigo.buddy_reviewed_at = new Date().toISOString();
+        if (v2) {
+          const ve = avaliarValorEditorial({ pacote, corpo: camadaIA.corpo, fonte, tituloOriginal: item.title });
+          const ed = { versao: 2, fonte_classe: pacote.fonte_classe, valor: ve.valor, usou: ve.usou, radar: pacote.radar.map((e) => e.nome), historico: ve.usou.historico ? pacote.historico : [], primaria: pacote.primaria ? pacote.primaria.url : null };
+          if (artigo.score_reason && typeof artigo.score_reason === 'object') artigo.score_reason.editorial = ed;
+          resultado.valor = resultado.valor || { HIGH: 0, MEDIUM: 0, LOW: 0 };
+          resultado.valor[ve.valor]++;
+          for (const k of ['radar', 'historico', 'primaria']) if (ve.usou[k]) resultado['ctx_' + k] = (resultado['ctx_' + k] || 0) + 1;
+        }
         // Mesmo acontecimento já publicado a partir de outra fonte (títulos
         // diferentes, fatos iguais): publica como 'duplicada' — fica
         // acessível, mas fora do índice e da Home. Limiar calibrado no
@@ -5557,6 +5754,7 @@ slug: criarSlug(tituloPublicado),
         const _motivoGate = camadaIA.erro ? 'ia_indisponivel'
           : (camadaIA.motivos || []).includes('fora_escopo') ? 'fora_escopo'
           : (camadaIA.motivos || []).includes('sem_material') ? 'sem_material'
+          : (camadaIA.motivos || []).some((m) => /^titulo:(sentido|sem_entidade|numero)/.test(m)) ? 'titulo_infiel'
           : (camadaIA.motivos || []).some((m) => m.startsWith('titulo:')) ? 'titulo_invalido'
           : _isCS && !corpoEnParaGate ? 'content=summary'
           : 'sem_buddy_valido';
@@ -5711,7 +5909,8 @@ return {
   imageUrl: imagemPrincipal,
   imageCaption,
   imageCredit: fonte,
-  publishedAt: extrairData(html)
+  publishedAt: extrairData(html),
+  linksPrimarios: extrairLinksPrimarios(html, url)
 };
 } function extrairConteudoMateria(html) {
   let area = html;
