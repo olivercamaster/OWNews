@@ -218,6 +218,15 @@ function textoEmIngles(texto) {
 /* Contexto da arte e da legenda: o resumo, só se estiver em PT-BR (resumo em
    inglês sai vazio — a arte e a legenda funcionam sem contexto). */
 function contextoPublico(artigo) {
+  // Fonte única de fatos (P0 03/11/2026): matéria OWNews → o Buddy, que passou pela barreira de
+  // fidelidade à fonte no collector. O "summary" é o lead cru da fonte (pode divergir do texto
+  // validado) — só vale para matérias antigas sem Buddy.
+  if (artigo && artigo.buddy_source === 'ownews' && artigo.buddy_summary) {
+    const fr = String(artigo.buddy_summary).replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+/g) || [];
+    let b = (fr[0] || '').trim();
+    for (const f of fr.slice(1)) { if ((b + ' ' + f.trim()).length > 260) break; b += ' ' + f.trim(); }
+    if (b.length >= 40 && !textoEmIngles(b)) return b;
+  }
   const c = artigo && artigo.summary ? limparPrefixoFonte(artigo.summary) : null;
   return c && !textoEmIngles(c) ? c : null;
 }
@@ -413,7 +422,7 @@ function editoriaDeInstagram(artigo) {
 
 async function buscarCandidatosNoticia(env, agora = Date.now()) {
   const desde = new Date(agora - JANELA_FRESCOR_MS).toISOString();
-  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=60`;
+  const url = `${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,buddy_summary,image_url,image_credit,original_url,published_at,buddy_source&status=eq.published&published_at=gte.${encodeURIComponent(desde)}&order=published_at.desc&limit=60`;
   const resp = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
   if (!resp.ok) throw new Error(`Supabase (articles) HTTP ${resp.status}`);
   return resp.json();
@@ -1196,7 +1205,7 @@ export default {
       try {
         const { articleId } = await request.json();
         if (!articleId) return Response.json({ ok: false, erro: 'articleId obrigatório' }, { status: 400 });
-        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,image_url,image_credit,original_url,published_at&id=eq.${encodeURIComponent(articleId)}`, {
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,summary,buddy_summary,buddy_source,image_url,image_credit,original_url,published_at&id=eq.${encodeURIComponent(articleId)}`, {
           headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
         });
         if (!r.ok) return Response.json({ ok: false, erro: `Supabase HTTP ${r.status}` }, { status: 502 });
