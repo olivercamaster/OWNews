@@ -522,6 +522,40 @@ export default {
       }
       return Response.json({ auditadas: arts.length - semFonte, sem_fonte_arquivada: semFonte, suspeitas: out });
     }
+    // Auditoria de imagens (somente leitura): notícias publicadas dos últimos N dias com image_url e fonte.
+    if (url.pathname === "/admin/auditar-imagens") {
+      const dias = Math.min(60, Number(url.searchParams.get("dias")) || 30);
+      const desde = new Date(Date.now() - dias * 86400000).toISOString();
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,title,image_url,image_credit,original_url,created_at,published_at,buddy_source,editorial_score&status=eq.published&created_at=gte.${encodeURIComponent(desde)}&order=created_at.desc&limit=1000`, { headers: supabaseHeaders(env) });
+      return Response.json(r.ok ? await r.json() : { erro: r.status });
+    }
+    // Recuperação de foto real (04/11/2026): só para matéria SEM imagem ou com imagem que não passa na
+    // validação (quebrada/miniatura). Mesma extração + bloqueio de banner repetido + validação dos bytes
+    // da coleta. Nunca troca foto válida; só mexe em image_url (título, texto, data, URL intactos).
+    if (url.pathname === "/admin/recuperar-imagens" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      const ids = (d && Array.isArray(d.ids) ? d.ids : []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 8);
+      if (!ids.length) return Response.json({ ok: false, erro: "ids" }, { status: 400 });
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?select=id,original_url,image_url,image_credit&id=in.(${ids.join(',')})`, { headers: supabaseHeaders(env) });
+      const out = [];
+      for (const a of (r.ok ? await r.json() : [])) {
+        try {
+          if (a.image_url) { const atual = await validarImagemRemota(decodificarEntidadesUrl(a.image_url)); if (atual.ok) { out.push({ id: a.id, status: 'mantida_foto_valida' }); continue; } }
+          const html = await baixarPagina(a.original_url);
+          let nova = extrairImagemPrincipal(html, a.original_url);
+          if (!nova) { const j = extrairImagemJsonLd(html, a.original_url); nova = j && j.url; }
+          if (!nova) { out.push({ id: a.id, status: 'sem_imagem_na_origem' }); continue; }
+          nova = decodificarEntidadesUrl(nova);
+          if (nova === a.image_url) { out.push({ id: a.id, status: 'mesma_imagem_invalida' }); continue; }
+          if (await imagemPareceBannerRepetidoDaFonte(env, nova, a.image_credit)) { out.push({ id: a.id, status: 'banner_repetido', imagem: nova }); continue; }
+          const v = await validarImagemRemota(nova);
+          if (!v.ok) { out.push({ id: a.id, status: 'recusada', motivo: v.motivo, imagem: nova }); continue; }
+          const p = await fetch(`${env.SUPABASE_URL}/rest/v1/articles?id=eq.${a.id}`, { method: 'PATCH', headers: { ...supabaseHeaders(env), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ image_url: nova }) });
+          out.push({ id: a.id, status: p.ok ? 'recuperada' : 'erro_gravacao', antes: a.image_url, imagem: nova, w: v.w, h: v.h });
+        } catch (e) { out.push({ id: a.id, status: 'erro', erro: String(e.message).slice(0, 100) }); }
+      }
+      return Response.json({ ok: true, resultados: out });
+    }
     if (url.pathname === "/admin/bloqueadas") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/bloqueadas");
@@ -2817,7 +2851,12 @@ async function avaliarSaudeEditorial(env) {
     sem_imagem_propria_usa_fallback: artigos.filter((a) => !a.image_url).length,
     grupos_imagem_repetida_3mais: gruposRepetidos.length,
     detalhe_grupos_repetidos: gruposRepetidos.map(([chave, n]) => ({ chave, ocorrencias: n })),
-    observacao: "Artigos sem image_url própria NUNCA ficam sem foto na página — recebem uma imagem editorial de fallback (biblioteca licenciada CC BY/CC BY-SA), sempre marcada como 'Imagem ilustrativa'. Este contador mede a taxa de extração de foto real na fonte, não a cobertura visual da página.",
+    // Saúde compacta para o Command Center (04/11/2026): 24 h, cobertura 7 d e as fontes com pior foto real.
+    janela_24h: (() => { const r = artigos.filter((a) => agora - new Date(a.created_at || a.published_at).getTime() <= 86400000); return { publicadas: r.length, foto_real: r.filter((a) => a.image_url).length, capa_editorial: r.filter((a) => !a.image_url).length }; })(),
+    cobertura_real_7d_pct: artigos.length ? Math.round(artigos.filter((a) => a.image_url).length / artigos.length * 100) : null,
+    piores_fontes_7d: (() => { const m = {}; for (const a of artigos) { const f = a.image_credit || '?'; m[f] = m[f] || { fonte: f, total: 0, foto_real: 0 }; m[f].total++; if (a.image_url) m[f].foto_real++; }
+      return Object.values(m).filter((x) => x.total >= 2 && x.foto_real < x.total).map((x) => Object.assign(x, { pct: Math.round(x.foto_real / x.total * 100) })).sort((x, y) => x.pct - y.pct || y.total - x.total).slice(0, 4); })(),
+    observacao: "Sem image_url própria a matéria mostra a capa editorial OWNews (gráfica, nunca finge ser foto do fato). Este contador mede a extração de foto real na fonte; foto que não passa na validação dos bytes (tamanho, formato) não é gravada.",
     observacao_repeticao: "grupos_imagem_repetida_3mais > 0 nos últimos 7 dias indica um banner/template ainda não bloqueado (ver IMAGENS_BANNER_CONHECIDAS e imagemPareceBannerRepetidoDaFonte) — rodar POST /corrigir-imagens-banner corrige o histórico já publicado; a coleta nova já bloqueia sozinha a partir da 3ª ocorrência."
   };
 
@@ -6250,6 +6289,34 @@ function decodificarEntidadesUrl(u) {
   return r.replace(/&#0*39;|&#x0*27;|&apos;/gi, "'").replace(/&quot;|&#0*34;|&#x0*22;/gi, '"');
 }
 
+/* A versão GRANDE da mesma foto (04/11/2026): o WordPress põe no src a miniatura ("-300x200.jpg",
+   PetroNotícias) e as versões maiores no srcset da mesma <img>. Antes, 57 de 60 matérias do
+   PetroNotícias em 30 dias ficavam com a miniatura de 300 px (abaixo do mínimo) → capa genérica.
+   Escolhe a maior largura até 1600 px do srcset da tag que contém a imagem escolhida — nunca outra foto. */
+function maiorVersaoImagem(html, url, urlPagina) {
+  try {
+    const nome = new URL(url).pathname.split('/').pop().replace(/-\d+x\d+(?=\.\w+$)/, '');
+    const base = nome.replace(/\.\w+$/, '');
+    if (base.length < 4) return url;
+    for (const tag of String(html).match(/<img\b[^>]*>/gi) || []) {
+      if (!tag.includes(base)) continue;
+      const ss = /\b(?:data-)?srcset=["']([^"']+)["']/i.exec(tag);
+      if (!ss) continue;
+      let melhor = null, wMax = 0;
+      for (const parte of ss[1].split(',')) {
+        const [u, d] = parte.trim().split(/\s+/);
+        const w = parseInt(d, 10);
+        if (!u || !/w$/.test(d || '') || !(w > wMax) || w > 1600) continue;
+        const abs = new URL(decodificarEntidadesUrl(u), urlPagina).href;
+        // Só versões da MESMA imagem (mesmo nome-base): nunca troca a foto.
+        if (!new URL(abs).pathname.split('/').pop().replace(/-\d+x\d+(?=\.\w+$)/, '').startsWith(base)) continue;
+        melhor = abs; wMax = w;
+      }
+      if (melhor) return melhor;
+    }
+  } catch { /* fica com a original */ }
+  return url;
+}
 function extrairImagemPrincipal(html, urlPagina) {
   const candidatas = [];
 
@@ -6325,10 +6392,13 @@ function extrairImagemPrincipal(html, urlPagina) {
       const absoluta = new URL(decodificarEntidadesUrl(candidata), urlPagina).href;
 
       // Rejeita imagens que claramente não são foto da notícia
+      // 04/11: "leilao_gas_..._sem_logo.png" (PPSA) e "banner-portal-1.png" guardado na PRÓPRIA pasta
+      // da notícia (gov.br/Plone, MME) são a imagem do release — o filtro por palavra os descartava.
+      const daPropriaNoticia = (() => { try { const pg = new URL(urlPagina); const im = new URL(absoluta); return im.hostname === pg.hostname && pg.pathname.length > 20 && im.pathname.startsWith(pg.pathname.replace(/\/$/, '') + '/'); } catch { return false; } })();
+      const nomeFiltrado = absoluta.replace(/sem[_-]?logo/gi, '');
       if (
-        /logo|brasao|brasão|favicon|icone|icon|avatar|banner|assinatura|sprite|placeholder|publicidade|patrocinad|anuncio|anúncio|megabanner|_layouts\//i.test(
-          absoluta
-        )
+        /logo|brasao|brasão|favicon|icone|icon|avatar|assinatura|sprite|placeholder|publicidade|patrocinad|anuncio|anúncio|megabanner|_layouts\//i.test(nomeFiltrado) ||
+        (!daPropriaNoticia && /banner/i.test(nomeFiltrado))
       ) {
         continue;
       }
@@ -6358,7 +6428,7 @@ function extrairImagemPrincipal(html, urlPagina) {
         /\.(jpg|jpeg|png|webp)(\?|$)/i.test(absoluta) ||
         /@@images|image|imagem|foto|noticia|news|uploads/i.test(absoluta)
       ) {
-        return absoluta;
+        return maiorVersaoImagem(html, absoluta, urlPagina);
       }
     } catch {
       continue;
