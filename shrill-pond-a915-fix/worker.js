@@ -3032,6 +3032,7 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
   const janela6 = (gate && gate.janelas && gate.janelas['6h']) || g24;
   const pipeline = diagnosticarPipeline({ horasSemPublicar: semPublicar, janela: janela6, fontesComErro: [...new Set([...(janela6.fontes_com_erro || []), ...fontesErro])] });
   const rotuloSilencio = idadeUltima === null ? 'nenhuma matéria em 7 dias' : Math.round(semPublicar) + 'h sem publicar';
+  if (pipeline.estado === 'gravacao_falhando') { status = 'VERMELHO'; motivos.push('GRAVAÇÃO FALHANDO: ' + pipeline.motivos.join('; ')); }
   if (pipeline.estado === 'editorial_pipeline_stalled') { status = 'VERMELHO'; motivos.push('pipeline travado (editorial_pipeline_stalled): ' + rotuloSilencio + ' — ' + pipeline.motivos.join('; ')); }
   else if (semPublicar >= 12 && pipeline.estado === 'gate_reprovando_tudo') { status = 'VERMELHO'; motivos.push('gate reprovando todas as pautas novas: ' + rotuloSilencio); }
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
@@ -5206,6 +5207,9 @@ function diagnosticarPipeline({ horasSemPublicar, janela, fontesComErro }) {
   if (adiadasOrc) motivos.push(adiadasOrc + ' pauta(s) adiada(s) por orçamento de subrequests');
   if ((fontesComErro || []).length) motivos.push('fonte com erro: ' + fontesComErro.join(', '));
   const sem = Number.isFinite(horasSemPublicar) ? horasSemPublicar : Infinity;
+  // Matéria APROVADA perdida na gravação do banco (04/11: summary nulo, 23502) é sempre alarme, mesmo
+  // com outras publicando — o watchdog antigo só via "erro técnico" genérico depois de 6 h de silêncio.
+  if (j.insercao_falhou) return { estado: 'gravacao_falhando', novas, tecnicas, adiadas_orcamento: adiadasOrc, motivos: [j.insercao_falhou + ' matéria(s) aprovada(s) recusada(s) pelo banco na gravação — ver /admin/tecnicas'].concat(motivos) };
   if (sem < 6) return { estado: 'publicando', novas, tecnicas, adiadas_orcamento: adiadasOrc, motivos };
   // Pauta nova existe e a maior parte dela trava por motivo técnico.
   if ((tecnicas + adiadasOrc) >= 3 && (tecnicas + adiadasOrc) * 2 >= novas) {

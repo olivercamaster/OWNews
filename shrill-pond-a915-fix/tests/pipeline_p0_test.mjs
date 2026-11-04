@@ -183,6 +183,15 @@ test('watchdog — RECORRÊNCIA: roda, centenas passam, nada publica por erro si
   assert.equal(s.pipeline.estado, 'editorial_pipeline_stalled');
 });
 
+test('watchdog — matéria aprovada recusada pelo banco é alarme mesmo publicando (incidente 04/11)', () => {
+  const d = W.diagnosticarPipeline({ horasSemPublicar: 1, janela: { ia_avaliadas: 5, ia_aprovadas: 5, insercao_falhou: 3 }, fontesComErro: [] });
+  assert.equal(d.estado, 'gravacao_falhando');
+  assert.match(d.motivos[0], /3 matéria\(s\) aprovada\(s\) recusada\(s\) pelo banco/);
+  const s = W.calcularSaudeEditorial({ agora: Date.now(), artigos: [{ buddy_source: 'ownews', published_at: iso(1), created_at: iso(1) }], gate: { '24h': {}, janelas: { '6h': { insercao_falhou: 1 } } }, automacao: {} });
+  assert.equal(s.status, 'VERMELHO');
+  assert.ok(s.motivos.some((m) => /GRAVAÇÃO FALHANDO/.test(m)));
+});
+
 test('watchdog — dia fraco (só memória e pauta irrelevante) é silêncio editorial, não falha', () => {
   const janela = { ia_avaliadas: 2, ia_aprovadas: 0, tecnicas: 0, adiadas_orcamento: 0, barradas_memoria: 300, motivos: { reprovada_recente: 300 } };
   const d = W.diagnosticarPipeline({ horasSemPublicar: 19, janela, fontesComErro: [] });
