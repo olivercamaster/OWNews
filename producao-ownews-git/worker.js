@@ -1104,15 +1104,18 @@ const CAPA_EDITORIAL_ROTULOS = {
   eolica_offshore: 'Eólica offshore', navio_apoio_maritimo: 'Apoio marítimo', porto_logistica: 'Portos & Logística',
   petroleo_gas: 'Petróleo & Gás', regulacao_mercado: 'Mercado & Regulação', energia_industria: 'Energia', offshore: 'Offshore'
 };
-function capaEditorialSvg(rotulo) {
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d3550"/><stop offset="1" stop-color="#061c2b"/></linearGradient></defs>' +
-    '<rect width="1200" height="675" fill="url(#g)"/><g fill="none" stroke="#5fc4ee" stroke-width="2">' +
-    [[520, 300, .2], [430, 245, .16], [340, 190, .13], [250, 140, .1], [160, 90, .08]].map((e) => '<ellipse cx="600" cy="338" rx="' + e[0] + '" ry="' + e[1] + '" stroke-opacity="' + e[2] + '"/>').join('') +
+// Tons [fundo claro, fundo escuro, traço, centro x] — mesma identidade, sem três capas iguais em fila.
+const CAPA_EDITORIAL_TONS = [['#0d3550', '#061c2b', '#5fc4ee', 600], ['#123a4a', '#05161f', '#7fd3c4', 820], ['#1b2f52', '#0a1426', '#9db8f2', 380]];
+function capaEditorialSvg(rotulo, tom) {
+  const [c1, c2, tr, cx] = tom || CAPA_EDITORIAL_TONS[0];
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient></defs>' +
+    '<rect width="1200" height="675" fill="url(#g)"/><g fill="none" stroke="' + tr + '" stroke-width="2">' +
+    [[520, 300, .2], [430, 245, .16], [340, 190, .13], [250, 140, .1], [160, 90, .08]].map((e) => '<ellipse cx="' + cx + '" cy="338" rx="' + e[0] + '" ry="' + e[1] + '" stroke-opacity="' + e[2] + '"/>').join('') +
     '</g><text x="600" y="318" text-anchor="middle" fill="#5fc4ee" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="700" letter-spacing="6">OWNEWS</text>' +
     '<text x="600" y="384" text-anchor="middle" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="700">' + rotulo.replace(/&/g, '&amp;') + '</text></svg>';
   return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
-const CAPAS_EDITORIAIS = Object.fromEntries(Object.entries(CAPA_EDITORIAL_ROTULOS).map(([k, v]) => [k, capaEditorialSvg(v)]));
+const CAPAS_EDITORIAIS = Object.fromEntries(Object.entries(CAPA_EDITORIAL_ROTULOS).map(([k, v]) => [k, CAPA_EDITORIAL_TONS.map((t) => capaEditorialSvg(v, t))]));
 // Capa institucional 1200×630 (Static Asset) para compartilhar matéria sem foto utilizável — nunca finge ser o fato.
 const OG_IMAGEM_PADRAO = 'https://ownews.com.br/img/og-ownews.jpg';
 /* CSS das páginas internas (artigo, hubs, ferramentas): Static Asset
@@ -3942,7 +3945,11 @@ function imagemDe(noticia){
   }
   // Sem foto utilizável da fonte: capa editorial OWNews da editoria
   // (nunca foto de outra unidade/navio).
-  return { src: CAPAS_EDITORIAIS[classificarImagem(noticia) || 'offshore'] || CAPAS_EDITORIAIS.offshore, ilustracao: true, variant: '', credito: null };
+  // Mesma variação de tom do servidor (hash do id), para a hidratação não trocar a capa.
+  var capas = CAPAS_EDITORIAIS[classificarImagem(noticia) || 'offshore'] || CAPAS_EDITORIAIS.offshore;
+  var hs = 0, ks = String(noticia.id || noticia.title || '');
+  for (var i = 0; i < ks.length; i++) hs = (hs * 31 + ks.charCodeAt(i)) >>> 0;
+  return { src: capas[hs % capas.length], ilustracao: true, variant: '', credito: null };
 }
 
 function notaIlustrativa(img, compacta){
@@ -6417,6 +6424,8 @@ const HOME_TOLERANCIA_FUTURO_H = 0.25; // relógio da fonte adiantado até 15 mi
 const HOME_TOPO_MAX_H = 24;
 const HOME_FAIXAS_HERO_H = [12, 18, 24];
 const HOME_LATERAL_PREFERENCIA_H = 12;
+const HOME_HERO_FOTO_TOLERANCIA = 0.85;
+const HOME_HERO_FOTO_MAX_MAIS_VELHA_H = 6;
 const HOME_ULTIMAS_MAX_H = 48;
 function fatorFrescorHome(h) {
   if (!Number.isFinite(h) || h < -HOME_TOLERANCIA_FUTURO_H || h > HOME_TOPO_MAX_H) return 0;
@@ -6465,6 +6474,19 @@ function selecionarHomeServidor(noticias, agoraMs) {
     if (hero) break;
   }
   if (!hero && topo.length) hero = melhorHome(topo.filter(vitrine).length ? topo.filter(vitrine) : topo, agoraMs);
+  // 04/11/2026: manchete com capa editorial é exceção. Se outra matéria da vitrine, com foto real,
+  // tem relevância×frescor parecida (>= 85% da escolhida), no máximo 6 h mais velha e dentro das 24 h,
+  // ela vira a manchete — a escolhida continua no bloco como secundária. Foto nunca vence matéria forte
+  // com folga: fora da tolerância, a manchete fica como está.
+  const fotoReal = (n) => !!n.image_url && (typeof imagemValidaServidor !== 'function' || imagemValidaServidor(n.image_url));
+  if (hero && !fotoReal(hero)) {
+    const ptsHero = homeScoreServidor(hero, agoraMs), hHero = horasHome(hero, agoraMs);
+    const alt = topo.filter((n) => n.id !== hero.id && fotoReal(n) && (vitrine(n) || !vitrine(hero)) &&
+      horasHome(n, agoraMs) <= hHero + HOME_HERO_FOTO_MAX_MAIS_VELHA_H && homeScoreServidor(n, agoraMs) >= ptsHero * HOME_HERO_FOTO_TOLERANCIA &&
+      (relevanciaHome(n) >= HOME_SCORE_FORTE || relevanciaHome(hero) < HOME_SCORE_FORTE));
+    const melhor = melhorHome(alt, agoraMs);
+    if (melhor) hero = melhor;
+  }
   const laterais = [];
   if (hero) {
     const pref = (n) => { const h = horasHome(n, agoraMs); return h <= HOME_LATERAL_PREFERENCIA_H ? 0 : h <= HOME_TOPO_MAX_H ? 1 : 2; };
@@ -6744,7 +6766,10 @@ function hashSimplesServidor(texto) {
 // isolates/requisições diferentes — sem estado mutável de módulo).
 function imagemFallbackServidor(artigo) {
   const categoria = classificarImagemServidor(artigo) || 'offshore';
-  return { src: CAPAS_EDITORIAIS[categoria] || CAPAS_EDITORIAIS.offshore, credito: null, ilustrativa: true };
+  // 3 variações de cor por editoria (determinístico pelo id): capas lado a lado não ficam idênticas.
+  const v = hashSimplesServidor(artigo && (artigo.id || artigo.title)) % CAPA_EDITORIAL_TONS.length;
+  const capas = CAPAS_EDITORIAIS[categoria] || CAPAS_EDITORIAIS.offshore;
+  return { src: capas[v], credito: null, ilustrativa: true };
 }
 // Retorna a imagem real (se válida) ou a de fallback — nunca null.
 function imagemComFallbackServidor(artigo) {
@@ -20772,6 +20797,7 @@ async function ccColetarEditorial(env) {
     revisao_pendente: saude.revisao_pendente || 0,
     gate_editorial: gateStats || null,
     saude_editorial: saude.saude_editorial || null,
+    imagens: saude.imagens ? { h24: saude.imagens.janela_24h || null, pct7d: saude.imagens.cobertura_real_7d_pct, piores: saude.imagens.piores_fontes_7d || [] } : null,
     pipeline,
     instagram: igFrag ? {
       habilitado: igFrag.habilitado,
@@ -21437,7 +21463,13 @@ function renderCCDashboard() {
     'h+=ccLn(\'Workers AI\',esc({ok:\'respondendo\',cota_esgotada:\'cota diária esgotada — volta 00:00 UTC\',falha:\'falha técnica\',sem_dado:\'sem registro\'}[s.ia_status]||s.ia_status),s.ia_status===\'ok\'?\'var(--green)\':s.ia_status===\'sem_dado\'?\'\':\'var(--red)\');' +
     'return h+\'</div>\';}' +
     'function renderPipeline(e){' +
-    'var h=renderSaudeEditorial(e.saude_editorial)+\'<div class="cc-secao"><h2>Pipeline editorial</h2>\';' +
+    // Imagens das notícias (04/11/2026): foto real × capa editorial, compacto.
+    'function renderImagensCC(m){if(!m)return \'\';var a=m.h24||{};var h=\'<div class="cc-secao"><h2>Imagens das notícias</h2>\';' +
+    'h+=ccLn(\'24h\',fmtNum(a.foto_real||0)+\' com foto real · \'+fmtNum(a.capa_editorial||0)+\' com capa editorial\',a.capa_editorial>a.foto_real?\'var(--yellow)\':\'\');' +
+    'h+=ccLn(\'Cobertura real 7d\',m.pct7d==null?\'—\':m.pct7d+\'%\',m.pct7d!=null&&m.pct7d<70?\'var(--yellow)\':\'var(--green)\');' +
+    'if(m.piores&&m.piores.length)h+=ccLn(\'Fontes com menos foto (7d)\',m.piores.map(function(x){return esc(x.fonte)+\' \'+x.foto_real+\'/\'+x.total;}).join(\' · \'));' +
+    'return h+\'</div>\';}' +
+    'var h=renderSaudeEditorial(e.saude_editorial)+renderImagensCC(e.imagens)+\'<div class="cc-secao"><h2>Pipeline editorial</h2>\';' +
     'var au=e.automacao||{};var hc=ccHorasDesde(au.ultimo_sucesso||e.ultimoTrigger);' +
     'if(au.erro_execucao)h+=ccLn(\'Collector\',\'ERRO — \'+esc(au.erro_execucao),\'var(--red)\');' +
     'else if(hc==null)h+=ccLn(\'Collector\',\'sem registro\',\'var(--muted)\');' +

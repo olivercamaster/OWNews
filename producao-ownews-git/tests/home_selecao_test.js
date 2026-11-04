@@ -67,6 +67,20 @@ test("CASO 1: forte de 22h perde para quase tão forte de 3h", () => {
   expect(s.hero.id === B.id, "hero=" + s.hero.title);
 });
 
+test("CASO 1f (04/11): manchete sem foto cede para matéria de relevância parecida COM foto real", () => {
+  const semFoto = art(3, 80, { image_url: null }), comFoto = art(4, 78, { image_url: "https://fonte.teste/foto-grande.jpg" });
+  const s = H.selecionarHomeServidor(ordenar([semFoto, comFoto, art(8, 55)]), AGORA);
+  expect(s.hero.id === comFoto.id, "hero=" + s.hero.title);
+  expect(s.laterais.some((x) => x.id === semFoto.id), "a sem foto continua no bloco");
+});
+test("CASO 1g (04/11): foto não vence matéria forte com folga nem traz matéria velha", () => {
+  const forte = art(2, 95, { image_url: null }), fraca = art(3, 55, { image_url: "https://fonte.teste/a.jpg" });
+  expect(H.selecionarHomeServidor(ordenar([forte, fraca]), AGORA).hero.id === forte.id, "folga de relevância mantém a manchete");
+  const nova = art(1, 80, { image_url: null }), velha = art(10, 80, { image_url: "https://fonte.teste/b.jpg" });
+  expect(H.selecionarHomeServidor(ordenar([nova, velha]), AGORA).hero.id === nova.id, "foto não traz matéria 9 h mais velha");
+  const comFoto = art(2, 80, { image_url: "https://fonte.teste/c.jpg" }), outra = art(1, 82, { image_url: "https://fonte.teste/d.jpg" });
+  expect(H.selecionarHomeServidor(ordenar([comFoto, outra]), AGORA).hero.id === outra.id, "com foto real, a regra de sempre vale");
+});
 test("CASO 1c (03/11): internacional fora do índice de 1h não toma a manchete da brasileira de 10h", () => {
   const intl = art(1, 90, { _noIndice: false }), br = art(10, 80, { _noIndice: true });
   const s = H.selecionarHomeServidor(ordenar([intl, br, art(12, 60, { _noIndice: true })]), AGORA);
