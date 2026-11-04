@@ -22653,6 +22653,8 @@ export default {
 
     // Eleições 2026 encerradas (26/10/2026): links antigos vão para a Home; abas abertas param de receber dados.
     if (url.pathname === "/eleicoes-2026") return Response.redirect(url.origin + "/", 301);
+    // /noticias nunca existiu (a lista é a Home + sitemaps), mas é a URL que se adivinha: 301 para as Últimas.
+    if (url.pathname === "/noticias" || url.pathname === "/noticias/") return Response.redirect("https://ownews.com.br/#ultimas", 301);
     if (url.pathname.startsWith("/api/eleicoes-2026/")) return new Response('{"ok":false,"encerrado":true}', { status: 410, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
 
     // Placares de futebol: página /jogos + JSON mínimo (snapshot do provedor no Cache API).
