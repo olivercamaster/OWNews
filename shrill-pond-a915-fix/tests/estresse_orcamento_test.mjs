@@ -54,7 +54,7 @@ function mundo() {
   };
   let doObj;
   const stub = { fetch: async (req, init) => { cont.n++; return doObj.fetch(typeof req === 'string' ? new Request(req, init) : req); } };
-  const env = { SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'k', SUPABASE_ANON_KEY: 'k', AI: { run: async () => ({}) },
+  const env = { SUPABASE_URL: SB, SUPABASE_SERVICE_ROLE_KEY: 'k', SUPABASE_ANON_KEY: 'k', AI: { run: async () => ({ response: '{"conferidas":1,"afirmacoes":[]}' }) },
     BUDDY_IA_DO: { idFromName: () => 'g', get: () => stub }, SAUDE_KV: { get: async () => null, put: async () => {} } };
   doObj = new W.BuddyIAPoller_(state, env);
   return { env, banco, storage, cont };

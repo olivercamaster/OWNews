@@ -6009,7 +6009,9 @@ slug: criarSlug(tituloPublicado),
             ? { ok: false, erro: 'fidelidade:' + fid.erro, tentativas: camadaIA.tentativas }
             : { ok: false, relacao: camadaIA.relacao, motivos: ['fidelidade:' + [...new Set(fid.problemas.filter((p) => p.campo !== 'resumo').map((p) => p.tipo))].join('+')], motivo_legivel: fid.motivo, tentativas: camadaIA.tentativas,
                 bloqueio: { motivo: fid.motivo, origem: fid.origem, problemas: fid.problemas, url: artigo.original_url, rascunho: { titulo: camadaIA.titulo || artigo.title, buddy: camadaIA.buddy_summary, corpo: camadaIA.corpo, impacto: camadaIA.why_it_matters } } };
-        } else if (fid.removerResumo) artigo.summary = null;
+        // summary é NOT NULL no banco: null derrubava a gravação (23502 — 3 matérias aprovadas perdidas
+        // em 04/11, incidente "Giro vazio"). Lead da fonte suspeito sai do ar com o texto neutro de sempre.
+        } else if (fid.removerResumo) artigo.summary = `Informação publicada por ${fonte}.`;
       }
       if (!(camadaIA.motivos || []).includes('sem_material')) gasto.n += camadaIA.tentativas || 1;
       // sem_material reprova ANTES de chamar a IA: não é avaliação do redator.
@@ -7042,9 +7044,12 @@ async function inserirArtigo(env, artigo) {
 
   if (!resposta.ok) {
     const detalhe = await resposta.text();
-
+    // "message" primeiro: o registro de falha corta em 200 caracteres e "details" (a linha inteira)
+    // escondia a coluna culpada (04/11: summary nulo).
+    let msg = detalhe;
+    try { const j = JSON.parse(detalhe); msg = [j.code, j.message, j.details].filter(Boolean).join(' | '); } catch { /* texto cru */ }
     throw new Error(
-      `Erro Supabase ao inserir: ${resposta.status} ${detalhe}`
+      `Erro Supabase ao inserir: ${resposta.status} ${msg}`
     );
   }
 }

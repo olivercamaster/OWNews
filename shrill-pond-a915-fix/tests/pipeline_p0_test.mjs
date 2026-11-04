@@ -37,6 +37,8 @@ function ambiente({ insercao = 201, existentes = [], verificador = { response: '
       cont.supabase++;
       if ((init.method || 'GET') === 'POST') {
         const corpo = JSON.parse(init.body);
+        // Igual ao banco real: summary é NOT NULL (incidente 04/11).
+        if (corpo.summary == null) return new Response('{"code":"23502","message":"null value in column \\"summary\\" violates not-null constraint"}', { status: 400 });
         if (insercao !== 201) return new Response('{"code":"23514","message":"new row violates check constraint \\"articles_status_check\\""}', { status: insercao });
         cont.inseridos.push(corpo);
         return new Response('', { status: 201 });
@@ -149,6 +151,17 @@ test('barreira de fidelidade: BLOCK → uma 2ª redação; bloqueou de novo → 
   assert.match(r.noticias[0].motivo_legivel, /oferta e demanda/);
   const bloq = [...storage].find(([k]) => k.startsWith('bloq:'));
   assert.ok(bloq && bloq[1].rascunho.corpo && bloq[1].motivo, 'rascunho fica para diagnóstico');
+});
+
+test('barreira: resumo da fonte suspeito sai do ar SEM gravar summary nulo (NOT NULL no banco — incidente 04/11)', async () => {
+  const it = item(10);
+  const soResumo = { response: JSON.stringify({ problemas: [{ tipo: 'numero', campo: 'resumo', trecho: '223.980 m³/d', grave: true }] }) };
+  const { env, cont } = ambiente({ verificador: soResumo });
+  globalThis.__IA = async (e, art) => { cont.ia++; return aprovada(art); };
+  await W.processarNoticias(W.comOrcamento(env), 'Eixos', [it], {});
+  assert.equal(cont.inseridos.length, 1, 'publica');
+  assert.ok(typeof cont.inseridos[0].summary === 'string' && cont.inseridos[0].summary.length > 0, 'summary nunca nulo');
+  assert.match(cont.inseridos[0].summary, /^Informação publicada por Eixos\.$/);
 });
 
 test('idempotência: URL já no banco não grava de novo nem chama IA', async () => {
