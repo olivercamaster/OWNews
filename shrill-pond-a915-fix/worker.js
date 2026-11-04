@@ -2706,7 +2706,9 @@ async function avaliarSaudeOffVoos(env) {
     };
   }
 
-  const idadeMin = Math.round((agora - new Date(snapshot.atualizado_em).getTime()) / 60000);
+  // Idade = última verificação bem-sucedida (o snapshot só muda quando os voos mudam).
+  const ultimaVerificacao = Math.max(new Date(snapshot.atualizado_em).getTime() || 0, new Date(snapshot.verificado_em || 0).getTime() || 0);
+  const idadeMin = Math.round((agora - ultimaVerificacao) / 60000);
   const comDados = snapshot.aeroportos.filter((a) => a.status === "ok").length;
   const comErro = snapshot.aeroportos.filter((a) => a.status === "error");
 
@@ -2721,7 +2723,8 @@ async function avaliarSaudeOffVoos(env) {
     habilitado: true,
     estado,
     ultimo_fetch: snapshot.atualizado_em,
-    ultimo_sucesso: comDados > 0 ? snapshot.atualizado_em : null,
+    ultimo_sucesso: comDados > 0 ? (snapshot.verificado_em || snapshot.atualizado_em) : null,
+    dados_mudaram_em: snapshot.atualizado_em,
     ultimo_erro: comErro.length ? comErro[0].erro : null,
     idade_dados_min: idadeMin,
     aeroportos_monitorados: OFFVOOS_HUBS.length,
@@ -8382,7 +8385,9 @@ export class OffVoosPoller {
   async fetch(request) {
     await this.pronto;
     if (request && new URL(request.url).pathname === "/snapshot") {
-      return new Response(JSON.stringify((await this.state.storage.get("snapshot")) || null), { headers: { "Content-Type": "application/json" } });
+      const snap = await this.state.storage.get("snapshot");
+      const verificadoEm = await this.state.storage.get("verificado_em");
+      return new Response(JSON.stringify(snap ? Object.assign({}, snap, { verificado_em: verificadoEm || null }) : null), { headers: { "Content-Type": "application/json" } });
     }
     return new Response(JSON.stringify({ ok: true, alarme_ativo: true }), {
       headers: { "Content-Type": "application/json" }
@@ -8393,7 +8398,10 @@ export class OffVoosPoller {
     try {
       let anterior = await this.state.storage.get("snapshot");
       if (!anterior && this.env.SAUDE_KV) { try { anterior = JSON.parse(await this.env.SAUDE_KV.get("offvoos_snapshot") || "null"); } catch { anterior = null; } }
-      await coletarTodosOffVoos(this.env, anterior || null, (reg) => this.state.storage.put("snapshot", reg));
+      const reg = await coletarTodosOffVoos(this.env, anterior || null, (r) => this.state.storage.put("snapshot", r));
+      // 04/11/2026: o snapshot só é regravado quando o voo MUDA (write-if-changed); sem este registro o
+      // /saude via "stale" em madrugada calma com o poller funcionando. Storage do DO, não KV.
+      if (reg && (reg.aeroportos || []).some((a) => a.status === "ok")) await this.state.storage.put("verificado_em", new Date().toISOString());
     } catch (e) {
       console.error("[OffVoos DO] erro na coleta, será tentado de novo no próximo ciclo:", e.message);
     }
