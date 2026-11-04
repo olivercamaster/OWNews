@@ -597,6 +597,15 @@ export default {
           : tec && decisaoFalhaTecnica(tec, Date.now()) !== 'tentar' ? 'falha técnica (' + tec.e + '), ' + tec.n + ' tentativa(s)'
           : 'ainda não avaliada ou fora do feed/filtro de relevância' });
     }
+    // Falha técnica causada por bug NOSSO (ex.: summary nulo, 04/11): limpa o registro só das pautas
+    // indicadas, para tentarem de novo na próxima coleta em vez de esperar 24 h.
+    if (url.pathname === "/admin/tecnicas/limpar" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      const hs = (d && Array.isArray(d.hashes) ? d.hashes : []).filter((h) => /^[0-9a-f]{64}$/.test(h)).slice(0, 20);
+      const stub = env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global"));
+      for (const h of hs) await stub.fetch("https://buddy-ia.interno/tecnica?hash=" + h, { method: "DELETE" });
+      return Response.json({ ok: true, limpas: hs.length });
+    }
     if (url.pathname === "/admin/tecnicas") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/tecnicas");
@@ -5506,6 +5515,7 @@ export class BuddyIAPoller {
       return Response.json(tec);
     }
     if (url.pathname === '/tecnica') {
+      if (request.method === 'DELETE') { await this.state.storage.delete('tec:' + (url.searchParams.get('hash') || '')); return Response.json({ ok: true }); }
       const v = await this.state.storage.get('tec:' + (url.searchParams.get('hash') || ''));
       return Response.json(v === undefined ? null : v);
     }
