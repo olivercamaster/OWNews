@@ -1016,8 +1016,11 @@ const AGENDA_FONTES = [
   { nome: "SPE Offshore Europe", url: "https://www.offshore-europe.co.uk/en-gb.html", tipo: "jsonld" },
   { nome: "OSEA", url: "https://www.osea-asia.com/", tipo: "jsonld" }
 ];
+// "Hoje" da agenda é o dia de Brasília (04/11/2026): em UTC, depois das 21 h BRT o evento do dia já
+// aparecia como encerrado e o seguinte como "hoje".
+function hojeBrtAgenda(agoraMs) { return new Date((agoraMs == null ? Date.now() : agoraMs) - 3 * 3600000).toISOString().slice(0, 10); }
 function statusEvento(ev, hojeStr) {
-  const hoje = hojeStr || new Date().toISOString().slice(0, 10);
+  const hoje = hojeStr || hojeBrtAgenda();
   if (hoje >= ev.dataInicio && hoje <= ev.dataFim) return 'HOJE';
   if (hoje < ev.dataInicio) return 'PRÓXIMO';
   return 'ENCERRADO';
@@ -1028,11 +1031,11 @@ function fmtDataEvento(iso) {
   return dia + ' ' + MESES[parseInt(mes, 10) - 1] + ' ' + ano;
 }
 function proximoEventoAgenda() {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrtAgenda();
   return AGENDA_EVENTOS.filter((ev) => statusEvento(ev, hoje) !== 'ENCERRADO').sort((a, b) => a.dataInicio.localeCompare(b.dataInicio))[0] || null;
 }
 function proximosEventosAgenda(n) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrtAgenda();
   return AGENDA_EVENTOS.filter((ev) => statusEvento(ev, hoje) !== 'ENCERRADO')
     .sort((a, b) => a.dataInicio.localeCompare(b.dataInicio))
     .slice(0, n || 3);
@@ -1208,7 +1211,7 @@ html[data-theme="light"] .theme-btn .ico-lua{display:none}
 .oa-h{margin:0 0 10px;font-family:var(--ui);font-size:13px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--white)}
 .oa-sub{margin:14px 0 4px;font-family:var(--ui);font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .oa-nota{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--muted-dim)}
-.oa-grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;margin-top:26px}#oaFatosWrap+#oaGiroWrap,#noticias>.hub-cta-secundario{margin-top:14px;display:inline-block}
+.oa-grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;margin-top:26px}#oaFatosWrap+#oaGiroWrap:not([hidden]),#noticias>.hub-cta-secundario{margin-top:14px;display:inline-block}#oaGiroWrap[hidden],#oaFatosWrap[hidden]{display:none!important}
 @media(min-width:960px){.oa-grid{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:28px}.oa-grid-2{grid-template-columns:1fr 1fr}}
 .oa-col .agora-secao,.oa-grid-2 .agora-secao{margin-top:0}
 .oa-lateral{display:flex;flex-direction:column;gap:16px}
@@ -5550,6 +5553,31 @@ const PALAVRAS_ENERGIA_SERVIDOR = [
    país/região estrangeira sem marcador brasileiro = INTERNACIONAL; fonte
    internacional sem país citado continua INTERNACIONAL. Autocontida: o
    mesmo código vai para os scripts do navegador via toString(). */
+/* GIRO DO OFFSHORE AGORA (04/11/2026 — incidente: bloco vazio com notícias de ~20 h no portal).
+   Causa: o giro usava as últimas 20 publicadas, ficava só com <= 24 h e tirava as 5 de "Em destaque";
+   com 6 matérias em 24 h não sobrava nada (e o CSS mostrava o título mesmo com o bloco escondido).
+   Regra: matérias OWNews de até 24 h (published_at = data editorial da fonte), mais nova primeiro, sem
+   repetir o destaque; menos de 3 → completa com 24–48 h e o título passa a dizer "48 horas" (a idade
+   real aparece em cada card). Acima de 48 h nunca entra. Serializada para o navegador (mesma regra). */
+function selecionarGiroOA(lista, agoraMs, excluir) {
+  var horas = function (n) { return (agoraMs - Date.parse(n.published_at)) / 3600000; };
+  var ex = excluir || {};
+  var validas = (lista || []).filter(function (n) { var h = horas(n); return n && n.id && !ex[n.id] && h >= -0.25 && h <= 48; })
+    .sort(function (a, b) { return Date.parse(b.published_at) - Date.parse(a.published_at); });
+  var em24 = validas.filter(function (n) { return horas(n) <= 24; });
+  var itens = em24.length >= 3 ? em24.slice(0, 8) : em24.concat(validas.filter(function (n) { return horas(n) > 24; })).slice(0, 8);
+  return { itens: itens, janela: itens.some(function (n) { return horas(n) > 24; }) ? 48 : 24 };
+}
+// "14:20" (hoje), "ontem, 14:20" ou "02/11, 14:20" — sempre no horário de Brasília.
+function quandoBrtOA(iso, agoraMs) {
+  var t = Date.parse(iso); if (!isFinite(t)) return "";
+  var dia = function (ms) { return Math.floor((ms - 3 * 3600000) / 86400000); };
+  var d = dia(agoraMs) - dia(t);
+  var hora = new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  if (d <= 0) return hora;
+  if (d === 1) return "ontem, " + hora;
+  return new Date(t).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) + ", " + hora;
+}
 function materiaInternacional(texto, fonteInternacional) {
   var t = ' ' + String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + ' ';
   var br = /\b(brasil|brasileir|petrobras|anp\b|ppsa\b|pre-sal|bacia de (campos|santos|sergipe|pelotas|barreirinhas)|bacia (do espirito santo|potiguar)|foz do amazonas|margem equatorial|macae|rio de janeiro|niteroi|espirito santo|sergipe|bahia\b|rio grande do norte|ceara\b|sao paulo|itaguai|porto do acu|buzios|mero\b|tupi\b|sepia\b|atapu|itapu|jubarte|marlim|ibama|antaq|mme\b|sindipetro|fup\b)/;
@@ -6716,7 +6744,7 @@ function blocoAgendaHome() {
   return '<aside class="ed-section home-agenda" id="homeAgenda"><div class="ed-head"><h2>Próximos eventos</h2></div><ul class="ha-lista">' +
     eventos.map((ev) => {
       const [, m, d] = String(ev.dataInicio).split('-');
-      return '<li><a class="ha-item" href="/agenda/' + escaparHTML(ev.slug) + '"><span class="ha-data"><strong>' + escaparHTML(d) + '</strong>' + MESES_AGENDA_HOME[(+m || 1) - 1] + '</span><span class="ha-info"><span class="ha-nome">' + escaparHTML(ev.nome) + '</span><span class="ha-local">' + escaparHTML([ev.cidade, ev.pais].filter(Boolean).join(', ')) + '</span></span></a></li>';
+      return '<li><a class="ha-item" href="/agenda/' + escaparHTML(ev.slug) + '"><span class="ha-data"><strong>' + escaparHTML(d) + '</strong>' + MESES_AGENDA_HOME[(+m || 1) - 1] + '</span><span class="ha-info"><span class="ha-nome">' + escaparHTML(ev.nome) + '</span><span class="ha-local">' + escaparHTML([ev.cidade, ev.pais].filter(Boolean).join(', ')) + (statusEvento(ev) === 'HOJE' ? ' · em andamento até ' + escaparHTML(ev.dataFim.slice(8, 10) + '/' + ev.dataFim.slice(5, 7)) : '') + '</span></span></a></li>';
     }).join('') + '</ul><a class="ha-cta" href="/agenda">Ver agenda completa →</a></aside>';
 }
 
@@ -12164,21 +12192,24 @@ function renderOffshoreAgora(){
     'var FONTES_INTERNACIONAIS=["Transocean","SBM Offshore","Offshore Energy","Marine Technology News"];' +
     // Editoria visível (2026-09-19, sem propaganda de fonte — ver cardTexto):
     // mesma ordem de prioridade do classificador principal da Home.
-    materiaInternacional.toString() +
+    materiaInternacional.toString() + selecionarGiroOA.toString() + quandoBrtOA.toString() +
     'function categoriaDe(n){if(n&&materiaInternacional((n.title||"")+" "+(n.summary||""),FONTES_INTERNACIONAIS.indexOf(n.image_credit)!==-1))return "INTERNACIONAL";var t=((n.title||"")+" "+(n.summary||"")).toLowerCase();for(var i=0;i<PALAVRAS_CARREIRAS.length;i++){if(t.indexOf(PALAVRAS_CARREIRAS[i])!==-1)return "CARREIRAS";}for(var i2=0;i2<PALAVRAS_CONTRATOS.length;i2++){if(t.indexOf(PALAVRAS_CONTRATOS[i2])!==-1)return "CONTRATOS";}for(var i3=0;i3<PALAVRAS_OPERACOES.length;i3++){if(t.indexOf(PALAVRAS_OPERACOES[i3])!==-1)return "OPERAÇÕES";}for(var j=0;j<PALAVRAS_MERCADO.length;j++){if(t.indexOf(PALAVRAS_MERCADO[j])!==-1)return "MERCADO";}for(var k=0;k<PALAVRAS_ENERGIA.length;k++){if(t.indexOf(PALAVRAS_ENERGIA[k])!==-1)return "ENERGIA";}return "BRASIL";}' +
     'function idadeHoras(iso){return (Date.now()-new Date(iso).getTime())/3600000;}' +
     'function scoreFato(n){var h=idadeHoras(n.published_at);var rec=h<=6?40:h<=24?25:h<=48?10:0;var cat=categoriaDe(n);var bonus=cat==="OPERAÇÕES"?15:cat==="MERCADO"?10:0;return rec+bonus;}' +
     // Sem nome de fonte no card (regra editorial 2026-09-19) — só editoria + hora.
-    'function cardTexto(n){var cat=categoriaDe(n);return "<div class=\\"agora-noticia-item\\"><span class=\\"agora-noticia-meta\\">"+cat+" · "+fmtHora(n.published_at)+"</span><a href=\\"/noticia?id="+encodeURIComponent(n.id)+"\\">"+esc(n.title)+"</a></div>";}' +
+    'function cardTexto(n){var cat=categoriaDe(n);return "<div class=\\"agora-noticia-item\\"><span class=\\"agora-noticia-meta\\">"+cat+" · "+quandoBrtOA(n.published_at,Date.now())+"</span><a href=\\"/noticia?id="+encodeURIComponent(n.id)+"\\">"+esc(n.title)+"</a></div>";}' +
     'function renderNoticias(lista){' +
-    'var fatosIds={};lista.slice().sort(function(a,b){return scoreFato(b)-scoreFato(a);}).slice(0,5).forEach(function(n){fatosIds[n.id]=1;});var giro=lista.filter(function(n){return idadeHoras(n.published_at)<=24&&!fatosIds[n.id];}).slice(0,8);' +
-    'var giroWrap=document.getElementById("oaGiroWrap");var giroEl=document.getElementById("oaGiro");' +
+    // Destaque: até 5 das últimas 48 h (nunca notícia velha em "Em destaque"); com pouco volume, no
+    // máximo metade, para o giro não ficar vazio. Giro: selecionarGiroOA (24 h; < 3 → completa até 48 h).
+    'var recentes=lista.filter(function(n){var h=idadeHoras(n.published_at);return h>=-0.25&&h<=48;});' +
+    'var fatos=recentes.slice().sort(function(a,b){return scoreFato(b)-scoreFato(a);}).slice(0,Math.min(5,Math.max(1,Math.floor(recentes.length/2))));' +
+    'var fatosIds={};fatos.forEach(function(n){fatosIds[n.id]=1;});var g=selecionarGiroOA(lista,Date.now(),fatosIds);var giro=g.itens;' +
+    'var giroWrap=document.getElementById("oaGiroWrap");var giroEl=document.getElementById("oaGiro");var giroH=giroWrap.querySelector("h2");if(giroH)giroH.textContent=g.janela===48?"Giro das últimas 48 horas":"Giro das últimas 24 horas";' +
     'if(giro.length){giroWrap.hidden=false;giroEl.innerHTML=giro.map(cardTexto).join("");}else{giroWrap.hidden=true;}' +
-    'var fatos=lista.slice().sort(function(a,b){return scoreFato(b)-scoreFato(a);}).slice(0,5);' +
     'var fatosWrap=document.getElementById("oaFatosWrap");var fatosEl=document.getElementById("oaFatos");' +
     'if(fatos.length){fatosWrap.hidden=false;fatosEl.innerHTML=fatos.map(cardTexto).join("");}else{fatosWrap.hidden=true;}' +
     '}' +
-    'function carregarNoticias(){var url="https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,title,summary,image_credit,published_at&status=eq.published&order=published_at.desc&limit=20";fetch(url,{headers:{apikey:"sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt"}}).then(function(r){if(!r.ok)throw new Error("Supabase "+r.status);return r.json();}).then(function(lista){if(lista.length)renderNoticias(lista);}).catch(function(e){console.warn("OWNews: notícias indisponíveis.",e);});}' +
+    'function carregarNoticias(){var url="https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,title,summary,image_credit,published_at&status=eq.published&buddy_source=eq.ownews&order=published_at.desc&limit=40";fetch(url,{headers:{apikey:"sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt"}}).then(function(r){if(!r.ok)throw new Error("Supabase "+r.status);return r.json();}).then(function(lista){if(lista.length)renderNoticias(lista);}).catch(function(e){console.warn("OWNews: notícias indisponíveis.",e);});}' +
 
     'function fmtPreco(p,m){if(typeof p!=="number")return "—";var s=m==="BRL"?"R$":m==="EUR"?"€":m==="USD"?"US$":(m||"");return s+" "+p.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});}' +
     'function fechadoM(it){return it&&(it.market_state==="CLOSED"||it.market_state==="POST"||it.market_state==="PRE");}' +
@@ -13929,7 +13960,7 @@ function cardEvento(ev) {
 }
 
 function renderAgendaIndex() {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeBrtAgenda();
   const ordenados = AGENDA_EVENTOS.slice().sort((a, b) => a.dataInicio.localeCompare(b.dataInicio));
   const proximos = ordenados.filter((ev) => statusEvento(ev, hoje) !== 'ENCERRADO');
   const encerrados = ordenados.filter((ev) => statusEvento(ev, hoje) === 'ENCERRADO').reverse();
@@ -13997,7 +14028,7 @@ function renderAgendaDetalhe(slug) {
     "description": ev.descricao,
     "startDate": ev.dataInicio,
     "endDate": ev.dataFim,
-    "eventStatus": "https://schema.org/" + (statusEvento(ev) === 'ENCERRADO' ? 'EventCancelled' : 'EventScheduled'),
+    "eventStatus": "https://schema.org/EventScheduled",
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "location": {
       "@type": "Place",
@@ -20719,7 +20750,7 @@ async function ccColetarEditorial(env) {
   const mercado = saude.mercado || {};
 
   // Agenda stats
-  const agendaHoje = new Date().toISOString().slice(0, 10);
+  const agendaHoje = hojeBrtAgenda();
   const agendaAtivos = AGENDA_EVENTOS.filter((ev) => statusEvento(ev, agendaHoje) !== 'ENCERRADO');
   let agendaPendentes = 0;
   if (env && env.PERGUNTE_IA_KV) {
