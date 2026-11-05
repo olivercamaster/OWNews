@@ -2734,6 +2734,18 @@ async function avaliarSaudeOffVoos(env) {
   };
 }
 
+/* Radar Offshore (05/11/2026): a ingestão roda no VPS (crontab) — de 31/10 a 04/11 o cron simplesmente
+   não existia e ninguém viu. Aqui: quando o snapshot foi gerado (última execução real) e a competência
+   dos dados (mês de produção da ANP). > 30 h sem snapshot novo = desatualizado. */
+async function avaliarRadarOffshore() {
+  try {
+    const r = await fetch("https://ownews.com.br/radar-offshore/api/resumo", { signal: AbortSignal.timeout(5000) });
+    const j = r.ok ? await r.json() : null;
+    if (!j || !j.atualizado_em) return { estado: "sem_dados" };
+    const idadeH = Math.round((Date.now() - new Date(j.atualizado_em).getTime()) / 360000) / 10;
+    return { estado: idadeH > 30 ? "desatualizado" : "healthy", gerado_em: j.atualizado_em, idade_h: idadeH, competencia_producao: (j.producao && j.producao.mes) || null };
+  } catch (e) { return { estado: "indisponivel", erro: String(e && e.message || e).slice(0, 80) }; }
+}
 async function avaliarAeroportosMeteo(env) {
   const snapshot = await obterSnapshotAeroportosDoKV(env);
   if (!snapshot || !Array.isArray(snapshot.aeroportos)) {
@@ -2755,7 +2767,12 @@ async function avaliarAeroportosMeteo(env) {
   const vermelho = snapshot.aeroportos.filter((e) => extrairIcaoEStatus(e).status === "r").length;
   const comDado = snapshot.aeroportos.filter((e) => (e.clima || {}).horarioUTC).length;
   const semInfo = total - verde - amarelo - vermelho;
-  const estado = vermelho > 0 ? "atencao" : amarelo > 0 ? "degradado" : comDado > 0 ? "healthy" : "sem_dados";
+  // 05/11/2026: estado = saúde do SISTEMA (há dado, e recente); a condição do tempo (aeroporto amarelo/
+  // vermelho) é informação meteorológica e vai em condicao_meteo — antes um teto baixo virava "degradado".
+  // O snapshot só é renovado por visita a /aeroportos (que sempre consulta a REDEMET ao vivo): 6 h de folga.
+  const idadeH = snapshot.fetched_at ? (Date.now() - new Date(snapshot.fetched_at).getTime()) / 3600000 : Infinity;
+  const estado = comDado === 0 ? "sem_dados" : idadeH > 6 ? "desatualizado" : "healthy";
+  const condicaoMeteo = vermelho > 0 ? "vermelho" : amarelo > 0 ? "amarelo" : "verde";
   return {
     fetched_at: snapshot.fetched_at || null,
     total,
@@ -2764,7 +2781,8 @@ async function avaliarAeroportosMeteo(env) {
     amarelo,
     vermelho,
     sem_info: semInfo,
-    estado
+    estado,
+    condicao_meteo: condicaoMeteo
   };
 }
 
@@ -2981,6 +2999,7 @@ async function avaliarSaudeEditorial(env) {
     offvoos: offvoosStatus,
     mercado: mercadoStatus,
     aeroportos_meteo: await avaliarAeroportosMeteo(env),
+    radar: await avaliarRadarOffshore(),
     imagens,
     traducao,
     jobs_open: null,
@@ -3130,7 +3149,7 @@ async function acumularGateEditorial(env, resultados, orcamento) {
     const entrada = { ts: agora, fontes: {} };
     if (orcamento) entrada.orc = { u: orcamento.usados, a: orcamento.adiadas, fa: (orcamento.fontesAdiadas || []).length };
     for (const [nome, r] of Object.entries(resultados)) {
-      if (r && r.ok === false) { (entrada.fontes_erro = entrada.fontes_erro || []).push(nome); if (/subrequest/i.test(String(r.erro))) entrada.ia_erro = String(r.erro).slice(0, 120); continue; }
+      if (r && r.ok === false) { (entrada.fontes_erro = entrada.fontes_erro || []).push(nome); (entrada.fontes_erro_msg = entrada.fontes_erro_msg || {})[nome] = String(r.erro || '').slice(0, 140); if (/subrequest/i.test(String(r.erro))) entrada.ia_erro = String(r.erro).slice(0, 120); continue; }
       if (!r) continue;
       const p = r.inseridas || 0;
       const ei = r.editorial_incomplete || 0;
@@ -3187,6 +3206,7 @@ async function obterGateEditorialStats(env) {
       const funil = { ia: 0, ap: 0, a2: 0, rc: 0, rd: 0, rr: 0, ant: 0, rec: 0, rok: 0, tec: 0, tad: 0, orc: 0, ie: 0, ret: 0, rot: 0, cA: 0, cB: 0, cC: 0, cD: 0, sim: 0, imr: 0, vH: 0, vM: 0, vL: 0, xr: 0, xh: 0, xp: 0, fP: 0, fW: 0, fB: 0, fE: 0, fR: 0 };
       let execucoes = 0, orcUsadoMax = 0, orcAtingido = 0, fontesAdiadas = 0;
       const fontesErro = new Set();
+      const ultimoErroFonte = {};
       let totalP = 0, totalEI = 0, iaComAp = 0;
       const motivos = {};
       for (const e of entradas) {
@@ -3195,6 +3215,8 @@ async function obterGateEditorialStats(env) {
         if (e.orc && (e.orc.a || e.orc.fa)) orcAtingido++;
         if (e.orc && e.orc.fa) fontesAdiadas += e.orc.fa;
         for (const n of e.fontes_erro || []) fontesErro.add(n);
+        // 05/11: o motivo, não só o nome (EPE "com erro" sem dizer qual) — vale o mais recente.
+        for (const [n, m] of Object.entries(e.fontes_erro_msg || {})) if (!ultimoErroFonte[n] || e.ts > ultimoErroFonte[n].em) ultimoErroFonte[n] = { erro: m, em: e.ts };
         for (const [nome, f] of Object.entries(e.fontes || {})) {
           if (!fontes[nome]) fontes[nome] = { p: 0, ei: 0, cs: 0, motivos: {} };
           for (const k of ['ia', 'ap', 'a2', 'rc', 'rd', 'rr', 'ant', 'rec', 'rok', 'tec', 'tad', 'orc', 'ie', 'ret', 'rot', 'cA', 'cB', 'cC', 'cD', 'sim', 'imr', 'vH', 'vM', 'vL', 'xr', 'xh', 'xp', 'fP', 'fW', 'fB', 'fE', 'fR']) { fontes[nome][k] = (fontes[nome][k] || 0) + (f[k] || 0); funil[k] += f[k] || 0; }
@@ -3249,6 +3271,7 @@ async function obterGateEditorialStats(env) {
         execucoes_orcamento_atingido: orcAtingido,
         fontes_adiadas_orcamento: fontesAdiadas,
         fontes_com_erro: [...fontesErro],
+        ultimo_erro_fonte: Object.fromEntries(Object.entries(ultimoErroFonte).map(([n, v]) => [n, { erro: v.erro, em: new Date(v.em).toISOString() }])),
         motivos,
         fontes
       };
@@ -7509,19 +7532,32 @@ function validarAmbiente(env) {
    UTILITÁRIOS
 ========================= */
 
+// 05/11/2026: fonte oficial instável (EPE: erro isolado no dia, OK no resto) não perde a execução
+// por um soluço — UMA nova tentativa, só para erro de rede/timeout, 5xx ou 429 (4xx é definitivo).
+// Timeout de 15 s por tentativa: uma página pendurada não segura a invocação inteira.
 async function baixarPagina(url) {
-  const resposta = await fetch(url, {
-    headers: {
-      "User-Agent": "OWNews/1.0 - OffshoreWorks news collector",
-      Accept: "text/html,application/xhtml+xml"
+  let ultimoErro = null;
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    let resposta;
+    try {
+      resposta = await fetch(url, {
+        headers: {
+          "User-Agent": "OWNews/1.0 - OffshoreWorks news collector",
+          Accept: "text/html,application/xhtml+xml"
+        },
+        signal: AbortSignal.timeout(15000)
+      });
+    } catch (e) {
+      ultimoErro = new Error(`${url} falhou: ${String(e && e.message || e).slice(0, 80)}`);
+      if (tentativa < 2) { await new Promise((r) => setTimeout(r, 800)); continue; }
+      throw ultimoErro;
     }
-  });
-
-  if (!resposta.ok) {
-    throw new Error(`${url} respondeu HTTP ${resposta.status}`);
+    if (resposta.ok) return resposta.text();
+    ultimoErro = new Error(`${url} respondeu HTTP ${resposta.status}`);
+    if (tentativa < 2 && (resposta.status >= 500 || resposta.status === 429)) { await new Promise((r) => setTimeout(r, 800)); continue; }
+    throw ultimoErro;
   }
-
-  return resposta.text();
+  throw ultimoErro;
 }
 
 async function sha256(texto) {
