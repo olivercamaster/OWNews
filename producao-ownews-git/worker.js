@@ -17275,6 +17275,12 @@ function renderPrivacidade() {
     "<h2>O que não fazemos</h2>" +
     '<p class="area-desc">Não exigimos cadastro para usar o site nem o app. Não vendemos dados. Nenhum anúncio está ativo hoje; caso o OWNews passe a exibir anúncios via Google AdSense, esta página será atualizada antes, explicando o uso de cookies de publicidade e o link para as <a href="https://adssettings.google.com" target="_blank" rel="noopener">configurações de anúncios do Google</a>. Os dados trafegam por HTTPS.</p>' +
     "</div>" +
+    // 05/11/2026: seção LGPD só com o que o OWNews faz de fato (sem DPO, CNPJ ou e-mail que não existem).
+    '<div class="area-group" id="lgpd">' +
+    "<h2>Seus direitos (LGPD)</h2>" +
+    '<p class="area-desc">A OffshoreWorks é a controladora dos dados descritos nesta página, tratados conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018). Os únicos dados pessoais que saem do seu aparelho são: o e-mail de quem assina a newsletter <a href="/newsletter">Radar da Semana</a> (base legal: consentimento; cancele a qualquer momento pelo link de cada e-mail ou em <a href="/newsletter/cancelar">ownews.com.br/newsletter/cancelar</a>), os dados da Conta OW, que você cria se quiser, para sincronizar (execução do serviço que você pediu), e o código derivado do IP do Pergunte ao OWNews, usado só para limitar abusos (legítimo interesse). Eles ficam com a Cloudflare (hospedagem, IA e lista da newsletter) e o Supabase (Conta OW), que os processam por conta do OWNews; nada é vendido nem cedido para publicidade.</p>' +
+    '<p class="area-desc">Você pode pedir confirmação de que tratamos seus dados, acesso, correção, portabilidade, informação sobre com quem eles são compartilhados e a eliminação (art. 18 da LGPD). A eliminação da Conta OW é imediata em <a href="/excluir-conta">ownews.com.br/excluir-conta</a>; os demais pedidos, pelo canal abaixo, com resposta em até 15 dias. Os dados da conta ficam guardados enquanto ela existir; o e-mail da newsletter, enquanto houver assinatura — depois do cancelamento ele fica marcado como cancelado, para não receber mais nada, e pode ser apagado de vez a pedido; os contadores anônimos, pelos prazos descritos acima. Se não ficar satisfeito, você pode reclamar à Autoridade Nacional de Proteção de Dados (<a href="https://www.gov.br/anpd" target="_blank" rel="noopener">ANPD</a>).</p>' +
+    "</div>" +
     '<div class="area-group">' +
     "<h2>Contato</h2>" +
     '<p class="area-desc">Dúvidas sobre privacidade: mensagem direta no Instagram <a href="https://www.instagram.com/ownewsbr" target="_blank" rel="noopener">@ownewsbr</a>.</p>' +
@@ -21644,8 +21650,9 @@ function renderCCDashboard() {
     'if(e.aeroportos){var av=e.aeroportos;var me=av.meteo||null;' +
     'html+=\'<div class="cc-tg-card"><div class="cc-tg-titulo">Aeroportos — Meteorologia</div>\';' +
     'var meteoEstado=me?me.estado:av.estado;' +
-    'var meteoColor=meteoEstado==="atencao"?"var(--red)":meteoEstado==="degradado"?"var(--yellow)":meteoEstado==="healthy"?"var(--green)":"var(--muted)";' +
-    'var meteoLabel=meteoEstado==="atencao"?"⚠ Aeroporto(s) em vermelho":meteoEstado==="degradado"?"⚠ Dados parciais":meteoEstado==="healthy"?"Condições atualizadas":"Sem dados meteorológicos";' +
+    // 05/11: estado = sistema (dado recente); tempo ruim (amarelo/vermelho) aparece nas contagens abaixo.
+    'var meteoColor=meteoEstado==="desatualizado"?"var(--yellow)":meteoEstado==="healthy"?"var(--green)":"var(--muted)";' +
+    'var meteoLabel=meteoEstado==="desatualizado"?"Leitura com mais de 6 h":meteoEstado==="healthy"?"Condições atualizadas":"Sem dados meteorológicos";' +
     'html+=\'<div class="cc-tg-val" style="color:\'+meteoColor+\'">\'+meteoLabel+\'</div>\';' +
     'if(me){' +
     'html+=\'<div class="cc-tg-sub">🟢 \'+fmtNum(me.verde)+\' verde &nbsp; 🟡 \'+fmtNum(me.amarelo)+\' amarelo &nbsp; 🔴 \'+fmtNum(me.vermelho)+\' vermelho &nbsp; ⚪ \'+fmtNum(me.sem_info)+\' sem info</div>\';' +
