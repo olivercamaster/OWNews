@@ -9,7 +9,7 @@ import path from 'node:path';
 let W;
 before(async () => {
   let src = fs.readFileSync(new URL('../worker.js', import.meta.url), 'utf8').replace(/^const ([A-Z_0-9]+) = /gm, 'var $1 = ');
-  src += '\nexport { baixarPagina };\n';
+  src += '\nexport { baixarPagina, restaurarSiglas };\n';
   const f = path.join(os.tmpdir(), `rede-worker-${process.pid}.mjs`);
   fs.writeFileSync(f, src);
   W = await import('file://' + f);
@@ -38,4 +38,11 @@ test('duas falhas transitórias: desiste com o motivo (no máximo 2 chamadas)', 
   await comFetch([new Response('x', { status: 502 }), new Response('x', { status: 502 })], async (n) => {
     await assert.rejects(W.baixarPagina('https://epe.test/n'), /HTTP 502/); assert.equal(n(), 2);
   });
+});
+
+test('título: sigla da fonte volta em maiúsculas ("Plsv" → "PLSV", 05/11) sem inventar sigla', () => {
+  assert.equal(W.restaurarSiglas('PLSV owned by DOF and TechnipFMC to work longer for Petrobras', 'Plsv de propriedade da DOF e da TechnipFMC vai trabalhar mais tempo para a Petrobras'), 'PLSV de propriedade da DOF e da TechnipFMC vai trabalhar mais tempo para a Petrobras');
+  assert.equal(W.restaurarSiglas('Saipem7 gets CADE nod', 'Saipem7 recebe aval do Cade'), 'Saipem7 recebe aval do CADE');
+  assert.equal(W.restaurarSiglas('No acronyms here', 'Sem siglas aqui'), 'Sem siglas aqui');
+  assert.equal(W.restaurarSiglas('FPSO arrives', 'Os fpsos chegam'), 'Os fpsos chegam', 'plural não é a mesma palavra');
 });

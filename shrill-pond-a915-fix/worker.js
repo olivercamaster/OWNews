@@ -5936,7 +5936,7 @@ async function processarNoticias(env, fonte, noticias, contexto = {}) {
           resultado.noticias.push({ titulo: tituloFinal, status: "bloqueada_idioma_en", fonte });
           continue;
         }
-        tituloPublicado = trad;
+        tituloPublicado = restaurarSiglas(tituloFinal, trad);
         resultado.traduzidas++;
       }
       if (precisaTraduzir(resumoPublicado, fonteEN)) {
@@ -6078,7 +6078,7 @@ slug: criarSlug(tituloPublicado),
         const arquivado = await arquivarMaterialFonte(env, artigo.hash, { url: artigo.original_url, material: materialFonte, lead: artigo.summary || null, em: new Date().toISOString() });
         if (!arquivado) resultado.arquivo_fonte_falhou = (resultado.arquivo_fonte_falhou || 0) + 1;
         artigo.content = camadaIA.corpo;
-        if (camadaIA.titulo) artigo.title = camadaIA.titulo;
+        if (camadaIA.titulo) artigo.title = restaurarSiglas(item.title, camadaIA.titulo);
         artigo.buddy_summary = camadaIA.buddy_summary;
         artigo.why_it_matters = camadaIA.why_it_matters;
         artigo.buddy_source = MATERIA_OWNEWS;
@@ -7535,6 +7535,15 @@ function validarAmbiente(env) {
 // 05/11/2026: fonte oficial instável (EPE: erro isolado no dia, OK no resto) não perde a execução
 // por um soluço — UMA nova tentativa, só para erro de rede/timeout, 5xx ou 429 (4xx é definitivo).
 // Timeout de 15 s por tentativa: uma página pendurada não segura a invocação inteira.
+// Sigla do título da fonte (PLSV, FPSO, CADE) volta em maiúsculas se a tradução/redação a baixou
+// ("Plsv de propriedade da DOF…", 05/11/2026). Só troca a MESMA palavra; nunca inventa sigla.
+function restaurarSiglas(original, final) {
+  let t = String(final || '');
+  for (const sg of new Set(String(original || '').match(/\b[A-Z][A-Z0-9]{1,5}\b/g) || [])) {
+    t = t.replace(new RegExp('(^|[^\\p{L}\\d])(' + sg + ')(?=$|[^\\p{L}\\d])', 'giu'), (m, a, w) => w === sg ? m : a + sg);
+  }
+  return t;
+}
 async function baixarPagina(url) {
   let ultimoErro = null;
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
