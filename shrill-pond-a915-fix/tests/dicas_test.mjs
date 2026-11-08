@@ -9,7 +9,7 @@ import path from 'node:path';
 let W;
 before(async () => {
   let src = fs.readFileSync(new URL('../worker.js', import.meta.url), 'utf8').replace(/^const ([A-Z_0-9]+) = /gm, 'var $1 = ');
-  src += '\nexport { DICAS_CATALOGO, validarTextoDica, validadeDicaExpirada, revalidarDica, escolherDicaValidada, textoTelegramDica, resumoCatalogoDicas };\n';
+  src += '\nexport { diaDeCicloDica, proximoCicloDica, dataBRTString, TelegramAgendadorPoller as Agendador_, DICAS_CATALOGO, validarTextoDica, validadeDicaExpirada, revalidarDica, escolherDicaValidada, textoTelegramDica, resumoCatalogoDicas };\n';
   const f = path.join(os.tmpdir(), `dicas-worker-${process.pid}.mjs`);
   fs.writeFileSync(f, src);
   W = await import('file://' + f);
@@ -105,4 +105,54 @@ test('dedupe nunca escolhe dica não validada e evita repetir em 30 dias', async
 test('texto do Telegram: dica regulatória mostra a fonte; prática não', () => {
   assert.match(W.textoTelegramDica(W.DICAS_CATALOGO.find((d) => d.id === 'cir')), /Fonte: Marinha do Brasil/);
   assert.doesNotMatch(W.textoTelegramDica(W.DICAS_CATALOGO.find((d) => d.id === 'familia')), /Fonte:/);
+});
+
+// ── Cadência: 1 dica a cada 2 dias, 12:00 BRT, âncora 08/11/2026 ──
+const brt12 = (dia) => Date.parse(dia + 'T15:00:00Z'); // 12:00 BRT
+test('cadência: 08/11 sim, 09/11 não, 10/11 sim, 11/11 não, 12/11 sim', () => {
+  const esperado = { '2026-11-08': true, '2026-11-09': false, '2026-11-10': true, '2026-11-11': false, '2026-11-12': true };
+  for (const [dia, sim] of Object.entries(esperado)) assert.equal(W.diaDeCicloDica(brt12(dia)), sim, dia);
+});
+test('cadência: virada de mês (30/11 sim, 01/12 não, 02/12 sim) e de ano pela âncora real (31/12 não, 01/01 sim, 02/01 não)', () => {
+  const esperado = { '2026-11-30': true, '2026-12-01': false, '2026-12-02': true, '2026-12-31': false, '2027-01-01': true, '2027-01-02': false, '2027-03-01': false, '2027-03-02': true };
+  for (const [dia, sim] of Object.entries(esperado)) assert.equal(W.diaDeCicloDica(brt12(dia)), sim, dia);
+});
+test('cadência usa o dia de America/Sao_Paulo (não o de UTC)', () => {
+  // 01:30 UTC de 09/11 ainda é 08/11 em São Paulo → dia de ciclo; 03:30 UTC de 09/11 já é 09/11 → não.
+  assert.equal(W.diaDeCicloDica(Date.parse('2026-11-09T01:30:00Z')), true);
+  assert.equal(W.diaDeCicloDica(Date.parse('2026-11-09T03:30:00Z')), false);
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
+  for (let t = Date.parse('2026-11-01T00:00:00Z'); t < Date.parse('2027-03-01T00:00:00Z'); t += 3600000 * 7) assert.equal(W.dataBRTString(t), fmt.format(t));
+});
+test('próxima execução: hoje 12:00 BRT se ainda não rodou; depois, +2 dias', () => {
+  assert.equal(W.proximoCicloDica(Date.parse('2026-11-08T11:00:00Z'), false), '2026-11-08T15:00:00.000Z');
+  assert.equal(W.proximoCicloDica(Date.parse('2026-11-08T16:00:00Z'), true), '2026-11-10T15:00:00.000Z');
+  assert.equal(W.proximoCicloDica(Date.parse('2026-11-09T12:00:00Z'), false), '2026-11-10T15:00:00.000Z');
+  assert.equal(W.proximoCicloDica(Date.parse('2026-12-31T12:00:00Z'), false), '2027-01-01T15:00:00.000Z');
+});
+function agendador() {
+  const mem = new Map();
+  const state = { storage: { get: async (k) => mem.get(k), put: async (k, v) => { mem.set(k, v); }, getAlarm: async () => 1, setAlarm: async () => {} } };
+  return { ag: new W.Agendador_(state, { TELEGRAM_DRY_RUN: 'true' }), mem };
+}
+test('dia sem ciclo: não envia, segue a agenda e NÃO grava ciclo (nada vira falha no painel)', async () => {
+  const { ag, mem } = agendador();
+  await ag.enviarDica('2026-11-09', brt12('2026-11-09'));
+  assert.equal(mem.get('dica_dia'), '2026-11-09'); assert.equal(mem.get('dica_ultimo_ciclo'), undefined);
+  assert.equal(mem.get('dicas_enviadas'), undefined, 'nada enviado');
+});
+test('dia de ciclo: barreira + escolha validada; registra o ciclo (dry-run, nada sai)', async () => {
+  const { ag, mem } = agendador();
+  await ag.enviarDica('2026-11-08', brt12('2026-11-08'));
+  const c = mem.get('dica_ultimo_ciclo');
+  assert.equal(c.dia, '2026-11-08'); assert.ok(c.escolhida); assert.equal(c.dry_run, true);
+});
+test('ciclo bloqueado não desloca a agenda: 08/11 sem dica → 09/11 continua sem → 10/11 é ciclo', async () => {
+  const cat = W.DICAS_CATALOGO; const salvo = cat.map((d) => d.st);
+  const { ag, mem } = agendador();
+  cat.forEach((d) => { d.st = 'R'; });
+  try { await ag.enviarDica('2026-11-08', brt12('2026-11-08')); } finally { cat.forEach((d, k) => { d.st = salvo[k]; }); }
+  assert.equal(mem.get('dica_ultimo_ciclo').enviado, false);
+  assert.equal(W.diaDeCicloDica(brt12('2026-11-09')), false);
+  assert.equal(W.diaDeCicloDica(brt12('2026-11-10')), true);
 });

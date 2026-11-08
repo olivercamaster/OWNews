@@ -2536,6 +2536,10 @@ async function obterStatusTelegram(env) {
     const utilizaveis = cat.validadas - cat.validacao_vencida;
     agendadorStatus = Object.assign(agendadorStatus || {}, { dicas: Object.assign(cat, {
       ultimo_ciclo_em: ciclo ? ciclo.em : null, ultima_enviada: ciclo && ciclo.enviado ? ciclo.escolhida : null,
+      cadencia: 'a cada ' + DICA_CADENCIA_DIAS + ' dias, 12:00 BRT (âncora ' + DICA_CADENCIA_ANCORA + ')',
+      hoje_tem_ciclo: diaDeCicloDica(agora),
+      proxima_execucao: proximoCicloDica(agora, !!(ciclo && ciclo.dia === dataBRTString(agora))),
+      status: diaDeCicloDica(agora) && !(ciclo && ciclo.dia === dataBRTString(agora)) ? 'ciclo hoje às 12:00 BRT' : 'aguardando próximo ciclo',
       ultimo_bloqueio: ciclo ? (ciclo.tentativas || []).filter((x) => x.veredito === 'BLOCK').map((x) => x.id + ': ' + x.motivos.join(',')).slice(0, 3) : [],
       alerta: utilizaveis < 10 ? 'poucas dicas utilizáveis (' + utilizaveis + ') — reauditar o catálogo' : (ciclo && !ciclo.enviado && !ciclo.dry_run ? 'último ciclo sem envio: ' + (ciclo.motivo || 'falha') : null) }) });
   } catch { /* não crítico pro /saude */ }
@@ -9994,6 +9998,34 @@ function proximoAlarmeAgendador(agora, ultimoTipoEnviado) {
   return proximoHorarioAgendadorUTC(agora, 9, 23);
 }
 
+/* Cadência das Dicas Offshore (08/11/2026): uma a cada 2 dias, 12:00 BRT, a partir da âncora fixa
+   08/11/2026 (primeira dica da nova cadência). Conta dias-calendário de America/Sao_Paulo (UTC−3 fixo,
+   sem horário de verão desde 2019) entre a âncora e hoje — não depende de dia par/ímpar, mês ou ano.
+   Ciclo bloqueado ou sem dica continua contando: a agenda nunca desliza. */
+const DICA_CADENCIA_ANCORA = '2026-11-08';
+const DICA_CADENCIA_DIAS = 2;
+function diasDesdeAncoraDica(agoraMs) {
+  const [a, m, d] = dataBRTString(agoraMs).split('-').map(Number);
+  const [aa, am, ad] = DICA_CADENCIA_ANCORA.split('-').map(Number);
+  return Math.round((Date.UTC(a, m - 1, d) - Date.UTC(aa, am - 1, ad)) / 86400000);
+}
+function diaDeCicloDica(agoraMs) {
+  const n = diasDesdeAncoraDica(agoraMs);
+  return ((n % DICA_CADENCIA_DIAS) + DICA_CADENCIA_DIAS) % DICA_CADENCIA_DIAS === 0;
+}
+// Próxima execução programada (15:00 UTC = 12:00 BRT): hoje, se for dia de ciclo e ainda não passou do horário.
+function proximoCicloDica(agoraMs, jaExecutouHoje) {
+  for (let i = 0; i <= DICA_CADENCIA_DIAS; i++) {
+    const dia = agoraMs + i * 86400000;
+    if (!diaDeCicloDica(dia)) continue;
+    const [a, m, d] = dataBRTString(dia).split('-').map(Number);
+    const em = Date.UTC(a, m - 1, d, 15, 0, 0);
+    if (i === 0 && (jaExecutouHoje || agoraMs >= Date.UTC(a, m - 1, d, 17, 0, 0))) continue;
+    return new Date(em).toISOString();
+  }
+  return null;
+}
+
 function dataBRTString(agora) {
   const d = new Date(agora - 3 * 3600000);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -10245,6 +10277,14 @@ export class TelegramAgendadorPoller {
 
   async enviarDica(hojeStr, agora) {
     try {
+      // Dia fora da cadência (a cada 2 dias): nada a enviar — registra o dia para o alarme seguir
+      // adiante e NÃO mexe no registro do último ciclo (dia sem ciclo não é falha).
+      if (!diaDeCicloDica(agora)) {
+        await this.state.storage.put("dica_dia", hojeStr);
+        await this.state.storage.put("dica_sem_ciclo", hojeStr);
+        console.log(JSON.stringify({ evento: "telegram_dica_sem_ciclo", dia: hojeStr }));
+        return;
+      }
       // 08/11/2026: só dica VALIDADA (catálogo com fonte) e aprovada na barreira; senão, não envia.
       // Histórico real do canal antes do catálogo (t.me/s/ownewsradar): evita repetir o mesmo assunto logo
       // depois — inclusive a CIR, que saiu em 07/11 como "CIM" e foi corrigida à mão na mensagem.
