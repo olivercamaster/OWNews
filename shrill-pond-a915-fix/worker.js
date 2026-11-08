@@ -556,6 +556,21 @@ export default {
       }
       return Response.json({ ok: true, resultados: out });
     }
+    // Dicas Offshore — teste sem envio: a barreira sobre um texto ({t, r, n, f}) ou o ciclo completo.
+    if (url.pathname === "/admin/dicas/simular" && request.method === "POST") {
+      const d = await request.json().catch(() => null);
+      if (!d || !d.t) return Response.json({ ok: false, erro: "informe {t, r, n, f}" }, { status: 400 });
+      const v = validarTextoDica(d);
+      if (v.veredito === 'PASS' && validadeDicaExpirada(d, Date.now())) { const rv = await revalidarDica(d); if (!rv.ok) return Response.json({ veredito: 'BLOCK', motivos: ['validacao_vencida:' + rv.motivo] }); }
+      return Response.json(v);
+    }
+    if (url.pathname === "/admin/dicas/ciclo") {
+      let enviadas = {};
+      try { const r = await env.TELEGRAM_AGENDADOR_DO.get(env.TELEGRAM_AGENDADOR_DO.idFromName("global")).fetch("https://agendador.interno/dicas-status"); const j = r.ok ? await r.json() : null; enviadas = j && j.enviadas && Object.keys(j.enviadas).length ? j.enviadas : DICAS_ENVIADAS_ANTES_DO_CATALOGO; } catch { enviadas = DICAS_ENVIADAS_ANTES_DO_CATALOGO; }
+      const quando = url.searchParams.get("em") ? Date.parse(url.searchParams.get("em")) : Date.now();
+      const e = await escolherDicaValidada(quando, enviadas);
+      return Response.json({ dry_run: true, enviaria: e.dica ? textoTelegramDica(e.dica) : null, escolhida: e.dica ? e.dica.id : null, tentativas: e.tentativas, motivo: e.motivo || null, catalogo: resumoCatalogoDicas(quando) });
+    }
     if (url.pathname === "/admin/bloqueadas") {
       if (!env.BUDDY_IA_DO) return Response.json({ ok: false, erro: "BUDDY_IA_DO não configurado" });
       const r = await env.BUDDY_IA_DO.get(env.BUDDY_IA_DO.idFromName("global")).fetch("https://buddy-ia.interno/bloqueadas");
@@ -2514,6 +2529,15 @@ async function obterStatusTelegram(env) {
         slot_tarde_hoje: slotTardeRaw === hojeStr,
       };
     }
+    // Dicas Offshore (08/11/2026): catálogo validado, último ciclo e alerta interno (nunca público).
+    const cat = resumoCatalogoDicas(agora);
+    let ciclo = null;
+    try { if (env.TELEGRAM_AGENDADOR_DO) { const r = await env.TELEGRAM_AGENDADOR_DO.get(env.TELEGRAM_AGENDADOR_DO.idFromName("global")).fetch("https://agendador.interno/dicas-status"); ciclo = r.ok ? (await r.json()).ultimo_ciclo : null; } } catch {}
+    const utilizaveis = cat.validadas - cat.validacao_vencida;
+    agendadorStatus = Object.assign(agendadorStatus || {}, { dicas: Object.assign(cat, {
+      ultimo_ciclo_em: ciclo ? ciclo.em : null, ultima_enviada: ciclo && ciclo.enviado ? ciclo.escolhida : null,
+      ultimo_bloqueio: ciclo ? (ciclo.tentativas || []).filter((x) => x.veredito === 'BLOCK').map((x) => x.id + ': ' + x.motivos.join(',')).slice(0, 3) : [],
+      alerta: utilizaveis < 10 ? 'poucas dicas utilizáveis (' + utilizaveis + ') — reauditar o catálogo' : (ciclo && !ciclo.enviado && !ciclo.dry_run ? 'último ciclo sem envio: ' + (ciclo.motivo || 'falha') : null) }) });
   } catch { /* não crítico pro /saude */ }
 
   return {
@@ -9726,109 +9750,235 @@ const NOMES_AEROPORTO_AGENDADOR = {
   SBMQ: "Macapá"
 };
 
-const DICAS_OFFSHORE = [
-  // ── SEGURANÇA ──────────────────────────────────────────────────────────────
-  "NR-37 é a norma regulamentadora exclusiva para plataformas de petróleo. Ela define seus direitos de segurança, saúde e bem-estar a bordo — conhecê-la é obrigação de todo trabalhador offshore.",
-  "APR (Análise Preliminar de Risco): preencher a APR antes de qualquer tarefa não é burocracia — é a principal ferramenta para identificar riscos e definir controles antes de começar o trabalho.",
-  "H2S (Sulfeto de Hidrogênio): é incolor e inodoro em altas concentrações, pois paralisa o olfato. Use sempre o detector pessoal de H2S e nunca entre em área confinada sem leitura de gás feita e registrada.",
-  "PTW (Permissão de Trabalho): nenhuma tarefa não rotineira começa sem PT aprovada. A PT define controles de segurança e responsáveis — ela protege você, sua equipe e a operação inteira.",
-  "EPI offshore (NR-37): capacete, óculos, luvas, botas de segurança, protetor auricular e colete salva-vidas são básicos. Para trabalho em altura ou espaço confinado há EPIs específicos adicionais — nunca recuse tarefa sem EPI adequado.",
-  "Near miss (quase acidente): reportar nunca gera punição — ao contrário, é reconhecido como atitude pró-segurança. Cada near miss reportado pode prevenir um acidente real com consequências graves.",
-  "SIPAT: a Semana Interna de Prevenção de Acidentes do Trabalho é obrigatória anualmente, inclusive a bordo. Participe — é o principal canal para sugestões de melhoria em SST.",
-  "Canal de denúncia anônima: toda empresa com NR-37 ativa deve ter canal anônimo para irregularidades de segurança. Se não souber qual é o da sua empresa, pergunte ao SESMT ou à CIPA.",
-  "CIPA a bordo: toda plataforma com trabalhadores acima do dimensionamento mínimo da NR-5 deve ter CIPA própria. Conheça os cipeiros eleitos — eles têm mandato, não podem ser demitidos e representam você.",
-  "Bloqueio e etiquetagem (LOTO — Lock Out, Tag Out): antes de trabalhar em qualquer equipamento elétrico, hidráulico ou mecânico, o sistema de energias perigosas deve ser isolado e bloqueado formalmente. Sem LOTO confirmado, a tarefa não começa.",
-  "Trabalho em altura offshore: acima de 2 m do nível do convés é considerado trabalho em altura (NR-35). Cinto de segurança tipo paraquedista, talabarte e ponto de ancoragem certificado são obrigatórios.",
-  "Espaço confinado: a entrada em tanques, cascos, dutos e compartimentos fechados exige PT específica, medição de atmosfera (O₂, combustíveis, H2S), vigia externo e comunicação contínua. Nunca entre sozinho.",
-  "Segurança de içamento (lifting): nunca fique abaixo de carga suspensa. Inspeção de eslingas, grampas e equipamentos de içamento deve ser feita antes de cada operação — um equipamento reprovado é descarte imediato.",
-  "PAN-PAN e MAYDAY: aprenda a diferença antes de precisar. PAN-PAN = situação urgente sem risco imediato. MAYDAY = perigo imediato à vida. Ambos exigem comunicação imediata no canal VHF 16.",
-  "Reunião de segurança (safety meeting): participação obrigatória. Use o espaço para reportar observações de segurança — é exatamente para isso que a reunião existe, e seu relato pode prevenir um acidente.",
-  // ── PRIMEIRO EMBARQUE ──────────────────────────────────────────────────────
-  "POB (Persons On Board): ao embarcar, confirme que seu nome foi lançado no registro de bordo. Em emergência, o POB é a primeira ferramenta de busca e salvamento — um nome fora do registro pode custar tempo crítico.",
-  "Muster Drill: o simulado de emergência no 1° dia de embarque não é opcional. Aprenda a localização das estações de mustering e do seu posto de abandono antes de começar o primeiro turno.",
-  "HUET (Helicopter Underwater Escape Training): o certificado de fuga subaquática precisa ser renovado periodicamente (verifique o prazo da sua certificação). Programe a renovação com antecedência — sem ele, você não embarca.",
-  "Embarque aéreo: a ANAC exige chegada ao heliporto com pelo menos 1 hora de antecedência. Leve documento de identidade, certificados atualizados e crachá da empresa — sem eles, você não embarca.",
-  "Exame médico offshore (ASO): toda plataforma exige Atestado de Saúde Ocupacional específico para offshore, com avaliações físicas e funcionais definidas pelo SESMT. A validade varia por função — confirme antes de tentar embarcar.",
-  "Curso de Sobrevivência no Mar: o certificado é exigido para trabalho offshore e inclui uso de colete salva-vidas, sobrevivência em água e embarque em balsas. Verifique se o seu está válido — a renovação periódica é obrigatória.",
-  "Biometria e credenciais de acesso: ao primeiro embarque sua biometria e crachá são cadastrados no controle de acesso. Guarde o número de matrícula — ele identifica você em todo o sistema operacional da unidade.",
-  "Comunicação com a família: combine um protocolo antes de embarcar. Informe os horários disponíveis para ligação, o procedimento para emergências familiares e o contato do departamento de pessoal da empresa.",
-  // ── VIDA A BORDO ───────────────────────────────────────────────────────────
-  "Sono e performance: a privação de sono aumenta o risco de acidentes em operações industriais. A NR-37 exige ambiente de repouso adequado — reporte quarto barulhento ou mal climatizado ao responsável de saúde.",
-  "Saúde mental offshore: isolamento, ausência da família e turnos longos aumentam o risco de burnout. A NR-37 exige suporte psicológico na empresa — procure o serviço antes de chegar ao limite.",
-  "Retorno antecipado por motivo de saúde: você pode solicitar repatriação com justificativa médica. Conheça o procedimento da sua empresa antes de precisar — o médico de bordo é o canal formal.",
-  "Alimentação a bordo: a NR-37 exige alimentação adequada fornecida pela empresa durante o embarque. Se a qualidade ou quantidade não atender ao padrão, reporte ao SESMT ou RH — é um direito documentado.",
-  "Adaptação a turnos: trabalhar 12h/dia por 14 ou 28 dias seguidos exige adaptação. Durma no horário da folga do turno, evite cafeína antes de deitar e use protetores auriculares se necessário.",
-  "Fumo a bordo: smoking area é area designada e rigorosamente controlada em ambiente com hidrocarbonetos. Fumar fora da área designada é infração grave — pode resultar em desembarque imediato.",
-  "Intervalo entre turnos: o mínimo legal são 11 horas de descanso entre jornadas. Turnos de 12h são comuns offshore — o intervalo precisa ser respeitado mesmo em operações urgentes.",
-  // ── CARREIRA ───────────────────────────────────────────────────────────────
-  "Sindipetro: o sindicato da sua regional negocia o ACT ou CCT que rege seus benefícios. Saiba qual cobre sua bacia — Sindipetro NF (Macaé/Campos), Sindipetro ES (Espírito Santo), FUP (federação nacional).",
-  "Escala 14×14: nos 14 dias de trabalho a bordo você tem direito a adicional noturno, DSR proporcional e eventual adicional de periculosidade. Confira seu contracheque mês a mês e questione divergências.",
-  "Escala 28×28: cada bloco tem 28 dias de trabalho e 28 dias de descanso. Não confunda com 'mês cheio' — os dias de viagem entram no cômputo conforme o ACT/CCT da categoria.",
-  "Currículo offshore: inclua todos os certificados técnicos com data de emissão e vencimento. A lista de certificados válidos é o primeiro filtro eliminatório em vagas offshore — mantenha-os atualizados e visíveis no CV.",
-  "Progressão de carreira a bordo: cargos técnicos seguem hierarquia clara (ex.: Operador → Técnico → Supervisor → Offshore Installation Manager). Conheça os requisitos de certificação de cada nível antes de almejar a promoção.",
-  "Multiplicidade de função: trabalhadores offshore que dominam mais de uma disciplina (mecânico com certificação elétrica, operador com licença de içamento) têm maior empregabilidade e remuneração.",
-  "Lei nº 5.811/1972: regula o trabalho de turnistas em refinarias e plataformas — define escala, intervalos e adicionais. Conhecê-la ajuda a identificar irregularidades no pagamento antes de reclamar.",
-  // ── ORGANIZAÇÃO ────────────────────────────────────────────────────────────
-  "Registro de embarque: guarde comprovantes (ordem de embarque, folha de controle de bordo, registros de hora). Em divergência na folha de pagamento, esses documentos são sua prova mais direta.",
-  "Vencimento de cursos offshore: HUET, Sobrevivência no Mar, Primeiros Socorros e Segurança Básica têm prazos de renovação diferentes. Crie um calendário próprio — não dependa só do RH para ser avisado.",
-  "Planejamento de embarque: prepare a mala com 48h de antecedência. Lista padrão: documentos originais, certificados impressos, medicamentos com receita, EPIs pessoais, roupas para o período. A última hora é para erros.",
-  "Arquivo digital de documentos: mantenha no celular uma pasta com fotos dos certificados, CNH, passaporte e documentos trabalhistas. Em emergências ou para substituição rápida, o arquivo digital agiliza tudo.",
-  "Transição de turno (handover): ao trocar de turno, faça um handover completo: status das atividades em andamento, anomalias observadas, tarefas pendentes. Um handover incompleto é causa de acidente documentada na indústria.",
-  "Finanças durante o embarque: as despesas a bordo são mínimas. Use o período offshore para guardar parte do salário — automatize investimentos mensais para o dia do crédito em conta.",
-  // ── DOCUMENTAÇÃO ───────────────────────────────────────────────────────────
-  "eSocial e offshore: os eventos de SST (Saúde e Segurança no Trabalho) para plataformas passam pelo eSocial. Confirme que seus dados (ASO, cursos, EPIs) estão atualizados no sistema da empresa.",
-  "Carteira de marítimo (Marinha do Brasil): necessária para funções a bordo de navios-plataforma. Precisa estar válida no embarque — sem ela, a função de bordo não pode ser exercida.",
-  "Passaporte válido: mesmo trabalhando em plataformas brasileiras, algumas rotas de helicóptero cruzam zona econômica exclusiva de outros países. Mantenha passaporte válido por pelo menos 6 meses além do período de embarque previsto.",
-  "Caderneta de Inscrição Marítima (CIM): exigida para trabalho a bordo de navio-plataforma (embarcação). É emitida pela Marinha do Brasil, distinta dos certificados offshore em terra. Verifique se sua função exige CIM.",
-  "IANTD/PADI não equivale a HUET: cursos de mergulho recreativo não substituem os certificados de sobrevivência offshore exigidos pela NR-37/OPITO. São certificações distintas com fins distintos.",
-  "ASO vs. laudo de aptidão: o ASO (Atestado de Saúde Ocupacional) é o documento final, assinado pelo médico do trabalho, que autoriza o exercício da função. O laudo de exame é intermediário — guarde os dois separadamente.",
-  // ── OPERAÇÃO ───────────────────────────────────────────────────────────────
-  "FPSO (Floating Production Storage and Offloading): produz, armazena e transfere óleo sem conexão fixa ao fundo do mar. Entender a função de cada módulo a bordo facilita a comunicação interdepartamental e a resposta a emergências.",
-  "MODU, FPSO ou Sonda: MODU (Mobile Offshore Drilling Unit) é unidade de perfuração. FPSO é produção/estoque flutuante. Cada tipo tem regime, função e rotina operacional diferentes — vale conhecer onde você trabalha.",
-  "MOC (Management of Change): qualquer alteração em processo, equipamento ou procedimento exige MOC formal documentado. Mudanças informais em ambiente offshore são origem conhecida de acidentes.",
-  "Drill (exercício de emergência): toda plataforma realiza drills periódicos de incêndio, vazamento de gás e abandono. Participe ativamente — o erro no drill salva vidas no evento real. Não trate como burocracia.",
-  "BOP (Blow-Out Preventer): equipamento de segurança crítico que previne o descontrole de poço (blowout). Em plataformas de perfuração, conhecer o nome e a função do BOP é referência de cultura de segurança.",
-  "Monitoramento contínuo de gás: sistemas de Desligamento de Emergência (ESD/EDP) são ativados automaticamente por detecção de gás. Nunca tente contornar alarmes — eles existem para prevenir catástrofes como a de Piper Alpha (1988).",
-  "Toolbox Meeting (reunião pré-turno): realizada antes de cada turno operacional, é onde se discutem as tarefas do dia, os riscos e os controles. Participação ativa é a melhor oportunidade para alinhar expectativas com o supervisor.",
-  // ── CONVIVÊNCIA ────────────────────────────────────────────────────────────
-  "Respeito à hierarquia operacional: a bordo, decisões de segurança seguem cadeia de comando clara. Mesmo discordando, use os canais formais para contestar — discussão no meio da operação cria risco adicional.",
-  "Conflito interpessoal a bordo: 14 ou 28 dias em espaço confinado com as mesmas pessoas exige tolerância ativa. A maioria das plataformas tem procedimento de mediação de conflitos — use antes que o problema escale.",
-  "Privacidade dos colegas: camarotes divididos são comuns em plataformas. Respeite os horários de sono do colega em folga — privação de sono do colega é risco operacional no turno seguinte dele.",
-  "Mentoria informal: veteranos offshore têm conhecimento que não está em nenhum manual. No primeiro embarque, adote postura de aprendiz — a troca de experiência acelera a curva de aprendizado de forma que treinamentos não conseguem.",
-  "Uso de celular durante operações: o uso de celular durante execução de tarefas é proibido na maioria das unidades. Foco dividido em operações industriais é fator de acidente documentado — guarde o celular enquanto trabalha.",
-  // ── SIGLAS ─────────────────────────────────────────────────────────────────
-  "OIM (Offshore Installation Manager): responsável máximo pela segurança e operação da unidade offshore. Equivale ao Encarregado Geral previsto na NR-37. As ordens do OIM em emergência têm precedência absoluta.",
-  "CCR (Central Control Room): centro de controle e monitoramento da plataforma — de onde se monitoram pressão, temperatura, detecção de gás e se acionam alarmes de emergência.",
-  "DPO (Dynamic Positioning Operator): responsável pelo sistema de posicionamento dinâmico que mantém FPSO ou navio-plataforma sobre o poço sem âncoras fixas. DP-1, DP-2 e DP-3 indicam o nível de redundância.",
-  "SIMOPS (Simultaneous Operations): operações simultâneas — perfuração e produção ao mesmo tempo, por exemplo. Requerem planejamento adicional de segurança e coordenação entre equipes distintas.",
-  "LSA (Life Saving Appliances): sigla genérica para todo equipamento de salvatagem: coletes, balsas, botes de resgate, EBE (Emergency Breathing Apparatus). A localização de cada LSA da sua área deve ser memorizada no primeiro dia.",
-  "SPS (Safety and Protection System): sistema de proteção que aciona automaticamente ESD, isolamentos e shutdowns. SPS trip = evento sério que exige investigação formal antes de reiniciar a operação.",
-  "PSV, AHTS e OSV: PSV (Platform Supply Vessel) faz suprimento. AHTS (Anchor Handling Tug Supply) maneja âncoras e também supre. OSV é o termo genérico para todos os navios de apoio offshore.",
-  // ── CURIOSIDADES OFFSHORE ──────────────────────────────────────────────────
-  "Pré-sal vs. pós-sal: o pré-sal fica abaixo de espessa camada de sal, em grandes lâminas d'água. Exige tecnologia específica e tem regime de concessão distinto — contexto essencial para entender a operação de Búzios e Tupi.",
-  "Bacia de Santos vs. Campos: Santos concentra o pré-sal profundo (Tupi, Búzios). Campos tem a maior produção acumulada do Brasil e concentra plataformas mais antigas. Saber em qual bacia você está ajuda a contextualizar regulação e sindicato.",
-  "Piper Alpha (1988): o pior acidente da história offshore — 167 mortos — ocorreu no Mar do Norte e transformou permanentemente os padrões de segurança globais. Falha na troca de turno (handover incompleto) foi fator contribuinte documentado.",
-  "Deepwater Horizon (2010): plataforma da BP que explodiu no Golfo do México matando 11 pessoas e causando o maior derramamento de petróleo da história americana. O evento acelerou a regulação de controle de poço no mundo todo.",
-  "Primeiro petróleo do pré-sal brasileiro: foi extraído em teste de longa duração no Campo de Jubarte (Bacia de Campos) em 2008. A produção comercial do pré-sal de Santos (Campo de Tupi) começou em 2010.",
-  "Escala 14×14 no Brasil: é uma das escalas mais curtas em offshore no contexto internacional. Em países como Noruega, é comum escala 2×4 (2 semanas a bordo, 4 em terra). A escala brasileira é mais intensa — impacto maior na saúde a longo prazo.",
-  // ── LOGÍSTICA ──────────────────────────────────────────────────────────────
-  "REDEMET: antes de embarcar, consulte as condições meteorológicas em redemet.decea.mil.br. Ventos fortes podem suspender operações de helicóptero — saber isso com antecedência evita viagem desnecessária.",
-  "Bagagem em helicóptero: o limite de peso varia por modelo de aeronave. Confirme com o heliporto de origem antes de sair de casa — bagagem excedente fica em terra, não vai no próximo voo com você.",
-  "Transfer via barco (NOB): em algumas unidades, a chegada é por lancha ou Navio de Apoio de Base. O transfer por mar tem critérios de segurança próprios (altura de onda, visibilidade) — a decisão de embarcar é do mestre da embarcação.",
-  "Conexões de helicóptero: o voo pode fazer escalas em outras plataformas antes de chegar ao seu destino. Leve lanche e esteja preparado para esperas no heliporto ou em bases intermediárias.",
-  "Mudança de escala: comunicações de alteração de embarque frequentemente chegam com menos de 24h de antecedência. Mala pré-pronta com documentos e certificados evita correria e esquecimento de itens críticos.",
-  "Check-in operacional: o heliporto confirma seu voo pelo departamento de logística da empresa. Ausência de confirmação formal com 24h de antecedência não é confirmação de voo — entre em contato com o dispatcher.",
-  // ── BOAS PRÁTICAS ──────────────────────────────────────────────────────────
-  "Stop Work Authority: qualquer trabalhador pode e deve parar uma operação insegura, sem medo de represália. É direito e responsabilidade documentados — a cultura de segurança offshore depende do exercício cotidiano dessa autoridade.",
-  "Registro de anomalias: reporte toda anomalia (ruído anormal, vazamento, vibração) ao supervisor imediatamente, mesmo que pequena. Um componente trocado preventivamente evita parada não planejada e acidente.",
-  "Seguro de vida: verifique se sua apólice cobre acidentes em ambiente offshore. Muitas apólices pessoais têm exclusão específica para alto mar — leia as cláusulas antes de embarcar.",
-  "Hidratação a bordo: em conveses abertos em bacias tropicais como Campos e Santos, o risco de desidratação é real. Beba água regularmente ao longo do turno — não espere sentir sede para se hidratar.",
-  "Procedimento de abandono: sequência básica — 1) alarme, 2) colete e traje de imersão, 3) estação de mustering, 4) contagem de bordo, 5) bote/balsa. Pratique o caminho até o bote até ele ser automático, não consciente.",
-  "ANP — SAT (Serviço de Atendimento ao Trabalhador): para denúncias de irregularidades no setor de petróleo e gás, o canal da ANP é 0800 725 6451. Funciona em dias úteis, sem custo de ligação.",
-  "Telemedicina offshore: muitas plataformas contam com telemedicina para consultas com especialistas além do médico de bordo. Conheça o canal disponível na sua unidade antes de precisar usá-lo.",
-  "OPEP/PLANCON: o Plano de Emergência Individual e o Plano de Contingência são documentos de operação de cada unidade offshore. São referências formais em emergências — saiba onde consultá-los na sua plataforma.",
+/* ==== DICAS OFFSHORE — CATÁLOGO VALIDADO + BARREIRA (08/11/2026) ====
+   Incidente 07/11: o Telegram publicou "Caderneta de Inscrição Marítima (CIM)" — o documento é a
+   Caderneta de Inscrição e Registro (CIR). Causa: as 88 dicas eram texto fixo escrito em 28/09 sem
+   fonte (commit 3570f36) e iam direto ao canal, sem nenhuma checagem. Agora:
+   FONTE → FATO CONFIRMADO (com trecho e data) → DICA → BARREIRA DETERMINÍSTICA → TELEGRAM.
+   st: 'V' validada (entra na rotação) | 'R' precisa de revisão (fora) | 'X' bloqueada (errada; fora).
+   r: risco B (prática geral, sem fato regulatório) | A (norma, documento, direito, prazo, número).
+   f: fatos SUPPORTED — c (afirmação), u (fonte), e (trecho conferido na fonte), em (data da conferência).
+   n: números que a dica pode conter (todo número fora desta lista bloqueia).
+   Validade: B 365 dias (orientação prática, não muda com norma); A 90 dias (NR-37 teve 5 portarias de
+   alteração entre 2019 e 2022 — revisão trimestral pega mudança antes de virar erro publicado). */
+const FONTE_NR37 = 'https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-37-atualizada-2022-1.pdf';
+const FONTE_NR35 = 'https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-35-atualizada-2025-1.pdf';
+const FONTE_CIR = 'https://www.gov.br/pt-br/servicos/revalidar-ou-emitir-2a-via-de-certificado-modelo-dpc-1034';
+const FONTE_5811 = 'https://www.planalto.gov.br/ccivil_03/leis/1970-1979/L5811.htm';
+const DICAS_VALIDADE_DIAS = { B: 365, A: 90 };
+const DICAS_CATALOGO = [
+  // ── Validadas com fonte oficial (risco A) ──
+  { id: 'nr37-o-que-e', st: 'V', r: 'A', fonte: 'NR-37 / Ministério do Trabalho e Emprego', n: ['37'],
+    t: 'A NR-37 é a Norma Regulamentadora de Segurança e Saúde em Plataformas de Petróleo. Vale conhecer os capítulos que tratam da sua rotina: condições de vivência, alimentação, saúde e emergências.',
+    f: [{ c: 'Título da NR-37', u: FONTE_NR37, e: 'NR 37 - SEGURANÇA E SAÚDE EM PLATAFORMAS DE PETRÓLEO', em: '2026-11-08' }] },
+  { id: 'ciplat', st: 'V', r: 'A', fonte: 'NR-37, item 37.8', n: ['37', '8', '37.8'],
+    t: 'CIPLAT: em plataformas, a comissão de prevenção é a Comissão Interna de Prevenção de Acidentes e de Assédio em Plataformas, prevista no item 37.8 da NR-37. Saiba quem são os representantes da sua unidade.',
+    f: [{ c: 'CIPLAT no item 37.8', u: FONTE_NR37, e: '37.8 Comissão Interna de Prevenção de Acidentes e de Assédio em Plataformas CIPLAT', em: '2026-11-08' }] },
+  { id: 'gerente-plataforma', st: 'V', r: 'A', fonte: 'NR-37', n: ['37'],
+    t: 'Na NR-37, o responsável pela unidade é chamado de gerente da plataforma. Saiba quem ocupa a função a bordo e siga a cadeia de comando em emergência.',
+    f: [{ c: 'Termo "gerente da plataforma"', u: FONTE_NR37, e: 'O gerente da plataforma ou seu preposto deve realizar inspeções semanais', em: '2026-11-08' }] },
+  { id: 'vivencia', st: 'V', r: 'A', fonte: 'NR-37, item 37.12', n: ['37', '12', '37.12'],
+    t: 'A NR-37 tem um capítulo sobre condições de vivência a bordo (item 37.12), que inclui alojamentos, refeitório e áreas de lazer. Barulho ou problema no camarote deve ser relatado.',
+    f: [{ c: 'Item 37.12 e áreas de vivência', u: FONTE_NR37, e: '37.12 Condições de vivência a bordo', em: '2026-11-08' }] },
+  { id: 'alimentacao', st: 'V', r: 'A', fonte: 'NR-37, item 37.13', n: ['37', '13', '37.13'],
+    t: 'Alimentação a bordo tem capítulo próprio na NR-37 (item 37.13), com inspeções semanais do gerente da plataforma ou seu preposto sobre víveres e água potável. Problema de qualidade deve ser relatado.',
+    f: [{ c: 'Item 37.13 e inspeções semanais', u: FONTE_NR37, e: 'O gerente da plataforma ou seu preposto deve realizar inspeções semanais para verificar: a) a quantidade, a qualidade e a validade do aprovisionamento de víveres e de água potável', em: '2026-11-08' }] },
+  { id: 'saude-mental', st: 'V', r: 'A', fonte: 'NR-37', n: ['37'],
+    t: 'Saúde mental: a NR-37 prevê programas de promoção e prevenção em saúde para mitigar os fatores de riscos psicossociais identificados. Se o isolamento ou o cansaço estiverem pesando, procure o serviço de saúde da empresa.',
+    f: [{ c: 'Programas sobre riscos psicossociais', u: FONTE_NR37, e: 'programas de promoção e prevenção em saúde, visando implantar medidas para mitigar os fatores de riscos psicossociais identificados', em: '2026-11-08' }] },
+  { id: 'telemedicina', st: 'V', r: 'A', fonte: 'NR-37', n: ['37'],
+    t: 'Telemedicina: a NR-37 exige sistema de telemedicina entre o profissional de saúde a bordo e médicos especialistas em terra, a qualquer hora do dia ou da noite. Saiba como ele funciona na sua unidade.',
+    f: [{ c: 'Telemedicina 24 h', u: FONTE_NR37, e: 'disponibilizar sistema de telemedicina entre o profissional de saúde a bordo e os médicos especialistas em terra, a qualquer hora do dia ou da noite', em: '2026-11-08' }] },
+  { id: 'altura-nr35', st: 'V', r: 'A', fonte: 'NR-35, item 35.2.1', n: ['35', '2,0', '2.0', '35.2.1', '2', '1'],
+    t: 'Trabalho em altura: a NR-35 se aplica a toda atividade com diferença de nível acima de 2,0 m do nível inferior, onde haja risco de queda. Siga a análise de risco e a permissão de trabalho da sua unidade.',
+    f: [{ c: 'Campo de aplicação da NR-35', u: FONTE_NR35, e: '35.2.1 Aplica-se o disposto nessa Norma a toda atividade com diferença de nível acima de 2,0m (dois metros) do nível inferior, onde haja risco de queda', em: '2026-11-08' }] },
+  { id: 'analise-de-risco', st: 'V', r: 'A', fonte: 'NR-35, item 35.3.1', n: ['35'],
+    t: 'Análise de Risco (AR) e Permissão de Trabalho (PT): a NR-35 manda a organização assegurar a análise de risco e, quando aplicável, a emissão da PT. Participe da análise de verdade — é ali que se combina como trabalhar com segurança.',
+    f: [{ c: 'AR e PT na NR-35', u: FONTE_NR35, e: 'assegurar a realização da Análise de Risco - AR e, quando aplicável, a emissão da Permissão de Trabalho - PT', em: '2026-11-08' }] },
+  { id: 'pob', st: 'V', r: 'A', fonte: 'NR-37', n: [],
+    t: 'POB (People On Board): ao chegar, confirme que seu nome entrou na lista de pessoas a bordo. Em emergência, é por ela que se faz a contagem.',
+    f: [{ c: 'Expansão de POB', u: FONTE_NR37, e: 'People On Board - POB', em: '2026-11-08' }] },
+  { id: 'cir', st: 'V', r: 'A', fonte: 'Marinha do Brasil (gov.br)', n: ['1034'],
+    t: 'CIR (Caderneta de Inscrição e Registro): é o documento do aquaviário cadastrado pela Marinha do Brasil. Se a sua função a bordo é de aquaviário, mantenha a CIR e os certificados DPC-1034 em dia.',
+    f: [{ c: 'Nome e contexto da CIR', u: FONTE_CIR, e: 'Caderneta de Inscrição e Registro (CIR)', em: '2026-11-08', verificar: ['Caderneta de Inscrição e Registro'] },
+        { c: 'Certificados DPC-1034', u: FONTE_CIR, e: 'Certificados de Cursos de Habilitação modelo 1034', em: '2026-11-08', verificar: ['1034'] }] },
+  { id: 'lei-5811', st: 'V', r: 'A', fonte: 'Lei 5.811/1972 (Planalto)', n: ['5.811', '5811', '1972', '12', '24', '4'],
+    t: 'Lei 5.811/1972: regula o regime de revezamento nas atividades de petróleo. No turno de 12 horas, restrito a situações como exploração e produção no mar, a lei prevê alojamento gratuito e repouso de 24 horas consecutivas para cada turno trabalhado (art. 4º).',
+    f: [{ c: 'Turno de 12 h restrito', u: FONTE_5811, e: 'ficando a utilização do turno de 12 (doze) horas restrita às seguintes situações especiais', em: '2026-11-08' },
+        { c: 'Art. 4º: alojamento e repouso', u: FONTE_5811, e: 'Repouso de 24 (vinte e quatro) horas consecutivas para cada turno trabalhado', em: '2026-11-08' }] },
+  { id: 'redemet', st: 'V', r: 'B', fonte: 'REDEMET / DECEA', n: [],
+    t: 'Antes do embarque, dá para acompanhar a meteorologia dos aeroportos na REDEMET (redemet.decea.mil.br), do DECEA. Tempo ruim pode atrasar ou suspender voos de helicóptero.',
+    f: [{ c: 'Site oficial', u: 'https://redemet.decea.mil.br/', e: 'REDEMET', em: '2026-11-08', verificar: [] }] },
+  // ── Validadas: orientação prática, sem afirmação regulatória nem número (risco B) ──
+  { id: 'quase-acidente', st: 'V', r: 'B', t: 'Quase acidente (near miss): relatar o que quase deu errado ajuda a corrigir o problema antes que alguém se machuque. Use o canal de relato da sua empresa.' },
+  { id: 'carga-suspensa', st: 'V', r: 'B', t: 'Nunca fique embaixo de carga suspensa nem no caminho dela durante o içamento. Viu eslinga ou acessório danificado? Avise antes de a operação começar.' },
+  { id: 'reuniao-seguranca', st: 'V', r: 'B', t: 'Reunião de segurança: use o espaço para relatar o que você observou. Um relato simples pode evitar um acidente no turno seguinte.' },
+  { id: 'posto-abandono', st: 'V', r: 'B', t: 'Ao chegar a bordo, aprenda onde ficam o seu ponto de reunião e o seu posto de abandono antes do primeiro turno — e participe dos exercícios de emergência.' },
+  { id: 'exercicios', st: 'V', r: 'B', t: 'Exercícios de emergência: participe de verdade. É no exercício que você descobre o caminho mais rápido até o seu ponto de reunião.' },
+  { id: 'familia', st: 'V', r: 'B', t: 'Comunicação com a família: combine antes de embarcar os horários para falar, o que fazer em emergência familiar e o contato do RH da empresa.' },
+  { id: 'saude-a-bordo', st: 'V', r: 'B', t: 'Não está bem a bordo? Procure o profissional de saúde da unidade. Conheça antes o procedimento da sua empresa para desembarque por motivo de saúde.' },
+  { id: 'sono-turno', st: 'V', r: 'B', t: 'Turno a bordo: proteja o seu sono. Durma no horário de folga, evite cafeína perto da hora de deitar e use protetor auricular se precisar.' },
+  { id: 'curriculo', st: 'V', r: 'B', t: 'Currículo offshore: liste seus certificados com data de emissão e de vencimento e mantenha tudo atualizado e fácil de conferir.' },
+  { id: 'registros', st: 'V', r: 'B', t: 'Guarde os comprovantes de cada embarque (ordem de embarque, registros de horário). Se houver divergência no pagamento, eles são a sua prova mais direta.' },
+  { id: 'mala', st: 'V', r: 'B', t: 'Planejamento de embarque: deixe a mala pronta com antecedência — documentos, certificados, remédios com receita e roupas para o período. Deixar para a última hora é como se esquecem itens.' },
+  { id: 'arquivo-digital', st: 'V', r: 'B', t: 'Arquivo digital: guarde no celular fotos dos certificados e documentos pessoais. Em perda ou emergência, isso agiliza a reposição.' },
+  { id: 'handover', st: 'V', r: 'B', t: 'Troca de turno (handover): passe tudo — atividades em andamento, anomalias e pendências. Uma passagem bem feita é parte da segurança da operação.' },
+  { id: 'financas', st: 'V', r: 'B', t: 'Finanças: com poucas despesas a bordo, o embarque é uma boa hora para guardar parte do salário. Programe a reserva para o dia em que o pagamento cai.' },
+  { id: 'fpso', st: 'V', r: 'B', t: 'FPSO (Floating Production Storage and Offloading): unidade flutuante que produz, armazena e transfere petróleo. Conhecer a função de cada módulo ajuda na comunicação a bordo.' },
+  { id: 'bop', st: 'V', r: 'B', t: 'BOP (Blowout Preventer): é o equipamento de segurança do poço que serve para impedir o descontrole (blowout). Em sondas, é um dos itens mais críticos da operação.' },
+  { id: 'toolbox', st: 'V', r: 'B', t: 'Conversa antes da tarefa (toolbox meeting): é o momento de alinhar o que vai ser feito, os riscos e os controles. Tire dúvidas ali, não no meio da operação.' },
+  { id: 'cadeia-comando', st: 'V', r: 'B', t: 'Discordou de uma decisão de segurança? Use os canais formais e fale com a liderança. Discussão no meio da operação cria risco adicional.' },
+  { id: 'convivencia', st: 'V', r: 'B', t: 'Convivência a bordo: muitos dias no mesmo espaço pedem paciência. Resolva desentendimentos cedo e com a liderança, antes que cresçam.' },
+  { id: 'sono-colega', st: 'V', r: 'B', t: 'Camarote dividido: respeite o horário de sono de quem está de folga. O descanso do colega é a segurança do turno dele.' },
+  { id: 'aprendiz', st: 'V', r: 'B', t: 'Primeiro embarque: pergunte e ouça os mais experientes. Muito do que se aprende a bordo não está em manual.' },
+  { id: 'celular', st: 'V', r: 'B', t: 'Celular durante a tarefa divide a atenção. Siga a regra da sua unidade e guarde o aparelho enquanto trabalha.' },
+  { id: 'simops', st: 'V', r: 'B', t: 'SIMOPS (Simultaneous Operations): quando duas operações acontecem ao mesmo tempo na unidade, a coordenação entre as equipes precisa ser redobrada.' },
+  { id: 'psv-ahts', st: 'V', r: 'B', t: 'PSV (Platform Supply Vessel) leva suprimentos às unidades. AHTS (Anchor Handling Tug Supply) maneja âncoras e também faz suprimento. OSV é o termo geral para os navios de apoio.' },
+  { id: 'bagagem', st: 'V', r: 'B', t: 'Bagagem no helicóptero tem limite de peso, que depende da aeronave. Confirme com a logística da sua empresa antes de sair de casa.' },
+  { id: 'voo-escalas', st: 'V', r: 'B', t: 'O voo de helicóptero pode passar por outras unidades antes do seu destino. Leve um lanche e conte com espera no heliporto.' },
+  { id: 'mudanca-escala', st: 'V', r: 'B', t: 'Mudanças de embarque podem chegar em cima da hora. Mala pronta com documentos e certificados evita correria e esquecimento.' },
+  { id: 'confirmacao-voo', st: 'V', r: 'B', t: 'Sem confirmação formal do voo? Fale com a logística da sua empresa antes de sair de casa — não conte com o embarque sem ela.' },
+  { id: 'anomalias', st: 'V', r: 'B', t: 'Ruído diferente, vazamento ou vibração estranha: avise a supervisão na hora, mesmo que pareça pouco. Pegar cedo evita parada e acidente.' },
+  { id: 'hidratacao', st: 'V', r: 'B', t: 'Hidratação: no convés, sob sol e calor, beba água ao longo do turno — não espere sentir sede.' },
+  // ── Precisam de revisão (fora da rotação até haver fonte oficial conferida) ──
+  { id: 'h2s', st: 'R', r: 'A', motivo: 'Propriedade do H2S descrita de forma imprecisa ("inodoro"); requer fonte técnica oficial.' },
+  { id: 'epi-lista', st: 'R', r: 'A', motivo: 'Lista de EPIs atribuída à NR-37 sem conferência.' },
+  { id: 'loto', st: 'R', r: 'A', motivo: 'Procedimento de bloqueio de energias sem fonte normativa conferida (NR-10/NR-12).' },
+  { id: 'espaco-confinado', st: 'R', r: 'A', motivo: 'Requisitos da NR-33 sem conferência.' },
+  { id: 'pan-pan-mayday', st: 'R', r: 'A', motivo: 'Comunicação de emergência (VHF 16) sem fonte oficial conferida.' },
+  { id: 'huet', st: 'R', r: 'A', motivo: 'Obrigatoriedade e validade do HUET dependem da operadora/padrão; sem fonte oficial.' },
+  { id: 'aso', st: 'R', r: 'A', motivo: 'Validade do ASO e exigências sem conferência na NR-07/NR-37.' },
+  { id: 'sobrevivencia', st: 'R', r: 'A', motivo: 'Renovação "obrigatória" do curso de sobrevivência sem fonte.' },
+  { id: 'cracha', st: 'R', r: 'B', motivo: 'Procedimento de biometria/crachá é da empresa; texto generalizava.' },
+  { id: 'fumo', st: 'R', r: 'A', motivo: 'Penalidade ("desembarque imediato") é regra de empresa, não universal.' },
+  { id: 'sindicatos', st: 'R', r: 'A', motivo: 'Abrangência dos sindicatos por bacia sem fonte.' },
+  { id: 'escala-14x14', st: 'R', r: 'A', motivo: 'Direitos listados como universais dependem de ACT/CCT e regime.' },
+  { id: 'escala-28x28', st: 'R', r: 'A', motivo: 'Afirmação sobre cômputo de viagem sem fonte.' },
+  { id: 'carreira', st: 'R', r: 'B', motivo: 'Hierarquia de cargos varia por empresa.' },
+  { id: 'multifuncao', st: 'R', r: 'B', motivo: 'Afirma maior remuneração sem dado.' },
+  { id: 'cursos-vencimento', st: 'R', r: 'A', motivo: 'Lista de cursos e prazos sem fonte.' },
+  { id: 'esocial', st: 'R', r: 'A', motivo: 'Eventos de SST no eSocial sem conferência.' },
+  { id: 'aso-laudo', st: 'R', r: 'A', motivo: 'Distinção ASO × laudo sem fonte normativa.' },
+  { id: 'moc', st: 'R', r: 'A', motivo: 'Exigência de MOC formal apresentada como regra geral.' },
+  { id: 'esd-piper', st: 'R', r: 'A', motivo: 'Siglas ESD/EDP e relação com Piper Alpha sem fonte.' },
+  { id: 'lsa', st: 'R', r: 'A', motivo: 'Expansão "EBE (Emergency Breathing Apparatus)" incorreta/sem fonte.' },
+  { id: 'sps', st: 'R', r: 'A', motivo: 'Sigla SPS e procedimento de investigação sem fonte.' },
+  { id: 'piper-alpha', st: 'R', r: 'A', motivo: 'Dados históricos (mortos, causas) sem fonte conferida.' },
+  { id: 'deepwater-horizon', st: 'R', r: 'A', motivo: 'Dados históricos sem fonte; texto atribuía a plataforma à BP (era da Transocean, afretada pela BP).' },
+  { id: 'pre-sal-historia', st: 'R', r: 'A', motivo: 'Datas do primeiro óleo do pré-sal sem fonte conferida.' },
+  { id: 'pre-sal-regime', st: 'R', r: 'A', motivo: 'Regime de contratação do pré-sal sem fonte.' },
+  { id: 'bacias', st: 'R', r: 'A', motivo: 'Ranking de produção entre bacias sem dado da ANP.' },
+  { id: 'escala-noruega', st: 'R', r: 'A', motivo: 'Comparação internacional e efeito na saúde sem fonte.' },
+  { id: 'transfer-barco', st: 'R', r: 'A', motivo: 'Sigla NOB e critérios de transferência sem fonte.' },
+  { id: 'stop-work', st: 'R', r: 'A', motivo: 'Direito de recusa: na NR-37 é específico de ações de resposta a emergência; texto generalizava.' },
+  { id: 'seguro-vida', st: 'R', r: 'A', motivo: 'Exclusões de apólice afirmadas sem fonte.' },
+  { id: 'abandono-sequencia', st: 'R', r: 'A', motivo: 'Sequência de abandono depende do plano da unidade.' },
+  { id: 'sipat', st: 'R', r: 'A', motivo: 'SIPAT não aparece na NR-37; aplicação a bordo não confirmada.' },
+  { id: 'modu', st: 'R', r: 'B', motivo: 'Comparação de regimes entre MODU e FPSO sem fonte.' },
+  { id: 'ccr', st: 'R', r: 'B', motivo: 'Expansão de CCR não conferida em fonte oficial.' },
+  // ── Bloqueadas: erradas ou sem base (registro da auditoria; nunca entram) ──
+  { id: 'cim', st: 'X', r: 'A', motivo: 'Sigla e nome errados: "Caderneta de Inscrição Marítima (CIM)". O documento é a CIR (Caderneta de Inscrição e Registro) — ver dica "cir".' },
+  { id: 'carteira-maritimo', st: 'X', r: 'A', motivo: '"Carteira de marítimo" não é o nome do documento e afirmava exigência para todo trabalho em navio-plataforma; substituída pela dica "cir".' },
+  { id: 'passaporte', st: 'X', r: 'A', motivo: 'Afirmação sem base: rotas de helicóptero cruzando ZEE de outros países e passaporte com 6 meses de validade.' },
+  { id: 'canal-anonimo', st: 'X', r: 'A', motivo: 'Atribuía à NR-37 a obrigação de canal anônimo — não consta na norma.' },
+  { id: 'intervalo-11h', st: 'X', r: 'A', motivo: '"Mínimo legal de 11 horas" contradiz o regime da Lei 5.811 (repouso de 24 h por turno de 12 h).' },
+  { id: 'huet-nr37', st: 'X', r: 'A', motivo: 'Atribuía HUET à NR-37 — a norma não trata de HUET.' },
+  { id: 'oim-encarregado', st: 'X', r: 'A', motivo: '"Encarregado Geral previsto na NR-37" não existe; a norma usa "gerente da plataforma" — ver dica "gerente-plataforma".' },
+  { id: 'dp-fpso', st: 'X', r: 'A', motivo: 'Dizia que o DP mantém FPSO sobre o poço sem âncoras — FPSO em geral é ancorada; erro técnico.' },
+  { id: 'anp-0800', st: 'X', r: 'A', motivo: 'Telefone "0800 725 6451" e nome "SAT" da ANP não confirmados — risco de número errado.' },
+  { id: 'opep-plancon', st: 'X', r: 'A', motivo: 'Sigla OPEP usada como "Plano de Emergência Individual" (o plano é o PEI); siglas sem fonte.' },
+  { id: 'anac-1h', st: 'X', r: 'A', motivo: '"A ANAC exige chegada com 1 hora de antecedência" sem base normativa.' },
+  { id: 'cipa-nr5', st: 'X', r: 'A', motivo: 'Em plataformas a comissão é a CIPLAT (NR-37 item 37.8), não CIPA da NR-5; estabilidade descrita de forma imprecisa — ver dica "ciplat".' },
+  { id: 'near-miss-punicao', st: 'X', r: 'B', motivo: '"Reportar nunca gera punição" é generalização sem base — ver dica "quase-acidente".' }
 ];
 
+/* Siglas que uma dica pode usar e as únicas expansões aceitas (conferidas na fonte da dica ou de uso
+   técnico consolidado sem ambiguidade). Sigla fora da lista ou expansão diferente = BLOCK. */
+const DICAS_SIGLAS = {
+  NR: [], CIPLAT: ['Comissão Interna de Prevenção de Acidentes e de Assédio em Plataformas'], AR: ['Análise de Risco'], PT: ['Permissão de Trabalho'],
+  POB: ['People On Board'], CIR: ['Caderneta de Inscrição e Registro'], DPC: [], REDEMET: [], DECEA: [],
+  FPSO: ['Floating Production Storage and Offloading'], BOP: ['Blowout Preventer', 'Blow-Out Preventer'], SIMOPS: ['Simultaneous Operations'],
+  PSV: ['Platform Supply Vessel'], AHTS: ['Anchor Handling Tug Supply'], OSV: [], RH: []
+};
+const semAcentoDica = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/* Barreira determinística (custo zero, sem IA). Devolve { veredito: PASS|BLOCK, motivos[] }. */
+function validarTextoDica(dica) {
+  const motivos = [];
+  const t = String(dica && dica.t || '');
+  if (!t || t.length < 40) motivos.push('texto_vazio');
+  if (typeof textoEmIngles === 'function' && textoEmIngles(t)) motivos.push('idioma');
+  // Siglas: toda palavra em maiúsculas (2–7 letras/dígitos) precisa estar no dicionário.
+  for (const m of t.matchAll(/\b([A-Z][A-Z0-9]{1,6})\b/g)) {
+    const sg = m[1];
+    if (!(sg in DICAS_SIGLAS)) { motivos.push('sigla_nao_confirmada:' + sg); continue; }
+    const aceitas = DICAS_SIGLAS[sg].map(semAcentoDica);
+    // "SIGLA (expansão)" ou "SIGLA — expansão" (travessão com espaços; "NR-37"/"DPC-1034" não são expansão).
+    const depois = /^(?:\s*\(([^)]{3,90})\)|\s+[—–-]\s+([^.:;,(]{3,90}))/.exec(t.slice(m.index + sg.length));
+    const exp = depois && (depois[1] || depois[2]);
+    if (exp && /\s/.test(exp.trim()) && (!aceitas.length || !aceitas.some((a) => semAcentoDica(exp).startsWith(a)))) motivos.push('expansao_nao_confirmada:' + sg);
+    const antes = /([^.:;()]{3,90})\(\s*$/.exec(t.slice(0, m.index));
+    if (antes && t.slice(m.index + sg.length).trimStart().startsWith(')') && (!aceitas.length || !aceitas.some((a) => semAcentoDica(antes[1]).endsWith(a)))) motivos.push('expansao_nao_confirmada:' + sg);
+  }
+  // Números: todo número precisa estar na lista da dica (fato conferido).
+  const permitidos = new Set((dica.n || []).map(String));
+  for (const m of t.matchAll(/\d+(?:[.,]\d+)*/g)) if (!permitidos.has(m[0])) motivos.push('numero_sem_fonte:' + m[0]);
+  // Risco A: precisa de fato SUPPORTED com fonte e data.
+  if (dica.r === 'A' && !(dica.f || []).length) motivos.push('sem_fonte');
+  return { veredito: motivos.length ? 'BLOCK' : 'PASS', motivos };
+}
+const DICAS_ENVIADAS_ANTES_DO_CATALOGO = { 'sono-turno': Date.parse('2026-10-19T15:00:00Z'), 'lei-5811': Date.parse('2026-10-28T15:00:00Z'), 'registros': Date.parse('2026-10-29T15:00:00Z'), 'mala': Date.parse('2026-10-31T15:00:00Z'), 'arquivo-digital': Date.parse('2026-11-01T15:00:00Z'), 'handover': Date.parse('2026-11-02T15:00:00Z'), 'financas': Date.parse('2026-11-03T15:00:00Z'), 'cir': Date.parse('2026-11-07T15:00:00Z') };
+function validadeDicaExpirada(dica, agoraMs) {
+  const dias = DICAS_VALIDADE_DIAS[dica.r] || 90;
+  const datas = (dica.f || []).map((x) => Date.parse(x.em)).filter(Number.isFinite);
+  if (!datas.length) return dica.r === 'A';
+  return agoraMs - Math.min(...datas) > dias * 86400000;
+}
+/* Revalidação quando a conferência venceu: baixa a fonte e procura os trechos em `verificar` (padrão:
+   o trecho `e`). PDF comprimido não dá para conferir aqui → não revalida (pula até nova auditoria). */
+async function revalidarDica(dica) {
+  for (const fato of dica.f || []) {
+    if (/\.pdf($|\?)/i.test(fato.u)) return { ok: false, motivo: 'fonte_pdf_exige_auditoria' };
+    let html;
+    try {
+      const r = await fetch(fato.u, { headers: { 'User-Agent': 'OWNews/1.0 - OffshoreWorks news collector' }, signal: AbortSignal.timeout(10000) });
+      if (!r.ok) return { ok: false, motivo: 'fonte_http_' + r.status };
+      html = semAcentoDica(await r.text());
+    } catch (e) { return { ok: false, motivo: 'fonte_indisponivel' }; }
+    for (const ev of (fato.verificar || [fato.e])) if (ev && !html.includes(semAcentoDica(ev))) return { ok: false, motivo: 'trecho_nao_encontrado' };
+  }
+  return { ok: true };
+}
+/* Escolha do ciclo: rotação diária entre as VALIDADAS; a barreira roda na escolhida e, se bloquear,
+   passa para a próxima validada que não saiu nos últimos 30 dias. Nenhuma passou → não envia.
+   Nunca pede texto novo à IA. Devolve também o registro do ciclo (log). */
+async function escolherDicaValidada(agoraMs, enviadas, opcoes) {
+  const revalidar = (opcoes && opcoes.revalidar) || revalidarDica;
+  const validas = DICAS_CATALOGO.filter((d) => d.st === 'V');
+  const tentativas = [];
+  if (!validas.length) return { dica: null, tentativas, motivo: 'nenhuma_dica_validada' };
+  const brt = new Date(agoraMs - 3 * 3600000);
+  const dia = Math.floor((Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()) - Date.UTC(brt.getUTCFullYear(), 0, 1)) / 86400000);
+  const ordem = validas.map((_, i) => validas[(dia + i) % validas.length]);
+  const recente = (d, dias) => enviadas && enviadas[d.id] && agoraMs - enviadas[d.id] < dias * 86400000;
+  for (const janela of [30, 7, 0]) {
+    for (const d of ordem) {
+      if (janela && recente(d, janela)) continue;
+      if (tentativas.some((x) => x.id === d.id)) continue;
+      let v;
+      try {
+        v = validarTextoDica(d);
+        if (v.veredito === 'PASS' && validadeDicaExpirada(d, agoraMs)) {
+          const rv = await revalidar(d);
+          if (!rv.ok) v = { veredito: 'BLOCK', motivos: ['validacao_vencida:' + rv.motivo] };
+        }
+      } catch (e) { v = { veredito: 'BLOCK', motivos: ['validador_falhou'] }; }
+      tentativas.push({ id: d.id, veredito: v.veredito, motivos: v.motivos });
+      if (v.veredito === 'PASS') return { dica: d, tentativas };
+    }
+  }
+  return { dica: null, tentativas, motivo: 'nenhuma_dica_passou' };
+}
 function proximoHorarioAgendadorUTC(agora, horaAlvo, minutoAlvo) {
   const d = new Date(agora);
   d.setUTCHours(horaAlvo, minutoAlvo, 0, 0);
@@ -9939,13 +10089,14 @@ function formatarBoletimAeroportos(snapshotAeroportos, agora) {
   return texto;
 }
 
-function selecionarDicaOffshore(agora) {
-  const brt = new Date(agora - 3 * 3600000);
-  const inicioAno = Date.UTC(brt.getUTCFullYear(), 0, 1);
-  const diaDoAno = Math.floor(
-    (Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate()) - inicioAno) / 86400000
-  );
-  return DICAS_OFFSHORE[diaDoAno % DICAS_OFFSHORE.length];
+function textoTelegramDica(d) {
+  return `💡 <b>DICA OFFSHORE</b>\n\n${escaparHtmlTelegram(d.t)}` + (d.r === 'A' && d.fonte ? `\n\n<i>Fonte: ${escaparHtmlTelegram(d.fonte)}</i>` : '') + `\n\nownews.com.br`;
+}
+function resumoCatalogoDicas(agoraMs) {
+  const v = DICAS_CATALOGO.filter((d) => d.st === 'V');
+  return { total: DICAS_CATALOGO.length, validadas: v.length, revisao: DICAS_CATALOGO.filter((d) => d.st === 'R').length, bloqueadas: DICAS_CATALOGO.filter((d) => d.st === 'X').length,
+    validacao_vencida: v.filter((d) => validadeDicaExpirada(d, agoraMs)).length,
+    ultima_conferencia: v.flatMap((d) => (d.f || []).map((x) => x.em)).sort().pop() || null };
 }
 
 async function publicarMensagemDiretaTelegram(env, texto) {
@@ -10002,6 +10153,10 @@ export class TelegramAgendadorPoller {
         ok: true, reset: true,
         proximo_alarme_iso: new Date(novoAlarme).toISOString()
       }), { headers: { "Content-Type": "application/json" } });
+    }
+    if (url.pathname === "/dicas-status") {
+      const [ciclo, enviadas] = await Promise.all([this.state.storage.get("dica_ultimo_ciclo"), this.state.storage.get("dicas_enviadas")]);
+      return Response.json({ ultimo_ciclo: ciclo || null, enviadas: enviadas || {} });
     }
     const [boletimDia, dicaDia, alarme] = await Promise.all([
       this.state.storage.get("boletim_dia"),
@@ -10090,10 +10245,26 @@ export class TelegramAgendadorPoller {
 
   async enviarDica(hojeStr, agora) {
     try {
-      const dica = selecionarDicaOffshore(agora);
-      const texto = `💡 <b>DICA OFFSHORE</b>\n\n${escaparHtmlTelegram(dica)}\n\nownews.com.br`;
+      // 08/11/2026: só dica VALIDADA (catálogo com fonte) e aprovada na barreira; senão, não envia.
+      // Histórico real do canal antes do catálogo (t.me/s/ownewsradar): evita repetir o mesmo assunto logo
+      // depois — inclusive a CIR, que saiu em 07/11 como "CIM" e foi corrigida à mão na mensagem.
+      const enviadas = (await this.state.storage.get("dicas_enviadas")) || DICAS_ENVIADAS_ANTES_DO_CATALOGO;
+      const escolha = await escolherDicaValidada(agora, enviadas);
+      const ciclo = { em: new Date(agora).toISOString(), dia: hojeStr, escolhida: escolha.dica ? escolha.dica.id : null, tentativas: escolha.tentativas.slice(0, 8), motivo: escolha.motivo || null, enviado: false };
+      if (!escolha.dica) {
+        ciclo.resultado = "DICA BLOQUEADA — VALIDAÇÃO INSUFICIENTE";
+        await this.state.storage.put("dica_ultimo_ciclo", ciclo);
+        await this.state.storage.put("dica_dia", hojeStr); // não insiste no mesmo dia
+        console.log(JSON.stringify({ evento: "telegram_dica_bloqueada", motivo: ciclo.motivo, tentativas: ciclo.tentativas.length }));
+        return;
+      }
+      const texto = textoTelegramDica(escolha.dica);
       const resultado = await publicarMensagemDiretaTelegram(this.env, texto);
+      ciclo.enviado = !!resultado.ok; ciclo.dry_run = !!resultado.dryRun;
+      await this.state.storage.put("dica_ultimo_ciclo", ciclo);
       if (resultado.ok) {
+        enviadas[escolha.dica.id] = agora;
+        await this.state.storage.put("dicas_enviadas", enviadas);
         await this.state.storage.put("dica_dia", hojeStr);
         try {
           if (this.env.SAUDE_KV) await this.env.SAUDE_KV.put("telegram_dica_ultima", JSON.stringify({ em: new Date().toISOString(), dia: hojeStr, dry_run: !!resultado.dryRun }));
