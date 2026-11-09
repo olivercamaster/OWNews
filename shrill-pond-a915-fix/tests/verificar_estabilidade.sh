@@ -34,6 +34,8 @@ print(f"[{ok(len(fe) <= 1)}] fontes com erro (24 h): {', '.join(k + ': ' + v['er
 r = s.get("radar") or {}
 print(f"[{ok(cron == 2 and r.get('estado') == 'healthy')}] Radar: {cron} linhas no crontab; snapshot {r.get('gerado_em')} ({r.get('idade_h')} h), produção {r.get('competencia_producao')}")
 print(f"        último log do cron: {radar_log[:110]}")
+ph = s.get("portal_home") or {}
+print(f"[{ok(not ph.get('alerta') and not ph.get('erro'))}] Home: {ph.get('itens_no_destaque')} no destaque, {ph.get('materias_24h_no_banco')} matéria(s) de 24 h no banco" + (f" — {ph.get('alerta') or ph.get('erro')}" if (ph.get('alerta') or ph.get('erro')) else ''))
 se = s["saude_editorial"]
 print(f"[{ok(se['status'] != 'VERMELHO')}] saúde editorial: {se['status']} — {'; '.join(se.get('motivos') or []) or 'sem alertas'}")
 for k in ("mercado", "offvoos", "aeroportos_meteo"):
