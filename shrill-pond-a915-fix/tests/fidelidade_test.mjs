@@ -95,6 +95,8 @@ test('falsos positivos da auditoria do acervo (03/11) continuam passando', () =>
   passa('Capacity planned to be 160-175 kboe/d.', 'Capacidade planejada entre 160 e 175 mil boe por dia.');
   passa("It increases Oceânica's backlog to approximately R$10.3 billion (US$2.05 billion).", 'A carteira passa de US$ 2 bilhões.'.replace('passa de', 'chega a mais de'));
   passa('The partners previously signed a CCS agreement in 2023 and performed studies.', 'A parceria segue estudos iniciados em 2023.');
+  passa('This nearly $1-billion development has unlocked new deepwater reserves.', 'O desenvolvimento, com investimento próximo a US$ 1 bilhão, liberou novas reservas.');
+  passa('With an investment of close to a billion dollars, MP4 involved drilling two wells.', 'O investimento foi de cerca de US$ 1 bilhão.');
   bloqueia('Equinor struck gas that could deliver up to 10.3 million boe.', 'A descoberta pode produzir até 10 milhões de boe.', 'numero_divergente');
 });
 

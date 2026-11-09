@@ -1349,53 +1349,20 @@ async function executarAtualizacaoPrincipal(env) {
 // * * *", que continuam intocados.
 async function executarAtualizacaoTerceiraFonte(env) {
   const resultados = {};
-
-  try {
-    resultados.ibama = await comSaldoFonte(env, "ibama", () => coletarIBAMA(env));
-  } catch (erro) {
-    resultados.ibama = { ok: false, erro: erro.message };
-  }
-
-  try {
-    resultados.petronoticias = await comSaldoFonte(env, "petronoticias", () => coletarPetroNoticias(env));
-  } catch (erro) {
-    resultados.petronoticias = { ok: false, erro: erro.message };
-  }
-
-  try {
-    resultados.agencia_brasil = await comSaldoFonte(env, "agencia_brasil", () => coletarAgenciaBrasilEconomia(env));
-  } catch (erro) {
-    resultados.agencia_brasil = { ok: false, erro: erro.message };
-  }
-
-  // Sindipetro NF + FUP entraram no Grupo C em 2026-09-19 (gap regional/
-  // sindical de Macaé/Bacia de Campos) — testadas isoladas via
-  // /run-sindipetro-nf e /run-fup antes de entrar aqui, mesmo padrão do
-  // IBAMA/Agência Brasil. RSS leve (1 fetch de feed + N subrequests de
-  // detalhe por item novo, mesmo custo de qualquer outra fonte RSS do
-  // grupo), sem risco adicional de orçamento de subrequests.
-  try {
-    resultados.sindipetro_nf = await comSaldoFonte(env, "sindipetro_nf", () => coletarSindipetroNF(env));
-  } catch (erro) {
-    resultados.sindipetro_nf = { ok: false, erro: erro.message };
-  }
-
-  try {
-    resultados.fup = await comSaldoFonte(env, "fup", () => coletarFUP(env));
-  } catch (erro) {
-    resultados.fup = { ok: false, erro: erro.message };
-  }
-
-  try {
-    resultados.eixos = await comSaldoFonte(env, "eixos", () => coletarEixos(env));
-  } catch (erro) {
-    resultados.eixos = { ok: false, erro: erro.message };
-  }
-
-  try {
-    resultados.noticias_macae = await comSaldoFonte(env, "noticias_macae", () => coletarNoticiasMacae(env));
-  } catch (erro) {
-    resultados.noticias_macae = { ok: false, erro: erro.message };
+  // 09/11/2026: ordem fixa deixava a 6ª fonte (Eixos) sem orçamento quase sempre (99 adiamentos em
+  // 7 dias, 0 publicações). Rodízio: a cada meia hora outra fonte começa — todas têm a vez de ir primeiro.
+  const fontes = [
+    ["ibama", () => coletarIBAMA(env)], ["petronoticias", () => coletarPetroNoticias(env)],
+    ["agencia_brasil", () => coletarAgenciaBrasilEconomia(env)], ["sindipetro_nf", () => coletarSindipetroNF(env)],
+    ["fup", () => coletarFUP(env)], ["eixos", () => coletarEixos(env)], ["noticias_macae", () => coletarNoticiasMacae(env)]
+  ];
+  const ini = Math.floor(Date.now() / 1800000) % fontes.length;
+  for (const [nome, coletar] of fontes.slice(ini).concat(fontes.slice(0, ini))) {
+    try {
+      resultados[nome] = await comSaldoFonte(env, nome, coletar);
+    } catch (erro) {
+      resultados[nome] = { ok: false, erro: erro.message };
+    }
   }
 
   return {
@@ -3003,9 +2970,20 @@ async function avaliarSaudeEditorial(env) {
   const gateStats = await obterGateEditorialStats(env);
 
   const tecPend = await resumirFalhasTecnicas(env, agora);
+  // 09/11/2026: banco com matéria recente e Home vazia é BUG de apresentação — diferente de "zero
+  // matérias". Pergunta à própria Home (mesma seleção do SSR) quantos itens ela monta agora.
+  let portalHome = null;
+  try {
+    const r = await fetch("https://ownews.com.br/api/home-selecao", { signal: AbortSignal.timeout(6000) });
+    const sel = r.ok ? await r.json() : null;
+    const n = sel ? (sel.hero ? 1 : 0) + (sel.laterais || []).length : 0;
+    portalHome = { itens_no_destaque: n, materias_24h_no_banco: ultimas24h.length,
+      alerta: ultimas24h.length > 0 && !(sel && sel.hero) ? 'BUG DE APRESENTAÇÃO: há matéria de até 24 h no banco e a Home não montou o destaque' : null };
+  } catch (e) { portalHome = { erro: String(e && e.message || e).slice(0, 80) }; }
   return {
     ok: true,
     estado,
+    portal_home: portalHome,
     home_stale: homeStale,
     last_collected_article_at: lastCollectedAt,
     horas_desde_ultima_coleta: Math.round(horasDesdeUltima * 10) / 10,
@@ -3094,6 +3072,16 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
   if (pipeline.estado === 'gravacao_falhando') { status = 'VERMELHO'; motivos.push('GRAVAÇÃO FALHANDO: ' + pipeline.motivos.join('; ')); }
   if (pipeline.estado === 'editorial_pipeline_stalled') { status = 'VERMELHO'; motivos.push('pipeline travado (editorial_pipeline_stalled): ' + rotuloSilencio + ' — ' + pipeline.motivos.join('; ')); }
   else if (semPublicar >= 12 && pipeline.estado === 'gate_reprovando_tudo') { status = 'VERMELHO'; motivos.push('gate reprovando todas as pautas novas: ' + rotuloSilencio); }
+  // 09/11/2026 — ESTRANGULAMENTO: o collector roda, as fontes trazem pauta, e nada sai. Limite tirado do
+  // histórico (antes de 03/11: 95% dos intervalos < 14,6 h; maior em dia útil 20,1 h; fim de semana até 47 h).
+  // Não publica nada nem baixa régua — só torna visível. 06–09/11 ficou 71,6 h só em AMARELO.
+  const diaBrt = (ms) => new Date(ms - 3 * 3600000).getUTCDay();
+  const limiteSilencioH = [diaBrt(agora), diaBrt(agora - 86400000)].some((d) => d === 0 || d === 6) ? 48 : 20;
+  const pautasChegando = (g24.ia_avaliadas || 0) >= 5 || (g24.internacional_rotina || 0) >= 20;
+  if (status !== 'VERMELHO' && semPublicar > limiteSilencioH && pautasChegando) {
+    status = 'VERMELHO'; pipeline.estado = 'estrangulamento_editorial';
+    motivos.push('POSSÍVEL ESTRANGULAMENTO EDITORIAL: ' + rotuloSilencio + ' (limite ' + limiteSilencioH + ' h) com pauta chegando — ' + (g24.ia_avaliadas || 0) + ' avaliadas pela IA, ' + (g24.internacional_rotina || 0) + ' descartes de internacional, ' + (g24.barradas_memoria || 0) + ' barradas pela memória em 24 h. Ver funil.');
+  }
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
   if (status !== 'VERMELHO') {
     if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar' + (pipeline.estado === 'silencio_editorial' ? ' — silêncio editorial: ' + pipeline.motivos[pipeline.motivos.length - 1] : '')); }
@@ -4746,16 +4734,25 @@ async function lerMaterialFonte(env, hash) {
    + contrato/frota/FPSO. O resto é "internacional_rotina": não baixa página, não chama IA,
    não grava nada (custo zero). Calibrado em 80 títulos reais de 27/10–03/11. */
 const SEL_BRASIL = /\b(brazil|brazilian|brasil|petrobras|b[uú]zios|mero|pre-?salt|santos basin|campos basin|esp[ií]rito santo|equatorial margin|amap[aá]|foz do amazonas|south americ\w*|prio|bacalhau|sergipe|potiguar|rio de janeiro|maca[eé])\b/i;
-const SEL_TRABALHADOR = /\b(fatal\w*|killed|deaths?|dies|died|missing|blowout|explosion|fire|sinks?|sank|capsiz\w*|evacuat\w*|injur\w*|crews?|workers?|seafarers?|strikes?|helicopters?)\b/i;
+// "strike(s) a deal/pact" é negócio, não greve (09/11: acordo de GNL nas Bahamas entrava como trabalhador).
+const SEL_TRABALHADOR = /\b(fatal\w*|killed|deaths?|dies|died|missing|blowout|explosion|fire|sinks?|sank|capsiz\w*|evacuat\w*|injur\w*|crews?|workers?|seafarers?|strikes?(?!\s+(?:an?\s+)?(?:[\w-]+\s+){0,4}(?:deal|pact|agreement|accord)s?\b)|helicopters?)\b/i;
 const SEL_GRANDE = /\b(discover(y|ies|s|ed)?|first (oil|gas)|start-?ups?|final investment decision|(takes?|reach(es|ed)?|sanction\w*|took) (the )?fid)\b|\$\s?\d+(\.\d+)?\s?(billion|bn)\b|\bbillion\b/i;
 const SEL_EMPRESA_BR = /\b(transocean|seadrill|valaris|noble|constellation|foresea|ocyan|subsea ?7|technipfmc|sbm offshore|modec|yinson|bw offshore|saipem|dof|equinor)\b/i;
 const SEL_ACAO = /\b(contracts?|awards?|wins?|won|orders?|fpsos?|fleet|backlog|drillships?|rigs?|epci)\b/i;
+/* 09/11/2026: "Brasil primeiro" virou "quase só Brasil" — 278 descartes da Offshore Energy em 7 dias,
+   inclusive sondas, FPU, poço seco e contratos de serviço de águas profundas, matéria de trabalho do
+   leitor offshore. Internacional de PETRÓLEO E GÁS OFFSHORE com ativo + ação concreta entra (continua
+   classe C, fora do índice). Eólica, cabos, comércio de GNL, hidrogênio e energia das ondas seguem fora. */
+const SEL_ATIVO_OG = /\b(rigs?|drillships?|jack-?ups?|semi-?submersibles?|semisubs?|fpsos?|fpus?|fsos?|osvs?|psvs?|ahts|plsvs?|subsea|wells?|drilling|exploration|appraisal|deepwater|oil (?:and|&) gas|oil field|gas field|oilfield|block)\b/i;
+const SEL_ACAO_OG = /\b(contracts?|awards?|wins?|won|lands?|secures?|nets?|job|work|deals?|stakes?|interest|acquir\w*|buys?|sells?|sheds?|keel|delivers?|delivered|dry|discover\w*|finds?|first gas|gas flows|spud\w*|extension|campaign)\b/i;
+const SEL_FORA_OG = /\b(wind|cable|interconnect\w*|grid|lng|hydrogen|tidal|wave energy|solar|ammonia|methanol)\b/i;
 function selecaoInternacional(titulo) {
   const t = String(titulo || '');
   if (SEL_BRASIL.test(t)) return { publicar: true, motivo: 'brasil' };
   if (SEL_TRABALHADOR.test(t)) return { publicar: true, motivo: 'trabalhador_ou_acidente' };
   if (SEL_GRANDE.test(t)) return { publicar: true, motivo: 'grande_evento' };
   if (SEL_EMPRESA_BR.test(t) && SEL_ACAO.test(t)) return { publicar: true, motivo: 'empresa_no_brasil' };
+  if (SEL_ATIVO_OG.test(t) && SEL_ACAO_OG.test(t) && !SEL_FORA_OG.test(t)) return { publicar: true, motivo: 'oleo_gas_offshore' };
   return { publicar: false, motivo: 'internacional_rotina' };
 }
 /* Classe editorial (interna, nunca exibida): A = fonte oficial/primária brasileira; B = imprensa
@@ -4952,7 +4949,8 @@ function fidValores(t) {
   // Valores com ordem de grandeza ("US$ 1,45 bilhão", "$500 million", "4,711 MMbbl/d"): as duas
   // leituras do separador (PT e EN), para comparar fonte EN com texto PT.
   const vs = [], x = semAcento(t);
-  for (const m of x.matchAll(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s?(?:(mil|thousand|milhao|milhoes|million|millions|mn|bilhao|bilhoes|billion|billions|bn|bi|trilhao|trilhoes|trillion|tn|tri)\b|(mm)(?=bbl|bpd|boe|btu))/g)) {
+  // "$1-billion" (hífen) também conta (09/11: "primeiro gás" bloqueado por falso positivo).
+  for (const m of x.matchAll(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?:\s?|-)(?:(mil|thousand|milhao|milhoes|million|millions|mn|bilhao|bilhoes|billion|billions|bn|bi|trilhao|trilhoes|trillion|tn|tri)\b|(mm)(?=bbl|bpd|boe|btu))/g)) {
     const mag = FID_MAG[m[2] || m[3]] || 1, s = m[1];
     const pt = parseFloat(s.replace(/\./g, '').replace(',', '.')), en = parseFloat(s.replace(/,/g, ''));
     vs.push({ txt: m[0], mag, vals: [...new Set([pt * mag, en * mag].filter(Number.isFinite))] });
@@ -4964,6 +4962,8 @@ function fidValores(t) {
 // mascarar troca de milhão por bilhão.
 function fidValoresFonte(t) {
   const out = fidValores(t).flatMap((v) => v.vals), x = semAcento(t);
+  // "a billion dollars", "one million" (por extenso, sem algarismo).
+  for (const m of x.matchAll(/\b(?:a|one|um|uma)\s+(thousand|million|billion|trillion|mil|milhao|bilhao|trilhao)\b/g)) out.push(FID_MAG[m[1]] || 0);
   for (const m of x.matchAll(/(?<![\d.,])(\d{1,3}(?:[.,]\d{3})+)(?![\d.,]?\d)/g)) { const s = m[1]; out.push(parseFloat(s.replace(/[.,]/g, ''))); }
   // Unidades do setor: 140 kboe/d, 1 mtpa, 3 tcf, 13 bcm.
   for (const m of x.matchAll(/(\d+(?:[.,]\d+)?)\s?(k(?=boe|bbl|bpd|b\/d|t\b)|mtpa|mmtpa|mt\b|tcf|bcf|bcm|mmscfd|mmcf)/g)) {
@@ -7567,6 +7567,10 @@ function validarAmbiente(env) {
 // ("Plsv de propriedade da DOF…", 05/11/2026). Só troca a MESMA palavra; nunca inventa sigla.
 function restaurarSiglas(original, final) {
   let t = String(final || '');
+  // Título da fonte todo em maiúsculas (PetroNotícias): não há como saber o que é sigla ("PARA", "DA"
+  // voltavam em maiúsculas, 09/11). Nesse caso não restaura nada.
+  const palavras = String(original || '').match(/\p{L}{2,}/gu) || [];
+  if (palavras.length >= 4 && palavras.filter((w) => w === w.toUpperCase()).length / palavras.length > 0.6) return t;
   for (const sg of new Set(String(original || '').match(/\b[A-Z][A-Z0-9]{1,5}\b/g) || [])) {
     t = t.replace(new RegExp('(^|[^\\p{L}\\d])(' + sg + ')(?=$|[^\\p{L}\\d])', 'giu'), (m, a, w) => w === sg ? m : a + sg);
   }

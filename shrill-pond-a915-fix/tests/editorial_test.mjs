@@ -102,3 +102,19 @@ test('mix: alerta quando quase tudo é internacional sem Brasil ou faltam matér
   const s = W.calcularSaudeEditorial({ agora: Date.now(), artigos: ruim, gate: { '24h': {}, janelas: { '6h': {} } }, automacao: {} });
   assert.ok(s.motivos.some((m) => /MIX EDITORIAL DEGRADADO/.test(m)), 'aparece no /saude');
 });
+
+test('09/11 E) internacional de petróleo e gás offshore com ativo + ação entra; F) rotina (eólica, cabo, GNL) continua fora', () => {
+  const sim = (t) => assert.equal(W.selecaoInternacional(t).publicar, true, t);
+  const nao = (t) => assert.equal(W.selecaoInternacional(t).publicar, false, t);
+  sim('Velesto’s 2010-built rig finds drilling job with Petronas');
+  sim('Wison New Energies lays keel for Türkiye’s ultra-deepwater FPU');
+  sim('Shell and Hornbeck Offshore seal multiple deals for deepwater services');
+  sim('QatarEnergy buying 25% interest in Namibian offshore exploration license from Chevron');
+  sim('Odfjell Drilling-managed rig lands multi-well North Sea job with UK oil & gas operator');
+  nao('SSE secures grid connection consent for third phase of 4.1 GW offshore wind project');
+  nao('Nexans to deliver 420 kilometers of cable for Greek interconnection');
+  nao('TotalEnergies locks in LNG supply from ADNOC and offtake deal with Chinese firm');
+  nao('10 MW tidal energy project gets EU seal for contribution to energy goals');
+  nao('Excelerate and AxDo strike multi-year Bahamas LNG deal for Caribbean’s new terminal');
+  assert.equal(W.selecaoInternacional('Workers strike at Norwegian platform over pay').publicar, true, 'greve de verdade continua entrando');
+});

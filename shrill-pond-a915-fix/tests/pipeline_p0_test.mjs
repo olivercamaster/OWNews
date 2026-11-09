@@ -192,6 +192,21 @@ test('watchdog — matéria aprovada recusada pelo banco é alarme mesmo publica
   assert.ok(s.motivos.some((m) => /GRAVAÇÃO FALHANDO/.test(m)));
 });
 
+test('watchdog O) collector roda, pauta chega e nada publica além do normal → POSSÍVEL ESTRANGULAMENTO (09/11)', () => {
+  const seg = Date.parse('2026-11-11T15:00:00Z'); // quarta-feira
+  const art1 = [{ buddy_source: 'ownews', published_at: new Date(seg - 30 * HORA).toISOString(), created_at: new Date(seg - 30 * HORA).toISOString(), image_credit: 'ANP', title: 'x' }];
+  const g = { '24h': { ia_avaliadas: 8, ia_aprovadas: 2, internacional_rotina: 53, barradas_memoria: 225 }, janelas: { '6h': { ia_avaliadas: 1 } } };
+  const s = W.calcularSaudeEditorial({ agora: seg, artigos: art1, gate: g, automacao: {} });
+  assert.equal(s.status, 'VERMELHO'); assert.ok(s.motivos.some((m) => /ESTRANGULAMENTO/.test(m)));
+  // fim de semana: 30 h sem publicar é normal (histórico até 47 h)
+  const dom = Date.parse('2026-11-08T15:00:00Z');
+  const s2 = W.calcularSaudeEditorial({ agora: dom, artigos: [Object.assign({}, art1[0], { published_at: new Date(dom - 30 * HORA).toISOString(), created_at: new Date(dom - 30 * HORA).toISOString() })], gate: g, automacao: {} });
+  assert.ok(!s2.motivos.some((m) => /ESTRANGULAMENTO/.test(m)));
+  // sem pauta chegando: silêncio editorial, não estrangulamento
+  const s3 = W.calcularSaudeEditorial({ agora: seg, artigos: art1, gate: { '24h': { ia_avaliadas: 0, internacional_rotina: 2 }, janelas: { '6h': {} } }, automacao: {} });
+  assert.ok(!s3.motivos.some((m) => /ESTRANGULAMENTO/.test(m)));
+});
+
 test('watchdog — dia fraco (só memória e pauta irrelevante) é silêncio editorial, não falha', () => {
   const janela = { ia_avaliadas: 2, ia_aprovadas: 0, tecnicas: 0, adiadas_orcamento: 0, barradas_memoria: 300, motivos: { reprovada_recente: 300 } };
   const d = W.diagnosticarPipeline({ horasSemPublicar: 19, janela, fontesComErro: [] });

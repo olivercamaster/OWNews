@@ -170,11 +170,17 @@ def _check_isolation_principal():
     # executarAtualizacaoPrincipal must have individual try/catch per source
     idx = c.find("async function executarAtualizacaoPrincipal")
     expect(idx >= 0, "executarAtualizacaoPrincipal not found")
-    snippet = c[idx:idx+2000]
-    # Count individual try/catch blocks (each source gets its own)
-    try_count = snippet.count("try {")
-    expect(try_count >= 3,
-           f"executarAtualizacaoPrincipal has only {try_count} try/catch blocks — expect ≥3 (one per source)")
+    # 09/11/2026: mede no CORPO de cada função (antes contava 2000 caracteres e "emprestava" os try do
+    # grupo C, que virou rodízio em laço). Regra: uma chamada de fonte = um try/catch próprio.
+    corpo = c[idx:c.find("\n}\n", idx)]
+    fontes = corpo.count("comSaldoFonte(")
+    expect(fontes >= 2 and corpo.count("try {") >= fontes,
+           f"executarAtualizacaoPrincipal: {fontes} fontes e {corpo.count('try {')} try/catch — cada fonte precisa do seu")
+    i3 = c.find("async function executarAtualizacaoTerceiraFonte")
+    g3 = c[i3:c.find("\n}\n", i3)]
+    laco = g3[g3.find("for (const [nome, coletar]"):]
+    expect("for (const [nome, coletar]" in g3 and "try {" in laco and "catch (erro)" in laco,
+           "grupo C (rodízio) sem try/catch por fonte dentro do laço")
 
 
 def _check_executar_teste():

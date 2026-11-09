@@ -46,3 +46,7 @@ test('título: sigla da fonte volta em maiúsculas ("Plsv" → "PLSV", 05/11) se
   assert.equal(W.restaurarSiglas('No acronyms here', 'Sem siglas aqui'), 'Sem siglas aqui');
   assert.equal(W.restaurarSiglas('FPSO arrives', 'Os fpsos chegam'), 'Os fpsos chegam', 'plural não é a mesma palavra');
 });
+
+test('título da fonte todo em maiúsculas não vira "PARA"/"DA" em maiúsculas (09/11)', () => {
+  assert.equal(W.restaurarSiglas('EPE INDICA DESCARBONIZAÇÃO E REVITALIZAÇÃO PARA MANTER PRODUÇÃO DA BACIA DE CAMPOS', 'EPE indica descarbonização e revitalização para manter produção da Bacia de Campos'), 'EPE indica descarbonização e revitalização para manter produção da Bacia de Campos');
+});
