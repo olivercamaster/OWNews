@@ -67,6 +67,24 @@ test("CASO 1: forte de 22h perde para quase tão forte de 3h", () => {
   expect(s.hero.id === B.id, "hero=" + s.hero.title);
 });
 
+test("09/11 A) 2 notícias <=24h → manchete + secundária, Home não fica vazia", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(2, 70), art(9, 60)]), AGORA);
+  expect(s.hero && s.laterais.length === 1, JSON.stringify({ h: !!s.hero, l: s.laterais.length }));
+});
+test("09/11 B) 1 notícia <=24h + 24–48h → completa o bloco; Últimas não ficam vazias (até 7 dias, idade real)", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(3, 70), art(30, 60), art(80, 55), art(100, 50), art(130, 50)]), AGORA);
+  expect(s.hero && s.laterais.length >= 1, "bloco");
+  expect(s.ultimas.length >= 3, "Últimas com " + s.ultimas.length);
+  expect(s.ultimas.every((n) => (AGORA - Date.parse(n.published_at)) / 3600000 <= 168), "nada acima de 7 dias");
+});
+test("09/11 D) nada <=48h → sem manchete (não finge ser recente); Últimas mostram as de até 7 dias com a data real", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(60, 80), art(90, 70), art(200, 90)]), AGORA);
+  expect(!s || !s.hero, "manchete com notícia velha");
+});
+test("09/11 Últimas com 3+ disponíveis em 48 h (fora do bloco) não puxam notícia mais velha", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(1, 70), art(5, 60), art(10, 60), art(20, 55), art(30, 50), art(40, 50), art(44, 50), art(46, 50), art(100, 90)]), AGORA);
+  expect(s.ultimas.every((n) => (AGORA - Date.parse(n.published_at)) / 3600000 <= 48), "puxou >48h com volume suficiente");
+});
 test("CASO 1f (04/11): manchete sem foto cede para matéria de relevância parecida COM foto real", () => {
   const semFoto = art(3, 80, { image_url: null }), comFoto = art(4, 78, { image_url: "https://fonte.teste/foto-grande.jpg" });
   const s = H.selecionarHomeServidor(ordenar([semFoto, comFoto, art(8, 55)]), AGORA);

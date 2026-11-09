@@ -551,7 +551,8 @@ if (COLLECTOR) {
     expect(g.includes("escolherTituloOWNews(") && g.includes("manterTitulo"), "gerador sem validação de título");
     const ini = COLLECTOR.indexOf("async function processarNoticiasComDedupe(");
     const p = COLLECTOR.slice(ini, COLLECTOR.indexOf("\n/* =========================\n   LEITURA DA MATÉRIA", ini));
-    expect(p.includes("if (camadaIA.titulo) artigo.title = camadaIA.titulo;") && p.includes("tituloTraduzido: tituloPublicado !== tituloFinal"), "pipeline não aplica título");
+    // 05/11/2026: o título validado passa por restaurarSiglas (sigla da fonte em maiúsculas) — continua sendo o título da IA.
+    expect(/if \(camadaIA\.titulo\) artigo\.title = (restaurarSiglas\(item\.title, camadaIA\.titulo\)|camadaIA\.titulo);/.test(p) && p.includes("tituloTraduzido: tituloPublicado !== tituloFinal"), "pipeline não aplica título");
     expect(COLLECTOR.includes("gerarCamadaEditorialIA(env, a, corpo, 1, { manterTitulo: true })"), "retroprocessamento mexe no título do acervo");
   });
   test("2ª redação cobre os motivos de FORMA (sem_ancora, incompleto) e nunca os de escopo", () => {

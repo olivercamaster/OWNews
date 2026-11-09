@@ -4594,9 +4594,12 @@ function renderTudo(noticias){
   // variante latest-count-2/3 (destaque gigante + 1-2 linhas soltas). O
   // SSR já completa com 48h; o cliente agora faz o mesmo até 5 itens
   // (destaque + 4 linhas = composição aprovada da Home 3.0). Só dados.
-  const ultimas = ultimasHoje.length >= 5
+  const ultimas48 = ultimasHoje.length >= 5
     ? ultimasHoje
     : ultimasHoje.concat(proximosUltimas(poolResiliencia48h, 6 - ultimasHoje.length));
+  // 09/11/2026: com pouca matéria em 48 h o destaque consumia tudo e as Últimas ficavam vazias sob o
+  // título. Completa até 3 com as de até 7 dias — cada card mostra a idade real ("há 4 dias").
+  const ultimas = ultimas48.length >= 3 ? ultimas48 : ultimas48.concat(proximosUltimas(noticias.filter(n => (agoraDestaques - new Date(n.published_at).getTime()) / 3600000 <= 168), 3 - ultimas48.length));
 
   function selecionarEditorial(pool, categoria, quantidade) {
     const escolhidos = [];
@@ -6556,11 +6559,13 @@ function selecionarHomeServidor(noticias, agoraMs) {
   }
   const usados = new Set([hero, ...laterais].filter(Boolean).map((n) => n.id));
   // Últimas: estritamente cronológica (lista desc), sem score. Só pula o que
-  // já está no topo e a foto idêntica à da manchete.
+  // já está no topo e a foto idêntica à da manchete. Menos de 3 em 48 h → completa com as de até
+  // 7 dias (idade real no card; 09/11/2026 — a seção ficava vazia sob o título).
   const imagensUltimas = new Set([hero && hero.image_url].filter(Boolean));
   const ultimas = [];
-  for (const c of recentes) {
-    if (ultimas.length >= 6) break;
+  const semana = validas.filter((n) => { const h = horasHome(n, agoraMs); return Number.isFinite(h) && h > HOME_ULTIMAS_MAX_H && h <= 168; });
+  for (const c of recentes.concat(semana)) {
+    if (ultimas.length >= 6 || (ultimas.length >= 3 && horasHome(c, agoraMs) > HOME_ULTIMAS_MAX_H)) break;
     if (usados.has(c.id)) continue;
     if (c.image_url && imagensUltimas.has(c.image_url)) continue;
     ultimas.push(c); usados.add(c.id); if (c.image_url) imagensUltimas.add(c.image_url);
