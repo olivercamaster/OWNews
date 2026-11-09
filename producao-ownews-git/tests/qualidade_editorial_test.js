@@ -361,8 +361,10 @@ test("gate (geração): número de especificação virou quantidade; impacto esp
 });
 test("Correções: registro tem id/data/texto, nota aparece na matéria e Reportar erro só aceita /noticia?id=", () => {
   const ini = FRONT.indexOf("const CORRECOES_NOTICIAS = [");
-  const reg = new Function(FRONT.slice(ini, FRONT.indexOf("\n];", ini) + 3) + "\nreturn CORRECOES_NOTICIAS;")();
-  expect(reg.length >= 1 && reg.every((c) => /^[0-9a-f-]{36}$/.test(c.id) && /^\d{4}-\d{2}-\d{2}$/.test(c.data) && c.texto.length > 40 && c.titulo), "registro inválido");
+  const todos = new Function(FRONT.slice(ini, FRONT.indexOf("\n];", ini) + 3) + "\nreturn CORRECOES_NOTICIAS;")();
+  // 09/11/2026: correção de página editorial (Explica/guia) tem url interna em vez de id de matéria.
+  expect(todos.every((c) => (/^[0-9a-f-]{36}$/.test(c.id) || /^\/[a-z0-9/-]+$/.test(c.url || "")) && /^\d{4}-\d{2}-\d{2}$/.test(c.data) && c.texto.length > 40 && c.titulo), "registro inválido");
+  const reg = todos.filter((c) => /^[0-9a-f-]{36}$/.test(c.id));
   const html = M.blocoProvenienciaNoticia({ id: reg[0].id, image_credit: "Offshore Energy", original_url: "https://www.offshore-energy.biz/x", published_at: "2026-10-21T07:49:00Z", buddy_reviewed_at: "2026-10-22T10:00:00Z" }, M.resolverCamadaEditorial(MAT_OWNEWS));
   expect(html.includes("Correção (") && html.includes("Atualizado em") && html.includes("Publicado em 21/10/2026"), html);
   const render = new Function("CORRECOES_NOTICIAS", "breadcrumb", "paginaChrome", "escaparHTML", "formatarDataCurtaServidor", funcao(FRONT, "function renderCorrecoes(paginaReportada)") + "\nreturn renderCorrecoes;")(reg, () => "", (t, d, c) => c, esc, (d) => d);

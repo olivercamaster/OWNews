@@ -5815,6 +5815,8 @@ function linkDocumentoPrimario(urlFonte) {
 /* Correções que mudam o sentido de uma notícia: nota na própria matéria e
    registro em /correcoes (Política de Correções). Data = dia da correção. */
 const CORRECOES_NOTICIAS = [
+  { id: "explica-transporte-aereo-offshore", url: "/explica/transporte-aereo-offshore", data: '2026-11-09', titulo: "Como funciona o transporte aéreo offshore? (OWNews Explica)",
+    texto: "O texto dizia que o treinamento HUET válido é \"sempre\" um \"pré-requisito obrigatório para embarcar\". Não há norma geral da ANAC com essa exigência; ela vem da operadora contratante e do contrato. O texto agora diz isso." },
   { id: "5aaebc26-6256-482f-9f6c-b0aa34c0c1f2", data: '2026-11-03', titulo: "Petrochina, CNOOC e Petrobras vencem 10º Leilão Spot da PPSA",
     texto: "O resumo dizia que cada empresa garantiu lotes de 3 milhões de barris. A Petrochina e a CNOOC arremataram uma carga de 1 milhão de barris cada, e a Petrobras, duas cargas de 500 mil barris." },
   { id: "6675332d-7fd6-4778-8dfd-fefa27654b5c", data: '2026-11-03', titulo: "Mais colaboração com a Petrobras eleva carteira da Oceânica para mais de US$ 2 bilhões",
@@ -8450,7 +8452,7 @@ const DADOS_SALARIO = {
     escala: "14x14 (14 dias embarcado por 14 de folga), turnos de até 12h — regime amplamente citado no setor, sem fonte oficial única confirmada por esta apuração.",
     oQueFaz: "Opera guindastes de bordo (fixos, tipo pedestal) para movimentar cargas entre o convés, embarcações de apoio e outras estruturas, seguindo procedimentos de içamento e sinalização.",
     requisitos: "Formação técnica em áreas como mecânica, eletrônica ou automação industrial, mais experiência prévia em operação de equipamentos de içamento.",
-    cursos: "Curso de operador de guindaste (NR-11), CBSP (Curso Básico de Segurança de Plataforma) e HUET (escape de helicóptero submerso) — pré-requisitos padrão para embarcar.",
+    cursos: "Curso de operador de guindaste (NR-11), CBSP (Curso Básico de Segurança de Plataforma) e HUET (escape de helicóptero submerso) — normalmente exigidos pelas empresas para embarcar.",
     experiencia: "Empresas costumam exigir experiência prévia com equipamentos de içamento antes de aceitar candidatos para o regime offshore.",
     carreira: "Fontes de mercado descrevem progressão interna dentro da própria função — de operador júnior a sênior — mas sem uma fonte primária que documente essa trajetória; tratamos como referência informal, não como fato apurado.",
     mercado: "Publicações do setor relatam grande volume de vagas para esta função, mas não encontramos estatística oficial que confirme isso especificamente para o regime offshore.",
@@ -12051,7 +12053,7 @@ function renderCertificadosOffshore() {
     '<h2 class="secao-label">Documentos comuns no setor</h2>' +
     '<ul class="hub-lista">' +
     '<li><strong>CBSP</strong> — Certificado Básico de Segurança para Plataformas. Obrigatório para embarque em plataformas brasileiras.</li>' +
-    '<li><strong>HUET</strong> — Helicopter Underwater Escape Training. Exigido para transporte por helicóptero.</li>' +
+    '<li><strong>HUET</strong> — Helicopter Underwater Escape Training. Costuma ser exigido pela empresa contratante para o transporte por helicóptero.</li>' +
     '<li><strong>T-HUET</strong> — Versão com módulo de piscina aquecida.</li>' +
     '<li><strong>CIR</strong> — Certificado Internacional de Radiotelefonia. Exigido para funções específicas.</li>' +
     '<li><strong>ASO</strong> — Atestado de Saúde Ocupacional. Renovação periódica obrigatória.</li>' +
@@ -13286,7 +13288,7 @@ const GLOSSARIO_TERMOS = [
   { sigla: "Muster Station", nome: "Ponto de Reunião", categoria: "Segurança", def: "Local designado para onde a tripulação deve se dirigir em caso de emergência ou alarme geral." },
   { sigla: "PPE/EPI", nome: "Equipamento de Proteção Individual", categoria: "Segurança", def: "Itens de uso pessoal (capacete, óculos, luvas, bota etc.) que protegem o trabalhador contra riscos específicos da atividade." },
   { sigla: "Stop Work Authority", nome: "Autoridade para Parar o Trabalho", categoria: "Segurança", def: "Direito e dever de qualquer trabalhador de interromper uma atividade que julgar insegura, sem represália." },
-  { sigla: "POB", nome: "Persons On Board", categoria: "Segurança", def: "Número total de pessoas a bordo de uma unidade offshore em um determinado momento — dado crítico em emergências." },
+  { sigla: "POB", nome: "Persons On Board (na NR-37: People On Board)", categoria: "Segurança", def: "Número total de pessoas a bordo de uma unidade offshore em um determinado momento — dado crítico em emergências." },
 
   // ---------- CARREIRA ----------
   { sigla: "OIM", nome: "Offshore Installation Manager", categoria: "Carreira", def: "Autoridade máxima a bordo de uma unidade offshore, responsável pela segurança e operação geral da instalação." },
@@ -13424,7 +13426,7 @@ const EXPLICA_ARTIGOS = [
     slug: "transporte-aereo-offshore", titulo: "Como funciona o transporte aéreo offshore?", categoria: "Rotina a bordo",
     respostaCurta: "O transporte de trabalhadores entre a base em terra e as unidades offshore é feito majoritariamente de helicóptero, operado por empresas especializadas em aviação offshore.",
     explicacao: "No Brasil, esse fluxo se concentra em aeroportos e heliportos de apoio à Bacia de Campos, ao pré-sal e às demais bacias produtoras — bases como Macaé, Jacarepaguá, Cabo Frio, Maricá, Farol de São Tomé e Vitória.",
-    comoFunciona: "Antes do voo, o passageiro passa por check-in, pesagem de bagagem e, sempre, pelo treinamento HUET (escape de helicóptero submerso) válido — pré-requisito obrigatório para embarcar. O voo segue rotas e janelas meteorológicas monitoradas, podendo ser adiado por condições de tempo desfavoráveis.",
+    comoFunciona: "Antes do voo, o passageiro passa por check-in, pesagem de bagagem e conferência dos certificados que a operadora contratante exige — o treinamento de escape de aeronave submersa (HUET ou T-HUET) válido costuma estar entre eles. A exigência vem da empresa e do contrato, não de uma norma geral da ANAC. O voo segue rotas e janelas meteorológicas monitoradas, podendo ser adiado por condições de tempo desfavoráveis.",
     porQueImporta: "É o elo logístico que viabiliza toda a operação com tripulação embarcada — por isso o OWNews acompanha em tempo real a condição meteorológica e operacional desses aeroportos.",
     aprofundamento: [["As etapas do voo", "O passageiro faz check-in, tem bagagem e peso conferidos, assiste ao vídeo ou briefing de segurança e recebe os equipamentos definidos pela operadora para o voo sobre o mar. O pouso é em helideck, onde a equipe da unidade coordena desembarque, bagagem e carga."], ["O que pode impedir o voo", "Teto e visibilidade baixos, vento forte, condições do helideck, limitação de peso (passageiros, bagagem e combustível) e manutenção das aeronaves. Por isso os aeroportos e helipontos que atendem as bacias acompanham de perto a meteorologia aeronáutica."], ["Quem opera", "Empresas de táxi aéreo especializadas operam os helicópteros sob contrato com as operadoras de petróleo, a partir de bases como Jacarepaguá, Macaé, Cabo Frio, Maricá, Farol de São Tomé e Vitória. O painel de Aeroportos do OWNews mostra as condições dessas bases."]],
     atualizadoEm: "2026-10-17",
@@ -17559,7 +17561,7 @@ function renderCorrecoes(paginaReportada) {
     '<div class="area-group">' +
     "<h2>Registro de correções</h2>" +
     '<p class="area-desc">Esta seção lista correções relevantes (as que mudam o sentido de uma informação) a partir de outubro de 2026, com data e página. Ajustes de digitação e de formatação não entram aqui.' + (registro.length ? '' : ' Até o momento não há correções relevantes registradas.') + '</p>' +
-    (registro.length ? '<ul class="hub-lista">' + registro.map((c) => '<li><strong>' + escaparHTML(formatarDataCurtaServidor(c.data)) + '</strong> — <a href="/noticia?id=' + encodeURIComponent(c.id) + '">' + escaparHTML(c.titulo) + '</a>: ' + escaparHTML(c.texto) + '</li>').join('') + '</ul>' : '') +
+    (registro.length ? '<ul class="hub-lista">' + registro.map((c) => '<li><strong>' + escaparHTML(formatarDataCurtaServidor(c.data)) + '</strong> — <a href="' + escaparHTML(c.url || '/noticia?id=' + encodeURIComponent(c.id)) + '">' + escaparHTML(c.titulo) + '</a>: ' + escaparHTML(c.texto) + '</li>').join('') + '</ul>' : '') +
     "</div>" +
 
     '<div class="hub-continue">' +
