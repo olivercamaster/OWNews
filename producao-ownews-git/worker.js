@@ -1125,7 +1125,7 @@ const OG_IMAGEM_PADRAO = 'https://ownews.com.br/img/og-ownews.jpg';
    public/css/paginas.css (Topo Fresco, 2026-10-20 — eram ~118 KB de string
    dentro do worker, perto do guard de 2 MB). A versão é o sha256 (10 hex) do
    arquivo; tests/worker_size_test.js confere. Mudou o CSS -> atualizar aqui. */
-const CSS_PAGINAS_VERSAO = '1f8f91b998';
+const CSS_PAGINAS_VERSAO = '242e2fe033';
 const VAGAS_JS_VERSAO = '0c88897059';
 const CSS_TEMA_CLARO = `
 /* ==== TEMA CLARO + MARCAS D'ÁGUA: INICIO ====
@@ -3845,10 +3845,10 @@ function mostrarDetalheAeroporto(codigo, manterAberto){
         \${ov.frescor === 'ao_vivo' ? '<span class="tag-ao-vivo">● AO VIVO</span>' : \`<span class="tag-recente">atualizado \${escaparHTML(horaFetch)}</span>\`}
       </div>
       <div class="ops-metrics">\${linhas.join('')}</div>
-      <div class="ops-detail-offvoos"><a class="ops-detail-cta-discreta" href="https://offvoos.com.br/\${meta.slugOffVoos}" target="_blank" rel="noopener noreferrer">dados: OffVoos ↗</a> <span class="ops-detail-offvoos-tag">· Hoje (BRT)</span></div>
+      <div class="ops-detail-offvoos"><span class="ops-detail-offvoos-tag">dados: OffVoos · Hoje (BRT)</span></div>
     </div>\`;
   } else if (ov) {
-    blocoOperacao = \`<div class="ops-detail-operacao ops-detail-operacao-indisponivel">Dados operacionais temporariamente indisponíveis <a class="ops-detail-cta-discreta" href="https://offvoos.com.br/\${meta.slugOffVoos}" target="_blank" rel="noopener noreferrer">fonte: OffVoos ↗</a></div>\`;
+    blocoOperacao = \`<div class="ops-detail-operacao ops-detail-operacao-indisponivel">Dados operacionais temporariamente indisponíveis</div>\`;
   }
 
   painel.innerHTML = \`
@@ -10134,7 +10134,7 @@ function renderAeroportosOffshore(){
     'var climaEl=card.querySelector("[data-clima]");' +
     'if(climaEl){var c=info.clima||{};if(climaOk(c)){var temp=typeof c.temperatura==="number"?(" "+c.temperatura+"°C"):"";climaEl.textContent=(c.icone||"")+" "+(c.tempo||"")+temp+" · METAR "+c.horarioUTC;}else{climaEl.textContent="Sem dados meteorológicos confirmados";climaEl.classList.add("sem-dado");}}' +
     'var opsEl=card.querySelector("[data-ops]");' +
-    'if(opsEl){var ov=info.offvoos;if(ov&&(ov.frescor==="ao_vivo"||ov.frescor==="recente")){var p=[];if(typeof ov.concluidos==="number")p.push("<strong>"+ov.concluidos+"</strong> Finalizados");if(typeof ov.em_voo==="number")p.push("<strong>"+ov.em_voo+"</strong> Em rota");if(typeof ov.transferidos_cancelados==="number")p.push("<strong>"+ov.transferidos_cancelados+"</strong> Transf./Cancel.");opsEl.innerHTML=(ov.frescor==="ao_vivo"?"<span class=\\"aero-ao-vivo\\">● AO VIVO</span> ":"")+p.join(" · ")+" <a href=\\"https://offvoos.com.br/"+card.getAttribute("data-icao")+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\" class=\\"aero-fonte-link\\">dados: OffVoos ↗</a>";opsEl.hidden=false;}}' +
+    'if(opsEl){var ov=info.offvoos;if(ov&&(ov.frescor==="ao_vivo"||ov.frescor==="recente")){var p=[];if(typeof ov.concluidos==="number")p.push("<strong>"+ov.concluidos+"</strong> Finalizados");if(typeof ov.em_voo==="number")p.push("<strong>"+ov.em_voo+"</strong> Em rota");if(typeof ov.transferidos_cancelados==="number")p.push("<strong>"+ov.transferidos_cancelados+"</strong> Transf./Cancel.");opsEl.innerHTML=(ov.frescor==="ao_vivo"?"<span class=\\"aero-ao-vivo\\">● AO VIVO</span> ":"")+p.join(" · ")+" <span class=\\"aero-fonte-link\\">dados: OffVoos</span>";opsEl.hidden=false;}}' +
     '});' +
     '}' +
     'fetch("https://shrill-pond-a915.olivercamaster.workers.dev/aeroportos").then(function(r){if(!r.ok)throw new Error("aeroportos "+r.status);return r.json();}).then(aplicar).catch(function(e){console.warn("OWNews: aeroportos indisponíveis no momento.",e);document.querySelectorAll("[data-clima]").forEach(function(el){el.textContent="Meteorologia indisponível no momento";el.classList.add("sem-dado");});});' +

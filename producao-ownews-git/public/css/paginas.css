@@ -351,7 +351,7 @@ footer{margin-top:40px;border-top:1px solid var(--line-soft);padding:36px 0 0;co
 .aero-card-clima.sem-dado{color:var(--muted-dim)}
 .aero-card-ops{font-family:var(--ui);font-size:12px;color:var(--cyan-dim);font-weight:600;margin-bottom:10px;padding-top:8px;border-top:1px solid var(--line-hair)}
 .aero-ao-vivo{color:var(--green);font-weight:700;font-size:10.5px}
-.aero-fonte-link{color:var(--muted-dim);font-weight:400;font-size:10.5px;text-decoration:underline}
+.aero-fonte-link{color:var(--muted-dim);font-weight:400;font-size:10.5px}
 .aero-card-relevancia{font-family:var(--editorial);font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:6px}
 .aero-card-fonte{font-family:var(--ui);font-size:10px;color:var(--muted-dim)}
 
