@@ -5815,6 +5815,10 @@ function linkDocumentoPrimario(urlFonte) {
 /* Correções que mudam o sentido de uma notícia: nota na própria matéria e
    registro em /correcoes (Política de Correções). Data = dia da correção. */
 const CORRECOES_NOTICIAS = [
+  { id: "aviacao-offshore-huet", url: "/aviacao-offshore", data: '2026-11-14', titulo: "Aviação Offshore — Curiosidades",
+    texto: "O HUET aparecia como \"treinamento obrigatório para voar\". A exigência vem da operadora contratante e do contrato, não de uma norma geral. O texto agora diz que ele costuma ser exigido." },
+  { id: "glossario-cbsp", url: "/glossario", data: '2026-11-14', titulo: "Glossário Offshore e Certificados Offshore — CBSP",
+    texto: "O verbete dizia que o CBSP é obrigatório para quem fica \"pelo menos 72h embarcado\" e que tem \"validade internacional de 5 anos\". Não encontramos fonte oficial para esses dois detalhes. O texto agora diz apenas o que a Autoridade Marítima (DPC, NORMAM-104) informa: o curso é exigido de profissionais não aquaviários que embarcam em plataformas." },
   { id: "explica-transporte-aereo-offshore", url: "/explica/transporte-aereo-offshore", data: '2026-11-09', titulo: "Como funciona o transporte aéreo offshore? (OWNews Explica)",
     texto: "O texto dizia que o treinamento HUET válido é \"sempre\" um \"pré-requisito obrigatório para embarcar\". Não há norma geral da ANAC com essa exigência; ela vem da operadora contratante e do contrato. O texto agora diz isso." },
   { id: "5aaebc26-6256-482f-9f6c-b0aa34c0c1f2", data: '2026-11-03', titulo: "Petrochina, CNOOC e Petrobras vencem 10º Leilão Spot da PPSA",
@@ -9594,7 +9598,7 @@ function renderCarreirasIndex() {
     '<p class="c3-sec-sub">Um roteiro direto para quem está começando — sem atalhos inventados, só o que realmente funciona.</p>' +
     '<div class="c3-steps">' +
     '<div class="c3-step"><div class="c3-step-num">1</div><div class="c3-step-body"><p class="c3-step-titulo">Entenda as funções e escolha a sua área</p><p class="c3-step-desc">Leia as fichas de função para entender o que cada cargo faz, o que exige e como é o cotidiano a bordo. <a class="c3-step-link" href="/funcoes">Ver todas as funções →</a></p></div></div>' +
-    '<div class="c3-step"><div class="c3-step-num">2</div><div class="c3-step-body"><p class="c3-step-titulo">Organize suas certificações e documentação</p><p class="c3-step-desc">Cada função exige um conjunto de cursos (NR-37, HUET, STCW) e documentos. Confira os requisitos na ficha da função que você quer. <a class="c3-step-link" href="/guias/cursos-offshore">Ver o guia de cursos offshore →</a></p></div></div>' +
+    '<div class="c3-step"><div class="c3-step-num">2</div><div class="c3-step-body"><p class="c3-step-titulo">Organize suas certificações e documentação</p><p class="c3-step-desc">Cada função pede cursos e documentos próprios, conforme a unidade e a empresa (ex.: NR-37 em plataformas, HUET quando a operadora exige, STCW para tripulação marítima). Confira os requisitos na ficha da função que você quer. <a class="c3-step-link" href="/guias/cursos-offshore">Ver o guia de cursos offshore →</a></p></div></div>' +
     '<div class="c3-step"><div class="c3-step-num">3</div><div class="c3-step-body"><p class="c3-step-titulo">Monte um currículo específico para offshore</p><p class="c3-step-desc">O currículo offshore tem formato próprio: embarques, certificações e habilitações em destaque. <a class="c3-step-link" href="/carreiras/modelo-curriculo">Ver modelo de currículo →</a></p></div></div>' +
     '<div class="c3-step"><div class="c3-step-num">4</div><div class="c3-step-body"><p class="c3-step-titulo">Candidature-se em vagas verificadas</p><p class="c3-step-desc">Acompanhe vagas reais de empresas offshore — sem intermediários duvidosos. <a class="c3-step-link" href="/vagas">Ver vagas verificadas →</a></p></div></div>' +
     '</div>' +
@@ -12052,7 +12056,7 @@ function renderCertificadosOffshore() {
     '<div class="agora-secao">' +
     '<h2 class="secao-label">Documentos comuns no setor</h2>' +
     '<ul class="hub-lista">' +
-    '<li><strong>CBSP</strong> — Certificado Básico de Segurança para Plataformas. Obrigatório para embarque em plataformas brasileiras.</li>' +
+    '<li><strong>CBSP</strong> — Curso Básico de Segurança de Plataforma. A Autoridade Marítima (DPC, NORMAM-104) o exige de profissionais não aquaviários que embarcam em plataformas.</li>' +
     '<li><strong>HUET</strong> — Helicopter Underwater Escape Training. Costuma ser exigido pela empresa contratante para o transporte por helicóptero.</li>' +
     '<li><strong>T-HUET</strong> — Versão com módulo de piscina aquecida.</li>' +
     '<li><strong>CIR</strong> — Certificado Internacional de Radiotelefonia. Exigido para funções específicas.</li>' +
@@ -13272,7 +13276,7 @@ const GLOSSARIO_TERMOS = [
   // inventava definição errada (confirmado ao vivo: chegou a descrever
   // CBSP como algo relacionado a segurança no deserto). Definições abaixo
   // verificadas via busca real, não memória do modelo.
-  { sigla: "CBSP", nome: "Curso Básico de Segurança de Plataforma", categoria: "Segurança", def: "Também chamado de Curso de Salvatagem — regulamentado pela Autoridade Marítima Brasileira (NORMAM-104, com base em padrões da IMO/STCW). Obrigatório para quem trabalha em plataformas de petróleo ou fica pelo menos 72h embarcado; cobre abandono de unidade, combate a incêndio, primeiros socorros e sobrevivência no mar. Certificado com validade internacional de 5 anos.", fontes: [{ label: "Marinha do Brasil — NORMAM-104 (referência regulatória)", url: "https://www.marinha.mil.br/dpc/normam" }] },
+  { sigla: "CBSP", nome: "Curso Básico de Segurança de Plataforma", categoria: "Segurança", def: "Também chamado de Curso de Salvatagem — regulamentado pela Autoridade Marítima Brasileira (NORMAM-104, com base em padrões da IMO/STCW). Exigido pela Autoridade Marítima de profissionais não aquaviários que embarcam em plataformas; cobre abandono de unidade, combate a incêndio, primeiros socorros e sobrevivência no mar. Prazos de validade e reciclagem: conferir na NORMAM-104 vigente e com a instituição credenciada.", fontes: [{ label: "Marinha do Brasil — NORMAM-104 (referência regulatória)", url: "https://www.marinha.mil.br/dpc/normam" }] },
   { sigla: "HUET", nome: "Helicopter Underwater Escape Training", categoria: "Segurança", def: "Treinamento de escape de um helicóptero que amarou/capotou na água — inclui simulações práticas em piscina controlada. Muito usado no transporte offshore por helicóptero; certificado OPITO tem validade internacional de 4 anos.", fontes: [{ label: "OPITO — HUET with EBS (padrão internacional)", url: "https://opito.com/standards-and-qualifications/industry-standards-library/helicopter-underwater-escape-training-huet-with-emergency-breathing-system-ebs" }] },
   { sigla: "PTW", nome: "Permit to Work", categoria: "Segurança", def: "Permissão de trabalho — autorização formal e controlada exigida antes de iniciar tarefas de risco a bordo." },
   { sigla: "JSA", nome: "Job Safety Analysis", categoria: "Segurança", def: "Análise de segurança do trabalho — identificação prévia dos riscos de uma tarefa e das medidas de controle necessárias." },
@@ -13915,7 +13919,7 @@ function renderAviacaoOffshoreHub() {
   const huetTermo = GLOSSARIO_TERMOS.find((g) => g.sigla === "HUET");
   const curiosidadesHtml =
     '<div class="area-group">' +
-    (huetTermo ? '<p class="area-desc"><strong>Treinamento obrigatório para voar:</strong> ' + escaparHTML(huetTermo.def) + ' <a href="/glossario">(ver no Glossário Offshore)</a></p>' : '') +
+    (huetTermo ? '<p class="area-desc"><strong>Treinamento que costuma ser exigido para voar:</strong>' + escaparHTML(huetTermo.def) + ' <a href="/glossario">(ver no Glossário Offshore)</a></p>' : '') +
     '<p class="area-desc"><strong>Assentos voltados para trás:</strong> em vários helicópteros offshore, parte dos assentos de passageiros fica de costas para o sentido do voo — configuração usada por fabricantes para distribuir peso e facilitar a evacuação em caso de pouso forçado na água.</p>' +
     '</div>';
 
