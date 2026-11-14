@@ -2450,9 +2450,9 @@ async function obterStatusTelegram(env) {
     // relevância editorial" já passou do limiar de pontuação (>= 8) — ou
     // seja, é um candidato genuinamente elegível, mesmo que algo mais
     // (intervalo, idade, erro) tenha bloqueado o envio nesta passada.
-    const candidatosElegiveisHoje = resultados.filter(
-      (r) => r.status !== "ja_publicado" && r.status !== "descartado_editorial"
-    ).length;
+    // 14/11/2026: o slot só publica com score >= LIMIAR_SLOT_TELEGRAM (12). Contar >= 8 aqui gerava
+    // "havia candidato elegível (score >= 12)" com o melhor candidato em 8 — falso alarme num dia fraco.
+    const candidatosElegiveisHoje = contarElegiveisSlotTelegram(resultados);
     garantiaMeioDia = avaliarGarantiaMeioDiaTelegram(estado, agora, candidatosElegiveisHoje);
   } catch {
     /* não crítico pro /saude */
@@ -6305,18 +6305,26 @@ return {
   linksPrimarios: extrairLinksPrimarios(html, url)
 };
 } function extrairConteudoMateria(html) {
-  let area = html;
-
   const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-  if (article && article[1]) {
-    area = article[1];
-  }
-
+  const texto = paragrafosMateria(article && article[1] ? article[1] : html, false);
+  if (texto.length >= 300 || !article) return texto;
+  // 14/11/2026: no Sindipetro-NF (Elementor) o 1º <article> é um card de "posts relacionados" (466 caracteres,
+  // nenhum <p>) e o texto fica num widget fora de qualquer <article> — 4 pautas de plataforma (P-51, P-38)
+  // morreram como "sem_material" em 7 dias. Com o <article> vazio, tenta o contêiner de conteúdo do post,
+  // só com parágrafos contíguos (para no fim do texto; não engole rodapé/endereços).
+  const i = html.search(/class="[^"]*\b(?:elementor-widget-theme-post-content|entry-content|post-content|td-post-content|article-body|single-content)\b/i);
+  if (i < 0) return texto;
+  const doConteiner = paragrafosMateria(html.slice(i), true);
+  return doConteiner.length > texto.length ? doConteiner : texto;
+}
+function paragrafosMateria(area, contiguos) {
   const paragrafos = [];
   const regex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-  let match;
+  let match, fimAnterior = -1;
 
   while ((match = regex.exec(area)) !== null) {
+    if (contiguos && fimAnterior >= 0 && match.index - fimAnterior > 1500) break;
+    fimAnterior = match.index + match[0].length;
     const texto = limparTexto(match[1]);
 
     // Corrigido em 2026-09-18 (P0 — Missão Mestre Contínua): páginas sem
@@ -9417,6 +9425,11 @@ function computarEstadoEnviosTelegram(historicoPublicados, agora) {
 // registra se a garantia foi cumprida ou por que não (nunca força um
 // candidato abaixo do limiar editorial (score >= 8) só pra bater a cota;
 // "nenhum candidato elegível hoje" é um motivo honesto, não um erro).
+function contarElegiveisSlotTelegram(resultados) {
+  return (resultados || []).filter(
+    (r) => r.status !== "ja_publicado" && r.status !== "descartado_editorial" && (r.pontuacao || 0) >= LIMIAR_SLOT_TELEGRAM
+  ).length;
+}
 function avaliarGarantiaMeioDiaTelegram(estado, agora, candidatosElegiveisHoje) {
   // Curadoria 2 Notícias/Dia: o slot da manhã (08:50 BRT) é o marco mínimo.
   // Janela da manhã termina às 09:20 BRT (08:50 + 30min de tolerância).
