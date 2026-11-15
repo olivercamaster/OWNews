@@ -629,6 +629,21 @@ console.log("\n== COMMAND CENTER ==");
   });
 }
 
+// AdSense baixo valor (15/11/2026): índice só com escopo offshore; o bloco de impacto não conta.
+test("escopo offshore do índice: E&P entra; combustível, porto, cotação e assembleia ficam fora", () => {
+  const ini = FRONT.indexOf("const ESCOPO_OFF");
+  const E = new Function(FRONT.slice(ini, FRONT.indexOf("function noticiaNoIndice", ini)) + "\nreturn noticiaNoEscopo;")();
+  [["Petrobras coloca em produção plataforma P-71, no pré-sal da Bacia de Santos", ""],
+   ["Equinor e Galp arrematam bloco vizinho a Bacalhau", "A área fica no pré-sal da Bacia de Santos e foi ofertada no regime de partilha."],
+   ["Falta de mão de obra é desafio para indústria de navegação, diz OceanPact", "A empresa opera PSVs e ROVs para a Petrobras."]].forEach(([t, c]) => expect(E(t, c), "deveria entrar: " + t));
+  [["Governo renovará a subvenção de R$ 2,12 do diesel por um mês", "Petrobras e importadores recebem o subsídio; produção offshore não muda."],
+   ["Petróleo fecha em alta com tensões no Oriente Médio", "O Brent subiu; analistas citam o pré-sal e plataformas."],
+   ["Sindipetro-NF convoca trabalhadores da Expro para assembleia dia 7 sobre ACT", "Trabalhadores offshore embarcados votam a proposta."],
+   ["Capacidade de biometano triplicou, mas produção é metade da meta", "Usinas de biogás ampliaram a capacidade."],
+   ["Porto Sudeste amplia infraestrutura para granéis líquidos", "O terminal receberá navios de petróleo e plataformas de carga."]].forEach(([t, c]) => expect(!E(t, c), "deveria ficar fora: " + t));
+  expect(funcao(FRONT, "function noticiaNoIndice(artigo, camada)").includes("noticiaNoEscopo(artigo.title, [camada && camada.corpo, camada && camada.buddy_summary]"), "noticiaNoIndice não usa o escopo (ou usa o impacto)");
+});
+
 Promise.all(PENDENTES).then(() => {
   console.log("\n" + "─".repeat(50));
   console.log("TOTAL: " + pass + " passed, " + fail + " failed");

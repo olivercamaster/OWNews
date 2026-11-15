@@ -6392,8 +6392,26 @@ function classificarIndexacaoNoticia(artigo, camada) {
    do OWNews. Continua publicada (página, Home, Buddy), mas fica fora do índice e dos sitemaps. */
 const FONTES_INTERNACIONAIS_EN = new Set(['Offshore Energy', 'Marine Technology News', 'Transocean', 'SBM Offshore']);
 const LIGACAO_BRASIL = /\bbrasil|brasileir|petrobras|\banp\b|pr[ée]-sal|bacia (de |do |potiguar)(campos|santos|esp[ií]rito santo|sergipe|foz)|margem equatorial|foz do amazonas|maca[ée]|rio de janeiro|niter[óo]i|b[úu]zios|\bmero\b|\bprio\b|\bppsa\b|sapinho[áa]|\blibra\b|\btupi\b|guanabara|amap[áa]/i;
+/* AdSense — baixo valor (15/11/2026): o índice fica com o que é do escopo offshore (E&P, plataformas, apoio
+   marítimo, leilões de áreas, segurança operacional, trabalho embarcado). Varejo de combustíveis, subsídios,
+   biometano, tarifas de gás, portos, cotação diária, assembleias e eventos continuam publicados, mas noindex,follow
+   e fora dos sitemaps. O texto avaliado é o da própria matéria (título, corpo, Buddy) — nunca o bloco de impacto. */
+const ESCOPO_OFF = /\b(offshore|plataformas?|fpsos?|fpus?|fsos?|sondas?|navio-?sonda|pocos? (de petroleo|exploratori|de gas|perfurad)|perfura\w*|campos? de (petroleo|gas|producao)|campo (de )?(buzios|mero|tupi|jubarte|marlim|roncador|sepia|atapu|itapu|bacalhau|peregrino|frade|albacora|papa-terra|polvo|tubarao|wahoo|forte|lula|sapinhoa|libra)|bacias? (de santos|de campos|do espirito santo|potiguar|de sergipe|de pelotas|foz do amazonas|do parana|de alagoas|camamu)|margem equatorial|pre-?sal|pos-?sal|aguas profundas|ultraprofundas|exploracao e producao|e&p|upstream|subsea|submarin\w*|embarca\w* de apoio|navios? de apoio|psvs?|ahts|plsvs?|osvs?|rovs?|descomissionamento|oferta permanente|leilao de (blocos|areas)|blocos? exploratori\w*|rodada|petroleiros|embarcados?|trabalho embarcado|helicopter\w*|heliponto|first oil|primeiro oleo|ppsa|partilha|participacao especial|producao de petroleo|producao de (oleo|gas natural)|reservatorio|drillship|jack-?up|semissubmersivel|sismic\w*|geofisic\w*)\b/g;
+const ESCOPO_APOIO = /\b(apoio maritimo|frota|seguranca operacional|avaliacao geologica|exploracao|exploratori\w*|descoberta|campos? maduros|novos campos|novas fronteiras|blocos?|anp|petrobras|shell|equinor|totalenergies|exxon\w*|chevron|repsol|galp|prio|brava|petroreconcavo|enauta|karoon|cnooc|petronas|bp|modec|sbm|yinson|subsea7|technip\w*|saipem\w*|transocean|valaris|seadrill|constellation|oceanpact|fugro|shearwater|halliburton|slb|baker hughes|oceaneering|petroleo e gas|oleo e gas|petroleo|navegacao|estaleiro\w*)\b/g;
+const ESCOPO_TRANSITORIO = /\b(convoca\w*|assembleias?|inscricoes|inscreva|webinar|ao vivo|encontro|evento|seminario|audiencia publica|consulta publica|prorrogad\w* ate|fecha em (alta|queda|baixa|leve)|fecha sem)\b/;
+const ESCOPO_FORA = /\b(combustive\w*|diesel|querosene|qav|gasolina|etanol|biodiesel|biometano|redata|portuari\w*|porto (de|do|sudeste)|baterias?|subvenc\w*|tarifas?)\b/;
+function noticiaNoEscopo(titulo, texto) {
+  const sa = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const t = sa(titulo), c = sa(texto);
+  if (ESCOPO_TRANSITORIO.test(t)) return false;
+  if ((t.match(ESCOPO_OFF) || []).length) return true;
+  if (ESCOPO_FORA.test(t)) return false;
+  const n = (c.match(ESCOPO_OFF) || []).length;
+  return n >= 2 || (n >= 1 && (c.match(ESCOPO_APOIO) || []).length >= 2);
+}
 function noticiaNoIndice(artigo, camada) {
   if (classificarIndexacaoNoticia(artigo, camada).estado !== 'INDEXABLE') return false;
+  if (!noticiaNoEscopo(artigo.title, [camada && camada.corpo, camada && camada.buddy_summary].join(' '))) return false;
   if (!FONTES_INTERNACIONAIS_EN.has(artigo.image_credit)) return true;
   const texto = [artigo.title, camada && camada.corpo, camada && camada.why_it_matters, camada && camada.buddy_summary].join(' ');
   return LIGACAO_BRASIL.test(texto);
@@ -17195,7 +17213,7 @@ function renderSobre() {
     "</div>" +
     '<div class="area-group">' +
     "<h2>Quem faz</h2>" +
-    '<p class="area-desc">O OWNews é um produto editorial da OffshoreWorks, uma iniciativa brasileira voltada ao público offshore. O conteúdo é assinado institucionalmente como OWNews; não publicamos nomes de redatores fictícios. A OffshoreWorks também opera uma loja própria de produtos para quem trabalha embarcado — o conteúdo editorial é independente disso, e qualquer menção comercial é identificada como tal. Também desenvolvemos o aplicativo OWBuddy, que usa a mesma produção editorial do portal.</p>' +
+    '<p class="area-desc">O OWNews é um produto editorial da OffshoreWorks, uma iniciativa brasileira voltada ao público offshore. O projeto nasceu da experiência de trabalho embarcado: o fundador tem longa trajetória offshore em funções de convés e hoje trabalha como Deck Pusher. O conteúdo é assinado institucionalmente como OWNews; não publicamos nomes de redatores fictícios. A OffshoreWorks também opera uma loja própria de produtos para quem trabalha embarcado — o conteúdo editorial é independente disso, e qualquer menção comercial é identificada como tal. Também desenvolvemos o aplicativo OWBuddy, que usa a mesma produção editorial do portal.</p>' +
     "</div>" +
     '<div class="hub-continue">' +
     '<span class="hub-continue-label">Continue no OWNews</span>' +
@@ -17390,7 +17408,7 @@ function renderPoliticaEditorial() {
     "<h2>Como produzimos uma notícia</h2>" +
     '<ol class="hub-lista">' +
     '<li><strong>Pauta</strong> — software monitora um conjunto fixo de fontes: órgãos públicos, operadoras e empresas do setor, imprensa especializada do Brasil e do exterior e sindicatos.</li>' +
-    '<li><strong>Seleção</strong> — cada item recebe uma pontuação automática de relevância para o offshore e de atualidade. O que está fora do setor é descartado, e o mesmo fato vindo de outra fonte não vira uma segunda nota no índice. O OWNews é brasileiro: de fontes estrangeiras, só viram nota os fatos com ligação com o Brasil, acidentes e temas do trabalhador offshore, grandes eventos do setor (descoberta, início de produção, decisão de investimento) e contratos de empresas com operação forte no Brasil. Nota internacional sem ligação com o Brasil continua publicada, mas não é destaque da Home nem entra nos índices de busca.</li>' +
+    '<li><strong>Seleção</strong> — cada item recebe uma pontuação automática de relevância para o offshore e de atualidade. O que está fora do setor é descartado, e o mesmo fato vindo de outra fonte não vira uma segunda nota no índice. O OWNews é brasileiro: de fontes estrangeiras, só viram nota os fatos com ligação com o Brasil, acidentes e temas do trabalhador offshore, grandes eventos do setor (descoberta, início de produção, decisão de investimento) e contratos de empresas com operação forte no Brasil. Nota internacional sem ligação com o Brasil continua publicada, mas não é destaque da Home nem entra nos índices de busca. O mesmo vale para nota de tema vizinho ao offshore (varejo de combustíveis, subsídios, biometano, tarifas de gás, portos, cotação diária do petróleo) e de agenda (assembleias, eventos, consultas públicas): fica acessível, mas fora do índice.</li>' +
     '<li><strong>Redação</strong> — um modelo de inteligência artificial escreve, a partir do material da fonte e seguindo as regras do OWNews, os três blocos da nota: o Buddy resume, o texto e o impacto para o offshore. Fonte em inglês é lida e reescrita em português, não traduzida frase a frase.</li>' +
     '<li><strong>Checagens</strong> — antes de publicar, regras automáticas conferem cópia e paráfrase da fonte, números, nomes, idioma, frases genéricas e repetição entre os blocos (detalhes abaixo). Reprovou, não publica; quando a falha é só de redação, o texto é reescrito, num número pequeno e fixo de tentativas, e passa de novo pelas mesmas regras.</li>' +
     '<li><strong>Fidelidade à fonte</strong> — por último, o título, o Buddy resume, o texto e o impacto são comparados com a fonte, não entre si: regras automáticas procuram inversões (oferta × demanda, alta × queda, previsto × realizado, confirmado × não confirmado, milhão × bilhão) e um segundo modelo confere cada afirmação, número, nome e atribuição. Contradição ou afirmação sem apoio na fonte bloqueia a publicação; se essa checagem falhar, a nota também não sai. Instagram e Telegram usam os mesmos textos já conferidos. Fidelidade vem antes de velocidade.</li>' +
