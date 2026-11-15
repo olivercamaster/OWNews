@@ -22460,7 +22460,7 @@ function nlRenderCancelar(status) {
   };
   const m = msgs[status] || msgs.invalid;
   const conteudo = '<div class="nl-hero"><h1>' + escaparHTML(m.h) + '</h1><p class="nl-tagline">' + escaparHTML(m.p) + '</p><a href="/" style="display:inline-block;margin-top:20px" class="nl-link">Ir para o OWNews →</a></div>';
-  return paginaChrome('Cancelar inscrição — OWNews', m.p, conteudo, '/newsletter/cancelar');
+  return paginaChrome('Cancelar inscrição — OWNews', m.p, conteudo, '/newsletter/cancelar', { robots: 'noindex,follow' });
 }
 
 export default {

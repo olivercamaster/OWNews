@@ -277,6 +277,7 @@ def run_static():
     test("rota /correcoes + renderCorrecoes", lambda: _check_correcoes_route())
     test("/correcoes e /certificados-offshore no sitemap estático", lambda: _check_sitemap_rotas())
     test("sitemap só inclui notícias no índice (INDEXABLE + regra internacional)", lambda: expect_in("if (!noticiaNoIndice(a, camada)) return;", worker().split("async function gerarSitemap", 1)[1][:5000], "gerarSitemap"))
+    test("cancelamento da newsletter é noindex (página de serviço, sem conteúdo)", lambda: expect_in("'/newsletter/cancelar', { robots: 'noindex,follow' }", worker(), "renderCancelar"))
     test("noticiaNoIndice parte de INDEXABLE (nunca indexa o que o gate barrou)", lambda: expect_in("if (classificarIndexacaoNoticia(artigo, camada).estado !== 'INDEXABLE') return false;", worker(), "noticiaNoIndice"))
     test("Política Editorial tem âncora #buddy-te-explica e seções exigidas", lambda: _check_politica_editorial_secoes())
     test("footers (home + chrome) linkam /correcoes e /explica", lambda: _check_footers_links())
