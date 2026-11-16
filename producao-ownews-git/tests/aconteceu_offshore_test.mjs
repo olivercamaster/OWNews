@@ -196,7 +196,9 @@ await test('CSS não esconde secundária em nenhuma largura', () => {
 });
 await test('SSR aplica a classe do bloco (o replace casa com o markup real)', () => {
   expect(bloco(render(DEZ)).classe === 'masthead three-laterais');
-  expect(bloco(render(ordenar([art(30, 90), art(40, 70)]))).oculto, 'sem manchete em 24h deveria ocultar');
+  const r = render(ordenar([art(30, 90), art(40, 70)]));
+  expect(!bloco(r).oculto && r.includes('Sem nova pauta offshore relevante nas últimas 24 h') && !r.includes('nas últimas horas.</p>'), 'reserva: bloco visível com subtítulo honesto');
+  expect(bloco(render(ordenar([art(200, 90)]))).oculto, 'nada em 7 dias deveria ocultar');
 });
 
 Date.now = realNow;

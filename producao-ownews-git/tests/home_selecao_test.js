@@ -77,13 +77,27 @@ test("09/11 B) 1 notícia <=24h + 24–48h → completa o bloco; Últimas não f
   expect(s.ultimas.length >= 3, "Últimas com " + s.ultimas.length);
   expect(s.ultimas.every((n) => (AGORA - Date.parse(n.published_at)) / 3600000 <= 168), "nada acima de 7 dias");
 });
-test("09/11 D) nada <=48h → sem manchete (não finge ser recente); Últimas mostram as de até 7 dias com a data real", () => {
-  const s = H.selecionarHomeServidor(ordenar([art(60, 80), art(90, 70), art(200, 90)]), AGORA);
-  expect(!s || !s.hero, "manchete com notícia velha");
+test("16/11 C) nada <=48h → manchete de reserva = a mais recente do escopo até 7 dias, marcada como reserva; >7 dias nunca", () => {
+  const fora = art(55, 99, { _noIndice: false });
+  const s = H.selecionarHomeServidor(ordenar([fora, art(60, 80), art(90, 70), art(200, 90)]), AGORA);
+  expect(s.reserva === true && idade(s.hero) === 60, "reserva=" + s.reserva + " hero=" + (s.hero && idade(s.hero)));
+  expect(s.laterais.map(idade).join() === "90", "laterais só do escopo, até 7 dias: " + s.laterais.map(idade).join());
+  expect([s.hero, ...s.laterais, ...s.ultimas].every((n) => idade(n) <= 168), "passou de 7 dias");
+  expect(H.tempoRelativoOuData(new Date(s.hero.published_at), new Date(AGORA)) === "há 3 dias", "idade real no card");
 });
-test("09/11 Últimas com 3+ disponíveis em 48 h (fora do bloco) não puxam notícia mais velha", () => {
-  const s = H.selecionarHomeServidor(ordenar([art(1, 70), art(5, 60), art(10, 60), art(20, 55), art(30, 50), art(40, 50), art(44, 50), art(46, 50), art(100, 90)]), AGORA);
-  expect(s.ultimas.every((n) => (AGORA - Date.parse(n.published_at)) / 3600000 <= 48), "puxou >48h com volume suficiente");
+test("16/11 B) zero <=24h + 24–48h → reserva = a MAIS RECENTE do escopo (não a de maior score), idade real ('ontem')", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(31, 60), art(40, 95, { _noIndice: false }), art(45, 99)]), AGORA);
+  expect(s.reserva && idade(s.hero) === 31 && s.laterais.map(idade).join() === "45", JSON.stringify(H.selecaoCanonicaHome(s)));
+  expect(H.tempoRelativoOuData(new Date(s.hero.published_at), new Date(AGORA)) === "ontem", "idade");
+});
+test("16/11 E) com matéria <=24h nada muda: sem reserva, laterais só até 48 h", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(30, 95), art(60, 99), art(90, 99)]), AGORA);
+  expect(!s.reserva && idade(s.hero) === 4 && s.laterais.map(idade).join() === "30", s.laterais.map(idade).join());
+});
+test("16/11 Últimas: cronológicas, até 6; >48h só depois de todas as de 48 h e nunca >7 dias", () => {
+  const s = H.selecionarHomeServidor(ordenar([art(1, 70), art(5, 60), art(10, 60), art(20, 55), art(30, 50), art(40, 50), art(44, 50), art(46, 50), art(100, 90), art(200, 90)]), AGORA);
+  const h = s.ultimas.map(idade);
+  expect(h.length === 5 && h[4] === 100 && h.every((x, i) => !i || x >= h[i - 1]) && h.every((x) => x <= 168), h.join());
 });
 test("CASO 1f (04/11): manchete sem foto cede para matéria de relevância parecida COM foto real", () => {
   const semFoto = art(3, 80, { image_url: null }), comFoto = art(4, 78, { image_url: "https://fonte.teste/foto-grande.jpg" });
@@ -155,8 +169,10 @@ test("CASO 3: nada forte em 24h → a melhor válida de 24h; 24–48h só comple
   expect(s.ultimas.length === 0, "últimas repetem o bloco: " + s.ultimas.length);
 });
 
-test("CASO 3b: nada em 48h → null (Home mostra estado vazio honesto)", () => {
-  expect(H.selecionarHomeServidor([art(60, 90), art(72, 95)], AGORA) === null);
+test("CASO 3b: nada em 7 dias (ou nada do escopo) → null / sem manchete (estado vazio honesto)", () => {
+  expect(H.selecionarHomeServidor([art(200, 90), art(300, 95)], AGORA) === null);
+  expect(H.selecionarHomeServidor([art(60, 90, { _noIndice: false })], AGORA).hero === null);
+  expect(H.selecionarHomeServidor([], AGORA) === null);
 });
 
 test("CASO 4: 4 recentes da mesma editoria → diversidade sem matar frescor", () => {
@@ -196,13 +212,24 @@ test("CASO 6: seleção muda sozinha quando o relógio anda / chega matéria nov
   expect(H.selecionarHomeServidor(l1, AGORA).hero.id === a.id);
   const b = art(0.2, 72);
   expect(H.selecionarHomeServidor(ordenar([b, ...l1]), AGORA).hero.id === b.id, "nova não assumiu");
-  // 30h depois, sem nada novo: topo vazio (sem manchete), Últimas mantém as reais
+  // 30h depois, sem nada novo: manchete de reserva (a mais recente), sem fingir frescor
   const s30 = H.selecionarHomeServidor(l1, AGORA + 30 * 3600000);
-  expect(s30.hero === null && s30.laterais.length === 0 && s30.ultimas.length === 3, JSON.stringify(H.selecaoCanonicaHome(s30)));
-  // 50h depois: nada em 48h → null
-  expect(H.selecionarHomeServidor(l1, AGORA + 50 * 3600000) === null);
+  expect(s30.reserva && s30.hero.id === a.id && s30.laterais.length === 2, JSON.stringify(H.selecaoCanonicaHome(s30)));
+  // 8 dias depois: nada em 7 dias → null
+  expect(H.selecionarHomeServidor(l1, AGORA + 192 * 3600000) === null);
 });
 
+test("16/11 cliente: manchete canônica de reserva é achada fora das 48 h, subtítulo troca, Giro não reaparece vazio", () => {
+  expect(FRONT.includes("const heroCanon = selCanon && selCanon.hero ? noticias.find(n => n.id === selCanon.hero) : null;\n  if (!noticias24h.length && !heroCanon) {"), "cliente procura a manchete só em 48 h");
+  expect(FRONT.includes("subAconteceu.textContent = hero && agoraRender - new Date(hero.published_at).getTime() > 864e5 ?"), "subtítulo fixo em 'últimas horas'");
+  expect(FRONT.includes("el.hidden = id === '__giro__' && !noticias24h.length;"), "Giro sem matéria de 48 h");
+  expect(FRONT.includes(".aconteceu-head:has(+ .masthead[hidden]){display:none}"), "título do bloco sobra sem bloco");
+});
+test("16/11 I) sitemap-news: só 48 h (protocolo Google News) e só o que está no índice — reserva da Home não entra", () => {
+  const f = FRONT.slice(FRONT.indexOf("async function gerarNewsSitemap"), FRONT.indexOf("async function gerarNewsSitemap") + 2500);
+  expect(f.includes("const desde = new Date(Date.now() - 48 * 3600000).toISOString();") && f.includes("published_at=gte.") && f.includes("if (!noticiaNoIndice(a, resolverCamadaEditorial(a))) return;"), "janela/índice do news sitemap mudou");
+  expect(!f.includes("HOME_RESERVA_MAX_H"), "reserva da Home vazou para o news sitemap");
+});
 test("CASO 6b: cache — Home 300s e /api/home-selecao 120s na borda; cliente busca a API a cada refresh", () => {
   expect(/pathname === "\/api\/home-selecao"[\s\S]{0,120}respostaCacheada\(request, ctx, 120,/.test(FRONT), "TTL API");
   expect(FRONT.includes("fetch('/api/home-selecao')"), "cliente não reconsulta a API");
@@ -278,13 +305,12 @@ test("matéria de hoje boa (65, 3h) vence velha forte (85, 20h)", () => {
   expect(s.hero.id === hoje.id);
   expect(s.laterais[0].id === ontem.id, "ontem (≤24h) pode ser lateral");
 });
-test("nenhuma matéria ≤24h → sem manchete, sem laterais; Últimas cronológicas", () => {
+test("nenhuma matéria ≤24h → manchete de reserva + laterais cronológicas; diagnóstico mostra 'reserva'", () => {
   const l = ordenar([art(26, 90), art(30, 60), art(40, 80)]);
   const s = H.selecionarHomeServidor(l, AGORA);
-  expect(s.hero === null && s.laterais.length === 0, JSON.stringify(H.selecaoCanonicaHome(s)));
-  expect(s.ultimas.map((n) => n.id).join() === l.map((n) => n.id).join(), "Últimas fora de ordem");
+  expect(s.reserva && s.hero.id === l[0].id && s.laterais.map(idade).join() === "30,40", JSON.stringify(H.selecaoCanonicaHome(s)));
   const d = H.diagnosticoHome(l, AGORA);
-  expect(d.hero === null && d.noticias_24h === 0 && /mais de 24h/.test(d.candidatos[0].motivo), JSON.stringify(d).slice(0, 300));
+  expect(d.faixa_hero === "reserva" && d.noticias_24h === 0 && /mais de 24h/.test(d.candidatos[0].motivo), JSON.stringify(d).slice(0, 300));
 });
 test("apenas 1 matéria ≤24h → manchete + secundárias de 24–48h (sem inventar a 3ª)", () => {
   const s = H.selecionarHomeServidor(ordenar([art(4, 70), art(30, 95), art(36, 90), art(50, 99)]), AGORA);

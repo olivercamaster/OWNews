@@ -155,6 +155,7 @@ function classificarPaginaParaAds(caminho) {
    seleção nem nesta contagem — tests/aconteceu_offshore_test.mjs. */
 const ACONTECEU_NOTICIAS_VISIVEIS = 4;
 const ACONTECEU_SECUNDARIAS = ACONTECEU_NOTICIAS_VISIVEIS - 1;
+const HOME_SUB_RESERVA = 'Sem nova pauta offshore relevante nas últimas 24 h — as notícias mais recentes, com a data real.';
 // Home 3.0: resumo institucional da fonte nunca vira deck (Home, /noticia).
 const RE_LEAD_INSTITUCIONAL = /[Rr]evista fundada em [0-9]{4}|^[Ii]nforma[çc][ãa]o publicada (pela|por) |^[Nn]ot[ií]cias sobre [Pp]ortos, [Mm]arinha [Mm]ercante|^[a-zà-ú][a-zà-ú ]*(, [a-zà-ú ]+){2,}\.?$/;
 // S3 (2026-10-05): aeroportos vivos — proxied para o app via /api/buddy/aeroportos
@@ -1921,6 +1922,7 @@ html[data-theme="light"] .central-home-cta{background:var(--navy-900);border-col
 .aconteceu-head h2{margin:0;font:800 15px/1.25 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--white)}
 .aconteceu-head h2::before{content:"";display:inline-block;width:4px;height:13px;margin-right:9px;border-radius:2px;background:var(--cyan);vertical-align:-1px}
 .aconteceu-head p{margin:0;font:13.5px/1.4 var(--editorial);color:var(--muted)}
+.aconteceu-head:has(+ .masthead[hidden]){display:none}
 /* Títulos longos: limite generoso só no bloco principal e em Mercado & Energia */
 #destaque .lead h1,#destaque .highlight h2,#mercado h3{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
 #mercado .row-main h3{-webkit-line-clamp:3}
@@ -4441,7 +4443,11 @@ function renderTudo(noticias){
   const jornalismo = ['destaque','ultimas','mercado','operacoes'];
   const giroWrap = document.querySelector('.ticker-wrap');
   if (giroWrap) jornalismo.push('__giro__');
-  if (!noticias24h.length) {
+  // Seleção canônica do servidor (ver selecaoCanonicaHome): mesma manchete
+  // no HTML inicial e depois de hidratar — inclusive a de reserva (>24h). Regra local só como reserva.
+  const selCanon = window.__HOME_SEL__ || null;
+  const heroCanon = selCanon && selCanon.hero ? noticias.find(n => n.id === selCanon.hero) : null;
+  if (!noticias24h.length && !heroCanon) {
     // Topo Fresco: sem matéria recente, nada de manchete velha nem aviso
     // dramático — o topo some e a página começa nas Últimas (cronológicas,
     // cada uma com a idade real).
@@ -4453,16 +4459,14 @@ function renderTudo(noticias){
     observarCapas(document.getElementById('ultimasBody'));
     return;
   }
-  jornalismo.forEach(id => { const el = id === '__giro__' ? giroWrap : document.getElementById(id); if (el) el.hidden = false; });
+  jornalismo.forEach(id => { const el = id === '__giro__' ? giroWrap : document.getElementById(id); if (el) el.hidden = id === '__giro__' && !noticias24h.length; });
   ULTIMAS_NOTICIAS_RADAR = noticias;
 
-  // Seleção canônica do servidor (ver selecaoCanonicaHome): mesma manchete
-  // no HTML inicial e depois de hidratar. Regra local só como reserva.
-  const selCanon = window.__HOME_SEL__ || null;
-  const heroCanon = selCanon && selCanon.hero ? noticias24h.find(n => n.id === selCanon.hero) : null;
   // Hard cap do topo: 24h (a reserva local nunca usa a janela de 48h).
   const poolTopo24h = noticias24h.filter(n => (agoraRender - new Date(n.published_at).getTime()) / 3600000 <= 24);
   const hero = heroCanon || ((selCanon && selCanon.hero === null) || !poolTopo24h.length ? null : escolherDestaque(poolTopo24h));
+  const subAconteceu = document.querySelector('#aconteceuHead p');
+  if (subAconteceu) subAconteceu.textContent = hero && agoraRender - new Date(hero.published_at).getTime() > 864e5 ? ${JSON.stringify(HOME_SUB_RESERVA)} : 'As principais movimentações do setor nas últimas horas.';
   function urlHomeNormalizada(url) {
     if (!url) return '';
     try {
@@ -4599,7 +4603,7 @@ function renderTudo(noticias){
     : ultimasHoje.concat(proximosUltimas(poolResiliencia48h, 6 - ultimasHoje.length));
   // 09/11/2026: com pouca matéria em 48 h o destaque consumia tudo e as Últimas ficavam vazias sob o
   // título. Completa até 3 com as de até 7 dias — cada card mostra a idade real ("há 4 dias").
-  const ultimas = ultimas48.length >= 3 ? ultimas48 : ultimas48.concat(proximosUltimas(noticias.filter(n => (agoraDestaques - new Date(n.published_at).getTime()) / 3600000 <= 168), 3 - ultimas48.length));
+  const ultimas = ultimas48.length >= 5 ? ultimas48 : ultimas48.concat(proximosUltimas(noticias.filter(n => (agoraDestaques - new Date(n.published_at).getTime()) / 3600000 <= 168), 6 - ultimas48.length));
 
   function selecionarEditorial(pool, categoria, quantidade) {
     const escolhidos = [];
@@ -6468,8 +6472,8 @@ async function obterNoticiasHomeServidor() {
    até 12h → 12–24h → só para completar as 3 vagas, 24–48h (janela segura
    das Últimas, a mais recente primeiro, com a idade real no card). Com 4+
    matérias válidas em 48h o bloco mostra sempre 1 + 3; com menos, mostra
-   o que existe (nada inventado, nada repetido). Manchete continua ≤24h:
-   sem matéria em 24h, sem bloco de destaque. Diversidade (fonte/editoria)
+   o que existe (nada inventado, nada repetido). Manchete normal ≤24h;
+   sem nenhuma em 24h, manchete de reserva (ver HOME_RESERVA_MAX_H). Diversidade (fonte/editoria)
    é preferência dentro de cada faixa. Pauta repetida nunca entra; foto
    repetida só como último recurso e então com a capa editorial OWNews.
    Últimas = cronológica (48h), sem o que já está no bloco. */
@@ -6482,6 +6486,7 @@ const HOME_LATERAL_PREFERENCIA_H = 12;
 const HOME_HERO_FOTO_TOLERANCIA = 0.85;
 const HOME_HERO_FOTO_MAX_MAIS_VELHA_H = 6;
 const HOME_ULTIMAS_MAX_H = 48;
+const HOME_RESERVA_MAX_H = 168;
 function fatorFrescorHome(h) {
   if (!Number.isFinite(h) || h < -HOME_TOLERANCIA_FUTURO_H || h > HOME_TOPO_MAX_H) return 0;
   if (h <= 6) return 1;
@@ -6514,7 +6519,8 @@ function selecionarHomeServidor(noticias, agoraMs) {
   const validas = noticias.filter((n) => !ehMateriaThin(n, null))
     .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
   const recentes = validas.filter((n) => { const h = horasHome(n, agoraMs); return Number.isFinite(h) && h >= -HOME_TOLERANCIA_FUTURO_H && h <= HOME_ULTIMAS_MAX_H; });
-  if (!recentes.length) return null;
+  const semana = validas.filter((n) => { const h = horasHome(n, agoraMs); return Number.isFinite(h) && h > HOME_ULTIMAS_MAX_H && h <= HOME_RESERVA_MAX_H; });
+  if (!recentes.length && !semana.length) return null;
   const topo = recentes.filter((n) => fatorFrescorHome(horasHome(n, agoraMs)) > 0);
   // 03/11/2026: a vitrine prioriza o que está no índice (Brasil/fonte nacional). Internacional fora do
   // índice só é manchete se for urgente (bônus de breaking) ou se não houver indexável em 24 h.
@@ -6542,6 +6548,12 @@ function selecionarHomeServidor(noticias, agoraMs) {
     const melhor = melhorHome(alt, agoraMs);
     if (melhor) hero = melhor;
   }
+  // 16/11/2026: sem matéria em 24 h, o bloco não fica vazio — manchete de reserva = a mais recente DO ESCOPO
+  // (no índice) até 48 h, senão até 7 dias (mesma janela das Últimas: cobre fim de semana e feriado; mais velho
+  // que isso não é "o que aconteceu"). Idade real no card e subtítulo sem promessa de "últimas horas".
+  const noEscopo = (n) => n._noIndice !== false;
+  const reserva = !hero;
+  if (reserva) hero = recentes.concat(semana).find(noEscopo) || null;
   const laterais = [];
   if (hero) {
     const pref = (n) => { const h = horasHome(n, agoraMs); return h <= HOME_LATERAL_PREFERENCIA_H ? 0 : h <= HOME_TOPO_MAX_H ? 1 : 2; };
@@ -6549,7 +6561,7 @@ function selecionarHomeServidor(noticias, agoraMs) {
     const ordemLateral = (a, b) => pref(a) - pref(b) || (pref(a) === 2 ? horasHome(a, agoraMs) - horasHome(b, agoraMs) : homeScoreServidor(b, agoraMs) - homeScoreServidor(a, agoraMs));
     // Na mesma faixa de frescor, as que estão no índice vêm antes (internacional só completa).
     const ordemVitrine = (a, b) => pref(a) - pref(b) || (vitrine(b) ? 1 : 0) - (vitrine(a) ? 1 : 0) || ordemLateral(a, b);
-    const candidatas = recentes.filter((n) => n.id !== hero.id).sort(ordemVitrine);
+    const candidatas = (reserva ? recentes.concat(semana).filter(noEscopo) : recentes).filter((n) => n.id !== hero.id).sort(ordemVitrine);
     const imagens = new Set([hero.image_url].filter(Boolean));
     const fontes = new Set([hero.image_credit].filter(Boolean));
     const porEditoria = { [editoriaDeServidor(hero)]: 1 };
@@ -6583,18 +6595,17 @@ function selecionarHomeServidor(noticias, agoraMs) {
   }
   const usados = new Set([hero, ...laterais].filter(Boolean).map((n) => n.id));
   // Últimas: estritamente cronológica (lista desc), sem score. Só pula o que
-  // já está no topo e a foto idêntica à da manchete. Menos de 3 em 48 h → completa com as de até
-  // 7 dias (idade real no card; 09/11/2026 — a seção ficava vazia sob o título).
+  // já está no topo e a foto idêntica à da manchete. Poucas em 48 h → completa até 6 com as de até
+  // 7 dias (idade real no card; 09/11 e 16/11/2026 — a seção ficava pobre no fim de semana).
   const imagensUltimas = new Set([hero && hero.image_url].filter(Boolean));
   const ultimas = [];
-  const semana = validas.filter((n) => { const h = horasHome(n, agoraMs); return Number.isFinite(h) && h > HOME_ULTIMAS_MAX_H && h <= 168; });
   for (const c of recentes.concat(semana)) {
-    if (ultimas.length >= 6 || (ultimas.length >= 3 && horasHome(c, agoraMs) > HOME_ULTIMAS_MAX_H)) break;
+    if (ultimas.length >= 6) break;
     if (usados.has(c.id)) continue;
     if (c.image_url && imagensUltimas.has(c.image_url)) continue;
     ultimas.push(c); usados.add(c.id); if (c.image_url) imagensUltimas.add(c.image_url);
   }
-  return { hero, laterais, ultimas };
+  return { hero, laterais, ultimas, reserva: reserva && !!hero };
 }
 
 // Diagnóstico read-only (?diagnostico=1): mesma função, sem escrita KV/DO.
@@ -6614,7 +6625,7 @@ function diagnosticoHome(noticias, agoraMs) {
     hero: sel && sel.hero ? sel.hero.id : null,
     laterais: sel ? sel.laterais.map((n) => n.id) : [],
     idade_hero_h: sel && sel.hero ? r1(horasHome(sel.hero, agoraMs)) : null,
-    faixa_hero: sel && sel.hero ? faixaHeroHome(horasHome(sel.hero, agoraMs)) : null,
+    faixa_hero: sel && sel.hero ? (sel.reserva ? 'reserva' : faixaHeroHome(horasHome(sel.hero, agoraMs))) : null,
     idade_laterais_h: sel ? idades(sel.laterais) : [],
     noticias_24h: noticias.filter((n) => !ehMateriaThin(n, null) && fatorFrescorHome(horasHome(n, agoraMs)) > 0).length,
     candidatos: noticias.slice(0, 20).map((n) => ({
@@ -6726,9 +6737,9 @@ function homeEstatica() {
 
 function injetarNoticiasHome(html, noticias, agora) {
   const selecao = selecionarHomeServidor(noticias, agora.getTime());
-  if (!selecao) return html;
+  if (!selecao) return html.replace('<section class="masthead" id="destaque"', '<section class="masthead sem-laterais" hidden id="destaque"');
   const m = homeSsrMarkup(selecao, agora);
-  // Sem matéria de até 24h: não há bloco de destaque (nada velho no topo);
+  // Sem nada no escopo em 7 dias: não há bloco de destaque;
   // a página começa nas Últimas, cronológicas, com a idade real de cada uma.
   // Home 3.0 trocou aria-label por aria-labelledby e este replace deixou de
   // casar (classe/hidden só chegavam com o JS): casa só o prefixo estável.
@@ -6736,6 +6747,7 @@ function injetarNoticiasHome(html, noticias, agora) {
     ? '<section class="masthead ' + m.classeMasthead + '" id="destaque"'
     : '<section class="masthead sem-laterais" hidden id="destaque"';
   return html
+    .replace('<p>As principais movimentações do setor nas últimas horas.</p>', selecao.reserva ? '<p>' + HOME_SUB_RESERVA + '</p>' : '$&')
     .replace('<section class="masthead" id="destaque"', abertura)
     .replace('<article class="lead" id="heroCard"></article>', '<article class="lead" id="heroCard">' + m.hero + '</article>')
     .replace('<aside class="highlights" id="highlightsList"></aside>', '<aside class="highlights" id="highlightsList">' + m.laterais + '</aside><script>window.__HOME_SEL__=' + JSON.stringify(selecaoCanonicaHome(selecao)) + ';</script>')
