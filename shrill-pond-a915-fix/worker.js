@@ -3084,7 +3084,10 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
   }
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
   if (status !== 'VERMELHO') {
-    if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(Math.round(semPublicar) + 'h sem publicar' + (pipeline.estado === 'silencio_editorial' ? ' — silêncio editorial: ' + pipeline.motivos[pipeline.motivos.length - 1] : '')); }
+    // 16/11/2026: collector rodando, fontes lendo e pauta reprovada por relevância/qualidade = período sem pauta
+    // publicável, não falha. Fica VERDE com o motivo à vista; falha real continua VERMELHA (acima).
+    if (semPublicar >= 6 && pipeline.estado === 'silencio_editorial') motivos.push('SAUDÁVEL — SEM NOVA PAUTA PUBLICÁVEL: ' + rotuloSilencio + ' (silêncio editorial: ' + pipeline.motivos[pipeline.motivos.length - 1] + ')');
+    else if (semPublicar >= 6) { status = 'AMARELO'; motivos.push(rotuloSilencio); }
     // Taxa null = ainda sem amostra com o contador de aprovadas (não é 0%).
     const amostraTaxa = g24.ia_avaliadas_amostra_taxa === undefined ? (g24.ia_avaliadas || 0) : g24.ia_avaliadas_amostra_taxa;
     if (amostraTaxa >= 4 && Number.isFinite(g24.taxa_aprovacao_ia) && g24.taxa_aprovacao_ia < 25) { status = 'AMARELO'; motivos.push('aprovação baixa: ' + g24.taxa_aprovacao_ia + '% de ' + amostraTaxa); }
@@ -3165,6 +3168,8 @@ async function acumularGateEditorial(env, resultados, orcamento) {
     const entrada = { ts: agora, fontes: {} };
     if (orcamento) entrada.orc = { u: orcamento.usados, a: orcamento.adiadas, fa: (orcamento.fontesAdiadas || []).length };
     for (const [nome, r] of Object.entries(resultados)) {
+      // Fonte desligada de propósito (DESATIVADO_*) não é falha técnica da janela.
+      if (r && r.ok === false && /^DESATIVADO/.test(String(r.erro))) continue;
       if (r && r.ok === false) { (entrada.fontes_erro = entrada.fontes_erro || []).push(nome); (entrada.fontes_erro_msg = entrada.fontes_erro_msg || {})[nome] = String(r.erro || '').slice(0, 140); if (/subrequest/i.test(String(r.erro))) entrada.ia_erro = String(r.erro).slice(0, 120); continue; }
       if (!r) continue;
       const p = r.inseridas || 0;
@@ -5246,7 +5251,9 @@ function diagnosticarMix(proprias, agora) {
   const semImagem24 = h24.filter((a) => !a.image_url).length;
   const motivos = [];
   if (ultimas.length >= 5 && intlSemBrasil / ultimas.length >= 0.7) motivos.push(intlSemBrasil + ' das últimas ' + ultimas.length + ' publicações são internacionais sem ligação com o Brasil');
-  if (horasSemBr === null || horasSemBr >= 24) motivos.push(horasSemBr === null ? 'nenhuma matéria brasileira na janela' : Math.round(horasSemBr) + 'h sem matéria brasileira/indexável');
+  // Só é mix degradado se OUTRA coisa foi publicada no lugar (a mais recente é internacional); sem publicar nada é
+  // silêncio, tratado pelo watchdog.
+  if ((horasSemBr === null || horasSemBr >= 24) && ord.length && !brasileira(ord[0])) motivos.push(horasSemBr === null ? 'nenhuma matéria brasileira na janela' : Math.round(horasSemBr) + 'h sem matéria brasileira/indexável');
   if (h24.length >= 4 && semImagem24 / h24.length > 0.5) motivos.push(semImagem24 + ' de ' + h24.length + ' publicações em 24h sem imagem própria (fallback institucional)');
   return {
     estado: motivos.length ? 'mix_editorial_degradado' : 'ok',
@@ -5263,7 +5270,11 @@ function diagnosticarMix(proprias, agora) {
 function diagnosticarPipeline({ horasSemPublicar, janela, fontesComErro }) {
   const j = janela || {};
   const tecnicas = (j.tecnicas || 0) + (j.insercao_falhou || 0) + ((j.motivos || {}).ia_indisponivel || 0);
-  const adiadasOrc = (j.adiadas_orcamento || 0) + (j.fontes_adiadas_orcamento || 0);
+  // Fonte adiada pelo teto de subrequests é rodízio (lida na execução seguinte): só pesa como trava quando o
+  // teto é atingido em metade ou mais das execuções. 16/11/2026: 4 fontes adiadas em 3 de 51 execuções viraram
+  // "pipeline travado" num domingo sem pauta publicável.
+  const orcCronico = (j.execucoes_orcamento_atingido || 0) > 0 && (j.execucoes_orcamento_atingido || 0) * 2 >= (j.execucoes || 0);
+  const adiadasOrc = (j.adiadas_orcamento || 0) + (orcCronico ? (j.fontes_adiadas_orcamento || 0) : 0);
   const novas = (j.ia_avaliadas || 0) + tecnicas + adiadasOrc;
   const motivos = [];
   if (tecnicas) motivos.push(tecnicas + ' pauta(s) parada(s) por erro técnico');

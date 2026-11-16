@@ -230,9 +230,9 @@ await test("saúde AMARELO: 7h sem publicar / aprovação baixa / fonte com erro
 });
 
 // P0 31/10/2026: silêncio sem causa técnica é AMARELO (silencio_editorial); VERMELHO = pipeline travado.
-await test("saúde AMARELO: 22h sem publicar, só memória e pauta fraca (silêncio editorial, não falha)", () => {
+await test("saúde VERDE: 22h sem publicar, só memória e pauta fraca (sem pauta publicável, não falha — 16/11)", () => {
   const s = T.calcularSaudeEditorial({ agora: AGORA, artigos: [art(22.5)], gate: { "24h": { ia_avaliadas: 3, barradas_memoria: 85, editorial_incomplete: 103, publicadas: 0, taxa_aprovacao_ia: 0 }, ia: {} }, automacao: {} });
-  expect(s.status === "AMARELO" && s.pipeline.estado === "silencio_editorial" && !s.silencio_alerta, JSON.stringify(s));
+  expect(s.status === "VERDE" && s.pipeline.estado === "silencio_editorial" && !s.silencio_alerta && /SEM NOVA PAUTA PUBLICÁVEL/.test(s.motivos.join(" ")), JSON.stringify(s));
 });
 await test("saúde VERMELHO + alerta: 22h sem publicar com pautas novas paradas por erro técnico (travado)", () => {
   const janela = { ia_avaliadas: 1, tecnicas: 5, adiadas_orcamento: 3, barradas_memoria: 85, motivos: { ia_indisponivel: 2 } };

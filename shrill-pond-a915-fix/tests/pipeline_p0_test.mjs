@@ -212,10 +212,31 @@ test('watchdog — dia fraco (só memória e pauta irrelevante) é silêncio edi
   const d = W.diagnosticarPipeline({ horasSemPublicar: 19, janela, fontesComErro: [] });
   assert.equal(d.estado, 'silencio_editorial');
   const s = W.calcularSaudeEditorial({ agora: Date.now(), artigos: [{ buddy_source: 'ownews', published_at: iso(19), created_at: iso(19) }], gate: { '24h': {}, janelas: { '6h': janela } }, automacao: {} });
-  assert.equal(s.status, 'AMARELO');
-  assert.match(s.motivos.join(' '), /silêncio editorial/);
+  assert.equal(s.status, 'VERDE', 'período sem pauta publicável não é falha (16/11/2026)');
+  assert.match(s.motivos.join(' '), /SAUDÁVEL — SEM NOVA PAUTA PUBLICÁVEL: 19h sem publicar \(silêncio editorial/);
   assert.equal(W.diagnosticarPipeline({ horasSemPublicar: 2, janela, fontesComErro: [] }).estado, 'publicando');
   assert.equal(W.diagnosticarPipeline({ horasSemPublicar: 10, janela: { ia_avaliadas: 9, ia_aprovadas: 0 }, fontesComErro: [] }).estado, 'gate_reprovando_tudo');
+});
+
+test('watchdog G) domingo real 15/11: fontes adiadas em 3 de 51 execuções + pauta só irrelevante → VERDE (sem pauta publicável)', () => {
+  const dom = Date.parse('2026-11-15T23:00:00Z');
+  const janela = { ia_avaliadas: 1, ia_aprovadas: 0, tecnicas: 0, adiadas_orcamento: 0, fontes_adiadas_orcamento: 4, execucoes: 12, execucoes_orcamento_atingido: 1, barradas_memoria: 50 };
+  assert.equal(W.diagnosticarPipeline({ horasSemPublicar: 27, janela, fontesComErro: [] }).estado, 'silencio_editorial');
+  const art = [{ buddy_source: 'ownews', published_at: new Date(dom - 27 * HORA).toISOString(), created_at: new Date(dom - 27 * HORA).toISOString(), image_credit: 'PetroNotícias', title: 'Porto do Açu' }];
+  const s = W.calcularSaudeEditorial({ agora: dom, artigos: art, gate: { '24h': { ia_avaliadas: 3, internacional_rotina: 41 }, janelas: { '6h': janela } }, automacao: {} });
+  assert.equal(s.status, 'VERDE', s.motivos.join(' | '));
+  assert.equal(s.mix.estado, 'ok', 'sem publicar nada não é mix degradado');
+});
+
+test('watchdog H) falha real continua VERMELHA: teto de subrequests crônico, IA fora, gravação recusada', () => {
+  const cronico = { ia_avaliadas: 1, ia_aprovadas: 0, fontes_adiadas_orcamento: 9, execucoes: 12, execucoes_orcamento_atingido: 10 };
+  assert.equal(W.diagnosticarPipeline({ horasSemPublicar: 9, janela: cronico, fontesComErro: [] }).estado, 'editorial_pipeline_stalled');
+  const art = [{ buddy_source: 'ownews', published_at: iso(9), created_at: iso(9) }];
+  assert.equal(W.calcularSaudeEditorial({ agora: Date.now(), artigos: art, gate: { '24h': {}, janelas: { '6h': cronico } }, automacao: {} }).status, 'VERMELHO');
+  assert.equal(W.calcularSaudeEditorial({ agora: Date.now(), artigos: art, gate: { '24h': {}, janelas: { '6h': { insercao_falhou: 1 } } }, automacao: {} }).status, 'VERMELHO');
+  const iaFora = { ultima_falha: new Date(Date.now() - 7 * HORA).toISOString(), ultima_resposta: new Date(Date.now() - 8 * HORA).toISOString(), ultima_falha_motivo: 'timeout' };
+  assert.equal(W.calcularSaudeEditorial({ agora: Date.now(), artigos: art, gate: { '24h': {}, ia: iaFora, janelas: { '6h': {} } }, automacao: {} }).status, 'VERMELHO');
+  assert.match(fs.readFileSync(new URL('../worker.js', import.meta.url), 'utf8'), /if \(r && r\.ok === false && \/\^DESATIVADO\/\.test\(String\(r\.erro\)\)\) continue;/, 'fonte desligada de propósito não conta como erro');
 });
 
 test('memória não é censura permanente: corrigível recente ganha 1 recuperação; nada passa de 3 dias', () => {
