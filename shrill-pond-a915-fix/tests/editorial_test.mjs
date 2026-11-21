@@ -25,7 +25,7 @@ test('internacional: só entra com Brasil, trabalhador/acidente, grande evento o
   sim('North Sea gas discovery twice as big after appraisal success', 'grande_evento');
   sim('Noble rigs’ $560 million drilling gigs push fleet backlog to $6.7 billion', 'grande_evento');
   sim('Subsea7 wins EPCI contract for fast-track oil development off Norway', 'empresa_no_brasil');
-  nao('Gas flows from Southeast Asian offshore field 21 months after FID');
+  sim('Gas flows from Southeast Asian offshore field 21 months after FID', 'oleo_gas_offshore'); // 21/11: grande projeto internacional entra (Brasil primeiro ≠ Brasil-only)
   nao('DEME and Prysmian start cable installation for Dutch offshore grid connections');
   nao('MOL and Deutsche ReGas shake hands on FSRU for German LNG terminal');
   nao('SBM Offshore Half Year 2026 Earnings');

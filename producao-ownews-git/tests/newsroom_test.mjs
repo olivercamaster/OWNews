@@ -112,10 +112,14 @@ await test("impacto com empregos: aceito quando a fonte (em inglês) informa job
   expect(ko.motivos.includes("emprego_sem_base"), ko.motivos.join(","));
 });
 
-await test("fora de escopo → reprovação definitiva sem 2ª tentativa", async () => {
-  const ia = iaFalsa([{ relacao_offshore: "nenhuma", titulo: "", buddy: "", corpo: [], impacto: "" }]);
+await test("fora de escopo → definitiva; com sinal offshore explícito (P-82, Búzios) a IA confirma numa 2ª redação (21/11)", async () => {
+  const nenhuma = { relacao_offshore: "nenhuma", titulo: "", buddy: "", corpo: [], impacto: "" };
+  const ia = iaFalsa([nenhuma, nenhuma]);
   const r = await T.gerarCamadaEditorialIA({ AI: ia.AI }, ARTIGO, MATERIAL, 1, {});
-  expect(!r.ok && ia.chamadas.length === 1 && T.classeReprovacao(r.motivos) === "definitiva", JSON.stringify(r));
+  expect(!r.ok && ia.chamadas.length === 2 && T.classeReprovacao(r.motivos) === "definitiva", JSON.stringify(r));
+  const ia1 = iaFalsa([nenhuma]);
+  const r1 = await T.gerarCamadaEditorialIA({ AI: ia1.AI }, { title: "Festival de cinema anuncia programação de verão", summary: "" }, "O festival de cinema da cidade anunciou a programação de verão com sessões gratuitas ao ar livre e debates com diretores convidados. ".repeat(4), 1, {});
+  expect(!r1.ok && ia1.chamadas.length === 1 && T.classeReprovacao(r1.motivos) === "definitiva", JSON.stringify(r1));
 });
 
 await test("conteúdo thin (sem material) → definitiva, nenhuma chamada de IA", async () => {

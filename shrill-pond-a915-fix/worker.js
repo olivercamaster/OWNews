@@ -676,9 +676,10 @@ export default {
       const fonteParam = url.searchParams.get("fonte") || "antaq";
       return executarTeste(async () => {
         let brutos;
-        if (fonteParam === "antaq") { const html = await baixarPagina(ANTAQ_URL); brutos = extrairLinksANTAQ(html); }
+        if (fonteParam === "antaq") { brutos = extrairItensANTAQApi(await baixarPagina(ANTAQ_API_URL)); }
         else if (fonteParam === "mme") { const html = await baixarPagina(MME_URL); brutos = extrairLinksMME(html); }
         else if (fonteParam === "anp") { const html = await baixarPagina(ANP_URL); brutos = extrairLinksANP(html); }
+        else if (fonteParam === "petrobras") { brutos = extrairLinksPetrobras(await baixarPagina(PETROBRAS_URL)); }
         else return { ok: false, erro: "fonte não suportada neste debug" };
         return { ok: true, itens: brutos.map((b) => ({ titulo: b.title, passou: noticiaRelevante(b.title) })) };
       });
@@ -1848,9 +1849,7 @@ function extrairLinksIBAMA(html) {
 async function coletarANTAQ(env) {
   validarAmbiente(env);
 
-  const html = await baixarPagina(ANTAQ_URL);
-
-  const brutos = extrairLinksANTAQ(html);
+  const brutos = extrairItensANTAQApi(await baixarPagina(ANTAQ_API_URL));
   const noticias = brutos
     .filter((item) => noticiaRelevante(item.title))
     .slice(0, 10);
@@ -1858,28 +1857,26 @@ async function coletarANTAQ(env) {
   return processarNoticiasComDedupe(env, "ANTAQ", noticias, { brutos: brutos.length });
 }
 
-function extrairLinksANTAQ(html) {
-  const encontrados = [];
-
-  const regex =
-    /<a[^>]+href=["'](https:\/\/www\.gov\.br\/antaq\/pt-br\/noticias\/[^"'#?]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-
-  let match;
-
-  while ((match = regex.exec(html)) !== null) {
-    const href = match[1];
-    const title = limparTexto(match[2]);
-
-    if (!title || title.length < 15) continue;
-
-    adicionarUnico(encontrados, {
-      title,
-      url: href,
-      source: "ANTAQ"
-    });
-  }
-
-  return encontrados;
+/* 21/11/2026: a ANTAQ migrou para o novo gov.br (Volto/React) — a página de notícias virou um app sem links no
+   HTML e o coletor achava 0 itens desde então (perdeu, p.ex., a consulta sobre afretamento no apoio marítimo).
+   Lista e texto vêm da API pública do próprio portal (++api++), a mesma que a página usa. */
+const ANTAQ_API_URL = "https://www.gov.br/antaq/++api++/pt-br/central-de-conteudos/noticias/@search?portal_type=News%20Item&sort_on=effective&sort_order=descending&b_size=15&metadata_fields=effective";
+function extrairItensANTAQApi(json) {
+  let d; try { d = JSON.parse(json); } catch { return []; }
+  return (d && Array.isArray(d.items) ? d.items : [])
+    .filter((i) => i && /^https:\/\/www\.gov\.br\/antaq\//.test(i['@id'] || '') && i.title)
+    .map((i) => ({ title: limparTexto(i.title), url: i['@id'], source: "ANTAQ", publishedAt: i.effective || null }));
+}
+// Página gov.br em Volto: o corpo vem em blocos "html" da API (++api++); o HTML servido só tem o resumo.
+async function conteudoGovBrVolto(url) {
+  if (!/^https:\/\/www\.gov\.br\/[^/]+\//.test(url || '')) return null;
+  try {
+    const d = JSON.parse(await baixarPagina(url.replace(/^(https:\/\/www\.gov\.br\/[^/]+\/)/, '$1++api++/')));
+    const ordem = (d.blocks_layout && d.blocks_layout.items) || Object.keys(d.blocks || {});
+    const html = ordem.map((id) => (d.blocks[id] && d.blocks[id]['@type'] === 'html' && d.blocks[id].html) || '').join('\n');
+    const texto = paragrafosMateria(html, true).split('\n\n').filter((p) => !/Assessoria de Comunica/i.test(p)).join('\n\n');
+    return texto.length >= 300 ? texto : null;
+  } catch { return null; }
 }
 
 /* ---------- PetroNotícias (RSS público, imprensa setorial PT-BR) ----------
@@ -3081,6 +3078,14 @@ function calcularSaudeEditorial({ agora, artigos, gate, automacao, tecnicas }) {
   if (status !== 'VERMELHO' && semPublicar > limiteSilencioH && pautasChegando) {
     status = 'VERMELHO'; pipeline.estado = 'estrangulamento_editorial';
     motivos.push('POSSÍVEL ESTRANGULAMENTO EDITORIAL: ' + rotuloSilencio + ' (limite ' + limiteSilencioH + ' h) com pauta chegando — ' + (g24.ia_avaliadas || 0) + ' avaliadas pela IA, ' + (g24.internacional_rotina || 0) + ' descartes de internacional, ' + (g24.barradas_memoria || 0) + ' barradas pela memória em 24 h. Ver funil.');
+  }
+  // 21/11/2026: vazão baixa por DIAS não aparecia — publicava 2–4/dia (nunca 20 h parado), contra ~10/dia no fim de
+  // outubro, e o painel ficava verde. Com pauta chegando (IA avaliando ou internacional descartada em volume) e menos
+  // de 21 publicações em 7 dias, é estrangulamento a investigar. Só alerta: não publica nem afrouxa nada.
+  const g7 = (gate && gate['7d']) || {};
+  if (status !== 'VERMELHO' && (g7.execucoes || 0) >= 200 && (g7.publicadas || 0) < 21 && ((g7.ia_avaliadas || 0) >= 50 || (g7.internacional_rotina || 0) >= 200)) {
+    status = 'VERMELHO'; pipeline.estado = 'estrangulamento_editorial';
+    motivos.push('POSSÍVEL ESTRANGULAMENTO EDITORIAL (7 dias): ' + (g7.publicadas || 0) + ' publicadas, ' + (g7.ia_avaliadas || 0) + ' avaliadas pela IA (' + (g7.taxa_aprovacao_ia == null ? '?' : g7.taxa_aprovacao_ia) + '% aprovadas), ' + (g7.internacional_rotina || 0) + ' descartes de internacional. Ver funil.');
   }
   if (iaFalhaRecente && (iaCota || horasIaFalha >= 6)) { status = 'VERMELHO'; motivos.push(iaCota ? 'redator sem cota de Workers AI (volta 00:00 UTC)' : 'redator com falha técnica'); }
   if (status !== 'VERMELHO') {
@@ -4595,6 +4600,7 @@ function extrairJsonIA(resposta) {
 // e material insuficiente nunca entram aqui.
 const BUDDY_IA_MOTIVOS_REESCRITA = /copia_|parafrase_rasa|frases_1|frase_redundante|repete_|paragrafos_1|curto|longo|cliche_ia|generico|especulativo|sem_ancora|incomplet|espaco_antes|parenteses|numero_sem_fonte|unidade_trocada|nome_sem_fonte|emprego_sem_base|proibido_impacto|maior_que_fonte|sensacionalista|ingles/;
 const BUDDY_IA_DICAS_REESCRITA = [
+  [/escopo_contestado/, 'A matéria trata de ativo ou operação de petróleo e gás no mar (campo, polo, bloco, plataforma, sonda, FPSO, navio de apoio, poço). Classifique "relacao_offshore" pelo critério do sistema: isso é "direta"; "nenhuma" é só para assunto fora do setor de energia.'],
   [/fidelidade:/, 'A versão anterior mudou o sentido da matéria. Releia a matéria e preserve exatamente as relações (oferta × demanda, alta × queda, previsto × realizado), números, nomes e quem disse o quê.'],
   [/copia_|parafrase_rasa|frase_redundante/, 'Não reaproveite frases da matéria: reescreva com estrutura e vocabulário próprios.'],
   [/repete_/, 'Buddy, corpo e impacto devem dizer coisas diferentes; não repita o título nem o buddy no corpo.'],
@@ -4632,6 +4638,7 @@ function dicasReescritaIA(motivos) {
   const m = String(motivos || '');
   return BUDDY_IA_DICAS_REESCRITA.filter(([re]) => re.test(m)).map(([, d]) => '- ' + d).join('\n');
 }
+const SINAL_OFFSHORE_FORTE = { test: (t) => /\b(offshore|plataformas?|fpsos?|sondas?|navios? de apoio|pr[ée]-sal|po[çc]os? (de petr|de g|explorat|produtor)|subsea|perfura[çc][ãa]o|águas profundas|ultraprofundas|plsvs?|psvs?|ahts|rovs?|concess[ãa]o (de|do|dos) campos?)\b/i.test(t) || /\b(Polo|POLO|Campos?|CAMPOS?|Bloco|BLOCO|Bacia|BACIA) (de |do |da )?[A-ZÀ-Ú]/.test(t) };
 async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opcoes) {
   if (!BUDDY_IA_ATIVO || !env || !env.AI) return { ok: false, erro: 'ia_indisponivel' };
   const t = tentativa || 1;
@@ -4681,6 +4688,12 @@ async function gerarCamadaEditorialIA(env, artigo, materialFonte, tentativa, opc
   if (degenerada && t > 1) return { ok: false, relacao: null, motivos: String(artigo._motivos || 'ia_json_invalido').split(','), tentativas: t, degenerou: true };
   if (degenerada) return { ok: false, erro: 'ia_json_invalido' };
   const relacao = ['direta', 'indireta', 'nenhuma'].includes(j.relacao_offshore) ? j.relacao_offshore : null;
+  // 21/11/2026: o veredito de escopo oscila entre chamadas (Brava/Polo Pescada saiu "nenhuma" e, na mesma matéria,
+  // "indireta") e "fora_escopo" é reprovação DEFINITIVA de 3 dias. Com sinal offshore explícito no título ou na
+  // abertura da matéria, uma segunda redação decide; a régua de escopo não muda.
+  if (relacao === 'nenhuma' && t === 1 && SINAL_OFFSHORE_FORTE.test(String(artigo.title || '') + ' ' + material.slice(0, 1500))) {
+    return gerarCamadaEditorialIA(env, Object.assign({}, artigo, { _motivos: 'escopo_contestado' }), materialFonte, 2, opcoes);
+  }
   if (relacao === 'nenhuma') return { ok: false, relacao, motivos: ['fora_escopo'] };
   const corpo = Array.isArray(j.corpo) ? j.corpo.map((p) => String(p || '').trim()).filter(Boolean).join('\n\n') : String(j.corpo || '');
   const v = validarMateriaOWNews({ buddy_summary: String(j.buddy || ''), why_it_matters: String(j.impacto || ''), corpo }, artigo, materialChecagem);
@@ -4750,7 +4763,14 @@ const SEL_ACAO = /\b(contracts?|awards?|wins?|won|orders?|fpsos?|fleet|backlog|d
    classe C, fora do índice). Eólica, cabos, comércio de GNL, hidrogênio e energia das ondas seguem fora. */
 const SEL_ATIVO_OG = /\b(rigs?|drillships?|jack-?ups?|semi-?submersibles?|semisubs?|fpsos?|fpus?|fsos?|osvs?|psvs?|ahts|plsvs?|subsea|wells?|drilling|exploration|appraisal|deepwater|oil (?:and|&) gas|oil field|gas field|oilfield|block)\b/i;
 const SEL_ACAO_OG = /\b(contracts?|awards?|wins?|won|lands?|secures?|nets?|job|work|deals?|stakes?|interest|acquir\w*|buys?|sells?|sheds?|keel|delivers?|delivered|dry|discover\w*|finds?|first gas|gas flows|spud\w*|extension|campaign)\b/i;
-const SEL_FORA_OG = /\b(wind|cable|interconnect\w*|grid|lng|hydrogen|tidal|wave energy|solar|ammonia|methanol)\b/i;
+const SEL_FORA_OG = /\b(wind|cables?|interconnect\w*|grid|power links?|lng|fsrus?|hydrogen|tidal|wave energy|solar|ammonia|methanol)\b/i;
+/* 21/11/2026: ainda "quase só Brasil" — em 7 dias 479 descartes de rotina, entre eles "TechnipFMC scores double offshore
+   Guyana", "Subsea7 selected for deepwater tieback", "Seatrium on FPSO duty", "FPSO revamp to begin", "$960 million deal
+   ... North Sea business", "Shell kicks off gas production from its deepwater project". O verbo/ativo não estava na lista.
+   Mesma régua (ativo OU empresa do setor + ação concreta, sem eólica/cabo/GNL); continua classe C, fora do índice. */
+const SEL_EMPRESA_OG = /\b(shell|exxonmobil|exxon|totalenergies|bp|chevron|petronas|eni|slb|halliburton|baker hughes|oceaneering|aker (?:solutions|bp)|borr drilling|seatrium|mcdermott|allseas|boskalis|fugro|tgs|enquest|harbour energy|woodside|santos|azule)\b/i;
+const SEL_ATIVO_OG2 = /\b(blocks|platforms?|topsides?|tiebacks?|decommission\w*|north sea|guyana|seismic|ultra-?deepwater|(?:oil|gas) (?:project|production|discovery|business)|offshore (?:oil|gas|field|project|block)s?)\b/i;
+const SEL_ACAO_OG2 = /\b(scores?|selected|picks?|taps?|hires?|charters?|revamp\w*|duty|production|online|starts?|kicks? off|completes?|completed|wraps? up|divest\w*|mergers?|joins|deals?|contracts?|awards?|wins?|secures?|acqui\w*|buys?|sells?|spud\w*|drill\w*|explor\w*)\b/i;
 function selecaoInternacional(titulo) {
   const t = String(titulo || '');
   if (SEL_BRASIL.test(t)) return { publicar: true, motivo: 'brasil' };
@@ -4758,6 +4778,7 @@ function selecaoInternacional(titulo) {
   if (SEL_GRANDE.test(t)) return { publicar: true, motivo: 'grande_evento' };
   if (SEL_EMPRESA_BR.test(t) && SEL_ACAO.test(t)) return { publicar: true, motivo: 'empresa_no_brasil' };
   if (SEL_ATIVO_OG.test(t) && SEL_ACAO_OG.test(t) && !SEL_FORA_OG.test(t)) return { publicar: true, motivo: 'oleo_gas_offshore' };
+  if ((SEL_ATIVO_OG.test(t) || SEL_ATIVO_OG2.test(t) || SEL_EMPRESA_OG.test(t) || SEL_EMPRESA_BR.test(t)) && (SEL_ACAO_OG.test(t) || SEL_ACAO_OG2.test(t)) && !SEL_FORA_OG.test(t)) return { publicar: true, motivo: 'oleo_gas_offshore' };
   return { publicar: false, motivo: 'internacional_rotina' };
 }
 /* Classe editorial (interna, nunca exibida): A = fonte oficial/primária brasileira; B = imprensa
@@ -6285,7 +6306,8 @@ async function lerNoticia(url, fonte) {
     summary = summary.slice(0, 497).trim() + "...";
   }
 
-  const conteudoExtraido = extrairConteudoMateria(html);
+  let conteudoExtraido = extrairConteudoMateria(html);
+  if (conteudoExtraido.length < 300) conteudoExtraido = (await conteudoGovBrVolto(url)) || conteudoExtraido;
 
   // Nível 1: og:image / twitter:image / <picture> / <img> dentro do <article>
   // (já filtra logo/ícone institucional — extrairImagemPrincipal).
@@ -6318,12 +6340,14 @@ return {
 } function extrairConteudoMateria(html) {
   const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
   const texto = paragrafosMateria(article && article[1] ? article[1] : html, false);
-  if (texto.length >= 300 || !article) return texto;
+  if (texto.length >= 300) return texto;
   // 14/11/2026: no Sindipetro-NF (Elementor) o 1º <article> é um card de "posts relacionados" (466 caracteres,
   // nenhum <p>) e o texto fica num widget fora de qualquer <article> — 4 pautas de plataforma (P-51, P-38)
   // morreram como "sem_material" em 7 dias. Com o <article> vazio, tenta o contêiner de conteúdo do post,
   // só com parágrafos contíguos (para no fim do texto; não engole rodapé/endereços).
-  const i = html.search(/class="[^"]*\b(?:elementor-widget-theme-post-content|entry-content|post-content|td-post-content|article-body|single-content)\b/i);
+  // 21/11/2026: PetroNotícias (sem <article>, corpo em <div class="entry"> num único parágrafo de 1.718
+  // caracteres) virava "sem_material" — o teto de 1.400 por parágrafo existe contra JS no HTML inteiro, não aqui.
+  const i = html.search(/class="(?:[^"]*\b(?:elementor-widget-theme-post-content|entry-content|post-content|td-post-content|article-body|single-content)\b[^"]*|entry)"/i);
   if (i < 0) return texto;
   const doConteiner = paragrafosMateria(html.slice(i), true);
   return doConteiner.length > texto.length ? doConteiner : texto;
@@ -6354,7 +6378,7 @@ function paragrafosMateria(area, contiguos) {
     if (
       texto &&
       texto.length >= 60 &&
-      texto.length <= 1400 &&
+      texto.length <= (contiguos ? 6000 : 1400) &&
       !/cookie|privacidade|compartilhe|assine|newsletter/i.test(texto) &&
       !pareceRuidoDeCodigoOuMenuTelegram(texto)
     ) {
