@@ -319,12 +319,6 @@ function vagaPodeEstarExpirada(v) {
   return vagaDiasDesdeVerificacao(v) > VAGA_DIAS_PARA_EXPIRAR;
 }
 
-function vagasVerificadasTexto() {
-  const dt = new Date(VAGAS_RADAR_VERIFICADO_EM);
-  return dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric' }) +
-    ' às ' + dt.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-}
-
 function vagaVerificadaTexto(v) {
   const dt = new Date((v && v.verificado_em) || VAGAS_RADAR_VERIFICADO_EM);
   return dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'long', year: 'numeric' });
@@ -12149,7 +12143,7 @@ function renderOffshoreAgora(){
     .sort((a, b) => vagaDataVerificacao(b) - vagaDataVerificacao(a))
     .slice(0, 4);
   const vagasRecentesHtml = vagasRecentesLista.map((v) =>
-    '<div class="agora-noticia-item"><span class="agora-noticia-meta">' + escaparHTML(v.empresa) + ' · Verificada em ' + vagasVerificadasTexto() + '</span><a href="/vagas/' + escaparHTML(slugVaga(v)) + '">' + escaparHTML(v.titulo) + '</a></div>'
+    '<div class="agora-noticia-item"><span class="agora-noticia-meta">' + escaparHTML(v.empresa) + ' · Verificada em ' + vagaVerificadaTexto(v) + '</span><a href="/vagas/' + escaparHTML(slugVaga(v)) + '">' + escaparHTML(v.titulo) + '</a></div>'
   ).join('');
 
   const unidadesAgoraLista = UNIDADES_RADAR.slice(0, 3);

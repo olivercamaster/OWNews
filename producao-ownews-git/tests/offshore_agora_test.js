@@ -50,5 +50,11 @@ test("bloco escondido não aparece (CSS não pode sobrescrever o atributo hidden
   expect(W.includes("#oaGiroWrap[hidden],#oaFatosWrap[hidden]{display:none!important}"));
   expect(!/#oaFatosWrap\+#oaGiroWrap,/.test(W), "regra antiga que mostrava o título com o bloco vazio");
 });
+// 21/11/2026: o bloco de vagas mostrava "Verificada em 04 de outubro" (constante da semente) para vagas da lista viva verificadas hoje.
+test("vagas recentes mostram a data de verificação de cada vaga, não a da semente", () => {
+  const f = W.slice(W.indexOf("function renderOffshoreAgora()"), W.indexOf("function renderOffshoreAgora()") + 1500);
+  expect(f.includes("' · Verificada em ' + vagaVerificadaTexto(v) + '</span>"), "data fixa da semente");
+  expect(!W.includes("vagasVerificadasTexto()"));
+});
 console.log(`\n${ok} passaram, ${falhas} falharam`);
 process.exit(falhas ? 1 : 0);
