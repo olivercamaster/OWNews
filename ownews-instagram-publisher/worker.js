@@ -799,6 +799,50 @@ async function rodarValidacoesFinais(ctx, env, { ignorarRateLimit = false } = {}
    ========================================================================= */
 const GRAPH_BASE = 'https://graph.instagram.com/v23.0';
 
+/* Token (21/11/2026). O token de longa duração do Instagram vale 60 dias e só pode ser renovado ENQUANTO vale; o de
+   17/09 expirou em 15/11 e os slots de 16 e 18/11 morreram com HTTP 401 (code 190) sem aparecer no health. Agora o cron
+   horário renova a cada 7 dias (refresh_access_token) e guarda o token renovado no KV, ligado ao segredo que o originou:
+   quando alguém grava um segredo novo, ele volta a mandar. Falha da Meta fica registrada até um post dar certo. */
+const TOKEN_KV = 'instagram_token_renovado', TOKEN_STATUS_KV = 'instagram_token_status', ERRO_META_KV = 'instagram_ultimo_erro_meta';
+const TOKEN_RENOVAR_APOS_MS = 7 * 86400000;
+async function baseDoSegredo(segredo) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(segredo || '')));
+  return [...new Uint8Array(h)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function lerTokenRenovado(env) {
+  try { const r = JSON.parse(await env.SAUDE_KV.get(TOKEN_KV)); return r && r.token && r.base === await baseDoSegredo(env.INSTAGRAM_ACCESS_TOKEN) ? r : null; } catch { return null; }
+}
+// Ambiente com o token efetivo (renovado no KV, se ainda vale; senão o segredo) — todo o resto do código usa env.INSTAGRAM_ACCESS_TOKEN.
+async function comTokenEfetivo(env) {
+  if (!env || !env.SAUDE_KV || !env.INSTAGRAM_ACCESS_TOKEN) return env;
+  const r = await lerTokenRenovado(env);
+  return r && Date.parse(r.expira_em) > Date.now() + 3600000 ? Object.assign(Object.create(env), { INSTAGRAM_ACCESS_TOKEN: r.token }) : env;
+}
+async function renovarTokenSeNecessario(env, agora = Date.now()) {
+  if (!env.SAUDE_KV || !env.INSTAGRAM_ACCESS_TOKEN) return { ok: false, motivo: 'sem token' };
+  const atual = await lerTokenRenovado(env);
+  if (atual && agora - Date.parse(atual.renovado_em) < TOKEN_RENOVAR_APOS_MS) return { ok: true, pulou: true };
+  const efetivo = (await comTokenEfetivo(env)).INSTAGRAM_ACCESS_TOKEN;
+  let status;
+  try {
+    const resp = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(efetivo)}`);
+    const d = await resp.json().catch(() => ({}));
+    if (resp.ok && d.access_token) {
+      const expira = new Date(agora + (Number(d.expires_in) || 5184000) * 1000).toISOString();
+      await env.SAUDE_KV.put(TOKEN_KV, JSON.stringify({ token: d.access_token, base: await baseDoSegredo(env.INSTAGRAM_ACCESS_TOKEN), renovado_em: new Date(agora).toISOString(), expira_em: expira }));
+      status = { ok: true, em: new Date(agora).toISOString(), expira_em: expira };
+    } else {
+      const e = d && d.error ? d.error : {};
+      status = { ok: false, em: new Date(agora).toISOString(), http: resp.status, codigo: e.code || null, token_expirado: e.code === 190, motivo: String(e.message || 'resposta sem access_token').slice(0, 240) };
+    }
+  } catch (e) { status = { ok: false, em: new Date(agora).toISOString(), motivo: 'falha de rede: ' + String(e.message).slice(0, 120) }; }
+  try { await env.SAUDE_KV.put(TOKEN_STATUS_KV, JSON.stringify(status)); } catch { /* health é melhor esforço */ }
+  return status;
+}
+async function registrarErroMeta(env, motivo) {
+  try { await env.SAUDE_KV.put(ERRO_META_KV, JSON.stringify({ em: new Date().toISOString(), token_expirado: /"code":190/.test(motivo), motivo: String(motivo).slice(0, 400) })); } catch { /* melhor esforço */ }
+}
+
 async function criarContainer(env, imageUrl, caption) {
   const url = `${GRAPH_BASE}/${env.INSTAGRAM_ACCOUNT_ID}/media`;
   const params = new URLSearchParams({ image_url: imageUrl, caption });
@@ -1022,11 +1066,13 @@ async function finalizarComImagem(env, request, job, jpegBytes) {
   } catch (e) { erro = e.message; }
 
   if (erro) {
+    await registrarErroMeta(env, erro);
     await gravarHistorico(env, { ...baseHistorico, status: 'failed', error_message: erro });
     await registrarExecucao(env, { tipo: pub.tipo, janela: pub.janela, em: new Date().toISOString(), resultado: 'failed', motivo: erro, dry_run: false });
     return { ok: false, resultado: 'failed', motivo: erro };
   }
 
+  try { await env.SAUDE_KV.delete(ERRO_META_KV); } catch { /* melhor esforço */ }
   await gravarHistorico(env, { ...baseHistorico, status: 'published', ig_media_id: mediaId, ig_permalink: permalink, published_at: new Date().toISOString() });
   await registrarExecucao(env, { tipo: pub.tipo, janela: pub.janela, em: new Date().toISOString(), resultado: 'published', candidato: pub.headline, template: job.arte && job.arte.template, template_label: pub.template_label || null, fallback: pub.fallback || null, ig_media_id: mediaId, dry_run: false });
   return { ok: true, resultado: 'published', mediaId, permalink };
@@ -1039,6 +1085,8 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       try {
+        if (event.cron === CRON_BREAKING) await renovarTokenSeNecessario(env);
+        env = await comTokenEfetivo(env);
         // 2026-10-29: feed = SEG/QUA/SEX 15h Brasília + breaking excepcional.
         // Saíram o diário 12h seg-sáb ("0 15 * * MON-SAT") e o institucional
         // de domingo ("0 16 * * SUN"); qualquer outro cron é ignorado.
@@ -1057,6 +1105,7 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    env = await comTokenEfetivo(env);
 
     // Rota temporária de preview para aprovação visual (MISSÃO 2.0, 2026-10-02).
     // Noindex. Não aparece em menus nem no site. Removida após aprovação.
@@ -1086,7 +1135,14 @@ export default {
       const freezeManutencao = await (async () => { try { return (await env.SAUDE_KV.get('instagram_freeze_manutencao')) === 'true'; } catch { return false; } })();
       const ultimoFallback = await (async () => { try { const v = await env.SAUDE_KV.get('instagram_ultimo_fallback'); return v ? JSON.parse(v) : null; } catch { return null; } })();
       const proximos = calcularProximosTriggers(new Date());
+      const lerJson = async (k) => { try { const v = await env.SAUDE_KV.get(k); return v ? JSON.parse(v) : null; } catch { return null; } };
+      const [erroMeta, tokenStatus, tokenRenovado] = await Promise.all([lerJson(ERRO_META_KV), lerJson(TOKEN_STATUS_KV), lerTokenRenovado(env)]);
+      const alerta = (erroMeta && erroMeta.token_expirado) || (tokenStatus && tokenStatus.token_expirado) ? 'TOKEN DO INSTAGRAM EXPIRADO — gerar novo token de longa duração e gravar o segredo INSTAGRAM_ACCESS_TOKEN'
+        : erroMeta ? 'última publicação falhou na Meta: ' + erroMeta.motivo.slice(0, 160) : null;
       return Response.json({
+        alerta,
+        ultimo_erro_meta: erroMeta,
+        token: { renovacao: tokenStatus, expira_em: tokenRenovado ? tokenRenovado.expira_em : null },
         habilitado: !!(env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_ACCOUNT_ID),
         dry_run: env.INSTAGRAM_DRY_RUN !== 'false',
         freeze_manutencao: freezeManutencao,
@@ -1264,4 +1320,4 @@ export default {
 };
 
 // Só para tests/ (Node): funções puras e o seletor, com fetch/KV simulados.
-export const __t = { idiomaTexto, textoEmIngles, textoPostEmIngles, contextoPublico, gerarLegendaNoticia, validarCaption, falhaFiltroDuro, relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING };
+export const __t = { idiomaTexto, textoEmIngles, textoPostEmIngles, contextoPublico, gerarLegendaNoticia, validarCaption, falhaFiltroDuro, relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING, renovarTokenSeNecessario, comTokenEfetivo, registrarErroMeta };

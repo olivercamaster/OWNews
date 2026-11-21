@@ -9,6 +9,7 @@ K="apikey: sb_publishable_9cRatirjls8SQIoHdTUkLQ_8jt6psGt"   # chave pública do
 DESDE=$(date -u -d "-$H hours" +%Y-%m-%dT%H:%M:%SZ)
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 curl -s https://shrill-pond-a915.olivercamaster.workers.dev/saude -A curl/8 > "$T/saude.json"
+curl -s https://ownews-instagram-publisher.olivercamaster.workers.dev/saude-fragment -A curl/8 > "$T/ig.json" || echo "{}" > "$T/ig.json"
 curl -s "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=title,created_at,published_at,image_url&status=eq.published&buddy_source=eq.ownews&created_at=gte.$DESDE&order=created_at.desc" -H "$K" > "$T/art.json"
 curl -s "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,published_at&status=eq.published&buddy_source=eq.ownews&order=published_at.desc&limit=40" -H "$K" > "$T/lista.json"
 CRON=$(crontab -l 2>/dev/null | grep -c radar-cron.sh || true)
@@ -43,4 +44,7 @@ for k in ("mercado", "offvoos", "aeroportos_meteo"):
     print(f"[{ok(e == 'healthy')}] {k}: {e}")
 t = s.get("telegram") or {}
 print(f"[{ok(bool(t.get('ultimo_envio')))}] telegram: último envio {t.get('ultimo_envio')} ({t.get('ultimo_resultado')})")
+ig = json.load(open(f"{T}/ig.json")) if open(f"{T}/ig.json").read().strip() else {}
+ue = ig.get("ultima_execucao") or {}
+print(f"[{ok(not ig.get('alerta'))}] instagram: {ig.get('alerta') or 'sem alerta'} — última execução {ue.get('em')} ({ue.get('resultado')}: {str(ue.get('motivo') or '')[:70]}); próxima {ig.get('proxima_janela')}")
 PY
