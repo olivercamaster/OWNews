@@ -35,6 +35,8 @@ Cloudflare no plano Free (Durable Objects SQLite), Supabase no plano gratuito, G
 | `10 10 * * *` radar-cron.sh (ANP completa) | `radar-ingestao.yml` | GitHub Actions | 10:10 UTC (07:10 BRT) |
 | `40 1,4,13,16,19,22 * * *` radar-cron.sh --so-noticias | `radar-ingestao.yml` | GitHub Actions | 6x/dia, mesmos horários |
 
+**Quem aciona os workflows:** o agendador do próprio GitHub não disparou nas primeiras horas (28/11; manual funcionava). Por isso o worker `ownews-instagram-publisher` aciona os dois pela API: `instagram-arte.yml` quando cria um job de arte e `radar-ingestao.yml` pelo cron `30 * * * *` nas horas 10 UTC (completo) e 1, 4, 13, 16, 19, 22 UTC (notícias). Precisa do segredo `GITHUB_DISPATCH_TOKEN` no worker (ver tabela). O agendamento do GitHub fica como reserva.
+
 O gov.br recusa conexões de fora do Brasil. No GitHub Actions, o download da ANP passa pelo worker `ownews-radar` (`/interno/baixar`, autenticado com `RADAR_INGEST_SECRET`, só hosts da ANP) via `RADAR_PROXY_URL`.
 
 Crons dos Workers (Cloudflare, já independentes do VPS):
@@ -54,6 +56,7 @@ Crons dos Workers (Cloudflare, já independentes do VPS):
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Worker `ownews-git` | notificações push | **não regenerar** sem necessidade (invalida as inscrições); continuam no Worker |
 | `RADAR_INGEST_SECRET` | Worker `ownews-radar` **e** GitHub Actions | ingestão do Radar | gerar novo e gravar nos dois lugares |
 | `INSTAGRAM_ACCESS_TOKEN` | Worker `ownews-instagram-publisher` | publicar na Meta | **expirado desde 15/11/2026**: gerar novo (ver Instagram) |
+| `GITHUB_DISPATCH_TOKEN` | Worker `ownews-instagram-publisher` | acionar os workflows do GitHub (Radar e arte) | token fine-grained do GitHub só do repositório OWNews, permissão **Actions: Read and write**, validade longa; gravar no Worker (painel Cloudflare → Workers → ownews-instagram-publisher → Settings → Variables and Secrets) |
 | `RENDER_SHARED_SECRET` | Worker `ownews-instagram-publisher` **e** GitHub Actions | arte do Instagram | gerar novo e gravar nos dois lugares |
 | Token da API Cloudflare (`CLOUDFLARE_API_TOKEN`) | só no VPS (`~/.config/ownews/cloudflare.env`) | deploy dos Workers | criar outro em dash.cloudflare.com → My Profile → API Tokens (modelo "Edit Cloudflare Workers") |
 | Token do GitHub (`GITHUB_TOKEN`, fine-grained "OWNews-Claude") | só no VPS (`~/.config/ownews/github.env`) | push e API | criar outro em github.com/settings/personal-access-tokens (Contents, Workflows, Actions, Secrets: Read and write). O atual vence em 28/12/2026 |
