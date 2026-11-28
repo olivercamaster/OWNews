@@ -30,7 +30,8 @@ const WATCHDOG_MS = 50000; // menor que o intervalo de 1 min do cron
 
 function log(msg) {
   const linha = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(LOG_PATH, linha);
+  process.stdout.write(linha); // no GitHub Actions o log é a saída do job
+  try { fs.appendFileSync(LOG_PATH, linha); } catch { /* sem disco gravável: fica só a saída */ }
   rotacionarLogSeNecessario();
 }
 
@@ -45,7 +46,8 @@ function rotacionarLogSeNecessario() {
 }
 
 async function main() {
-  const secret = fs.readFileSync(SECRET_PATH, 'utf8').trim();
+  // 28/11/2026: roda no GitHub Actions (segredo do repositório em RENDER_SHARED_SECRET) ou, como antes, com o arquivo local.
+  const secret = (process.env.RENDER_SHARED_SECRET || fs.readFileSync(SECRET_PATH, 'utf8')).trim();
 
   const respPending = await fetch(`${WORKER_BASE}/render-jobs/pending`, {
     headers: { Authorization: `Bearer ${secret}` },

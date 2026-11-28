@@ -1,0 +1,4 @@
+node_modules/
+poll.log
+poll-cron-stderr.log
+preview-*.jpg
