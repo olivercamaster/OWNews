@@ -3,7 +3,7 @@
 name: Radar — ingestão ANP
 on:
   schedule:
-    - cron: '10 10 * * *'                  # completa (ANP), 07:10 BRT
+    - cron: '10 10 * * *'                  # completa (ANP), 07:10 BRT — reagendado 28/11 para registrar o gatilho
     - cron: '40 1,4,13,16,19,22 * * *'     # só notícias ligadas às fichas
   workflow_dispatch:
     inputs:

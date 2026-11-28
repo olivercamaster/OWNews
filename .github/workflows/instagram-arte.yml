@@ -4,7 +4,7 @@
 name: Instagram — arte
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '7,22,37,52 * * * *'   # fora dos minutos cheios (o GitHub descarta gatilhos em horário de pico)
   workflow_dispatch:
     inputs:
       teste_arte:
