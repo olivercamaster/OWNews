@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+    inputs:
+      teste_arte:
+        description: 'Só desenhar uma arte de teste (não busca job, não publica) e guardar como artefato'
+        type: boolean
+        default: false
 concurrency: { group: instagram-arte, cancel-in-progress: false }
 permissions: { contents: read }
 jobs:
@@ -19,5 +24,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: ownews-instagram-render-vps/package-lock.json }
       - run: npm ci --omit=dev --no-audit --no-fund
-      - run: node poll-and-render.js
+      - if: ${{ !inputs.teste_arte }}
+        run: node poll-and-render.js
         env: { RENDER_SHARED_SECRET: '${{ secrets.RENDER_SHARED_SECRET }}' }
+      - if: ${{ inputs.teste_arte }}
+        run: |
+          node -e "require('./render.js').renderizarJob({ template: 'n1', categoria: 'TESTE', headline: 'Teste de arte do OWNews no GitHub Actions', contexto: 'Arte gerada sem VPS, sem publicar.', fotoUrl: null }).then(b => { require('fs').writeFileSync('teste-arte.jpg', b); console.log('JPEG', b.length, 'bytes'); })"
+      - if: ${{ inputs.teste_arte }}
+        uses: actions/upload-artifact@v4
+        with: { name: teste-arte, path: ownews-instagram-render-vps/teste-arte.jpg, retention-days: 1 }

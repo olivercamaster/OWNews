@@ -11,7 +11,7 @@ on:
         description: 'completo | so-noticias | seco (não envia)'
         default: so-noticias
 concurrency: { group: radar-ingestao, cancel-in-progress: false }
-permissions: { contents: write }
+permissions: { contents: write, actions: write }
 jobs:
   ingestao:
     runs-on: ubuntu-latest
@@ -29,6 +29,8 @@ jobs:
         env:
           RADAR_ESTADO: ${{ github.workspace }}/estado
           RADAR_WORKER_URL: https://ownews-radar.olivercamaster.workers.dev
+          # gov.br recusa IP de fora do Brasil: o download da ANP passa pelo worker (/interno/baixar).
+          RADAR_PROXY_URL: https://ownews-radar.olivercamaster.workers.dev
           RADAR_INGEST_SECRET: ${{ secrets.RADAR_INGEST_SECRET }}
           EVENTO: ${{ github.event_name }}
           AGENDA: ${{ github.event.schedule }}
@@ -46,3 +48,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --quiet || { git commit -q -m "radar: estado $(date -u +%FT%TZ)"; git push -q; }
+      # Repositório público: o GitHub desliga agendamentos após 60 dias sem atividade. Reativa os dois a cada execução.
+      - name: Manter agendamentos ativos
+        if: always()
+        env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
+        run: gh workflow enable radar-ingestao.yml && gh workflow enable instagram-arte.yml
