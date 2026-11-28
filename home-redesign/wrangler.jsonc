@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Config isolada só para o Worker de PREVIEW da nova HOME.
+  // Nome fixo — deploy nunca deve usar outro valor aqui.
+  "name": "ownews-home-teste",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-07"
+}

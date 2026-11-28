@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Worker novo, isolado, dedicado só ao redirecionamento de www.
+  // Nunca deve ser confundido com o ownews-git (produção) nem com
+  // shrill-pond-a915 (coletor). Não define routes/custom_domains aqui —
+  // o vínculo com www.ownews.com.br é feito à parte, via API de Custom
+  // Domains, para poder revisar o comando exato antes de executar.
+  "name": "ownews-www-redirect",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-07",
+  "routes": [
+    { "pattern": "www.ownews.com.br", "custom_domain": true }
+  ]
+}

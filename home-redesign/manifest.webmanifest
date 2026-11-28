@@ -1,0 +1,13 @@
+{
+  "name": "OWNews — Offshore",
+  "short_name": "OWNews",
+  "description": "Notícias e condições operacionais para quem vive o offshore.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#061c2b",
+  "theme_color": "#061c2b",
+  "lang": "pt-BR",
+  "icons": []
+}

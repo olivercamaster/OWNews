@@ -1,0 +1,1 @@
+* * * * * /usr/bin/flock -n /tmp/ownews-instagram-poll.lock /usr/bin/node /srv/offshoreworks/ownews/ownews-instagram-render-vps/poll-and-render.js >> /srv/offshoreworks/ownews/ownews-instagram-render-vps/poll-cron-stderr.log 2>&1

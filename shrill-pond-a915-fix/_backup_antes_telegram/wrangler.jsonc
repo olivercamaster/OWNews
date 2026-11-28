@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Config isolada só para o Worker de PRODUÇÃO shrill-pond-a915 (automação
+  // de coleta de notícias). Nome fixo — deploy nunca deve usar outro valor.
+  "name": "shrill-pond-a915",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-08",
+
+  // SUPABASE_URL não é segredo (é a mesma URL pública já visível no JS do
+  // ownews-git). Precisa estar declarada aqui: o primeiro deploy desta
+  // correção a apagou por omissão (estava configurada só via dashboard, fora
+  // de qualquer arquivo versionado). SUPABASE_SERVICE_ROLE_KEY e
+  // REDEMET_API_KEY são Secrets de verdade — ficam fora deste arquivo e não
+  // são afetadas por deploy via wrangler.
+  "vars": {
+    "SUPABASE_URL": "https://awyowuhwkqfyhwgdpepp.supabase.co"
+  },
+
+  // Dois cron triggers, mesmos horários (mesmas 6 horas/dia de sempre):
+  // - "50 ..." = horário ORIGINAL, inalterado -> Grupo A (ANP/Petrobras/MME)
+  // - "20 ..." = novo, 30min antes na mesma hora -> Grupo B (PPSA/EPE)
+  // Separar em duas invocações evita estourar o limite de subrequests por
+  // invocação do Cloudflare Workers. scheduled() decide o grupo por event.cron.
+  "triggers": {
+    "crons": ["50 8,11,14,17,20,22 * * *", "20 8,11,14,17,20,22 * * *"]
+  }
+}

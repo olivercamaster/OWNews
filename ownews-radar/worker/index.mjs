@@ -13,7 +13,7 @@ import { BASE, barris, gas, mesExtenso } from './ui.mjs';
 import { relacionarNoticias } from '../ingestao/noticias.mjs';
 
 /** Versão do HTML: suba a cada mudança de página/CSS (entra na chave do cache de borda). */
-const VERSAO_UI = '4';
+const VERSAO_UI = '5'; // polimento visual (pausado); '4' = indexação das fichas (684bca1), já em produção
 const memoria = new Map(); // memo curta por isolate: { valor, em }
 /** Só testes: zera a memória do isolate entre cenários. */
 export function __limparMemoria() { memoria.clear(); }
@@ -210,7 +210,7 @@ async function pagina(env, url) {
   const partes = url.pathname.replace(/\/+$/, '').slice(BASE.length).split('/').filter(Boolean);
   const [secao, slug] = partes;
   const precisa = {
-    undefined: ['resumo', 'meta', 'producao'], unidades: ['unidades', 'operadores', 'meta', ...(slug ? ['campos', 'noticias'] : [])], sondas: ['unidades', 'operadores', 'meta'],
+    undefined: ['resumo', 'meta', 'producao', 'unidades'], unidades: ['unidades', 'operadores', 'meta', ...(slug ? ['campos', 'noticias'] : [])], sondas: ['unidades', 'operadores', 'meta'],
     campos: ['campos', 'operadores', 'meta', ...(slug ? ['unidades', 'noticias'] : [])], operadores: ['operadores', 'meta', ...(slug ? ['unidades', 'campos', 'noticias', 'vagas'] : [])],
     producao: ['producao', 'campos', 'unidades', 'meta'], exploracao: ['exploracao', 'meta'], futuro: ['futuro', 'meta'], mapa: ['meta'], fontes: ['meta'],
   }[secao];

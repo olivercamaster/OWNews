@@ -1,0 +1,683 @@
+diff --git a/ownews-radar/worker/index.mjs b/ownews-radar/worker/index.mjs
+index 164232f..c989426 100644
+--- a/ownews-radar/worker/index.mjs
++++ b/ownews-radar/worker/index.mjs
+@@ -12,7 +12,7 @@ import { CSS, JS_FILTROS, JS_MAPA } from './estaticos.mjs';
+ import { BASE } from './ui.mjs';
+ 
+ /** Versão do HTML: suba a cada mudança de página/CSS (entra na chave do cache de borda). */
+-const VERSAO_UI = '4';
++const VERSAO_UI = '5'; // polimento visual (pausado); '4' = indexação das fichas (684bca1), já em produção
+ const memoria = new Map(); // memo curta por isolate: { valor, em }
+ /** Só testes: zera a memória do isolate entre cenários. */
+ export function __limparMemoria() { memoria.clear(); }
+@@ -173,7 +173,7 @@ async function pagina(env, url) {
+   const partes = url.pathname.replace(/\/+$/, '').slice(BASE.length).split('/').filter(Boolean);
+   const [secao, slug] = partes;
+   const precisa = {
+-    undefined: ['resumo', 'meta', 'producao'], unidades: ['unidades', 'operadores', 'meta', ...(slug ? ['campos', 'noticias'] : [])], sondas: ['unidades', 'operadores', 'meta'],
++    undefined: ['resumo', 'meta', 'producao', 'unidades'], unidades: ['unidades', 'operadores', 'meta', ...(slug ? ['campos', 'noticias'] : [])], sondas: ['unidades', 'operadores', 'meta'],
+     campos: ['campos', 'operadores', 'meta', ...(slug ? ['unidades', 'noticias'] : [])], operadores: ['operadores', 'meta', ...(slug ? ['unidades', 'campos', 'noticias', 'vagas'] : [])],
+     producao: ['producao', 'campos', 'unidades', 'meta'], exploracao: ['exploracao', 'meta'], futuro: ['futuro', 'meta'], mapa: ['meta'], fontes: ['meta'],
+   }[secao];
+diff --git a/ownews-radar/worker/paginas.mjs b/ownews-radar/worker/paginas.mjs
+index e290650..9a10818 100644
+--- a/ownews-radar/worker/paginas.mjs
++++ b/ownews-radar/worker/paginas.mjs
+@@ -1,18 +1,18 @@
+ /**
+  * Páginas do Radar Offshore. Cada uma recebe os dados do KV e devolve
+  * { titulo, descricao, html, canonical, jsonLd?, robots?, status }.
++ * Visual: hierarquia por tipografia e espaço (ver ui.mjs); os dados são os mesmos de sempre.
+  */
+ import {
+-  BASE, SEM_DADO, barris, cabecalho, cartoes, dados, dataBr, esc, filtros, gas, graficoMensal, linhaUnidade, listaNoticias,
+-  mesExtenso, n0, navSecoes, pct, reais, rodapeFonte, vazio,
++  BASE, FIM, SEM_DADO, barris, cabecalho, cartaUnidades, cartoes, dados, dataBr, esc, filtros, gas, graficoMensal, icone,
++  linhaMeta, linhaSimples, linhaUnidade, listaNoticias, mesCurto, mesExtenso, n0, navSecoes, partes, pct, reais, rodapeFonte,
++  secao, textoVariacao, variacaoMensal, vazio,
+ } from './ui.mjs';
+ 
+ const pagina = (o) => ({ status: 200, ...o });
+ 
+-/* Indexação das fichas (AdSense / conteúdo de baixo valor, 31/10/2026): só entra no índice e no sitemap a
+-   ficha que tem dado próprio além do cadastro — medido no crawl, as sem isso tinham 36–91 palavras.
+-   Unidade: produção oficial no último mês. Sonda: não (a ANP só informa sonda × campo; a lista /sondas
+-   cobre). Campo: produção. Operador: produção + notícias. As demais seguem acessíveis (noindex,follow). */
++/* Indexação das fichas (AdSense / conteúdo de baixo valor, 31/10/2026 — commit 684bca1): só entra no
++   índice e no sitemap a ficha com dado próprio. Ver o comentário completo no commit. */
+ const temProducao = (p) => !!p && ((p.petroleo_bbl_d || 0) > 0 || (p.gas_mil_m3_d || 0) > 0);
+ export function fichaIndexavel(tipo, x, noticias) {
+   if (!x) return false;
+@@ -25,32 +25,48 @@ const robotsFicha = (tipo, x, noticias) => (fichaIndexavel(tipo, x, noticias) ?
+ const opsMap = (ops) => new Map((ops || []).map((o) => [o.id, o]));
+ const linkOp = (o, ops) => { const x = ops.get(o); return x ? `<a href="${BASE}/operadores/${esc(x.slug)}">${esc(x.nome)}</a>` : null; };
+ 
++/** Bloco de produção: dois números grandes com unidade, referência do mês e variação testada. */
++function blocoProducao(serie, { titulo = 'Produção no mar', mais } = {}) {
++  const s = serie || [];
++  const atu = s[s.length - 1];
++  if (!atu) return '';
++  const p = partes(barris(atu.petroleo_bbl_d)), g = partes(gas(atu.gas_mil_m3_d));
++  const vP = variacaoMensal(s, 'petroleo_bbl_d'), vG = variacaoMensal(s, 'gas_mil_m3_d');
++  const corpo = `<div class="ro-prod">
++<div class="ro-prod-num"><p class="ro-ref">Referência: ${esc(mesCurto(atu.mes))} · último dado disponível</p>
++<div class="ro-prod-par"><div><span class="ro-grande">${esc(p.valor)}</span><span class="ro-unid">${esc(p.unidade)}</span><span class="ro-num-rotulo">Petróleo</span>${textoVariacao(vP)}</div>
++<div><span class="ro-grande">${esc(g.valor)}</span><span class="ro-unid">${esc(g.unidade)}</span><span class="ro-num-rotulo">Gás natural</span>${textoVariacao(vG)}</div></div></div>
++${graficoMensal(s, { titulo: `Petróleo no mar, ${mesCurto(s[Math.max(0, s.length - 12)].mes)}–${mesCurto(atu.mes)}` })}</div>`;
++  return secao(titulo, corpo, { mais, id: 'producao' });
++}
++
+ /* ─── Hub ─── */
+-export function hub({ resumo, meta, producao }) {
++export function hub({ resumo, meta, producao, unidades }) {
+   const r = resumo || {};
+-  const p = r.producao;
+-  const html = `${cabecalho({ titulo: 'Radar Offshore', sub: 'O offshore brasileiro em dados.' })}
+-<p class="ro-selo">Dados públicos oficiais · Atualização automática</p>
++  const ex = r.exploracao || {};
++  const explore = [
++    ['plataforma', 'Unidades', 'Plataformas e FPSOs em operação, com produção oficial.', `${BASE}/unidades`],
++    ['sonda', 'Sondas', 'Sondas com atividade registrada em campos no mar.', `${BASE}/sondas`],
++    ['campo', 'Campos', 'Operador, concessionários, unidades e produção.', `${BASE}/campos`],
++    ['operador', 'Operadores', 'Quem opera campos, unidades e sondas.', `${BASE}/operadores`],
++    ['exploracao', 'Exploração', 'Poços, descobertas e declarações de comercialidade.', `${BASE}/exploracao`],
++    ['futuro', 'Futuro offshore', 'Investimentos e atividades previstos pelas operadoras.', `${BASE}/futuro`],
++  ];
++  const html = `${cabecalho({ kicker: null, titulo: 'Radar Offshore', sub: 'O offshore brasileiro em dados.', meta: linhaMeta(meta, ['plataformas', 'sondas', 'campos', 'producao_mar']) })}
+ ${navSecoes(BASE)}
+-<section class="ro-bloco" aria-labelledby="agora"><h2 id="agora">Brasil offshore agora</h2>
++<section class="ro-sec ro-sec-primeira" aria-labelledby="brasil"><div class="ro-sec-cab"><h2 id="brasil">Brasil offshore</h2></div>
+ ${cartoes([
+-    { valor: n0(r.unidades_producao), rotulo: 'unidades de produção em operação', href: `${BASE}/unidades` },
+-    { valor: n0(r.sondas), rotulo: `sondas com atividade no mar${r.ano_sondas ? ` em ${r.ano_sondas}` : ''}`, href: `${BASE}/sondas` },
+-    { valor: n0(r.campos_mar), rotulo: 'campos marítimos', nota: Number.isFinite(r.campos_producao) ? `${n0(r.campos_producao)} em produção` : null, href: `${BASE}/campos` },
+-    { valor: n0(r.operadores_campos), rotulo: 'operadores de campos no mar', href: `${BASE}/operadores` },
+-    p ? { valor: barris(p.petroleo_bbl_d), rotulo: `petróleo no mar · ${mesExtenso(p.mes)}`, href: `${BASE}/producao` } : null,
+-    p ? { valor: gas(p.gas_mil_m3_d), rotulo: `gás natural no mar · ${mesExtenso(p.mes)}`, href: `${BASE}/producao` } : null,
+-    r.exploracao && Number.isFinite(r.exploracao.pads_andamento) ? { valor: n0(r.exploracao.pads_andamento), rotulo: 'planos de avaliação de descoberta em andamento', href: `${BASE}/exploracao` } : null,
+-  ])}
+-</section>
+-${producao && producao.nacional ? graficoMensal(producao.nacional, { titulo: 'Petróleo produzido no mar — últimos 12 meses (barris por dia)' }) : ''}
+-<section class="ro-bloco ro-atalhos"><h2>Explore</h2><ul>
+-<li><a href="${BASE}/mapa"><strong>Mapa offshore</strong><span>Unidades, campos e blocos sobre o litoral</span></a></li>
+-<li><a href="${BASE}/futuro"><strong>Futuro offshore</strong><span>Investimentos e atividades previstos pelas operadoras</span></a></li>
+-<li><a href="${BASE}/exploracao"><strong>Exploração</strong><span>Poços, descobertas e declarações de comercialidade</span></a></li>
+-<li><a href="/radar"><strong>Fichas das unidades</strong><span>Fotos e fichas curadas pela redação do OWNews</span></a></li>
+-</ul></section>
+-${rodapeFonte(meta, ['plataformas', 'sondas', 'campos', 'producao_mar', 'pads_andamento'])}`;
++    { valor: n0(r.unidades_producao), rotulo: 'Unidades', nota: 'de produção em operação', href: `${BASE}/unidades` },
++    { valor: n0(r.sondas), rotulo: 'Sondas', nota: r.ano_sondas ? `com atividade no mar em ${r.ano_sondas}` : 'com atividade no mar', href: `${BASE}/sondas` },
++    { valor: n0(r.campos_mar), rotulo: 'Campos', nota: Number.isFinite(r.campos_producao) ? `marítimos · ${n0(r.campos_producao)} em produção` : 'marítimos', href: `${BASE}/campos` },
++    { valor: n0(r.operadores_campos), rotulo: 'Operadores', nota: 'de campos no mar', href: `${BASE}/operadores` },
++  ])}</section>
++<a class="ro-mapa-cta" href="${BASE}/mapa"><span class="ro-mapa-cta-txt"><span class="ro-kicker">Mapa offshore do Brasil</span><strong>Explore unidades, campos, blocos e o pré-sal no mapa.</strong><span class="ro-mapa-cta-sub">Coordenadas e polígonos oficiais da ANP</span><span class="ro-botao">Explorar mapa${icone('seta', 'ro-ic-seta')}</span></span>${cartaUnidades(unidades)}</a>
++${blocoProducao(producao?.nacional, { titulo: 'Produção offshore', mais: ['Ver produção', `${BASE}/producao`] })}
++${secao('Explore o Radar', `<ul class="ro-explore">${explore.map(([ic, t, d, h]) => `<li><a href="${h}">${icone(ic)}<span><strong>${esc(t)}</strong><span>${esc(d)}</span></span>${icone('seta', 'ro-ic-seta')}</a></li>`).join('')}</ul>
++<p class="ro-nota"><a href="/radar">Fichas das unidades</a> — fotos e fichas curadas pela redação do OWNews.</p>`)}
++${Number.isFinite(ex.pads_andamento) ? secao('Exploração', `<p class="ro-linha-ctx"><strong>${n0(ex.pads_andamento)}</strong> planos de avaliação de descoberta em andamento${Number.isFinite(ex.blocos_sob_contrato) ? ` · <strong>${n0(ex.blocos_sob_contrato)}</strong> blocos sob contrato no mar` : ''}.</p>`, { mais: ['Ver exploração', `${BASE}/exploracao`] }) : ''}
++${rodapeFonte(meta, ['plataformas', 'sondas', 'campos', 'producao_mar', 'pads_andamento'])}${FIM}`;
+   return pagina({
+     titulo: 'Radar Offshore: o offshore brasileiro em dados', canonical: BASE,
+     descricao: 'Unidades, sondas, campos, operadores, produção e exploração no mar brasileiro, a partir de dados públicos oficiais da ANP, com atualização automática.',
+@@ -64,12 +80,12 @@ export function listaUnidades({ unidades, operadores, meta }, categoria) {
+   const lista = (unidades || []).filter((u) => u.categoria === categoria).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+   const sonda = categoria === 'sonda';
+   const linhas = lista.map((u) => ({ ...u, _op: (ops.get(sonda ? u.operador_sonda : u.operador) || {}).nome, _tipo: u.tipo || (sonda ? 'Sonda' : 'Unidade de produção') }));
+-  const html = `${cabecalho({ titulo: sonda ? 'Sondas no Brasil' : 'Unidades offshore', sub: sonda ? `Sondas com atividade registrada pela ANP em campos marítimos${lista[0]?.ano_atividade ? ` em ${lista[0].ano_atividade}` : ''}.` : 'Plataformas e navios-plataforma em operação no mar, segundo a ANP.', migalhas: [[sonda ? 'Sondas' : 'Unidades', null]] })}
++  const html = `${cabecalho({ titulo: sonda ? 'Sondas no Brasil' : 'Unidades offshore', sub: sonda ? `${n0(lista.length)} sondas com atividade registrada pela ANP em campos marítimos${lista[0]?.ano_atividade ? ` em ${lista[0].ano_atividade}` : ''}.` : `${n0(lista.length)} plataformas e navios-plataforma em operação no mar, segundo a ANP.`, migalhas: [[sonda ? 'Sondas' : 'Unidades', null]] })}
+ ${navSecoes(sonda ? `${BASE}/sondas` : `${BASE}/unidades`)}
+ ${filtros(linhas.map((u) => ({ tipo: u._tipo, op: u._op, bacia: u.bacia })), sonda ? [['tipo', 'Tipo'], ['op', 'Operador da sonda']] : [['tipo', 'Tipo'], ['op', 'Operador'], ['bacia', 'Bacia']])}
+ ${lista.length ? `<ul class="ro-lista" data-lista>${lista.map((u) => linhaUnidade(u, ops)).join('')}</ul>` : vazio()}
+ ${sonda ? '<p class="ro-nota">A base da ANP informa a sonda, o campo onde atuou e a empresa que opera a sonda. Ela não informa a posição nem a situação contratual: o Radar não afirma nada além disso.</p>' : ''}
+-${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas'])}`;
++${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas'])}${FIM}`;
+   return pagina({
+     titulo: sonda ? 'Sondas no Brasil — Radar Offshore' : 'Unidades offshore no Brasil — Radar Offshore',
+     canonical: sonda ? `${BASE}/sondas` : `${BASE}/unidades`,
+@@ -78,8 +94,8 @@ ${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas'])}`;
+   });
+ }
+ 
+-/* ─── Unidade ─── */
+-export function unidade({ u, unidades, campos, operadores, noticias, meta }) {
++/* ─── Unidade (ficha) ─── */
++export function unidade({ u, campos, operadores, noticias, meta }) {
+   const ops = opsMap(operadores);
+   const camposPorId = new Map((campos || []).map((c) => [c.id, c]));
+   const sonda = u.categoria === 'sonda';
+@@ -89,18 +105,15 @@ export function unidade({ u, unidades, campos, operadores, noticias, meta }) {
+   const camposHtml = (u.campos || []).map((c) => (c.id && camposPorId.get(c.id) ? `<a href="${BASE}/campos/${esc(camposPorId.get(c.id).slug)}">${esc(c.nome)}</a>` : esc(c.nome))).join(', ');
+   const p = u.producao;
+   const pares = sonda ? [
+-    ['Tipo', u.tipo ? esc(u.tipo) : null],
+-    ['Sigla na ANP', esc(u.sigla)],
+     ['Operador da sonda', op ? linkOp(opId, ops) : null],
+-    ['Campos com atividade registrada', camposHtml || null],
++    ['Identificação ANP', esc(u.sigla)],
++    ['Tipo', u.tipo ? esc(u.tipo) : null],
+     ['Período', u.ano_atividade ? `Atividade registrada pela ANP em ${esc(u.ano_atividade)}` : null],
+     ['Posição', 'A ANP não publica a posição das sondas.'],
+   ] : [
+-    ['Tipo', u.tipo ? esc(u.tipo) : null],
+-    ['Sigla na ANP', esc(u.sigla)],
+     ['Operador', op ? linkOp(opId, ops) : null],
++    ['Identificação ANP', esc(u.sigla)],
+     ['Bacia', u.bacia ? esc(u.bacia) : null],
+-    ['Campos', camposHtml || null],
+     ['Lâmina d’água', Number.isFinite(u.lamina_dagua_m) ? `${n0(u.lamina_dagua_m)} m` : null],
+     ['Início de operação', u.inicio_operacao ? esc(u.inicio_operacao) : null],
+     ['Escoamento', u.escoamento ? esc(u.escoamento) : null],
+@@ -110,15 +123,17 @@ export function unidade({ u, unidades, campos, operadores, noticias, meta }) {
+   const nUnid = (noticias.unidades || {})[u.id] || [];
+   const nOp = opId ? (noticias.operadores || {})[opId] || [] : [];
+   const carreira = sonda ? '<a href="/carreiras/sonda-de-perfuracao">Funções comuns em sondas de perfuração</a>' : '<a href="/funcoes">Funções a bordo de unidades de produção</a>';
++  const prodHtml = !sonda ? (p ? `${cartoes([{ valor: partes(barris(p.petroleo_bbl_d)).valor, rotulo: `Petróleo · ${mesCurto(p.mes)}`, nota: partes(barris(p.petroleo_bbl_d)).unidade }, { valor: partes(gas(p.gas_mil_m3_d)).valor, rotulo: `Gás natural · ${mesCurto(p.mes)}`, nota: partes(gas(p.gas_mil_m3_d)).unidade }, { valor: n0(p.pocos), rotulo: 'Poços produtores', nota: 'ligados à unidade no mês' }])}${graficoMensal(u.serie, { titulo: `Petróleo — ${u.nome}, últimos meses` })}` : vazio('Sem produção registrada para esta unidade no último mês da base da ANP.')) : '';
+   const html = `${cabecalho({ kicker: u.tipo || (sonda ? 'Sonda' : 'Unidade offshore'), titulo: u.nome, sub: alias ? `Conhecida no setor como P-${alias[1]}.` : null, migalhas: [[sonda ? 'Sondas' : 'Unidades', sonda ? `${BASE}/sondas` : `${BASE}/unidades`], [u.nome, null]] })}
+ ${u.foto ? `<figure class="ro-foto"><img src="${esc(u.foto.url)}" alt="${esc(u.nome)}" loading="lazy" decoding="async" width="640" height="360"><figcaption>${u.foto.credito ? `Foto: ${esc(u.foto.credito)} · ` : ''}<a href="${esc(u.foto.ficha)}">Ficha da unidade no OWNews</a></figcaption></figure>` : ''}
+-<section class="ro-bloco"><h2>Dados da unidade</h2>${dados(pares)}</section>
+-${!sonda ? `<section class="ro-bloco"><h2>Produção</h2>${p ? `${cartoes([{ valor: barris(p.petroleo_bbl_d), rotulo: `petróleo · ${mesExtenso(p.mes)}` }, { valor: gas(p.gas_mil_m3_d), rotulo: `gás natural · ${mesExtenso(p.mes)}` }, { valor: n0(p.pocos), rotulo: 'poços produtores ligados à unidade no mês' }])}${graficoMensal(u.serie, { titulo: `Petróleo — ${u.nome}, últimos meses (barris por dia)` })}` : vazio('Sem produção registrada para esta unidade no último mês da base da ANP.')}</section>` : ''}
+-${!sonda && Number.isFinite(u.lat) ? `<p class="ro-acoes"><a class="ro-botao" href="${BASE}/mapa#unidade=${esc(u.slug)}">Ver no mapa</a></p>` : ''}
++${secao('Ficha técnica', dados(pares))}
++${secao(sonda ? 'Atividade' : 'Campos', camposHtml ? `<p class="ro-linha-ctx">${sonda ? 'Campos com atividade registrada: ' : ''}${camposHtml}</p>` : vazio())}
++${!sonda ? secao('Produção', prodHtml) : ''}
++${!sonda && Number.isFinite(u.lat) ? `<p class="ro-acoes"><a class="ro-botao" href="${BASE}/mapa#unidade=${esc(u.slug)}">${icone('mapa')}Ver no mapa</a></p>` : ''}
+ ${listaNoticias(nUnid, `Notícias sobre ${u.nome}`, `Nenhuma notícia do OWNews cita ${u.nome} nos últimos 12 meses.`)}
+ ${op ? listaNoticias(nOp, `Notícias de ${op.nome} (empresa)`) : ''}
+ <p class="ro-nota">Carreiras: ${carreira}. Conteúdo geral por tipo de instalação, não sobre a tripulação desta unidade.</p>
+-${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas', 'producao_mar'])}`;
++${rodapeFonte(meta, sonda ? ['sondas', 'campos'] : ['plataformas', 'producao_mar'])}${FIM}`;
+   const descricao = sonda
+     ? `${u.nome} (${u.sigla})${u.tipo ? `, ${u.tipo.toLowerCase()}` : ''}${op ? `, operada por ${op.nome}` : ''}: campos com atividade registrada pela ANP e notícias relacionadas.`
+     : `${u.nome}: ${u.tipo || 'unidade de produção'}${op ? ` da ${op.nome}` : ''}${u.bacia ? ` na Bacia de ${u.bacia}` : ''}. Campos, capacidade, produção mensal oficial e notícias.`;
+@@ -134,11 +149,11 @@ export function listaCampos({ campos, operadores, meta }) {
+   const ops = opsMap(operadores);
+   const ordem = { 'Produção': 0, 'Desenvolvimento': 1, 'Em Devolução': 2 };
+   const lista = [...(campos || [])].sort((a, b) => (ordem[a.situacao] ?? 3) - (ordem[b.situacao] ?? 3) || (b.producao?.petroleo_bbl_d || 0) - (a.producao?.petroleo_bbl_d || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+-  const html = `${cabecalho({ titulo: 'Campos offshore', sub: 'Campos de petróleo e gás no mar brasileiro, com operador, situação e produção oficial.', migalhas: [['Campos', null]] })}
++  const html = `${cabecalho({ titulo: 'Campos offshore', sub: `${n0(lista.length)} campos de petróleo e gás no mar brasileiro, com operador, situação e produção oficial.`, migalhas: [['Campos', null]] })}
+ ${navSecoes(`${BASE}/campos`)}
+ ${filtros(lista.map((c) => ({ tipo: c.situacao, op: (ops.get(c.operador) || {}).nome, bacia: c.bacia })), [['tipo', 'Situação'], ['op', 'Operador'], ['bacia', 'Bacia']])}
+-<ul class="ro-lista" data-lista>${lista.map((c) => { const op = ops.get(c.operador); return `<li class="ro-item" data-tipo="${esc(c.situacao || '')}" data-op="${esc(op ? op.nome : '')}" data-bacia="${esc(c.bacia || '')}" data-busca="${esc(`${c.nome} ${c.bacia} ${op ? op.nome : ''}`.toLowerCase())}"><a href="${BASE}/campos/${esc(c.slug)}"><strong>${esc(c.nome)}</strong><span>${esc([c.bacia && `Bacia de ${c.bacia}`, c.situacao, op && op.nome, c.producao && c.producao.petroleo_bbl_d > 0 && barris(c.producao.petroleo_bbl_d)].filter(Boolean).join(' · '))}</span></a></li>`; }).join('')}</ul>
+-${rodapeFonte(meta, ['campos', 'concessionarios', 'producao_mar'])}`;
++<ul class="ro-lista" data-lista>${lista.map((c) => { const op = ops.get(c.operador); return linhaSimples(`${BASE}/campos/${c.slug}`, c.nome, [c.bacia && `Bacia de ${c.bacia}`, c.situacao, op && op.nome, c.producao && c.producao.petroleo_bbl_d > 0 && barris(c.producao.petroleo_bbl_d)].filter(Boolean).join(' · '), ` data-tipo="${esc(c.situacao || '')}" data-op="${esc(op ? op.nome : '')}" data-bacia="${esc(c.bacia || '')}" data-busca="${esc(`${c.nome} ${c.bacia} ${op ? op.nome : ''}`.toLowerCase())}"`); }).join('')}</ul>
++${rodapeFonte(meta, ['campos', 'concessionarios', 'producao_mar'])}${FIM}`;
+   return pagina({ titulo: 'Campos offshore no Brasil — Radar Offshore', canonical: `${BASE}/campos`, descricao: `${lista.length} campos marítimos de petróleo e gás no Brasil: operador, bacia, situação e produção mensal oficial da ANP.`, html });
+ }
+ 
+@@ -150,35 +165,35 @@ export function campo({ c, unidades, operadores, noticias, meta }) {
+   const sondas = (c.sondas || []).map((id) => uPorId.get(id)).filter(Boolean);
+   const p = c.producao;
+   const html = `${cabecalho({ kicker: 'Campo offshore', titulo: c.nome, sub: c.bacia ? `Bacia de ${c.bacia}${c.estado ? ` · ${c.estado}` : ''}` : null, migalhas: [['Campos', `${BASE}/campos`], [c.nome, null]] })}
+-<section class="ro-bloco"><h2>Dados do campo</h2>${dados([
++${secao('Ficha técnica', dados([
+     ['Operador', op ? linkOp(c.operador, ops) : null],
+     ['Situação', c.situacao ? esc(c.situacao) : null],
+     ['Início da produção', c.inicio_producao ? dataBr(c.inicio_producao) : null],
+     ['Contrato', c.contrato ? esc(c.contrato) : null],
+     ['Rodada', c.rodada ? esc(c.rodada) : null],
+     ['Concessionários', c.concessionarios?.length ? c.concessionarios.map((x) => `${esc(x.nome)}${Number.isFinite(x.participacao) ? ` — ${esc(String(x.participacao).replace('.', ','))}%` : ''}${x.operador ? ' (operador)' : ''}`).join('<br>') : null],
+-  ])}</section>
+-<section class="ro-bloco"><h2>Produção</h2>${p && (p.petroleo_bbl_d > 0 || p.gas_mil_m3_d > 0) ? `${cartoes([{ valor: barris(p.petroleo_bbl_d), rotulo: `petróleo · ${mesExtenso(p.mes)}` }, { valor: gas(p.gas_mil_m3_d), rotulo: `gás natural · ${mesExtenso(p.mes)}` }, { valor: n0(p.pocos), rotulo: 'poços produtores no mês' }])}${graficoMensal(c.serie, { titulo: `Petróleo — campo de ${c.nome}, últimos meses (barris por dia)` })}` : vazio('Sem produção registrada no último mês da base da ANP.')}</section>
+-<section class="ro-bloco"><h2>Unidades de produção</h2>${plat.length ? `<ul class="ro-lista">${plat.map((u) => linhaUnidade(u, ops)).join('')}</ul>` : vazio('Nenhuma plataforma da base da ANP lista este campo.')}</section>
+-${sondas.length ? `<section class="ro-bloco"><h2>Sondas com atividade registrada</h2><ul class="ro-lista">${sondas.map((u) => linhaUnidade(u, ops)).join('')}</ul></section>` : ''}
+-<p class="ro-acoes"><a class="ro-botao" href="${BASE}/mapa#campo=${esc(c.slug)}">Ver no mapa</a></p>
++  ]))}
++${secao('Produção', p && (p.petroleo_bbl_d > 0 || p.gas_mil_m3_d > 0) ? `${cartoes([{ valor: partes(barris(p.petroleo_bbl_d)).valor, rotulo: `Petróleo · ${mesCurto(p.mes)}`, nota: partes(barris(p.petroleo_bbl_d)).unidade }, { valor: partes(gas(p.gas_mil_m3_d)).valor, rotulo: `Gás natural · ${mesCurto(p.mes)}`, nota: partes(gas(p.gas_mil_m3_d)).unidade }, { valor: n0(p.pocos), rotulo: 'Poços produtores', nota: 'no mês' }])}${graficoMensal(c.serie, { titulo: `Petróleo — campo de ${c.nome}, últimos meses` })}` : vazio('Sem produção registrada no último mês da base da ANP.'))}
++${secao('Unidades de produção', plat.length ? `<ul class="ro-lista">${plat.map((u) => linhaUnidade(u, ops)).join('')}</ul>` : vazio('Nenhuma plataforma da base da ANP lista este campo.'))}
++${sondas.length ? secao('Sondas com atividade registrada', `<ul class="ro-lista">${sondas.map((u) => linhaUnidade(u, ops)).join('')}</ul>`) : ''}
++<p class="ro-acoes"><a class="ro-botao" href="${BASE}/mapa#campo=${esc(c.slug)}">${icone('mapa')}Ver no mapa</a></p>
+ ${listaNoticias((noticias.campos || {})[c.id], `Notícias sobre o campo de ${c.nome}`, `Nenhuma notícia do OWNews cita o campo de ${c.nome} nos últimos 12 meses.`)}
+-${rodapeFonte(meta, ['campos', 'concessionarios', 'producao_mar'])}`;
++${rodapeFonte(meta, ['campos', 'concessionarios', 'producao_mar'])}${FIM}`;
+   return pagina({ ...robotsFicha('campo', c, noticias), titulo: `Campo de ${c.nome}`, canonical: `${BASE}/campos/${c.slug}`, html, descricao: `Campo de ${c.nome}${c.bacia ? `, Bacia de ${c.bacia}` : ''}: operador${op ? ` ${op.nome}` : ''}, concessionários, unidades, produção mensal oficial e notícias.` });
+ }
+ 
+ /* ─── Operadores ─── */
+ export function listaOperadores({ operadores, meta }) {
+   const lista = [...(operadores || [])].sort((a, b) => (b.producao?.petroleo_bbl_d || 0) - (a.producao?.petroleo_bbl_d || 0) || (b.campos.length + b.unidades.length + b.sondas.length) - (a.campos.length + a.unidades.length + a.sondas.length));
+-  const linha = (o) => `<li class="ro-item"><a href="${BASE}/operadores/${esc(o.slug)}"><strong>${esc(o.nome)}</strong><span>${esc([o.campos.length && `${o.campos.length} ${o.campos.length === 1 ? 'campo' : 'campos'}`, o.unidades.length && `${o.unidades.length} ${o.unidades.length === 1 ? 'unidade' : 'unidades'}`, o.sondas.length && `${o.sondas.length} ${o.sondas.length === 1 ? 'sonda' : 'sondas'}`].filter(Boolean).join(' · '))}</span></a></li>`;
++  const linha = (o) => linhaSimples(`${BASE}/operadores/${o.slug}`, o.nome, [o.campos.length && `${o.campos.length} ${o.campos.length === 1 ? 'campo' : 'campos'}`, o.unidades.length && `${o.unidades.length} ${o.unidades.length === 1 ? 'unidade' : 'unidades'}`, o.sondas.length && `${o.sondas.length} ${o.sondas.length === 1 ? 'sonda' : 'sondas'}`].filter(Boolean).join(' · '));
+   const deCampo = lista.filter((o) => o.campos.length || o.unidades.length);
+   const deSonda = lista.filter((o) => !o.campos.length && !o.unidades.length);
+   const html = `${cabecalho({ titulo: 'Operadores', sub: 'Empresas que operam campos, unidades e sondas no mar brasileiro.', migalhas: [['Operadores', null]] })}
+ ${navSecoes(`${BASE}/operadores`)}
+-<section class="ro-bloco"><h2>Operadores de campos e unidades</h2><ul class="ro-lista">${deCampo.map(linha).join('')}</ul></section>
+-${deSonda.length ? `<section class="ro-bloco"><h2>Empresas que operam sondas</h2><ul class="ro-lista">${deSonda.map(linha).join('')}</ul></section>` : ''}
++${secao('Operadores de campos e unidades', `<ul class="ro-lista">${deCampo.map(linha).join('')}</ul>`)}
++${deSonda.length ? secao('Empresas que operam sondas', `<ul class="ro-lista">${deSonda.map(linha).join('')}</ul>`) : ''}
+ <p class="ro-nota">Empresas são identificadas pelo CNPJ quando a base da ANP o informa. Nomes diferentes na base não são unidos por semelhança.</p>
+-${rodapeFonte(meta, ['campos', 'concessionarios', 'plataformas', 'sondas'])}`;
++${rodapeFonte(meta, ['campos', 'concessionarios', 'plataformas', 'sondas'])}${FIM}`;
+   return pagina({ titulo: 'Operadores offshore no Brasil — Radar Offshore', canonical: `${BASE}/operadores`, descricao: 'Operadores de campos, unidades e sondas no mar brasileiro, com dados públicos da ANP.', html });
+ }
+ 
+@@ -188,14 +203,17 @@ export function operador({ o, unidades, campos, noticias, vagas, meta }) {
+   const ops = new Map([[o.id, o]]);
+   const meusCampos = o.campos.map((id) => cPorId.get(id)).filter(Boolean);
+   const v = (vagas || {})[o.id];
++  const prod = o.producao && o.producao.petroleo_bbl_d > 0
++    ? cartoes([{ valor: partes(barris(o.producao.petroleo_bbl_d)).valor, rotulo: `Petróleo · ${mesCurto(o.producao.mes)}`, nota: `${partes(barris(o.producao.petroleo_bbl_d)).unidade} nos campos que opera` }, { valor: partes(gas(o.producao.gas_mil_m3_d)).valor, rotulo: `Gás natural · ${mesCurto(o.producao.mes)}`, nota: partes(gas(o.producao.gas_mil_m3_d)).unidade }])
++    : '';
+   const html = `${cabecalho({ kicker: 'Operador', titulo: o.nome, sub: o.razao_social && o.razao_social !== o.nome ? o.razao_social : null, migalhas: [['Operadores', `${BASE}/operadores`], [o.nome, null]] })}
+-${o.producao && o.producao.petroleo_bbl_d > 0 ? cartoes([{ valor: barris(o.producao.petroleo_bbl_d), rotulo: `petróleo dos campos que opera · ${mesExtenso(o.producao.mes)}` }, { valor: gas(o.producao.gas_mil_m3_d), rotulo: `gás natural · ${mesExtenso(o.producao.mes)}` }]) : ''}
+-${meusCampos.length ? `<section class="ro-bloco"><h2>Campos operados no mar</h2><ul class="ro-lista">${meusCampos.map((c) => `<li class="ro-item"><a href="${BASE}/campos/${esc(c.slug)}"><strong>${esc(c.nome)}</strong><span>${esc([c.bacia && `Bacia de ${c.bacia}`, c.situacao].filter(Boolean).join(' · '))}</span></a></li>`).join('')}</ul></section>` : ''}
+-${o.unidades.length ? `<section class="ro-bloco"><h2>Unidades de produção</h2><ul class="ro-lista">${o.unidades.map((id) => uPorId.get(id)).filter(Boolean).map((u) => linhaUnidade(u, ops)).join('')}</ul></section>` : ''}
+-${o.sondas.length ? `<section class="ro-bloco"><h2>Sondas</h2><ul class="ro-lista">${o.sondas.map((id) => uPorId.get(id)).filter(Boolean).map((u) => linhaUnidade(u, ops)).join('')}</ul></section>` : ''}
+-${v ? `<section class="ro-bloco"><h2>Vagas verificadas</h2><p>${esc(v.total)} ${v.total === 1 ? 'vaga aberta' : 'vagas abertas'} da ${esc(v.empresa)} no Radar de Vagas do OWNews, publicadas no portal oficial da empresa.</p><ul class="ro-noticias">${v.exemplos.map((x) => `<li>${esc(x.titulo)}${x.local ? ` <span>· ${esc(x.local)}</span>` : ''}</li>`).join('')}</ul><p><a href="/vagas">Ver todas as vagas</a></p></section>` : ''}
++${prod ? secao('Produção', prod) : ''}
++${meusCampos.length ? secao('Campos operados no mar', `<ul class="ro-lista">${meusCampos.map((c) => linhaSimples(`${BASE}/campos/${c.slug}`, c.nome, [c.bacia && `Bacia de ${c.bacia}`, c.situacao].filter(Boolean).join(' · '))).join('')}</ul>`) : ''}
++${o.unidades.length ? secao('Unidades de produção', `<ul class="ro-lista">${o.unidades.map((id) => uPorId.get(id)).filter(Boolean).map((u) => linhaUnidade(u, ops)).join('')}</ul>`) : ''}
++${o.sondas.length ? secao('Sondas', `<ul class="ro-lista">${o.sondas.map((id) => uPorId.get(id)).filter(Boolean).map((u) => linhaUnidade(u, ops)).join('')}</ul>`) : ''}
++${v ? secao('Vagas verificadas', `<p class="ro-linha-ctx">${esc(v.total)} ${v.total === 1 ? 'vaga aberta' : 'vagas abertas'} da ${esc(v.empresa)} no Radar de Vagas do OWNews, publicadas no portal oficial da empresa.</p><ul class="ro-noticias">${v.exemplos.map((x) => `<li><a href="/vagas"><span class="ro-noticia-titulo">${esc(x.titulo)}</span>${x.local ? `<time>${esc(x.local)}</time>` : ''}</a></li>`).join('')}</ul>`, { mais: ['Ver todas as vagas', '/vagas'] }) : ''}
+ ${listaNoticias((noticias.operadores || {})[o.id], `Notícias de ${o.nome}`, `Nenhuma notícia do OWNews com ${o.nome} no título nos últimos 12 meses.`)}
+-${rodapeFonte(meta, ['campos', 'concessionarios', 'plataformas', 'sondas', 'producao_mar'])}`;
++${rodapeFonte(meta, ['campos', 'concessionarios', 'plataformas', 'sondas', 'producao_mar'])}${FIM}`;
+   return pagina({ ...robotsFicha('operador', o, noticias), titulo: `${o.nome} no offshore brasileiro`, canonical: `${BASE}/operadores/${o.slug}`, html, descricao: `${o.nome}: campos, unidades e sondas no mar brasileiro segundo a ANP, produção dos campos operados e notícias do OWNews.` });
+ }
+ 
+@@ -204,22 +222,16 @@ export function producao({ producao: p, campos, unidades, meta }) {
+   const cPorId = new Map((campos || []).map((c) => [c.id, c]));
+   const uPorId = new Map((unidades || []).map((u) => [u.id, u]));
+   const s = p?.nacional || [];
+-  const [ant, atu] = s.slice(-2);
+-  const vOleo = ant && atu ? { abs: atu.petroleo_bbl_d - ant.petroleo_bbl_d, pct: ant.petroleo_bbl_d ? ((atu.petroleo_bbl_d - ant.petroleo_bbl_d) / ant.petroleo_bbl_d) * 100 : null } : null;
+-  const tabela = (itens, porId, prefixo) => `<table class="ro-tabela"><thead><tr><th scope="col">#</th><th scope="col">Nome</th><th scope="col">Petróleo</th><th scope="col">Gás natural</th></tr></thead><tbody>${itens.slice(0, 15).map((x, i) => { const e = porId.get(x.id); return e ? `<tr><td>${i + 1}</td><td><a href="${BASE}/${prefixo}/${esc(e.slug)}">${esc(e.nome)}</a></td><td>${esc(barris(x.petroleo_bbl_d))}</td><td>${esc(gas(x.gas_mil_m3_d))}</td></tr>` : ''; }).join('')}</tbody></table>`;
++  const atu = s[s.length - 1];
++  const tabela = (itens, porId, prefixo) => `<div class="ro-rolagem"><table class="ro-tabela ro-ranking"><thead><tr><th scope="col">#</th><th scope="col">Nome</th><th scope="col">Petróleo</th><th scope="col">Gás natural</th></tr></thead><tbody>${itens.slice(0, 15).map((x, i) => { const e = porId.get(x.id); return e ? `<tr><td>${i + 1}</td><td><a href="${BASE}/${prefixo}/${esc(e.slug)}">${esc(e.nome)}</a></td><td>${esc(barris(x.petroleo_bbl_d))}</td><td>${esc(gas(x.gas_mil_m3_d))}</td></tr>` : ''; }).join('')}</tbody></table></div>`;
+   const html = `${cabecalho({ titulo: 'Produção no mar', sub: atu ? `Dados oficiais da ANP. Mês mais recente publicado: ${mesExtenso(atu.mes)}.` : 'Dados oficiais da ANP.', migalhas: [['Produção', null]] })}
+ ${navSecoes(`${BASE}/producao`)}
+-${atu ? cartoes([
+-    { valor: barris(atu.petroleo_bbl_d), rotulo: `petróleo no mar · ${mesExtenso(atu.mes)}`, nota: vOleo ? `${vOleo.abs >= 0 ? '+' : ''}${n0(vOleo.abs)} barris/dia (${pct(vOleo.pct)}) sobre ${mesExtenso(ant.mes)}` : null },
+-    { valor: gas(atu.gas_mil_m3_d), rotulo: `gás natural no mar · ${mesExtenso(atu.mes)}` },
+-    { valor: n0(atu.pocos), rotulo: 'poços com produção no mês' },
+-  ]) : vazio()}
+-${graficoMensal(s, { titulo: 'Petróleo no mar — últimos 12 meses (barris por dia)' })}
+-${graficoMensal(s, { campo: 'gas_mil_m3_d', formatar: gas, titulo: 'Gás natural no mar — últimos 12 meses (m³ por dia)' })}
+-<section class="ro-bloco"><h2>Maiores campos em ${esc(mesExtenso(p?.mes_referencia))}</h2>${p?.campos?.length ? tabela(p.campos, cPorId, 'campos') : vazio()}</section>
+-<section class="ro-bloco"><h2>Maiores unidades em ${esc(mesExtenso(p?.mes_referencia))}</h2>${p?.unidades?.length ? tabela(p.unidades, uPorId, 'unidades') : vazio()}</section>
+-<p class="ro-nota">Petróleo = óleo + condensado, convertido de m³ para barris (1 m³ = 6,2898 barris) e dividido pelos dias do mês. Gás natural = associado + não associado. A ANP publica a produção com cerca de dois meses de defasagem.</p>
+-${rodapeFonte(meta, ['producao_mar'])}`;
++${atu ? blocoProducao(s, { titulo: 'Produção offshore' }) : vazio()}
++${s.length >= 2 ? graficoMensal(s, { campo: 'gas_mil_m3_d', formatar: gas, titulo: 'Gás natural no mar, últimos meses' }) : ''}
++${secao(`Maiores campos em ${mesExtenso(p?.mes_referencia)}`, p?.campos?.length ? tabela(p.campos, cPorId, 'campos') : vazio())}
++${secao(`Maiores unidades em ${mesExtenso(p?.mes_referencia)}`, p?.unidades?.length ? tabela(p.unidades, uPorId, 'unidades') : vazio())}
++<p class="ro-nota">Petróleo = óleo + condensado, convertido de m³ para barris (1 m³ = 6,2898 barris) e dividido pelos dias do mês. Gás natural = associado + não associado. A ANP publica a produção com cerca de dois meses de defasagem.${atu && s.length >= 2 ? ` Variação de ${esc(pct(variacaoMensal(s)?.percentual))} no petróleo entre ${esc(mesCurto(s[s.length - 2].mes))} e ${esc(mesCurto(atu.mes))}.` : ''}</p>
++${rodapeFonte(meta, ['producao_mar'])}${FIM}`;
+   return pagina({ titulo: 'Produção de petróleo e gás no mar — Radar Offshore', canonical: `${BASE}/producao`, html, descricao: `Produção offshore de petróleo e gás natural no Brasil${atu ? ` em ${mesExtenso(atu.mes)}` : ''}, últimos 12 meses e maiores campos e unidades, com dados oficiais da ANP.` });
+ }
+ 
+@@ -231,17 +243,16 @@ export function exploracao({ exploracao: e, meta }) {
+ ${navSecoes(`${BASE}/exploracao`)}
+ <p class="ro-selo">Realizado — dados da ANP. Para o que está previsto, veja <a href="${BASE}/futuro">Futuro offshore</a>.</p>
+ ${cartoes([
+-    Number.isFinite(r.pocos_iniciados_ano) ? { valor: n0(r.pocos_iniciados_ano), rotulo: `poços exploratórios iniciados no mar em ${r.ano}` } : null,
+-    Number.isFinite(r.descobertas_ano) ? { valor: n0(r.descobertas_ano), rotulo: `notificações de descoberta em ${r.ano}` } : null,
+-    Number.isFinite(r.em_perfuracao) ? { valor: n0(r.em_perfuracao), rotulo: 'poços ainda sem conclusão na base' } : null,
+-    Number.isFinite(r.pads_andamento) ? { valor: n0(r.pads_andamento), rotulo: 'planos de avaliação (PAD) em andamento' } : null,
+-    Number.isFinite(r.blocos_sob_contrato) ? { valor: n0(r.blocos_sob_contrato), rotulo: 'blocos exploratórios sob contrato no mar' } : null,
++    Number.isFinite(r.pads_andamento) ? { valor: n0(r.pads_andamento), rotulo: 'PADs', nota: 'planos de avaliação em andamento' } : null,
++    Number.isFinite(r.blocos_sob_contrato) ? { valor: n0(r.blocos_sob_contrato), rotulo: 'Blocos', nota: 'sob contrato no mar' } : null,
++    Number.isFinite(r.pocos_iniciados_ano) ? { valor: n0(r.pocos_iniciados_ano), rotulo: 'Poços', nota: `exploratórios iniciados em ${r.ano}` } : null,
++    Number.isFinite(r.descobertas_ano) ? { valor: n0(r.descobertas_ano), rotulo: 'Descobertas', nota: `notificadas em ${r.ano}` } : null,
+   ])}
+-<section class="ro-bloco"><h2>Poços exploratórios mais recentes</h2>${pocos.length ? `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Poço</th><th scope="col">Bacia</th><th scope="col">Operador</th><th scope="col">Início</th><th scope="col">Conclusão</th><th scope="col">Descoberta</th></tr></thead><tbody>${pocos.map((p) => `<tr><td>${esc(p.poco)}</td><td>${esc(p.bacia || '—')}</td><td>${esc(p.operador || '—')}</td><td>${esc(dataBr(p.inicio))}</td><td>${p.conclusao ? esc(dataBr(p.conclusao)) : 'em andamento'}</td><td>${p.descoberta === true ? `Sim${p.fluido ? ` (${esc(p.fluido)})` : ''}` : p.descoberta === false ? 'Não' : '—'}</td></tr>`).join('')}</tbody></table></div>` : vazio()}</section>
+-<section class="ro-bloco"><h2>Declarações de comercialidade recentes</h2>${e?.declaracoes?.length ? `<ul class="ro-noticias">${e.declaracoes.slice(0, 12).map((d) => `<li>${esc(d.area)} <span>· ${esc([d.operador, d.bacia && `Bacia de ${d.bacia}`].filter(Boolean).join(' · '))}</span><time datetime="${esc(d.data)}">${esc(dataBr(d.data))}</time></li>`).join('')}</ul>` : vazio()}</section>
+-<section class="ro-bloco"><h2>Planos de avaliação de descoberta em andamento</h2>${e?.pads?.length ? `<ul class="ro-noticias">${e.pads.map((p) => `<li>${esc(p.bloco || p.codigo)} <span>· ${esc([p.operador, p.bacia && `Bacia de ${p.bacia}`, p.situacao].filter(Boolean).join(' · '))}</span>${p.termino_previsto ? `<time datetime="${esc(p.termino_previsto)}">término previsto ${esc(dataBr(p.termino_previsto))}</time>` : ''}</li>`).join('')}</ul>` : vazio()}</section>
+-<section class="ro-bloco"><h2>Blocos sob contrato no mar, por bacia</h2>${e?.blocos?.por_bacia?.length ? `<table class="ro-tabela"><tbody>${e.blocos.por_bacia.map((b) => `<tr><td>${esc(b.bacia)}</td><td>${n0(b.n)}</td></tr>`).join('')}</tbody></table>` : vazio()}</section>
+-${rodapeFonte(meta, ['pocos_exploratorios', 'pads_andamento', 'declaracoes_comercialidade', 'blocos'])}`;
++${secao('Poços exploratórios mais recentes', pocos.length ? `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Poço</th><th scope="col">Bacia</th><th scope="col">Operador</th><th scope="col">Início</th><th scope="col">Conclusão</th><th scope="col">Descoberta</th></tr></thead><tbody>${pocos.map((p) => `<tr><td>${esc(p.poco)}</td><td>${esc(p.bacia || '—')}</td><td>${esc(p.operador || '—')}</td><td>${esc(dataBr(p.inicio))}</td><td>${p.conclusao ? esc(dataBr(p.conclusao)) : 'em andamento'}</td><td>${p.descoberta === true ? `Sim${p.fluido ? ` (${esc(p.fluido)})` : ''}` : p.descoberta === false ? 'Não' : '—'}</td></tr>`).join('')}</tbody></table></div><p class="ro-nota">${Number.isFinite(r.em_perfuracao) ? `${n0(r.em_perfuracao)} poços ainda sem conclusão na base.` : ''}</p>` : vazio())}
++${secao('Declarações de comercialidade recentes', e?.declaracoes?.length ? `<ul class="ro-noticias">${e.declaracoes.slice(0, 12).map((d) => `<li><span class="ro-li"><span class="ro-noticia-titulo">${esc(d.area)}</span><span class="ro-li-meta">${esc([d.operador, d.bacia && `Bacia de ${d.bacia}`].filter(Boolean).join(' · '))}</span><time datetime="${esc(d.data)}">${esc(dataBr(d.data))}</time></span></li>`).join('')}</ul>` : vazio())}
++${secao('Planos de avaliação de descoberta em andamento', e?.pads?.length ? `<ul class="ro-noticias">${e.pads.map((p) => `<li><span class="ro-li"><span class="ro-noticia-titulo">${esc(p.bloco || p.codigo)}</span><span class="ro-li-meta">${esc([p.operador, p.bacia && `Bacia de ${p.bacia}`, p.situacao].filter(Boolean).join(' · '))}</span>${p.termino_previsto ? `<time datetime="${esc(p.termino_previsto)}">término previsto ${esc(dataBr(p.termino_previsto))}</time>` : ''}</span></li>`).join('')}</ul>` : vazio())}
++${secao('Blocos sob contrato no mar, por bacia', e?.blocos?.por_bacia?.length ? `<table class="ro-tabela"><tbody>${e.blocos.por_bacia.map((b) => `<tr><td>${esc(b.bacia)}</td><td class="ro-num-col">${n0(b.n)}</td></tr>`).join('')}</tbody></table>` : vazio())}
++${rodapeFonte(meta, ['pocos_exploratorios', 'pads_andamento', 'declaracoes_comercialidade', 'blocos'])}${FIM}`;
+   return pagina({ titulo: 'Exploração de petróleo no mar — Radar Offshore', canonical: `${BASE}/exploracao`, html, descricao: 'Poços exploratórios, descobertas, planos de avaliação e declarações de comercialidade no mar brasileiro, com dados oficiais da ANP.' });
+ }
+ 
+@@ -254,31 +265,31 @@ export function futuro({ futuro: f, meta }) {
+   const html = `${cabecalho({ titulo: 'Futuro offshore', sub: 'Investimentos e atividades que as operadoras informaram à ANP para os próximos anos.', migalhas: [['Futuro offshore', null]] })}
+ ${navSecoes(`${BASE}/futuro`)}
+ <p class="ro-selo ro-previsto">Previsto — informado pelas operadoras à ANP. Previsão não é fato realizado.</p>
+-<section class="ro-bloco"><h2>Investimento previsto no mar (desenvolvimento e produção)</h2>${inv.length ? `<ul class="ro-barras">${inv.map((x) => `<li><span>${esc(x.ano)}</span><span class="ro-barra" style="--p:${((x.total_rs / maxInv) * 100).toFixed(1)}%"></span><strong>${esc(reais(x.total_rs))}</strong></li>`).join('')}</ul>${inv[0]?.bacias?.length ? `<details><summary>Por bacia</summary><table class="ro-tabela"><thead><tr><th scope="col">Bacia</th>${inv.map((x) => `<th scope="col">${esc(x.ano)}</th>`).join('')}</tr></thead><tbody>${[...new Set(inv.flatMap((x) => x.bacias.map((b) => b.bacia)))].map((b) => `<tr><td>${esc(b)}</td>${inv.map((x) => `<td>${esc(reais((x.bacias.find((y) => y.bacia === b) || {}).rs) || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></details>` : ''}` : vazio()}</section>
+-<section class="ro-bloco"><h2>Atividades previstas no mar</h2>${ativ.length ? `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Atividade</th>${anos.map((a) => `<th scope="col">${esc(a)}</th>`).join('')}</tr></thead><tbody>${ativ.map((a) => `<tr><td>${esc(a.tipo)}${a.unidade && a.unidade !== 'Unidade' ? ` <span>(${esc(a.unidade.toLowerCase())})</span>` : ''}</td>${anos.map((y) => `<td>${Number.isFinite(a.anos[y]) ? n0(a.anos[y]) : '—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : vazio()}</section>
+-<section class="ro-bloco"><h2>Produção prevista no mar</h2>${f?.producao_prevista_mar?.length ? `<table class="ro-tabela"><thead><tr><th scope="col">Ano</th><th scope="col">Petróleo</th><th scope="col">Gás natural</th></tr></thead><tbody>${f.producao_prevista_mar.map((x) => `<tr><td>${esc(x.ano)}</td><td>${esc(barris(x.petroleo_bbl_d))}</td><td>${esc(gas(x.gas_mil_m3_d))}</td></tr>`).join('')}</tbody></table>` : vazio()}</section>
+-<section class="ro-bloco"><h2>Exploração prevista no mar</h2>${f?.exploracao_prevista_mar?.investimento?.some((x) => x.rs > 0) ? `<p>Investimento exploratório previsto (plano informado em ${esc(f.exploracao_prevista_mar.ano_referencia)}):</p><ul class="ro-barras">${f.exploracao_prevista_mar.investimento.filter((x) => x.rs > 0).map((x) => `<li><span>${esc(x.ano)}</span><strong>${esc(reais(x.rs))}</strong></li>`).join('')}</ul>` : vazio()}</section>
++${secao('Investimento previsto no mar', inv.length ? `<p class="ro-nota">Desenvolvimento e produção.</p><ul class="ro-barras">${inv.map((x) => `<li><span>${esc(x.ano)}</span><span class="ro-barra" style="--p:${((x.total_rs / maxInv) * 100).toFixed(1)}%"></span><strong>${esc(reais(x.total_rs))}</strong></li>`).join('')}</ul>${inv[0]?.bacias?.length ? `<details><summary>Por bacia</summary><div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Bacia</th>${inv.map((x) => `<th scope="col">${esc(x.ano)}</th>`).join('')}</tr></thead><tbody>${[...new Set(inv.flatMap((x) => x.bacias.map((b) => b.bacia)))].map((b) => `<tr><td>${esc(b)}</td>${inv.map((x) => `<td>${esc(reais((x.bacias.find((y) => y.bacia === b) || {}).rs) || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>` : ''}` : vazio())}
++${secao('Atividades previstas no mar', ativ.length ? `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Atividade</th>${anos.map((a) => `<th scope="col">${esc(a)}</th>`).join('')}</tr></thead><tbody>${ativ.map((a) => `<tr><td>${esc(a.tipo)}${a.unidade && a.unidade !== 'Unidade' ? ` <span>(${esc(a.unidade.toLowerCase())})</span>` : ''}</td>${anos.map((y) => `<td class="ro-num-col">${Number.isFinite(a.anos[y]) ? n0(a.anos[y]) : '—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : vazio())}
++${secao('Produção prevista no mar', f?.producao_prevista_mar?.length ? `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Ano</th><th scope="col">Petróleo</th><th scope="col">Gás natural</th></tr></thead><tbody>${f.producao_prevista_mar.map((x) => `<tr><td>${esc(x.ano)}</td><td>${esc(barris(x.petroleo_bbl_d))}</td><td>${esc(gas(x.gas_mil_m3_d))}</td></tr>`).join('')}</tbody></table></div>` : vazio())}
++${secao('Exploração prevista no mar', f?.exploracao_prevista_mar?.investimento?.some((x) => x.rs > 0) ? `<p class="ro-nota">Investimento exploratório previsto (plano informado em ${esc(f.exploracao_prevista_mar.ano_referencia)}).</p><ul class="ro-barras">${f.exploracao_prevista_mar.investimento.filter((x) => x.rs > 0).map((x) => `<li><span>${esc(x.ano)}</span><span></span><strong>${esc(reais(x.rs))}</strong></li>`).join('')}</ul>` : vazio())}
+ <aside class="ro-analise"><p class="ro-kicker">Contexto OWNews — análise, não dado da ANP</p><p>Investimento e perfuração previstos indicam onde a atividade tende a se concentrar: novas unidades, poços e linhas submarinas costumam puxar contratos de serviços, embarcações de apoio e mão de obra embarcada. O tamanho desse efeito não é medido por estas bases.</p></aside>
+-${rodapeFonte(meta, ['investimento_bacia', 'previsao_atividade', 'previsao_producao', 'previsao_exploracao'])}`;
++${rodapeFonte(meta, ['investimento_bacia', 'previsao_atividade', 'previsao_producao', 'previsao_exploracao'])}${FIM}`;
+   return pagina({ titulo: 'Futuro offshore: investimentos e atividades previstos — Radar Offshore', canonical: `${BASE}/futuro`, html, descricao: 'Investimentos, perfurações, novas unidades e produção previstos no mar brasileiro, informados pelas operadoras à ANP.' });
+ }
+ 
+ /* ─── Mapa ─── */
+ export function mapa({ meta }) {
+-  const html = `${cabecalho({ titulo: 'Mapa offshore do Brasil', sub: 'Unidades de produção, campos e blocos exploratórios, com coordenadas e polígonos oficiais da ANP.', migalhas: [['Mapa', null]] })}
++  const camada = (id, rotulo, cor, ligado = false) => `<label class="ro-camada"><input type="checkbox" data-camada="${id}"${ligado ? ' checked' : ''}><span class="ro-camada-cor" style="--c:${cor}" aria-hidden="true"></span>${esc(rotulo)}</label>`;
++  const html = `${cabecalho({ titulo: 'Mapa offshore do Brasil', sub: 'Unidades de produção, campos, blocos e o pré-sal, com coordenadas e polígonos oficiais da ANP.', migalhas: [['Mapa', null]] })}
+ ${navSecoes(`${BASE}/mapa`)}
+-<fieldset class="ro-camadas"><legend>Camadas</legend>
+-<label><input type="checkbox" data-camada="unidades" checked> Unidades de produção</label>
+-<label><input type="checkbox" data-camada="campos"> Campos</label>
+-<label><input type="checkbox" data-camada="blocos"> Blocos exploratórios</label>
+-<label><input type="checkbox" data-camada="presal"> Polígono do pré-sal</label>
++<div class="ro-mapa-moldura">
++<fieldset class="ro-camadas"><legend class="ro-sr">Camadas do mapa</legend>
++${camada('unidades', 'Unidades', '#12a8ee', true)}${camada('campos', 'Campos', '#42d879')}${camada('blocos', 'Blocos', '#e6b400')}${camada('presal', 'Pré-sal', '#ff7a00')}
+ </fieldset>
+ <div id="ro-mapa" class="ro-mapa" role="region" aria-label="Mapa offshore do Brasil"><p class="ro-vazio">Carregando o mapa…</p></div>
+-<p class="ro-nota">Sondas não aparecem no mapa: a ANP não publica a posição delas. Todos os dados do mapa também estão nas listas de <a href="${BASE}/unidades">unidades</a> e <a href="${BASE}/campos">campos</a>.</p>
++</div>
++<p class="ro-nota">Toque num ponto para ver a unidade. Sondas não aparecem: a ANP não publica a posição delas. Tudo do mapa também está nas listas de <a href="${BASE}/unidades">unidades</a> e <a href="${BASE}/campos">campos</a>.</p>
+ <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+ <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
+-<script src="${BASE}/static/mapa.js?v=2" defer></script>
+-${rodapeFonte(meta, ['plataformas', 'campos'], 'Polígonos: GeoServer da ANP (campos de produção, blocos exploratórios e polígono do pré-sal), simplificados para exibição.')}`;
++<script src="${BASE}/static/mapa.js?v=3" defer></script>
++${rodapeFonte(meta, ['plataformas', 'campos'], 'Polígonos: GeoServer da ANP (campos de produção, blocos exploratórios e polígono do pré-sal), simplificados para exibição.')}${FIM}`;
+   return pagina({ titulo: 'Mapa offshore do Brasil — Radar Offshore', canonical: `${BASE}/mapa`, html, descricao: 'Mapa das unidades de produção, campos e blocos exploratórios no mar brasileiro, com dados oficiais da ANP.' });
+ }
+ 
+@@ -286,24 +297,24 @@ ${rodapeFonte(meta, ['plataformas', 'campos'], 'Polígonos: GeoServer da ANP (ca
+ export function fontes({ meta }) {
+   const lista = Object.entries(meta?.fontes || {});
+   const html = `${cabecalho({ titulo: 'Como o Radar Offshore funciona', sub: 'Fontes oficiais, frequência de atualização e regras de consolidação.', migalhas: [['Fontes', null]] })}
+-<section class="ro-bloco"><h2>Bases consultadas</h2><div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Base (ANP)</th><th scope="col">Consultada em</th><th scope="col">Situação</th></tr></thead><tbody>${lista.map(([, f]) => `<tr><td><a href="${esc(f.arquivo)}" rel="noopener">${esc(f.nome)}</a>${f.referencia && /^\d{4}-\d{2}$/.test(f.referencia) ? ` <span>· arquivo de ${esc(mesExtenso(f.referencia))}</span>` : ''}</td><td>${esc(dataBr(f.baixado_em))}</td><td>${f.status === 'ok' ? 'Atualizada' : 'Indisponível na última tentativa — mantida a base anterior'}</td></tr>`).join('')}</tbody></table></div></section>
+-<section class="ro-bloco"><h2>Regras</h2><ul class="ro-regras">
++${secao('Bases consultadas', `<div class="ro-rolagem"><table class="ro-tabela"><thead><tr><th scope="col">Base (ANP)</th><th scope="col">Consultada em</th><th scope="col">Situação</th></tr></thead><tbody>${lista.map(([, f]) => `<tr><td><a href="${esc(f.arquivo)}" rel="noopener">${esc(f.nome)}</a>${f.referencia && /^\d{4}-\d{2}$/.test(f.referencia) ? ` <span>· arquivo de ${esc(mesExtenso(f.referencia))}</span>` : ''}</td><td>${esc(dataBr(f.baixado_em))}</td><td>${f.status === 'ok' ? 'Atualizada' : 'Indisponível na última tentativa — mantida a base anterior'}</td></tr>`).join('')}</tbody></table></div>`)}
++${secao('Regras', `<ul class="ro-regras">
+ <li>O OWNews baixa as bases da ANP uma vez por dia, valida colunas, codificação e volume e só então substitui a versão anterior. Se a ANP falhar ou publicar um arquivo quebrado, a última versão válida continua no ar.</li>
+ <li>Uma unidade é identificada pela sigla da ANP; um campo, pelo código; uma empresa, pelo CNPJ quando a base o informa. Nomes parecidos nunca são unidos.</li>
+ <li>Produção: petróleo = óleo + condensado (1 m³ = 6,2898 barris), em média por dia do mês; gás = associado + não associado.</li>
+ <li>Notícias relacionadas: só quando a unidade ou o campo aparece pelo nome no título ou na primeira frase do resumo da matéria.</li>
+ <li>Previsões aparecem sempre marcadas como previsão informada pelas operadoras. Análises do OWNews são marcadas como análise.</li>
+-</ul></section>
+-${rodapeFonte(meta, [])}`;
++</ul>`)}
++${rodapeFonte(meta, [])}${FIM}`;
+   return pagina({ titulo: 'Fontes e metodologia — Radar Offshore', canonical: `${BASE}/fontes`, html, descricao: 'Bases oficiais da ANP usadas pelo Radar Offshore do OWNews, frequência de atualização e regras de consolidação.' });
+ }
+ 
+ export function naoEncontrada(oque) {
+-  return { status: 404, robots: 'noindex,follow', titulo: 'Não encontrada — Radar Offshore', canonical: null, descricao: 'Página não encontrada no Radar Offshore.', html: `${cabecalho({ titulo: `${oque} não encontrada` })}<p>Esta página não existe ou saiu da base oficial da ANP. ${'<a href="' + BASE + '">Voltar ao Radar Offshore</a>'}.</p>` };
++  return { status: 404, robots: 'noindex,follow', titulo: 'Não encontrada — Radar Offshore', canonical: null, descricao: 'Página não encontrada no Radar Offshore.', html: `${cabecalho({ titulo: `${oque} não encontrada` })}<p class="ro-linha-ctx">Esta página não existe ou saiu da base oficial da ANP. <a href="${BASE}">Voltar ao Radar Offshore</a>.</p>${FIM}` };
+ }
+ 
+ export function indisponivel() {
+-  return { status: 503, robots: 'noindex,follow', titulo: 'Radar Offshore', canonical: BASE, descricao: 'Radar Offshore temporariamente indisponível.', html: `${cabecalho({ titulo: 'Radar Offshore' })}<p class="ro-vazio">Os dados do Radar ainda não foram carregados. Tente de novo em alguns minutos.</p>` };
++  return { status: 503, robots: 'noindex,follow', titulo: 'Radar Offshore', canonical: BASE, descricao: 'Radar Offshore temporariamente indisponível.', html: `${cabecalho({ titulo: 'Radar Offshore' })}<p class="ro-vazio">Os dados do Radar ainda não foram carregados. Tente de novo em alguns minutos.</p>${FIM}` };
+ }
+ 
+ export { SEM_DADO };
+diff --git a/ownews-radar/worker/ui.mjs b/ownews-radar/worker/ui.mjs
+index ba6a7ec..aef9a47 100644
+--- a/ownews-radar/worker/ui.mjs
++++ b/ownews-radar/worker/ui.mjs
+@@ -3,10 +3,16 @@
+  * oficial do OWNews (cabeçalho, menu, tema claro/escuro, rodapé) — ver rota /radar-offshore do
+  * worker principal. Todo texto vindo de dados passa por esc(). Sem números inventados: valor
+  * ausente vira "Informação não disponível na base consultada".
++ *
++ * Linguagem visual (polimento 2026-10-31): hierarquia por tipografia e espaço, não por caixas.
++ * Números grandes; rótulos pequenos em caixa alta; divisores finos; cartão só onde agrega.
+  */
++import { variacao } from '../lib/texto.mjs';
++
+ export const BASE = '/radar-offshore';
+ export const SEM_DADO = 'Informação não disponível na base consultada.';
+ export const ATRIB = 'Agência Nacional do Petróleo, Gás Natural e Biocombustíveis (ANP)';
++export const VERSAO_CSS = '3';
+ 
+ export function esc(s) {
+   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+@@ -16,19 +22,24 @@ const fmt1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumF
+ const fmt2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+ export const n0 = (v) => (Number.isFinite(v) ? fmt0.format(v) : '—');
+ 
+-/** Barris/dia legíveis: 4.529.159 → "4,53 milhões"; 162.604 → "162,6 mil"; 950 → "950". */
++/** Barris/dia legíveis: 4.529.159 → "4,53 milhões de barris/dia"; 162.604 → "162,6 mil barris/dia". */
+ export function barris(v) {
+   if (!Number.isFinite(v)) return null;
+   if (v >= 1e6) return `${fmt2.format(v / 1e6)} milhões de barris/dia`;
+   if (v >= 1e3) return `${fmt1.format(v / 1e3)} mil barris/dia`;
+   return `${fmt0.format(v)} barris/dia`;
+ }
+-/** Gás em mil m³/dia: 194.751,6 → "194,8 milhões de m³/dia"; 6.278,5 → "6,3 milhões de m³/dia". */
++/** Gás em mil m³/dia: 194.751,6 → "194,8 milhões de m³/dia". */
+ export function gas(vMil) {
+   if (!Number.isFinite(vMil)) return null;
+   if (vMil >= 1000) return `${fmt1.format(vMil / 1000)} milhões de m³/dia`;
+   return `${fmt0.format(vMil)} mil m³/dia`;
+ }
++/** "4,53 milhões de barris/dia" → { valor: "4,53", unidade: "milhões de barris/dia" } (para destaque). */
++export function partes(texto) {
++  const m = /^([\d.,]+)\s+(.+)$/.exec(String(texto || ''));
++  return m ? { valor: m[1], unidade: m[2] } : { valor: texto || '—', unidade: '' };
++}
+ export function reais(v) {
+   if (!Number.isFinite(v)) return null;
+   if (v >= 1e9) return `R$ ${fmt1.format(v / 1e9)} bilhões`;
+@@ -42,7 +53,7 @@ export function dataBr(iso) {
+ const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+ const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+ export function mesExtenso(iso) { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); return m ? `${MESES[+m[2] - 1]} de ${m[1]}` : ''; }
+-const mesCurto = (iso) => { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); return m ? `${MES_CURTO[+m[2] - 1]}/${m[1].slice(2)}` : ''; };
++export const mesCurto = (iso) => { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); return m ? `${MES_CURTO[+m[2] - 1]}/${m[1].slice(2)}` : ''; };
+ export function pct(v) {
+   if (!Number.isFinite(v)) return 'n/d';
+   return `${v >= 0 ? '+' : ''}${fmt1.format(v)}%`;
+@@ -50,83 +61,181 @@ export function pct(v) {
+ 
+ const link = (href, texto, cls = '') => `<a href="${esc(href)}"${cls ? ` class="${cls}"` : ''}>${esc(texto)}</a>`;
+ 
++/* Ícones de traço (SVG inline, 24×24, herdam a cor). Técnicos e discretos — sem emoji. */
++const IC = {
++  mapa: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/>',
++  plataforma: '<path d="M4 20h16M7 20V10h10v10M9 10V6h6v4M12 6V3"/>',
++  sonda: '<path d="M12 3 7 20M12 3l5 17M8.5 14h7M10 9h4M4 20h16"/>',
++  campo: '<path d="M4 7c4-3 12-3 16 0v10c-4 3-12 3-16 0Z"/><path d="M4 12c4 3 12 3 16 0"/>',
++  operador: '<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>',
++  exploracao: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5M11 8v6M8 11h6"/>',
++  futuro: '<path d="M4 18 9 12l4 3 7-9"/><path d="M15 6h5v5"/>',
++  ficha: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
++  seta: '<path d="M5 12h14M13 6l6 6-6 6"/>',
++  busca: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
++};
++export const icone = (nome, cls = 'ro-ic') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[nome] || ''}</svg>`;
++
+ /* ─── Blocos comuns ─── */
+ 
+-export const CSS_LINK = `<link rel="stylesheet" href="${BASE}/static/radar.css?v=2">`;
++export const CSS_LINK = `<link rel="stylesheet" href="${BASE}/static/radar.css?v=${VERSAO_CSS}">`;
+ 
+-export function cabecalho({ kicker = 'Radar Offshore', titulo, sub, migalhas = [] }) {
+-  const trilha = [['Radar Offshore', BASE], ...migalhas];
+-  return `${CSS_LINK}<nav class="ro-trilha" aria-label="Você está em">${trilha.map(([t, h], i) => (i < trilha.length - 1 && h ? link(h, t) : `<span aria-current="page">${esc(t)}</span>`)).join('<span aria-hidden="true">›</span>')}</nav>
+-<div class="ro-cab"><p class="ro-kicker">${esc(kicker)}</p><h1>${esc(titulo)}</h1>${sub ? `<p class="ro-sub">${esc(sub)}</p>` : ''}</div>`;
++/**
++ * Abre o contêiner do Radar e o cabeçalho. `meta` = linha discreta de fonte/atualização.
++ * Toda página termina com FIM (fecha o contêiner).
++ */
++export function cabecalho({ kicker = 'Radar Offshore', titulo, sub, meta, migalhas = [] }) {
++  const trilha = migalhas.length ? `<nav class="ro-trilha" aria-label="Você está em">${[['Radar Offshore', BASE], ...migalhas].map(([t, h], i, a) => (i < a.length - 1 && h ? link(h, t) : `<span aria-current="page">${esc(t)}</span>`)).join('<span aria-hidden="true">/</span>')}</nav>` : '';
++  return `${CSS_LINK}<div class="radar-ro">${trilha}<div class="ro-cab">${kicker ? `<p class="ro-kicker">${esc(kicker)}</p>` : ''}<h1>${esc(titulo)}</h1>${sub ? `<p class="ro-sub">${esc(sub)}</p>` : ''}${meta ? `<p class="ro-meta">${meta}</p>` : ''}</div>`;
+ }
++export const FIM = '</div>';
+ 
+ export const SECOES = [
+-  ['Unidades', `${BASE}/unidades`], ['Sondas', `${BASE}/sondas`], ['Campos', `${BASE}/campos`], ['Operadores', `${BASE}/operadores`],
+-  ['Produção', `${BASE}/producao`], ['Exploração', `${BASE}/exploracao`], ['Futuro offshore', `${BASE}/futuro`], ['Mapa', `${BASE}/mapa`],
++  ['Visão geral', BASE], ['Mapa', `${BASE}/mapa`], ['Unidades', `${BASE}/unidades`], ['Sondas', `${BASE}/sondas`], ['Campos', `${BASE}/campos`],
++  ['Operadores', `${BASE}/operadores`], ['Produção', `${BASE}/producao`], ['Exploração', `${BASE}/exploracao`], ['Futuro offshore', `${BASE}/futuro`],
+ ];
++/** Abas do Radar: barra única, rolagem horizontal no celular, aba atual sublinhada. */
+ export function navSecoes(atual) {
+-  return `<nav class="ro-secoes" aria-label="Seções do Radar Offshore">${SECOES.map(([t, h]) => (h === atual ? `<span aria-current="page">${esc(t)}</span>` : link(h, t))).join('')}</nav>`;
++  return `<nav class="ro-abas" aria-label="Seções do Radar Offshore"><div class="ro-abas-trilho">${SECOES.map(([t, h]) => (h === atual ? `<a href="${esc(h)}" aria-current="page">${esc(t)}</a>` : link(h, t))).join('')}</div></nav>`;
++}
++
++/** Data mais recente de consulta entre as bases usadas. */
++export function dataConsulta(meta, ids) {
++  const datas = ids.map((id) => meta?.fontes?.[id]?.baixado_em).filter(Boolean).sort();
++  return datas.length ? dataBr(datas[datas.length - 1]) : dataBr(meta?.gerado_em);
+ }
++export const linhaMeta = (meta, ids) => `Dados públicos da ANP · atualizado em ${esc(dataConsulta(meta, ids))}`;
+ 
+ /**
+- * Rodapé de fonte e atualização (honestidade de freshness): para cada base usada, a data em
+- * que o OWNews consultou a ANP e, quando é dado mensal, o mês a que os números se referem.
++ * Fonte e atualização: uma linha (fonte + data), aviso se a ANP falhou, detalhe por base
++ * recolhido. Disclaimer curto e link para a metodologia.
+  */
+ export function rodapeFonte(meta, ids, nota) {
+-  const linhas = ids.map((id) => meta?.fontes?.[id]).filter(Boolean).map((f) => {
++  const fontes = ids.map((id) => meta?.fontes?.[id]).filter(Boolean);
++  const falhas = fontes.filter((f) => f.status === 'falhou');
++  const linhas = fontes.map((f) => {
+     const ref = /^\d{4}-\d{2}$/.test(f.referencia || '') && f.nome.includes('mensal') ? ` · dados de ${mesExtenso(f.referencia)}` : '';
+-    const falhou = f.status === 'falhou' ? ` <strong class="ro-aviso">A ANP não respondeu na última verificação; exibindo a base de ${dataBr(f.baixado_em)}.</strong>` : '';
+-    return `<li>${esc(f.nome)} — base consultada em ${dataBr(f.baixado_em)}${esc(ref)}.${falhou}</li>`;
++    return `<li>${esc(f.nome)} — base consultada em ${dataBr(f.baixado_em)}${esc(ref)}.</li>`;
+   });
+-  return `<footer class="ro-fonte"><p><strong>Fonte:</strong> ${esc(ATRIB)}.</p>${linhas.length ? `<ul>${linhas.join('')}</ul>` : ''}${nota ? `<p>${esc(nota)}</p>` : ''}<p class="ro-disclaimer">Dados públicos consolidados pelo OWNews a partir de fontes oficiais. Consulte a fonte original para informações regulatórias. ${link(`${BASE}/fontes`, 'Como o Radar funciona')}</p></footer>`;
++  return `<footer class="ro-fonte"><p><strong>Fonte:</strong> ${esc(ATRIB)}.${ids.length ? ` Base consultada em ${esc(dataConsulta(meta, ids))}.` : ''}</p>
++${falhas.map((f) => `<p class="ro-aviso">${esc(f.nome)}: a ANP não respondeu na última verificação; exibindo a base de ${dataBr(f.baixado_em)}.</p>`).join('')}
++${linhas.length ? `<details><summary>Bases consultadas</summary><ul>${linhas.join('')}</ul></details>` : ''}
++${nota ? `<p>${esc(nota)}</p>` : ''}<p class="ro-disclaimer">Dados públicos consolidados pelo OWNews a partir de fontes oficiais. Consulte a fonte original para informações regulatórias. ${link(`${BASE}/fontes`, 'Como o Radar funciona')}</p></footer>`;
+ }
+ 
+ export function vazio(texto = SEM_DADO) { return `<p class="ro-vazio">${esc(texto)}</p>`; }
+ 
++/** Seção: rótulo discreto + link "ver tudo" opcional. */
++export function secao(titulo, corpo, { mais, id, cls = '' } = {}) {
++  return `<section class="ro-sec${cls ? ` ${cls}` : ''}"${id ? ` aria-labelledby="${esc(id)}"` : ''}><div class="ro-sec-cab"><h2${id ? ` id="${esc(id)}"` : ''}>${esc(titulo)}</h2>${mais ? `<a class="ro-mais" href="${esc(mais[1])}">${esc(mais[0])}${icone('seta', 'ro-ic-seta')}</a>` : ''}</div>${corpo}</section>`;
++}
++
++/** Números em destaque, sem caixas: valor grande + rótulo pequeno, divisores finos. */
+ export function cartoes(itens) {
+   const validos = itens.filter((i) => i && i.valor !== null && i.valor !== undefined && i.valor !== '');
+-  return `<div class="ro-cartoes">${validos.map((i) => `<${i.href ? `a href="${esc(i.href)}"` : 'div'} class="ro-cartao"><span class="ro-cartao-valor">${esc(i.valor)}</span><span class="ro-cartao-rotulo">${esc(i.rotulo)}</span>${i.nota ? `<span class="ro-cartao-nota">${esc(i.nota)}</span>` : ''}</${i.href ? 'a' : 'div'}>`).join('')}</div>`;
++  if (!validos.length) return '';
++  return `<div class="ro-numeros">${validos.map((i) => {
++    const corpo = `<span class="ro-num-valor">${esc(i.valor)}</span><span class="ro-num-rotulo">${esc(i.rotulo)}</span>${i.nota ? `<span class="ro-num-nota">${esc(i.nota)}</span>` : ''}`;
++    return i.href ? `<a class="ro-num" href="${esc(i.href)}">${corpo}</a>` : `<div class="ro-num">${corpo}</div>`;
++  }).join('')}</div>`;
+ }
+ 
++/** Ficha técnica: pares rótulo/valor em grade. */
+ export function dados(pares) {
+   const linhas = pares.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v === null || v === undefined || v === '' ? `<span class="ro-nd">${esc(SEM_DADO)}</span>` : v}</dd></div>`);
+-  return `<dl class="ro-dados">${linhas.join('')}</dl>`;
++  return `<dl class="ro-ficha">${linhas.join('')}</dl>`;
+ }
+ 
+-/** Barras verticais em SVG (12 meses). Acessível: título + tabela recolhível com os valores. */
++/** Índices de rótulo do eixo: primeiro, último e espaçados — no máximo `max`, sem colar no último. */
++export function indicesRotulos(n, max = 5) {
++  if (n <= 0) return [];
++  if (n <= max) return [...Array(n).keys()];
++  const passo = Math.ceil((n - 1) / (max - 1));
++  const idx = [];
++  for (let i = 0; i < n - 1; i += passo) idx.push(i);
++  if (n - 1 - idx[idx.length - 1] < Math.ceil(passo / 2)) idx.pop();
++  idx.push(n - 1);
++  return idx;
++}
++
++/**
++ * Gráfico compacto: barras finas em altura fixa (o número é o protagonista). Rótulos do eixo em
++ * HTML (não escalam com a largura), no máximo 5. Valores acessíveis numa tabela recolhida.
++ */
+ export function graficoMensal(serie, { campo = 'petroleo_bbl_d', titulo, formatar = barris } = {}) {
+   const s = (serie || []).filter((x) => Number.isFinite(x[campo]));
+   if (s.length < 2) return '';
+-  const max = Math.max(...s.map((x) => x[campo])) || 1;
+-  const L = 320, A = 120, larg = L / s.length;
++  const vals = s.map((x) => x[campo]);
++  const max = Math.max(...vals), min = Math.min(...vals);
++  const piso = Math.max(0, min - (max - min) * 0.6); // mostra a tendência sem exagerar a variação
++  const n = s.length, L = 100 / n;
+   const barrasSvg = s.map((x, i) => {
+-    const h = Math.max(1, Math.round((x[campo] / max) * (A - 18)));
+-    return `<rect x="${(i * larg + larg * 0.15).toFixed(1)}" y="${A - 14 - h}" width="${(larg * 0.7).toFixed(1)}" height="${h}" rx="1.5"><title>${esc(mesCurto(x.mes))}: ${esc(formatar(x[campo]))}</title></rect>`;
++    const h = Math.max(4, ((x[campo] - piso) / (max - piso || 1)) * 100);
++    return `<rect x="${(i * L + L * 0.2).toFixed(2)}" y="${(100 - h).toFixed(2)}" width="${(L * 0.6).toFixed(2)}" height="${h.toFixed(2)}"${i === n - 1 ? ' class="ro-barra-atual"' : ''}><title>${esc(mesCurto(x.mes))}: ${esc(formatar(x[campo]))}</title></rect>`;
+   }).join('');
+-  const rotulos = s.map((x, i) => (i % Math.ceil(s.length / 6) === 0 || i === s.length - 1 ? `<text x="${(i * larg + larg / 2).toFixed(1)}" y="${A - 2}" text-anchor="middle">${esc(mesCurto(x.mes))}</text>` : '')).join('');
+-  return `<figure class="ro-grafico"><figcaption>${esc(titulo)}</figcaption><svg viewBox="0 0 ${L} ${A}" role="img" aria-label="${esc(titulo)}">${barrasSvg}${rotulos}</svg>
+-<details><summary>Ver valores mês a mês</summary><table class="ro-tabela"><thead><tr><th scope="col">Mês</th><th scope="col">Valor</th></tr></thead><tbody>${s.map((x) => `<tr><td>${esc(mesExtenso(x.mes))}</td><td>${esc(formatar(x[campo]))}</td></tr>`).join('')}</tbody></table></details></figure>`;
++  const rot = new Set(indicesRotulos(n, 5));
++  const eixo = s.map((x, i) => `<span>${rot.has(i) ? esc(mesCurto(x.mes)) : ''}</span>`).join('');
++  return `<figure class="ro-grafico"><figcaption>${esc(titulo)}</figcaption><svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(titulo)}">${barrasSvg}</svg><div class="ro-eixo" style="--n:${n}" aria-hidden="true">${eixo}</div>
++<details><summary>Valores mês a mês</summary><table class="ro-tabela"><tbody>${s.map((x) => `<tr><td>${esc(mesExtenso(x.mes))}</td><td>${esc(formatar(x[campo]))}</td></tr>`).join('')}</tbody></table></details></figure>`;
++}
++
++/** Variação do último mês contra o anterior (função testada `variacao`); null sem dois meses. */
++export function variacaoMensal(serie, campo = 'petroleo_bbl_d') {
++  const s = (serie || []).filter((x) => Number.isFinite(x[campo]));
++  if (s.length < 2) return null;
++  const [ant, atu] = s.slice(-2);
++  const v = variacao(atu[campo], ant[campo]);
++  return v ? { ...v, mes_anterior: ant.mes } : null;
++}
++export function textoVariacao(v) {
++  if (!v || v.percentual === null) return '';
++  const sobe = v.percentual >= 0;
++  return `<span class="ro-var ${sobe ? 'ro-var-sobe' : 'ro-var-desce'}"><span aria-hidden="true">${sobe ? '▲' : '▼'}</span> ${esc(pct(v.percentual).replace('+', ''))} sobre ${esc(mesCurto(v.mes_anterior))}</span>`;
+ }
+ 
++/** Notícias no padrão editorial do OWNews: título forte, data discreta, divisores finos. */
+ export function listaNoticias(itens, titulo, vaziaTexto) {
+-  if (!itens || !itens.length) return vaziaTexto ? `<section class="ro-bloco"><h2>${esc(titulo)}</h2>${vazio(vaziaTexto)}</section>` : '';
+-  return `<section class="ro-bloco"><h2>${esc(titulo)}</h2><ul class="ro-noticias">${itens.map((n) => `<li><a href="/noticia?id=${encodeURIComponent(n.id)}">${esc(n.titulo)}</a><time datetime="${esc(n.data)}">${esc(dataBr(n.data))}</time></li>`).join('')}</ul></section>`;
++  if (!itens || !itens.length) return vaziaTexto ? secao(titulo, vazio(vaziaTexto)) : '';
++  return secao(titulo, `<ul class="ro-noticias">${itens.map((n) => `<li><a href="/noticia?id=${encodeURIComponent(n.id)}"><span class="ro-noticia-titulo">${esc(n.titulo)}</span><time datetime="${esc(n.data)}">${esc(dataBr(n.data))}</time></a></li>`).join('')}</ul>`);
+ }
+ 
+-/** Linha de lista de unidade (usada em listas, campos e operadores). */
++/** Linha de unidade: nome, tipo, operador · sigla. Detalhes ficam na ficha. */
+ export function linhaUnidade(u, opsPorId) {
+   const op = u.categoria === 'sonda' ? opsPorId.get(u.operador_sonda) : opsPorId.get(u.operador);
+   const tipo = u.tipo || (u.categoria === 'sonda' ? 'Sonda' : 'Unidade de produção');
+   return `<li class="ro-item" data-tipo="${esc(tipo)}" data-op="${esc(op ? op.nome : '')}" data-bacia="${esc(u.bacia || '')}" data-busca="${esc(`${u.nome} ${u.sigla} ${tipo} ${op ? op.nome : ''} ${(u.campos || []).map((c) => c.nome).join(' ')}`.toLowerCase())}">
+-<a href="${BASE}/unidades/${esc(u.slug)}"><strong>${esc(u.nome)}</strong><span>${esc(tipo)}${op ? ` · ${esc(op.nome)}` : ''}${u.bacia ? ` · ${esc(u.bacia)}` : ''}</span></a></li>`;
++<a href="${BASE}/unidades/${esc(u.slug)}"><span class="ro-item-txt"><strong>${esc(u.nome)}</strong><span class="ro-item-tipo">${esc(tipo)}</span><span class="ro-item-meta">${esc([op && op.nome, u.sigla].filter(Boolean).join(' · '))}</span></span>${icone('seta', 'ro-ic-seta')}</a></li>`;
+ }
+ 
+-/** Filtros por dados reais da lista (só aparecem se houver mais de uma opção). */
++/** Linha genérica (campos, operadores, exploração): título + uma linha de contexto. */
++export function linhaSimples(href, titulo, meta, attrs = '') {
++  return `<li class="ro-item"${attrs}><a href="${esc(href)}"><span class="ro-item-txt"><strong>${esc(titulo)}</strong>${meta ? `<span class="ro-item-meta">${esc(meta)}</span>` : ''}</span>${icone('seta', 'ro-ic-seta')}</a></li>`;
++}
++
++/** Busca forte + filtros só com dados reais (só aparecem se houver mais de uma opção). */
+ export function filtros(itens, campos) {
+   const grupos = campos.map(([chave, rotulo]) => {
+     const opcoes = [...new Set(itens.map((i) => i[chave]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+     if (opcoes.length < 2) return '';
+-    return `<label>${esc(rotulo)}<select data-filtro="${esc(chave)}"><option value="">Todos</option>${opcoes.map((o) => `<option>${esc(o)}</option>`).join('')}</select></label>`;
++    return `<label><span>${esc(rotulo)}</span><select data-filtro="${esc(chave)}"><option value="">Todos</option>${opcoes.map((o) => `<option>${esc(o)}</option>`).join('')}</select></label>`;
+   }).join('');
+-  return `<div class="ro-filtros" role="search"><label class="ro-busca">Buscar<input type="search" data-filtro="busca" placeholder="Nome, sigla, campo…" autocomplete="off"></label>${grupos}<p class="ro-contagem" aria-live="polite"></p></div><script src="${BASE}/static/filtros.js?v=1" defer></script>`;
++  return `<div class="ro-filtros" role="search"><label class="ro-busca"><span class="ro-sr">Buscar</span>${icone('busca', 'ro-ic-busca')}<input type="search" data-filtro="busca" placeholder="Buscar por nome, sigla ou campo" autocomplete="off"></label>${grupos ? `<div class="ro-selects">${grupos}</div>` : ''}<p class="ro-contagem" aria-live="polite"></p></div><script src="${BASE}/static/filtros.js?v=${VERSAO_CSS}" defer></script>`;
++}
++
++/**
++ * Carta do hub: SÓ dados reais — cada ponto é uma unidade com coordenada oficial da ANP, sobre
++ * uma grade de latitude/longitude. Sem contorno de costa desenhado (não há dado para isso aqui).
++ */
++export function cartaUnidades(unidades) {
++  const pts = (unidades || []).filter((u) => Number.isFinite(u.lat) && Number.isFinite(u.lon));
++  if (pts.length < 3) return '';
++  const lon0 = -50, lon1 = -32, lat0 = -28, lat1 = -1;
++  const W = 360, H = 300;
++  const x = (lon) => ((lon - lon0) / (lon1 - lon0)) * W;
++  const y = (lat) => ((lat1 - lat) / (lat1 - lat0)) * H;
++  const grade = [];
++  for (let la = -25; la <= -5; la += 5) grade.push(`<line x1="0" x2="${W}" y1="${y(la).toFixed(1)}" y2="${y(la).toFixed(1)}"/><text x="4" y="${(y(la) - 4).toFixed(1)}">${-la}°S</text>`);
++  for (let lo = -45; lo <= -35; lo += 5) grade.push(`<line y1="0" y2="${H}" x1="${x(lo).toFixed(1)}" x2="${x(lo).toFixed(1)}"/><text x="${(x(lo) + 4).toFixed(1)}" y="${H - 6}">${-lo}°W</text>`);
++  const pontos = pts.map((u) => `<circle cx="${x(u.lon).toFixed(1)}" cy="${y(u.lat).toFixed(1)}" r="2.6"/>`).join('');
++  return `<svg class="ro-carta" viewBox="0 0 ${W} ${H}" role="img" aria-label="${pts.length} unidades de produção com coordenadas oficiais da ANP"><g class="ro-carta-grade">${grade.join('')}</g><g class="ro-carta-pontos">${pontos}</g></svg>`;
+ }

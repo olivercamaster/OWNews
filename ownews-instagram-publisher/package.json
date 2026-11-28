@@ -1,0 +1,6 @@
+{
+  "name": "ownews-instagram-publisher",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cron, seleção editorial, validações, dedupe, Graph API e observabilidade do Instagram @ownewsbr. A renderização da arte NÃO roda aqui — ver ownews-instagram-render-vps/."
+}
