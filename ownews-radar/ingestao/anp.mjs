@@ -17,7 +17,12 @@ export async function baixar(url, { tentativas = 3, tempoMs = 120000 } = {}) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), tempoMs);
     try {
-      const r = await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'follow', signal: ctrl.signal });
+      // Fora do Brasil (GitHub Actions) o gov.br recusa a conexão: com RADAR_PROXY_URL o download passa pelo
+      // worker ownews-radar (/interno/baixar, autenticado com o mesmo segredo da ingestão).
+      const via = globalThis.process && process.env.RADAR_PROXY_URL;
+      const r = via
+        ? await fetch(`${via}/interno/baixar?url=${encodeURIComponent(url)}`, { headers: { 'X-Radar-Secret': process.env.RADAR_INGEST_SECRET || '' }, signal: ctrl.signal })
+        : await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'follow', signal: ctrl.signal });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return new Uint8Array(await r.arrayBuffer());
     } catch (e) {

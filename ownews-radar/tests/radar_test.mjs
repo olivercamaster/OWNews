@@ -336,6 +336,35 @@ teste('contexto para notícias: relação pelo nome (unidade/campo), dados reais
 });
 
 let falhas = 0;
+// 28/11/2026: ingestão no GitHub Actions — o gov.br recusa IP de fora do Brasil; o download passa pelo worker.
+teste('/interno/baixar: exige o segredo, só aceita hosts da ANP e repassa o corpo', async () => {
+  const { env, ctx } = ambiente(null);
+  const h = { 'x-radar-secret': env.RADAR_INGEST_SECRET };
+  const orig = globalThis.fetch; let pedida = null;
+  globalThis.fetch = async (u) => { pedida = String(u); return new Response('a;b\n1;2', { status: 200, headers: { 'content-type': 'text/csv' } }); };
+  try {
+    assert.equal((await worker.fetch(new Request('https://x/interno/baixar?url=https://www.gov.br/anp/x.csv'), env, ctx)).status, 401);
+    assert.equal((await worker.fetch(new Request('https://x/interno/baixar?url=https://exemplo.com/x.csv', { headers: h }), env, ctx)).status, 400);
+    assert.equal((await worker.fetch(new Request('https://x/interno/baixar?url=http://www.gov.br/anp/x.csv', { headers: h }), env, ctx)).status, 400);
+    const r = await worker.fetch(new Request('https://x/interno/baixar?url=' + encodeURIComponent('https://www.gov.br/anp/pt-br/x.csv'), { headers: h }), env, ctx);
+    assert.equal(r.status, 200); assert.equal(await r.text(), 'a;b\n1;2'); assert.equal(pedida, 'https://www.gov.br/anp/pt-br/x.csv');
+  } finally { globalThis.fetch = orig; }
+});
+teste('baixar(): com RADAR_PROXY_URL o download vai pelo worker com o segredo; sem ele, direto (VPS)', async () => {
+  const { baixar } = await import('../ingestao/anp.mjs');
+  const orig = globalThis.fetch; const pedidos = [];
+  globalThis.fetch = async (u, init) => { pedidos.push([String(u), init && init.headers]); return new Response('ok', { status: 200 }); };
+  try {
+    process.env.RADAR_PROXY_URL = 'https://ownews-radar.teste'; process.env.RADAR_INGEST_SECRET = 'segredo-teste';
+    await baixar('https://www.gov.br/anp/a.csv');
+    assert.equal(pedidos[0][0], 'https://ownews-radar.teste/interno/baixar?url=' + encodeURIComponent('https://www.gov.br/anp/a.csv'));
+    assert.equal(pedidos[0][1]['X-Radar-Secret'], 'segredo-teste');
+    delete process.env.RADAR_PROXY_URL;
+    await baixar('https://www.gov.br/anp/a.csv');
+    assert.equal(pedidos[1][0], 'https://www.gov.br/anp/a.csv');
+  } finally { globalThis.fetch = orig; delete process.env.RADAR_PROXY_URL; delete process.env.RADAR_INGEST_SECRET; }
+});
+
 for (const [n, f] of testes) {
   try { await f(); console.log('ok   ' + n); } catch (e) { falhas++; console.log('FALHA ' + n + '\n      ' + String(e.message).split('\n').slice(0, 4).join('\n      ')); }
 }

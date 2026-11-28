@@ -54,6 +54,7 @@ function respostaPagina(p, host) {
 }
 
 /* ─── Rotas internas (ingestão) ─── */
+const HOSTS_DOWNLOAD_ANP = new Set(['www.gov.br', 'gishub.anp.gov.br']);
 async function interno(request, env, url) {
   if (!igualSeguro(request.headers.get('x-radar-secret') || '', env.RADAR_INGEST_SECRET || '')) return json({ erro: 'não autorizado' }, 401, { 'cache-control': 'no-store' });
   if (url.pathname === '/interno/snapshot' && request.method === 'PUT') {
@@ -68,6 +69,14 @@ async function interno(request, env, url) {
     return json({ ok: true, chave }, 200, { 'cache-control': 'no-store' });
   }
   if (url.pathname === '/interno/pautas') return json(await ler(env, 'radar:pautas') || [], 200, { 'cache-control': 'no-store' });
+  // 28/11/2026: a ingestão saiu do VPS para o GitHub Actions, e o gov.br recusa conexões de fora do Brasil
+  // ("fetch failed" em todos os datasets). O download da ANP passa por aqui: só hosts da ANP, corpo em streaming.
+  if (url.pathname === '/interno/baixar') {
+    let alvo; try { alvo = new URL(url.searchParams.get('url') || ''); } catch { return json({ erro: 'url inválida' }, 400); }
+    if (alvo.protocol !== 'https:' || !HOSTS_DOWNLOAD_ANP.has(alvo.hostname)) return json({ erro: 'host não permitido' }, 400);
+    const r = await fetch(alvo.toString(), { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OWNewsRadar/1.0; +https://ownews.com.br/radar-offshore)' }, redirect: 'follow' });
+    return new Response(r.body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') || 'application/octet-stream', 'cache-control': 'no-store' } });
+  }
   if (url.pathname === '/interno/saude') {
     const [meta, revisao] = await Promise.all([ler(env, 'radar:meta'), ler(env, 'radar:revisao')]);
     return json({ meta, revisao: revisao || [] }, 200, { 'cache-control': 'no-store' });
