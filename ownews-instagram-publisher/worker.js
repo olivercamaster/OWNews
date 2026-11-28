@@ -914,9 +914,27 @@ function calcularProximosTriggers(agora) {
    ========================================================================= */
 const JOB_KV_KEY = 'render_job_current';
 
+/* Sem VPS (28/11/2026): a arte e a ingestão do Radar rodam no GitHub Actions. O agendamento do próprio GitHub não
+   disparou nas primeiras horas (só a execução manual funcionava), então quem aciona é a Cloudflare, cujos crons são
+   comprovados: o job de arte dispara o workflow na hora em que é criado; o cron horário aciona o Radar. Token com
+   permissão Actions (Read and write) só no repositório OWNews: segredo GITHUB_DISPATCH_TOKEN. */
+const GH_DISPATCH = 'https://api.github.com/repos/olivercamaster/OWNews/actions/workflows/';
+const RADAR_HORAS_UTC = { 10: 'completo', 1: 'so-noticias', 4: 'so-noticias', 13: 'so-noticias', 16: 'so-noticias', 19: 'so-noticias', 22: 'so-noticias' };
+async function dispararWorkflow(env, arquivo, inputs) {
+  if (!env.GITHUB_DISPATCH_TOKEN) return { ok: false, motivo: 'GITHUB_DISPATCH_TOKEN ausente' };
+  let r;
+  try {
+    const resp = await fetch(GH_DISPATCH + arquivo + '/dispatches', { method: 'POST', headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'ownews-instagram-publisher' }, body: JSON.stringify({ ref: 'main', ...(inputs ? { inputs } : {}) }) });
+    r = resp.status === 204 ? { ok: true } : { ok: false, motivo: `HTTP ${resp.status}: ${(await resp.text()).slice(0, 160)}` };
+  } catch (e) { r = { ok: false, motivo: 'rede: ' + String(e.message).slice(0, 100) }; }
+  try { if (env.SAUDE_KV) await env.SAUDE_KV.put('gh_dispatch_' + arquivo.replace(/\W/g, '_'), JSON.stringify({ em: new Date().toISOString(), inputs: inputs || null, ...r })); } catch { /* health é melhor esforço */ }
+  return r;
+}
+
 async function enfileirarJob(env, { tipo, arte, publicar, forcarReal, forcarRateLimit }) {
   const job = { id: crypto.randomUUID(), tipo, status: 'pending', criadoEm: new Date().toISOString(), arte, publicar, forcarReal: !!forcarReal, forcarRateLimit: !!forcarRateLimit };
   await env.SAUDE_KV.put(JOB_KV_KEY, JSON.stringify(job), { expirationTtl: 3600 });
+  await dispararWorkflow(env, 'instagram-arte.yml');
   return job;
 }
 async function lerJobAtual(env) {
@@ -1085,7 +1103,11 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       try {
-        if (event.cron === CRON_BREAKING) await renovarTokenSeNecessario(env);
+        if (event.cron === CRON_BREAKING) {
+          const modoRadar = RADAR_HORAS_UTC[new Date(event.scheduledTime || Date.now()).getUTCHours()];
+          if (modoRadar) await dispararWorkflow(env, 'radar-ingestao.yml', { modo: modoRadar });
+          await renovarTokenSeNecessario(env);
+        }
         env = await comTokenEfetivo(env);
         // 2026-10-29: feed = SEG/QUA/SEX 15h Brasília + breaking excepcional.
         // Saíram o diário 12h seg-sáb ("0 15 * * MON-SAT") e o institucional
@@ -1136,12 +1158,14 @@ export default {
       const ultimoFallback = await (async () => { try { const v = await env.SAUDE_KV.get('instagram_ultimo_fallback'); return v ? JSON.parse(v) : null; } catch { return null; } })();
       const proximos = calcularProximosTriggers(new Date());
       const lerJson = async (k) => { try { const v = await env.SAUDE_KV.get(k); return v ? JSON.parse(v) : null; } catch { return null; } };
-      const [erroMeta, tokenStatus, tokenRenovado] = await Promise.all([lerJson(ERRO_META_KV), lerJson(TOKEN_STATUS_KV), lerTokenRenovado(env)]);
+      const [erroMeta, tokenStatus, tokenRenovado, ghArte, ghRadar] = await Promise.all([lerJson(ERRO_META_KV), lerJson(TOKEN_STATUS_KV), lerTokenRenovado(env), lerJson('gh_dispatch_instagram_arte_yml'), lerJson('gh_dispatch_radar_ingestao_yml')]);
       const alerta = (erroMeta && erroMeta.token_expirado) || (tokenStatus && tokenStatus.token_expirado) ? 'TOKEN DO INSTAGRAM EXPIRADO — gerar novo token de longa duração e gravar o segredo INSTAGRAM_ACCESS_TOKEN'
-        : erroMeta ? 'última publicação falhou na Meta: ' + erroMeta.motivo.slice(0, 160) : null;
+        : erroMeta ? 'última publicação falhou na Meta: ' + erroMeta.motivo.slice(0, 160)
+        : [ghRadar, ghArte].find((g) => g && !g.ok) ? 'GitHub Actions: disparo falhou — ' + [ghRadar, ghArte].find((g) => g && !g.ok).motivo : null;
       return Response.json({
         alerta,
         ultimo_erro_meta: erroMeta,
+        github_actions: { ultimo_disparo_arte: ghArte, ultimo_disparo_radar: ghRadar },
         token: { renovacao: tokenStatus, expira_em: tokenRenovado ? tokenRenovado.expira_em : null },
         habilitado: !!(env.INSTAGRAM_ACCESS_TOKEN && env.INSTAGRAM_ACCOUNT_ID),
         dry_run: env.INSTAGRAM_DRY_RUN !== 'false',
@@ -1320,4 +1344,4 @@ export default {
 };
 
 // Só para tests/ (Node): funções puras e o seletor, com fetch/KV simulados.
-export const __t = { idiomaTexto, textoEmIngles, textoPostEmIngles, contextoPublico, gerarLegendaNoticia, validarCaption, falhaFiltroDuro, relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING, renovarTokenSeNecessario, comTokenEfetivo, registrarErroMeta };
+export const __t = { idiomaTexto, textoEmIngles, textoPostEmIngles, contextoPublico, gerarLegendaNoticia, validarCaption, falhaFiltroDuro, relogioBrasilia, ehSlotNormal, proximoSlot, ultimoSlot, motivoBreaking, avaliarEspacamento, selecionarCandidatoNoticia, enfileirarJanelaNoticia, calcularScoreCandidato, CRON_SLOT, CRON_BREAKING, renovarTokenSeNecessario, comTokenEfetivo, registrarErroMeta, dispararWorkflow, RADAR_HORAS_UTC };
