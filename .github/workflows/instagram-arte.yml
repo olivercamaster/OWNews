@@ -1,0 +1,23 @@
+# Instagram — gera a arte dos posts (substitui o poller do VPS em 2026-11-28).
+# O Worker ownews-instagram-publisher enfileira o job (seg/qua/sex 15h BRT e breaking);
+# este workflow busca o job pendente, desenha a arte e devolve o JPEG. Sem job: sai em segundos.
+name: Instagram — arte
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+concurrency: { group: instagram-arte, cancel-in-progress: false }
+permissions: { contents: read }
+jobs:
+  arte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults: { run: { working-directory: ownews-instagram-render-vps } }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: owbuddy/dev, sparse-checkout: ownews-instagram-render-vps }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: ownews-instagram-render-vps/package-lock.json }
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - run: node poll-and-render.js
+        env: { RENDER_SHARED_SECRET: '${{ secrets.RENDER_SHARED_SECRET }}' }
