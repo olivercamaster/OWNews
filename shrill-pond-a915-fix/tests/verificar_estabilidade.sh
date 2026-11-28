@@ -12,11 +12,10 @@ curl -s https://shrill-pond-a915.olivercamaster.workers.dev/saude -A curl/8 > "$
 curl -s https://ownews-instagram-publisher.olivercamaster.workers.dev/saude-fragment -A curl/8 > "$T/ig.json" || echo "{}" > "$T/ig.json"
 curl -s "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=title,created_at,published_at,image_url&status=eq.published&buddy_source=eq.ownews&created_at=gte.$DESDE&order=created_at.desc" -H "$K" > "$T/art.json"
 curl -s "https://awyowuhwkqfyhwgdpepp.supabase.co/rest/v1/articles?select=id,published_at&status=eq.published&buddy_source=eq.ownews&order=published_at.desc&limit=40" -H "$K" > "$T/lista.json"
-CRON=$(crontab -l 2>/dev/null | grep -c radar-cron.sh || true)
-ULTIMA_RADAR=$(grep '"ingestao_concluida"' /home/offshore/ownews-radar-state/cron.log 2>/dev/null | tail -1 || true)
-python3 - "$H" "$CRON" "$ULTIMA_RADAR" "$T" <<'PY'
+# 28/11/2026: sem VPS — a ingestão do Radar roda no GitHub Actions (radar-ingestao.yml); a prova é a idade do snapshot.
+python3 - "$H" "$T" <<'PY'
 import json, sys, datetime
-h, cron, radar_log, T = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
+h, T = sys.argv[1], sys.argv[2]
 s, art, lista = (json.load(open(f"{T}/{n}.json")) for n in ("saude", "art", "lista"))
 agora = datetime.datetime.now(datetime.timezone.utc)
 ok = lambda c: "OK  " if c else "FALHA"
@@ -33,8 +32,7 @@ print(f"[{ok(n48 > 0)}] Giro do Offshore Agora: {n48} matéria(s) elegível(is) 
 fe = g.get("24h", {}).get("ultimo_erro_fonte") or {}
 print(f"[{ok(len(fe) <= 1)}] fontes com erro (24 h): {', '.join(k + ': ' + v['erro'][:60] for k, v in fe.items()) or 'nenhuma'}")
 r = s.get("radar") or {}
-print(f"[{ok(cron == 2 and r.get('estado') == 'healthy')}] Radar: {cron} linhas no crontab; snapshot {r.get('gerado_em')} ({r.get('idade_h')} h), produção {r.get('competencia_producao')}")
-print(f"        último log do cron: {radar_log[:110]}")
+print(f"[{ok(r.get('estado') == 'healthy' and (r.get('idade_h') if r.get('idade_h') is not None else 99) <= 26)}] Radar (GitHub Actions): snapshot {r.get('gerado_em')} ({r.get('idade_h')} h), produção {r.get('competencia_producao')}")
 ph = s.get("portal_home") or {}
 print(f"[{ok(not ph.get('alerta') and not ph.get('erro'))}] Home: {ph.get('itens_no_destaque')} no destaque, {ph.get('materias_24h_no_banco')} matéria(s) de 24 h no banco" + (f" — {ph.get('alerta') or ph.get('erro')}" if (ph.get('alerta') or ph.get('erro')) else ''))
 se = s["saude_editorial"]
